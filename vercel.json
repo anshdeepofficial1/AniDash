@@ -8,7 +8,6 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/api/ai", "destination": "/api/chat" },
     { "source": "/watch", "destination": "/watch/index.html" }
   ]
 }
