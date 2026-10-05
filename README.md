@@ -7,33 +7,32 @@
 ### Discover, watch, download, and keep track of anime in one place.
 
 <!-- Release information -->
-[![Latest Release](https://badgen.net/github/release/anshdeepofficial1/AniDash?icon=github&label=Latest)](https://github.com/anshdeepofficial1/AniDash/releases/latest)
-[![Total Downloads](https://badgen.net/github/assets-dl/anshdeepofficial1/AniDash/total?icon=github&label=Total%20Downloads)](https://github.com/anshdeepofficial1/AniDash/releases)
-[![Actual Active Users](https://img.shields.io/endpoint?url=https%3A%2F%2Fanidashweb.vercel.app%2Fapi%2Fpublic-stats&style=for-the-badge&cacheSeconds=900)](https://anidashweb.vercel.app/)
+[![Latest Release](https://img.shields.io/github/v/release/anshdeepofficial1/AniDash?style=for-the-badge&logo=github&logoColor=white&label=Latest&labelColor=202830&color=0EA5E9&cacheSeconds=300)](https://github.com/anshdeepofficial1/AniDash/releases/latest)
+[![Total Downloads](https://img.shields.io/github/downloads/anshdeepofficial1/AniDash/total?style=for-the-badge&logo=android&logoColor=white&label=Downloads&labelColor=202830&color=22C55E&cacheSeconds=300)](https://github.com/anshdeepofficial1/AniDash/releases)
+[![Actual Active Users](https://img.shields.io/endpoint?url=https%3A%2F%2Fanidashweb.vercel.app%2Fapi%2Fpublic-stats&style=for-the-badge&logo=android&logoColor=white&labelColor=202830&cacheSeconds=900)](https://anidashweb.vercel.app/)
 
 <!-- Community and project information -->
-[![Stars](https://badgen.net/github/stars/anshdeepofficial1/AniDash?icon=github&label=Stars)](https://github.com/anshdeepofficial1/AniDash/stargazers)
-[![Forks](https://badgen.net/github/forks/anshdeepofficial1/AniDash?icon=github&label=Forks)](https://github.com/anshdeepofficial1/AniDash/forks)
-[![Open Issues](https://badgen.net/github/open-issues/anshdeepofficial1/AniDash?icon=github&label=Issues)](https://github.com/anshdeepofficial1/AniDash/issues)
-[![License](https://badgen.net/github/license/anshdeepofficial1/AniDash?icon=github&label=License)](LICENSE.md)
+[![Stars](https://img.shields.io/github/stars/anshdeepofficial1/AniDash?style=for-the-badge&logo=github&logoColor=white&label=Stars&labelColor=202830&color=8B5CF6&cacheSeconds=300)](https://github.com/anshdeepofficial1/AniDash/stargazers)
+[![Forks](https://img.shields.io/github/forks/anshdeepofficial1/AniDash?style=for-the-badge&logo=github&logoColor=white&label=Forks&labelColor=202830&color=06B6D4&cacheSeconds=300)](https://github.com/anshdeepofficial1/AniDash/forks)
+[![Open Issues](https://img.shields.io/github/issues/anshdeepofficial1/AniDash?style=for-the-badge&logo=github&logoColor=white&label=Issues&labelColor=202830&color=F59E0B&cacheSeconds=300)](https://github.com/anshdeepofficial1/AniDash/issues)
+[![License](https://img.shields.io/github/license/anshdeepofficial1/AniDash?style=for-the-badge&logo=apache&logoColor=white&label=License&labelColor=202830&color=3B82F6)](LICENSE.md)
 
 <!-- Supported platforms -->
-![Android](https://badgen.net/badge/Android/6.0%2B/3DDC84?icon=android)
-![iOS](https://badgen.net/badge/iOS/Test%20Build/000000?icon=apple)
-![Windows](https://badgen.net/badge/Windows/Supported/0078D4?icon=windows)
-![Linux](https://badgen.net/badge/Linux/Supported/FCC624?icon=linux)
+![Android](https://img.shields.io/badge/Android-6.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white&labelColor=202830)
+![iOS](https://img.shields.io/badge/iOS-Test%20Build-111827?style=for-the-badge&logo=apple&logoColor=white&labelColor=202830)
+![Windows](https://img.shields.io/badge/Windows-Supported-0078D4?style=for-the-badge&logo=windows11&logoColor=white&labelColor=202830)
+![Linux](https://img.shields.io/badge/Linux-Supported-FCC624?style=for-the-badge&logo=linux&logoColor=111827&labelColor=202830)
 
 <!-- Technology -->
-![Flutter](https://badgen.net/badge/Flutter/3.35.7/02569B)
-![Dart](https://badgen.net/badge/Dart/3.7%2B/0175C2)
+![Flutter](https://img.shields.io/badge/Flutter-3.35.7-02569B?style=for-the-badge&logo=flutter&logoColor=white&labelColor=202830)
+![Dart](https://img.shields.io/badge/Dart-3.7%2B-0175C2?style=for-the-badge&logo=dart&logoColor=white&labelColor=202830)
 
-[![Download Latest APK](https://badgen.net/badge/Download/Latest%20APK/2E8B57?icon=github)](https://github.com/anshdeepofficial1/AniDash/releases/latest)
+[![Download Latest APK](https://img.shields.io/badge/Download-Latest%20APK-16A34A?style=for-the-badge&logo=android&logoColor=white&labelColor=202830)](https://github.com/anshdeepofficial1/AniDash/releases/latest)
 
-<a href="https://rookieenough.github.io/Orion-Data/redirect.html?id=anidash"><img src="https://raw.githubusercontent.com/RookieEnough/Orion-Store/refs/heads/main/assets/orion-badge.png" alt="Get it on Orion Store" height="60" /></a>
+<a href="https://rookieenough.github.io/Orion-Data/redirect.html?id=anidash"><img src="https://raw.githubusercontent.com/RookieEnough/Orion-Store/refs/heads/main/assets/orion-badge.png" alt="Get it on Orion Store" height="64" /></a>
 
-<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/anshdeepofficial1/AniDash"><img src="https://badgen.net/badge/Add%20to/Obtainium/6750A3" alt="Add to Obtainium" height="48" /></a>
+<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/anshdeepofficial1/AniDash"><img src="https://img.shields.io/badge/Add%20to-Obtainium-7C3AED?style=for-the-badge&logo=github&logoColor=white&labelColor=202830" alt="Add to Obtainium" height="52" /></a>
 
-**[Download Latest APK](https://github.com/anshdeepofficial1/AniDash/releases/latest)** • **[Add to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/anshdeepofficial1/AniDash)** • **[Orion Store](https://rookieenough.github.io/Orion-Data/redirect.html?id=anidash)**
 
 </div>
 
