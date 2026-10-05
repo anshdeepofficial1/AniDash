@@ -5,6 +5,7 @@ import 'package:ani_dash/features/settings/view/screens/data_settings_screen.dar
 import 'package:ani_dash/features/settings/view/screens/home_settings_screen.dart';
 import 'package:ani_dash/features/settings/view/widgets/settings_item.dart';
 import 'package:ani_dash/features/settings/view/widgets/settings_section.dart';
+import 'package:ani_dash/features/ai/view/widgets/anidash_ai_emblem.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ani_dash/core/services/developer_access_service.dart';
@@ -134,6 +135,13 @@ class SettingsScreen extends ConsumerWidget {
                   title: 'Notifications',
                   description: 'News, episode releases, reminders',
                   onTap: () => context.push('/settings/notifications'),
+                ),
+                NormalSettingsItem(
+                  leading: const AniDashAiEmblem(size: 34),
+                  accent: colorScheme.primary,
+                  title: 'AnyCore',
+                  description: 'AI team names, instructions and privacy',
+                  onTap: () => context.push('/settings/ai'),
                 ),
               ],
             ),

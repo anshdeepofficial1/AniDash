@@ -8,6 +8,7 @@ import 'package:ani_dash/shared/providers/anime_source_provider.dart';
 import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/content_settings_notifier.dart';
 import 'package:collection/collection.dart';
+import 'package:ani_dash/core/registery/sources/anime/justanime.dart';
 import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 
 part 'anime_match_service.g.dart';
@@ -48,18 +49,19 @@ class AnimeMatchService {
 
     final nativeKey = _ref.read(selectedProviderKeyProvider)?.toLowerCase();
     // Fast Path for JustAnime: JustAnime anime ID is exactly the AniList media ID!
-    if (nativeKey == 'justanime' && mediaId != null && int.tryParse(mediaId) != null) {
+    if ((nativeKey == null || nativeKey == 'justanime' || nativeKey.isEmpty) &&
+        mediaId != null &&
+        int.tryParse(mediaId) != null) {
       try {
         final registry = _ref.read(animeSourceRegistryProvider);
         final justProvider = registry.get('justanime');
-        if (justProvider != null) {
-          final eps = await justProvider
-              .getEpisodes(mediaId)
-              .timeout(const Duration(seconds: 15));
-          if (eps.episodes?.isNotEmpty == true) {
+        if (justProvider is JustAnimeProvider) {
+          final exists = await justProvider.probeAnimeExists(mediaId);
+          if (exists) {
             AppLogger.success(
-              'JustAnime direct AniList ID match verified for ID: $mediaId (${eps.episodes!.length} episodes)',
+              'JustAnime direct AniList ID match verified for ID: $mediaId',
             );
+            _ref.read(selectedProviderKeyProvider.notifier).select('justanime');
             return BaseAnimeModel(
               id: mediaId,
               anilistId: int.tryParse(mediaId),
@@ -159,12 +161,13 @@ class AnimeMatchService {
           .map((r) => BaseAnimeModel(id: r.url, name: r.title, poster: r.cover))
           .toList();
     } else {
-      final provider = _ref.read(selectedAnimeProvider);
-      if (provider == null) return [];
-
       final registry = _ref.read(animeSourceRegistryProvider);
       final currentKey = _ref.read(selectedProviderKeyProvider);
-      final keys = [if (currentKey != null) currentKey];
+      final keys = <String>[
+        if (currentKey != null) currentKey,
+        for (final fallback in const ['justanime', 'hianime', 'anikoto'])
+          if (fallback != currentKey) fallback,
+      ];
       for (final key in keys) {
         final candidate = registry.get(key);
         if (candidate == null) continue;
@@ -189,6 +192,12 @@ class AnimeMatchService {
                   )
                   .toList();
           if (results.isNotEmpty) {
+            if (key != currentKey) {
+              // Keep all subsequent episode and stream calls on the provider
+              // which produced this id.
+              _ref.read(selectedProviderKeyProvider.notifier).select(key);
+              AppLogger.w('Source search fell back from $currentKey to $key');
+            }
             return results;
           }
         } catch (error) {
@@ -235,9 +244,24 @@ class AnimeMatchService {
           final matchedId = selection.matchedAnimeId;
           if (provider != null && matchedId != null && matchedId.isNotEmpty) {
             try {
+              if (provider is JustAnimeProvider) {
+                final exists = await provider
+                    .probeAnimeExists(matchedId)
+                    .timeout(const Duration(seconds: 6), onTimeout: () => true);
+                if (exists) {
+                  AppLogger.d(
+                    'Auto-Restore: Fast verified JustAnime for ID $matchedId',
+                  );
+                  return BaseAnimeModel(
+                    id: matchedId,
+                    name: selection.matchedAnimeTitle,
+                    anilistId: int.tryParse(matchedId),
+                  );
+                }
+              }
               final episodes = await provider
                   .getEpisodes(matchedId)
-                  .timeout(const Duration(seconds: 12));
+                  .timeout(const Duration(seconds: 20));
               if (episodes.episodes?.isNotEmpty == true) {
                 AppLogger.d(
                   'Auto-Restore: Success with ${provider.providerName}',

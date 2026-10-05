@@ -45,9 +45,13 @@ export default async function handler(req, res) {
   // OneSignal creates an anonymous subscription record for each installation.
   // Its last_active timestamp lets us calculate aggregate activity without
   // collecting names, watch history, IP addresses, or hardware identifiers.
-  for (let offset = 0; offset < total && offset < 50000; offset += 300) {
+  // The legacy players endpoint caps a page at 200 even when a larger limit
+  // is requested. Advancing by 300 skipped 100 devices on every page and made
+  // active counts appear capped at 200.
+  const pageSize = 200;
+  for (let offset = 0; offset < total && offset < 50000; offset += pageSize) {
     const playersResponse = await fetch(
-      `https://api.onesignal.com/players?app_id=${encodeURIComponent(process.env.ONESIGNAL_APP_ID)}&limit=300&offset=${offset}`,
+      `https://api.onesignal.com/players?app_id=${encodeURIComponent(process.env.ONESIGNAL_APP_ID)}&limit=${pageSize}&offset=${offset}`,
       { headers: { Authorization: `Key ${process.env.ONESIGNAL_API_KEY}` } },
     );
     if (!playersResponse.ok) break;
@@ -63,7 +67,7 @@ export default async function handler(req, res) {
       if (lastActive >= cutoffs.active7Days) active.active7Days += 1;
       if (lastActive >= cutoffs.active30Days) active.active30Days += 1;
     }
-    if (players.length < 300) break;
+    if (players.length < pageSize) break;
   }
 
   return res.status(200).json({

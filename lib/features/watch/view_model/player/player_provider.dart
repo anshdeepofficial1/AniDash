@@ -415,6 +415,19 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       duration: isSameSession ? state.duration : Duration.zero,
     );
     _startupTimer?.cancel();
+    if (!isSameSession) {
+      // mpv can retain the preceding HLS demuxer/cache when another episode
+      // is opened immediately. Stop that session first so episode two and
+      // later start with a clean pipeline instead of timing out at 00:00.
+      try {
+        await _player.stop();
+      } catch (error) {
+        AppLogger.d(
+          'Player reset before media switch was not required: $error',
+        );
+      }
+      if (openGeneration != _openGeneration) return;
+    }
     try {
       // setProperty is asynchronous. The previous fire-and-forget setup raced
       // the first manifest request, so later episodes could open with stale

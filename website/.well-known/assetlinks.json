@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.anidash.anime",
+      "sha256_cert_fingerprints": [
+        "80:70:EE:99:2C:AB:1B:DC:50:19:0A:41:C4:38:FF:B7:39:3A:17:15:CF:17:49:96:79:AD:3A:60:DD:88:E1:2A"
+      ]
+    }
+  }
+]

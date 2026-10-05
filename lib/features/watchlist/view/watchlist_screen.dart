@@ -19,6 +19,7 @@ import 'package:ani_dash/shared/providers/continue_watching_dismissed_provider.d
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/core/repositories/local_media_repository.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
+import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
 
 class WatchlistSelectionNotifier extends Notifier<Set<String>> {
   @override
@@ -264,6 +265,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen>
               icon: const Icon(Iconsax.trash, color: Colors.red),
             )
           else ...[
+            const AskNiaButton(compact: true),
             if (auth.isAniListAuthenticated)
               Padding(
                 padding: const EdgeInsets.only(right: 4.0),

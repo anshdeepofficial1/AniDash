@@ -7,6 +7,7 @@ class SearchFilter {
   final String? sort;
   final List<String> tags;
   final bool? isAdult;
+  final String? contentRating;
 
   const SearchFilter({
     this.genres = const [],
@@ -17,6 +18,7 @@ class SearchFilter {
     this.sort,
     this.tags = const [],
     this.isAdult,
+    this.contentRating,
   });
 
   SearchFilter copyWith({
@@ -33,6 +35,9 @@ class SearchFilter {
     bool resetSort = false,
     List<String>? tags,
     bool? isAdult,
+    bool resetAdult = false,
+    String? contentRating,
+    bool resetContentRating = false,
   }) {
     return SearchFilter(
       genres: genres ?? this.genres,
@@ -42,7 +47,8 @@ class SearchFilter {
       status: resetStatus ? null : (status ?? this.status),
       sort: resetSort ? null : (sort ?? this.sort),
       tags: tags ?? this.tags,
-      isAdult: isAdult ?? this.isAdult,
+      isAdult: resetAdult ? null : (isAdult ?? this.isAdult),
+      contentRating: resetContentRating ? null : (contentRating ?? this.contentRating),
     );
   }
 
@@ -54,7 +60,8 @@ class SearchFilter {
       status == null &&
       sort == null &&
       tags.isEmpty &&
-      isAdult == null;
+      isAdult == null &&
+      contentRating == null;
 
   @override
   String toString() {

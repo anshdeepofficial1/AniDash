@@ -504,6 +504,10 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
                 isAdult: isAdultMedia,
                 mediaId: animeId,
                 malId: state.details.value?.idMal,
+              )
+              .timeout(
+                const Duration(seconds: 14),
+                onTimeout: () => null,
               );
 
           if (!ref.mounted) return;

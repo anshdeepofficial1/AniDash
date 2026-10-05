@@ -7,6 +7,7 @@ import 'package:ani_dash/core/network/http_client.dart';
 import 'package:ani_dash/core/services/backup_service.dart';
 import 'package:ani_dash/features/settings/view/widgets/settings_item.dart';
 import 'package:ani_dash/features/settings/view/widgets/settings_section.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DataSettingsScreen extends ConsumerStatefulWidget {
   const DataSettingsScreen({super.key});
@@ -53,6 +54,14 @@ class _DataSettingsScreenState extends ConsumerState<DataSettingsScreen> {
                 },
               ),
               NormalSettingsItem(
+                icon: Icon(Iconsax.refresh, color: colorScheme.error),
+                accent: colorScheme.error,
+                title: 'Clear Everything & Rebuild',
+                description:
+                    'Remove images, API responses and old episode metadata, then fetch fresh data',
+                onTap: () => _clearAndRebuild(context),
+              ),
+              NormalSettingsItem(
                 icon: Icon(Iconsax.global, color: colorScheme.primary),
                 accent: colorScheme.primary,
                 title: 'Clear API Cache',
@@ -91,6 +100,55 @@ class _DataSettingsScreenState extends ConsumerState<DataSettingsScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _clearAndRebuild(BuildContext context) async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder:
+              (dialogContext) => AlertDialog(
+                title: const Text('Clear and rebuild data?'),
+                content: const Text(
+                  'Downloaded videos, watch progress and accounts will stay safe. Cached images, network data and saved episode corrections will be rebuilt.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('Clear & Rebuild'),
+                  ),
+                ],
+              ),
+        ) ??
+        false;
+    if (!confirmed) return;
+
+    imageCache.clear();
+    imageCache.clearLiveImages();
+    await UniversalHttpClient.instance.wipeCache();
+    final prefs = await SharedPreferences.getInstance();
+    final staleKeys = prefs
+        .getKeys()
+        .where(
+          (key) =>
+              key.startsWith('corrected_episode_titles_') ||
+              key.startsWith('named_episode_groups_') ||
+              key.startsWith('episode_thumbnail_'),
+        )
+        .toList(growable: false);
+    for (final key in staleKeys) {
+      await prefs.remove(key);
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Old cached data cleared. Pages will now rebuild fresh.'),
       ),
     );
   }

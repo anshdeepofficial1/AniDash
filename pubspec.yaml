@@ -7,7 +7,7 @@ description: >
 
 publish_to: "none"
 
-version: 1.17.5+112
+version: 1.18.1+115
 
 environment:
   sdk: ">=3.7.0 <4.0.0"
@@ -96,6 +96,8 @@ dependencies:
   get: ^4.7.2
   timeago: ^3.7.1
   timezone: ^0.10.1
+  speech_to_text: ^7.4.0
+  flutter_tts: ^4.2.5
 
 dependency_overrides:
   collection: ^1.19.1
@@ -117,6 +119,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/ai_assistants/
     - assets/icons/anidash_logo.png
     - assets/icons/anidash_logo_dark.png
     - assets/icons/anidash_logo_light.png

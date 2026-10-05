@@ -265,11 +265,21 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                     children: [
                       FractionallySizedBox(
                         widthFactor: buffer / max,
-                        child: Container(color: Colors.white38),
+                        child: Container(color: Colors.white54),
                       ),
                       FractionallySizedBox(
                         widthFactor: value / max,
-                        child: Container(color: scheme.primary),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: scheme.primary,
+                            boxShadow: [
+                              BoxShadow(
+                                color: scheme.primary.withValues(alpha: .55),
+                                blurRadius: 5,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                       ..._buildHighlights(scheme, max, constraints.maxWidth),
                     ],

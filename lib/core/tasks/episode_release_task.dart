@@ -77,21 +77,8 @@ class EpisodeReleaseTask {
         } catch (_) {}
       }
 
-      var prefersEnglishDub = true;
-      try {
-        final rawPlayerSettings = pref.getString('player_settings_data');
-        if (rawPlayerSettings != null && rawPlayerSettings.isNotEmpty) {
-          final playerSettings =
-              jsonDecode(rawPlayerSettings) as Map<String, dynamic>;
-          final language = playerSettings['preferredAudioLanguage'] as String?;
-          prefersEnglishDub =
-              language == 'dub' ||
-              (language == null &&
-                  (playerSettings['preferDub'] as bool? ?? false));
-        }
-      } catch (_) {}
-      enableDubReleases = enableDubReleases && prefersEnglishDub;
-      enableSubReleases = enableSubReleases && !prefersEnglishDub;
+      // Notification audio categories are explicit user choices. The player
+      // default must not silently disable an enabled Dub or Sub alert.
 
       await NotificationService().initialize(isBackground: !isManual);
 
@@ -108,7 +95,17 @@ class EpisodeReleaseTask {
             final id = int.tryParse(entry.key);
             if (id != null) {
               relevantMediaIds.add(id);
-              mediaTitlesById[id] = entry.value.toString();
+              final cachedValue = entry.value;
+              if (cachedValue is Map) {
+                mediaTitlesById[id] =
+                    cachedValue['title']?.toString() ?? 'Anime';
+                currentEpisodeByMediaId[id] =
+                    (cachedValue['currentEpisode'] as num?)?.toInt() ?? 0;
+              } else {
+                // Backward compatibility with the old {id: title} cache.
+                mediaTitlesById[id] = cachedValue.toString();
+                currentEpisodeByMediaId.putIfAbsent(id, () => 0);
+              }
             }
           }
         }
@@ -151,6 +148,23 @@ class EpisodeReleaseTask {
           relevantMediaIds.add(id);
           mediaTitlesById[id] = e.animeTitle;
           currentEpisodeByMediaId[id] = e.currentEpisode;
+        }
+      }
+
+      // A sequel/next season has its own AniList ID. Expand tracked media by
+      // one verified SEQUEL relation so episode 1 of a new season is not lost
+      // simply because the user tracked the previous season.
+      if (relevantMediaIds.isNotEmpty) {
+        try {
+          final sequels = await _fetchTrackedSequels(relevantMediaIds.toList());
+          for (final sequel in sequels) {
+            final sequelId = sequel.$1;
+            relevantMediaIds.add(sequelId);
+            mediaTitlesById[sequelId] = sequel.$2;
+            currentEpisodeByMediaId.putIfAbsent(sequelId, () => 0);
+          }
+        } catch (e) {
+          AppLogger.w('[NotificationWorker] sequel expansion failed: $e');
         }
       }
 
@@ -390,33 +404,36 @@ class EpisodeReleaseTask {
       // 2. English DUB Releases (via extension sources)
       // -------------------------------------------------------------
       if (enableDubReleases) {
-        for (final entry in relevantEntries) {
+        for (final mediaId in relevantMediaIds) {
           try {
-            final latestEnglishDubEp = await _fetchEnglishDubCount(
-              entry.animeTitle,
-            );
+            final animeTitle = mediaTitlesById[mediaId] ?? 'Anime';
+            final currentEpisode = currentEpisodeByMediaId[mediaId] ?? 0;
+            final latestEnglishDubEp = await _fetchEnglishDubCount(animeTitle);
             if (latestEnglishDubEp != null && latestEnglishDubEp > 0) {
-              final lastDubKey = 'last_known_english_dub_ep_${entry.animeId}';
+              final lastDubKey = 'last_known_english_dub_ep_$mediaId';
               final previousEnglishDub = pref.getInt(lastDubKey);
 
-              if (previousEnglishDub != null &&
-                  latestEnglishDubEp > previousEnglishDub &&
+              final isNewAvailability =
+                  previousEnglishDub == null
+                      ? latestEnglishDubEp > currentEpisode
+                      : latestEnglishDubEp > previousEnglishDub;
+              if (isNewAvailability &&
                   isReleaseWithinWatchWindow(
-                    entry.currentEpisode,
+                    currentEpisode,
                     latestEnglishDubEp,
                   )) {
                 sentCount++;
                 AppLogger.i(
-                  '[NotificationWorker] sent = English DUB ${entry.animeTitle} Ep $latestEnglishDubEp',
+                  '[NotificationWorker] sent = English DUB $animeTitle Ep $latestEnglishDubEp',
                 );
                 await NotificationService().showEpisodeReleaseNotification(
-                  animeTitle: entry.animeTitle,
+                  animeTitle: animeTitle,
                   episodeNumber: latestEnglishDubEp,
                   isDub: true,
-                  mediaId: entry.animeId,
+                  mediaId: mediaId.toString(),
                   customTitle: 'New English Dub Episode',
                   customBody:
-                      '${entry.animeTitle} Episode $latestEnglishDubEp is now available in English Dub!',
+                      '$animeTitle Episode $latestEnglishDubEp is now available in English Dub!',
                   audioType: 'english_dub',
                 );
               } else if (previousEnglishDub != null) {
@@ -439,18 +456,20 @@ class EpisodeReleaseTask {
           }
           final currentEpProgress =
               entry.episodesProgress[entry.currentEpisode];
-          if (currentEpProgress?.isCompleted == true) {
-            continue;
-          }
+          final reminderEpisode =
+              currentEpProgress?.isCompleted == true
+                  ? entry.currentEpisode + 1
+                  : entry.currentEpisode;
           if (entry.totalEpisodes > 0 &&
-              entry.currentEpisode >= entry.totalEpisodes) {
+              reminderEpisode > entry.totalEpisodes) {
             continue;
           }
           final lastWatched = entry.lastUpdated ?? entry.lastPlayedAt;
           if (lastWatched != null &&
-              DateTime.now().difference(lastWatched).inDays >= 2) {
+              DateTime.now().difference(lastWatched) >=
+                  const Duration(hours: 24)) {
             final reminderKey =
-                'continue_reminder_${entry.animeId}_${entry.currentEpisode}';
+                'continue_reminder_${entry.animeId}_$reminderEpisode';
             final lastReminder = pref.getInt(reminderKey) ?? 0;
             final isCooldownActive =
                 DateTime.now().millisecondsSinceEpoch - lastReminder <
@@ -460,8 +479,10 @@ class EpisodeReleaseTask {
               sentCount++;
               await NotificationService().showContinueWatchingNotification(
                 animeTitle: entry.animeTitle,
-                episodeNumber: entry.currentEpisode,
+                episodeNumber: reminderEpisode,
                 mediaId: entry.animeId,
+                customBody:
+                    'Episode $reminderEpisode is ready. Continue ${entry.animeTitle} where you left off.',
               );
               await pref.setInt(
                 reminderKey,
@@ -542,6 +563,74 @@ class EpisodeReleaseTask {
     final page = data['data']?['Page'] as Map<String, dynamic>?;
     final list = page?['airingSchedules'] as List<dynamic>? ?? [];
     return list.map((item) => item as Map<String, dynamic>).toList();
+  }
+
+  static Future<List<(int, String)>> _fetchTrackedSequels(
+    List<int> trackedIds,
+  ) async {
+    const query = r'''
+      query ($ids: [Int]) {
+        Page(page: 1, perPage: 50) {
+          media(id_in: $ids, type: ANIME) {
+            relations {
+              edges {
+                relationType(version: 2)
+                node {
+                  id
+                  type
+                  title { userPreferred english romaji }
+                }
+              }
+            }
+          }
+        }
+      }
+    ''';
+    final results = <(int, String)>[];
+    for (var offset = 0; offset < trackedIds.length; offset += 50) {
+      final end = (offset + 50).clamp(0, trackedIds.length);
+      final ids = trackedIds.sublist(offset, end);
+      final response = await http
+          .post(
+            Uri.parse('https://graphql.anilist.co'),
+            headers: const {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'User-Agent': 'AniDash',
+            },
+            body: jsonEncode({
+              'query': query,
+              'variables': {'ids': ids},
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) continue;
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final media =
+          decoded['data']?['Page']?['media'] as List<dynamic>? ?? const [];
+      for (final rawMedia in media) {
+        final relations =
+            (rawMedia as Map<String, dynamic>)['relations']
+                as Map<String, dynamic>?;
+        final edges = relations?['edges'] as List<dynamic>? ?? const [];
+        for (final rawEdge in edges) {
+          final edge = rawEdge as Map<String, dynamic>;
+          if (edge['relationType'] != 'SEQUEL') continue;
+          final node = edge['node'] as Map<String, dynamic>?;
+          if (node == null || node['type'] != 'ANIME') continue;
+          final id = (node['id'] as num?)?.toInt();
+          final title = node['title'] as Map<String, dynamic>?;
+          final displayTitle =
+              title?['english']?.toString() ??
+              title?['userPreferred']?.toString() ??
+              title?['romaji']?.toString();
+          if (id != null && displayTitle != null && displayTitle.isNotEmpty) {
+            results.add((id, displayTitle));
+          }
+        }
+      }
+    }
+    return results;
   }
 
   /// Resolves English Dub episode availability via standard anime providers

@@ -129,6 +129,29 @@ class JustAnimeProvider extends AnimeProvider {
     return searchPage;
   }
 
+  Future<bool> probeAnimeExists(String animeId) async {
+    try {
+      final response = await UniversalHttpClient.instance
+          .get(
+            Uri.parse('$apiUrl/anime/$animeId/episodes?page=1'),
+            headers: headers,
+            cacheConfig: CacheConfig.short,
+          )
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        if (decoded is Map) {
+          final eps = decoded['episodes'];
+          if (eps is List && eps.isNotEmpty) return true;
+          if (decoded['totalPages'] != null || decoded['pageInfo'] != null) {
+            return true;
+          }
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
   @override
   Future<BaseEpisodeModel> getEpisodes(
     String animeId, {

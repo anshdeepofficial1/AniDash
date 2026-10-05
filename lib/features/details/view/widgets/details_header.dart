@@ -19,6 +19,7 @@ import 'package:ani_dash/shared/providers/anime_repo_provider.dart';
 import 'package:ani_dash/core/models/universal/universal_page_response.dart';
 import 'package:ani_dash/shared/providers/incognito_provider.dart';
 import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
+import 'package:ani_dash/core/services/share_link_service.dart';
 
 class DetailsHeader extends ConsumerStatefulWidget {
   final UniversalMedia anime;
@@ -293,8 +294,9 @@ class _DetailsHeaderState extends ConsumerState<DetailsHeader> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final loadedEpCount =
-        ref.watch(episodeListProvider.select((s) => s.episodes.length));
+    final loadedEpCount = ref.watch(
+      episodeListProvider.select((s) => s.episodes.length),
+    );
     final nextEp = widget.anime.nextAiringEpisode?.episode;
     final bool hasValidTotal =
         widget.anime.episodes != null && widget.anime.episodes! > 0;
@@ -302,19 +304,21 @@ class _DetailsHeaderState extends ConsumerState<DetailsHeader> {
         (nextEp != null && nextEp > 1) ? nextEp - 1 : null;
     final isReleasing = widget.anime.status?.toLowerCase() == 'releasing';
 
-    final int? resolvedEpCount = isReleasing
-        ? (airingReleased ??
-            (loadedEpCount > 0 ? loadedEpCount : null) ??
-            (hasValidTotal ? widget.anime.episodes : null))
-        : ((hasValidTotal ? widget.anime.episodes : null) ??
-            airingReleased ??
-            (loadedEpCount > 0 ? loadedEpCount : null));
+    final int? resolvedEpCount =
+        isReleasing
+            ? (airingReleased ??
+                (loadedEpCount > 0 ? loadedEpCount : null) ??
+                (hasValidTotal ? widget.anime.episodes : null))
+            : ((hasValidTotal ? widget.anime.episodes : null) ??
+                airingReleased ??
+                (loadedEpCount > 0 ? loadedEpCount : null));
 
-    final String? episodesDisplay = resolvedEpCount != null
-        ? (isReleasing || !hasValidTotal
-            ? '$resolvedEpCount+ eps'
-            : '$resolvedEpCount eps')
-        : (isReleasing ? 'Ongoing' : null);
+    final String? episodesDisplay =
+        resolvedEpCount != null
+            ? (isReleasing || !hasValidTotal
+                ? '$resolvedEpCount+ eps'
+                : '$resolvedEpCount eps')
+            : (isReleasing ? 'Ongoing' : null);
 
     final highResBanner = _getHighResImageUrl(
       widget.anime.bannerImage != null && widget.anime.bannerImage!.isNotEmpty
@@ -326,127 +330,154 @@ class _DetailsHeaderState extends ConsumerState<DetailsHeader> {
       expandedHeight: 340,
       pinned: false,
       floating: true,
+      snap: true,
+      stretch: true,
       elevation: 0,
       backgroundColor: colorScheme.surfaceContainerLowest,
       flexibleSpace: FlexibleSpaceBar(
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            CachedNetworkImage(
-              imageUrl: highResBanner,
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.high,
-              placeholder:
-                  (_, _) => Container(color: colorScheme.surfaceContainer),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.3),
-                    colorScheme.surfaceContainerLowest,
-                  ],
-                  stops: const [0.25, 1.0],
+        background: ClipRect(
+          clipBehavior: Clip.hardEdge,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CachedNetworkImage(
+                imageUrl: highResBanner,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
+                placeholder:
+                    (_, _) => Container(color: colorScheme.surfaceContainer),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.3),
+                      colorScheme.surfaceContainerLowest,
+                      colorScheme.surfaceContainerLowest,
+                    ],
+                    stops: const [0.25, 0.92, 1.0],
+                  ),
                 ),
               ),
-            ),
-            Positioned(
-              bottom: 24,
-              left: 20,
-              right: 20,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      final posterUrl = _posterUrl();
-                      if (posterUrl.isNotEmpty) {
-                        _openFullscreenPoster(
-                          context,
-                          posterUrl,
-                          widget.anime.title.english ??
-                              widget.anime.title.romaji ??
-                              'Poster',
-                        );
-                      }
-                    },
-                    child: Hero(
-                      tag: widget.tag,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            CachedNetworkImage(
-                              imageUrl: _posterUrl(),
-                              width: 105,
-                              height: 160,
-                              fit: BoxFit.cover,
-                              filterQuality: FilterQuality.high,
-                            ),
-                          ],
+              Positioned(
+                bottom: -2,
+                left: 0,
+                right: 0,
+                height: 6,
+                child: ColoredBox(
+                  color: colorScheme.surfaceContainerLowest,
+                ),
+              ),
+              Positioned(
+                bottom: 24,
+                left: 20,
+                right: 20,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        final posterUrl = _posterUrl();
+                        if (posterUrl.isNotEmpty) {
+                          _openFullscreenPoster(
+                            context,
+                            posterUrl,
+                            widget.anime.title.english ??
+                                widget.anime.title.romaji ??
+                                'Poster',
+                          );
+                        }
+                      },
+                      child: Hero(
+                        tag: widget.tag,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              CachedNetworkImage(
+                                imageUrl: _posterUrl(),
+                                width: 105,
+                                height: 160,
+                                fit: BoxFit.cover,
+                                filterQuality: FilterQuality.high,
+                              ),
+                              if (widget.anime.isMature)
+                                Positioned(
+                                  top: 6,
+                                  left: 6,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade900.withValues(
+                                        alpha: 0.92,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: Colors.redAccent.withValues(
+                                          alpha: 0.6,
+                                        ),
+                                        width: 0.8,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Text(
+                                      '18+',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          widget.anime.title.english ??
-                              widget.anime.title.romaji ??
-                              '',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            widget.anime.title.english ??
+                                widget.anime.title.romaji ??
+                                '',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (widget.anime.title.native != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              widget.anime.title.native!,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                          if (widget.anime.title.native != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                widget.anime.title.native!,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
                               ),
                             ),
-                          ),
-                        const SizedBox(height: 12),
-                        if (widget.anime.isMature) ...[
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade700,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Text(
-                                  '18+  MATURE',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
                           const SizedBox(height: 10),
-                        ],
                         // Metadata Row
                         Row(
                           children: [
@@ -474,6 +505,7 @@ class _DetailsHeaderState extends ConsumerState<DetailsHeader> {
                                   widget.anime.format,
                                   episodesDisplay,
                                   widget.anime.status,
+                                  if (widget.anime.isMature) '18+',
                                 ].whereType<String>().join(' • '),
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: theme.colorScheme.onSurface.withValues(
@@ -498,11 +530,21 @@ class _DetailsHeaderState extends ConsumerState<DetailsHeader> {
           ],
         ),
       ),
+      ),
       leading: IconButton(
         icon: const Icon(Iconsax.arrow_left_1, color: Colors.white, size: 30),
         onPressed: () => context.pop(),
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.share_rounded, color: Colors.white),
+          tooltip: 'Share anime',
+          onPressed:
+              () => ShareLinkService.shareAnime(
+                id: widget.anime.id,
+                title: widget.anime.title.userPreferred,
+              ),
+        ),
         TrackerStatusWidget(anime: widget.anime),
         const SizedBox(width: 4),
         isLoading
@@ -686,12 +728,13 @@ class TrackerStatusWidget extends ConsumerWidget {
       isActive = true;
       final statusText = _formatStatus(entry.status);
       final progressText = entry.progress > 0 ? ' ${entry.progress}' : '';
-      final totalEps = (anime.episodes != null && anime.episodes! > 0)
-          ? '/${anime.episodes}'
-          : (anime.nextAiringEpisode?.episode != null &&
-                  anime.nextAiringEpisode!.episode! > 1
-              ? '/${anime.nextAiringEpisode!.episode! - 1}+'
-              : '');
+      final totalEps =
+          (anime.episodes != null && anime.episodes! > 0)
+              ? '/${anime.episodes}'
+              : (anime.nextAiringEpisode?.episode != null &&
+                      anime.nextAiringEpisode!.episode! > 1
+                  ? '/${anime.nextAiringEpisode!.episode! - 1}+'
+                  : '');
       final displayProgress =
           entry.progress > 0 ? '$progressText$totalEps' : '';
 

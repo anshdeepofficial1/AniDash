@@ -35,6 +35,15 @@ class NotificationSettingsNotifier extends Notifier<NotificationSettingsModel> {
     final previous = state;
     state = updater(state);
     await sharedPrefs.setString(_prefsKey, jsonEncode(state.toJson()));
+    final enabledSomething =
+        (!previous.enableNews && state.enableNews) ||
+        (!previous.enableDubReleases && state.enableDubReleases) ||
+        (!previous.enableSubReleases && state.enableSubReleases) ||
+        (!previous.enableContinueWatching && state.enableContinueWatching) ||
+        (!previous.enableDownloads && state.enableDownloads);
+    if (enabledSomething) {
+      await NotificationService().requestSystemPermission();
+    }
     if (previous.enableNews && !state.enableNews) {
       await NotificationInboxService().removeNews();
     }

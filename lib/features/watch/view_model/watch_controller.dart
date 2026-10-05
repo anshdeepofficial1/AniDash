@@ -50,6 +50,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
   bool _wasPlayingBeforeLock = false;
   bool _isAppInBackground = false;
   int _savedPosBeforeLock = 0;
+  Timer? _pendingAutoSkipTimer;
 
   @override
   void build() {
@@ -88,6 +89,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
     _isAppInBackground = false;
     _completedSubscription?.cancel();
     _playbackActionSubscription?.cancel();
+    _pendingAutoSkipTimer?.cancel();
     NotificationService().hidePlaybackNotification();
     AudioFocusService().reset();
     try {
@@ -500,8 +502,24 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           ref.read(episodeDataProvider.notifier).prefetchNextEpisode();
         }
 
-        // 95% Trigger: Show floating Next Episode prompt
-        if (!_nextPromptTriggered && progressRatio >= 0.95) {
+        final isInDetectedOutro = ref.read(aniSkipProvider).any((skip) {
+          final interval = skip.interval;
+          if (interval == null) return false;
+          final isOutro =
+              skip.skipType == SkipType.ed ||
+              (skip.skipType == SkipType.mixed && interval.startTime >= 700);
+          return isOutro &&
+              _pos >= interval.startTime.floor() &&
+              _pos < interval.endTime.ceil();
+        });
+
+        // Show at the beginning of a verified outro. The 90% fallback keeps
+        // the prompt reliable for episodes whose provider has no ED marker.
+        final hasNextEpisode =
+            (_epNum ?? 0) > 0 && (_totalEps <= 0 || (_epNum ?? 0) < _totalEps);
+        if (!_nextPromptTriggered &&
+            hasNextEpisode &&
+            (isInDetectedOutro || progressRatio >= 0.90)) {
           _nextPromptTriggered = true;
           final settings = ref.read(playerSettingsProvider);
           if (settings.showNextEpisodePrompt) {
@@ -548,6 +566,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         ref.read(aniSkipProvider.notifier).clear();
         _hasAutoSkippedIntro = false;
         _hasAutoSkippedOutro = false;
+        _pendingAutoSkipTimer?.cancel();
         _lastAniSkipEpisode = null;
         _epNum = next;
         _pos = 0;
@@ -683,6 +702,16 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           skip.skipType == SkipType.ed ||
           skip.skipType == SkipType.mixed;
       final length = end - start;
+      final isSourceVerified = skip.skipId?.startsWith('source-') ?? false;
+      final durationMatches =
+          skip.episodeLength > 0 && (skip.episodeLength - _dur).abs() <= 90;
+      final hasVerifiedEpisodeMatch =
+          isSourceVerified ||
+          skip.skipId?.isNotEmpty == true ||
+          durationMatches;
+      final plausiblePlacement =
+          (isIntro && start <= const Duration(minutes: 3)) ||
+          (isOutro && start.inSeconds >= (_dur * .55));
       final validTiming =
           start >= Duration.zero &&
           end > start &&
@@ -690,10 +719,26 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           length <= const Duration(minutes: 5) &&
           length.inSeconds <= (_dur * 0.25);
 
-      if (validType && validTiming && position >= start && position < end) {
+      if (validType &&
+          validTiming &&
+          hasVerifiedEpisodeMatch &&
+          plausiblePlacement &&
+          position >= start &&
+          position < end) {
         if (isIntro) _hasAutoSkippedIntro = true;
         if (isOutro) _hasAutoSkippedOutro = true;
-        ref.read(playerStateProvider.notifier).seek(end);
+        final scheduledEpisode = _epNum;
+        _pendingAutoSkipTimer?.cancel();
+        // Keep the manual Skip Intro/Outro action visible for its documented
+        // three-second countdown even when auto-skip is enabled. Seeking in
+        // the same frame previously made the button impossible to see.
+        _pendingAutoSkipTimer = Timer(const Duration(seconds: 3), () {
+          if (_isDisposed || _epNum != scheduledEpisode) return;
+          final current = ref.read(playerStateProvider).position;
+          if (current >= start && current < end) {
+            ref.read(playerStateProvider.notifier).seek(end);
+          }
+        });
         return;
       }
     }

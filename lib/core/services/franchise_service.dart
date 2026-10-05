@@ -10,10 +10,12 @@ class FranchiseWatchOrderItem {
   final UniversalMedia media;
   final String relationType;
   final bool isCurrent;
-  final String chipLabel; // e.g., "Season 1", "Season 3 Part 1", "Season 3 Part 2", "Season 4 Part 1"
+  final String
+  chipLabel; // e.g., "Season 1", "Season 3 Part 1", "Season 3 Part 2", "Season 4 Part 1"
   final String orderLabel; // e.g., "Season 1", "Season 3 Part 2"
   final int? seasonNumber; // numeric season if available, e.g. 1, 2, 3, 4
-  final String? placementNote; // e.g., "Watch after Season 1", "Recap • Optional"
+  final String?
+  placementNote; // e.g., "Watch after Season 1", "Recap • Optional"
   final bool isMainStory;
 
   const FranchiseWatchOrderItem({
@@ -31,9 +33,7 @@ class FranchiseWatchOrderItem {
   int? get idMal => int.tryParse(media.idMal ?? '');
   UniversalTitle get title => media.title;
   String get displayTitle =>
-      media.title.english ??
-      media.title.romaji ??
-      media.title.userPreferred;
+      media.title.english ?? media.title.romaji ?? media.title.userPreferred;
   String? get format => media.format;
   int? get episodes => media.episodes;
   int? get year => media.startDate?.year ?? media.seasonYear;
@@ -43,6 +43,15 @@ class FranchiseWatchOrderItem {
   bool get isMovie => format == 'MOVIE';
   bool get isOvaOrSpecial =>
       format == 'OVA' || format == 'ONA' || format == 'SPECIAL';
+
+  /// Exact episode boundary when the verified watch-order note provides one.
+  int? get afterEpisode {
+    final match = RegExp(
+      r'after(?:\s+\w+)?\s+Episode\s+(\d+)',
+      caseSensitive: false,
+    ).firstMatch(placementNote ?? '');
+    return int.tryParse(match?.group(1) ?? '');
+  }
 }
 
 class FranchiseWatchOrder {
@@ -65,7 +74,10 @@ class FranchiseWatchOrder {
   });
 
   /// All entries combined (main story + extras)
-  List<FranchiseWatchOrderItem> get allItems => [...mainStory, ...optionalExtras];
+  List<FranchiseWatchOrderItem> get allItems => [
+    ...mainStory,
+    ...optionalExtras,
+  ];
 }
 
 class FranchiseService {
@@ -77,6 +89,26 @@ class FranchiseService {
   final Map<String, FranchiseWatchOrder> _cache = {};
 
   static const String _graphQlUrl = 'https://graphql.anilist.co';
+
+  Future<FranchiseWatchOrder?> getFranchiseWatchOrderById(
+    String mediaId,
+  ) async {
+    final cached = _cache[mediaId];
+    if (cached != null) return _reindexForCurrent(cached, mediaId);
+    final media = await _fetchMediaWithRelations(mediaId);
+    if (media == null) return null;
+    return getFranchiseWatchOrder(media);
+  }
+
+  Future<FranchiseWatchOrderItem?> movieAfterEpisode(
+    String mediaId,
+    int episode,
+  ) async {
+    final order = await getFranchiseWatchOrderById(mediaId);
+    return order?.allItems.firstWhereOrNull(
+      (item) => item.isMovie && item.afterEpisode == episode,
+    );
+  }
 
   static const String _franchiseNodeQuery = '''
 query (\$id: Int) {
@@ -183,7 +215,8 @@ query (\$id: Int) {
         visited.add(currentId);
 
         UniversalMedia? currentMedia = mediaMap[currentId];
-        final needsFetch = currentMedia == null || currentMedia.relations.isEmpty;
+        final needsFetch =
+            currentMedia == null || currentMedia.relations.isEmpty;
 
         if (needsFetch) {
           networkHops++;
@@ -222,10 +255,11 @@ query (\$id: Int) {
       final mainChainIds = mainChain.map((m) => m.id).toSet();
 
       // Gather Extras (not in main linear chain, but related to the franchise)
-      final extraMedia = mediaMap.values.where((m) {
-        if (mainChainIds.contains(m.id)) return false;
-        return _hasSignificantTitleOverlap(rootMedia, m);
-      }).toList();
+      final extraMedia =
+          mediaMap.values.where((m) {
+            if (mainChainIds.contains(m.id)) return false;
+            return _hasSignificantTitleOverlap(rootMedia, m);
+          }).toList();
 
       // Sort extras by release date
       extraMedia.sort((a, b) {
@@ -247,11 +281,18 @@ query (\$id: Int) {
         final nextM = (i + 1 < mainChain.length) ? mainChain[i + 1] : null;
 
         // Check if followed by Part 2 of the same season
-        final title = m.title.english ?? m.title.romaji ?? m.title.userPreferred;
-        final nextTitle = nextM != null
-            ? (nextM.title.english ?? nextM.title.romaji ?? nextM.title.userPreferred)
-            : '';
-        final isFollowedByPart2 = RegExp(r'Part\s*2|Cour\s*2', caseSensitive: false).hasMatch(nextTitle);
+        final title =
+            m.title.english ?? m.title.romaji ?? m.title.userPreferred;
+        final nextTitle =
+            nextM != null
+                ? (nextM.title.english ??
+                    nextM.title.romaji ??
+                    nextM.title.userPreferred)
+                : '';
+        final isFollowedByPart2 = RegExp(
+          r'Part\s*2|Cour\s*2',
+          caseSensitive: false,
+        ).hasMatch(nextTitle);
 
         final labels = _deriveLabels(
           title: title,
@@ -275,7 +316,9 @@ query (\$id: Int) {
         );
 
         mainStoryItems.add(item);
-        if (m.format == 'TV' || m.format == 'TV_SHORT' || m.format == 'SPECIAL') {
+        if (m.format == 'TV' ||
+            m.format == 'TV_SHORT' ||
+            m.format == 'SPECIAL') {
           tvSeasons.add(item);
         }
       }
@@ -288,7 +331,8 @@ query (\$id: Int) {
 
         final placement = isMovie ? _resolveMoviePlacement(m, mainChain) : null;
         if (placement != null) {
-          final title = m.title.english ?? m.title.romaji ?? m.title.userPreferred;
+          final title =
+              m.title.english ?? m.title.romaji ?? m.title.userPreferred;
           final labels = _deriveLabels(
             title: title,
             format: format,
@@ -309,8 +353,9 @@ query (\$id: Int) {
           // Find where to insert
           int insertIdx = -1;
           if (placement.insertAfterId != null) {
-            final targetIdx =
-                mainStoryItems.indexWhere((item) => item.id == placement.insertAfterId);
+            final targetIdx = mainStoryItems.indexWhere(
+              (item) => item.id == placement.insertAfterId,
+            );
             if (targetIdx != -1) {
               insertIdx = targetIdx + 1;
               while (insertIdx < mainStoryItems.length &&
@@ -351,7 +396,8 @@ query (\$id: Int) {
           note = 'Special • Optional';
         }
 
-        final title = m.title.english ?? m.title.romaji ?? m.title.userPreferred;
+        final title =
+            m.title.english ?? m.title.romaji ?? m.title.userPreferred;
         final labels = _deriveLabels(
           title: title,
           format: format,
@@ -510,7 +556,8 @@ query (\$id: Int) {
   }) {
     final clean = title.trim();
     final cleanLower = clean.toLowerCase();
-    final isAoT = cleanLower.contains('attack on titan') ||
+    final isAoT =
+        cleanLower.contains('attack on titan') ||
         cleanLower.contains('shingeki no kyojin');
 
     // Final Chapters (AoT Specials)
@@ -544,15 +591,14 @@ query (\$id: Int) {
     }
 
     // Final Season (plain)
-    if (RegExp(r'(?:The\s+)?Final\s+Season', caseSensitive: false).hasMatch(clean)) {
+    if (RegExp(
+      r'(?:The\s+)?Final\s+Season',
+      caseSensitive: false,
+    ).hasMatch(clean)) {
       final sNum = isAoT ? 4 : tvIndex;
       final part = hasPart2 ? 'Part 1' : '';
       final label = part.isNotEmpty ? 'Season $sNum $part' : 'Season $sNum';
-      return (
-        chipLabel: label,
-        orderLabel: label,
-        seasonNumber: sNum,
-      );
+      return (chipLabel: label, orderLabel: label, seasonNumber: sNum);
     }
 
     // Season X Part Y
@@ -577,15 +623,10 @@ query (\$id: Int) {
       caseSensitive: false,
     ).firstMatch(clean);
     if (sMatch != null) {
-      final sNum =
-          int.tryParse(sMatch.group(1) ?? sMatch.group(2) ?? '1') ?? 1;
+      final sNum = int.tryParse(sMatch.group(1) ?? sMatch.group(2) ?? '1') ?? 1;
       final part = hasPart2 ? 'Part 1' : '';
       final label = part.isNotEmpty ? 'Season $sNum $part' : 'Season $sNum';
-      return (
-        chipLabel: label,
-        orderLabel: label,
-        seasonNumber: sNum,
-      );
+      return (chipLabel: label, orderLabel: label, seasonNumber: sNum);
     }
 
     // Named Arcs (Demon Slayer, etc.)
@@ -595,11 +636,7 @@ query (\$id: Int) {
     ).firstMatch(clean);
     if (arcMatch != null) {
       final name = '${arcMatch.group(1)} Arc';
-      return (
-        chipLabel: name,
-        orderLabel: name,
-        seasonNumber: tvIndex,
-      );
+      return (chipLabel: name, orderLabel: name, seasonNumber: tvIndex);
     }
 
     // Fallback to Season index for TV
@@ -620,37 +657,29 @@ query (\$id: Int) {
     }
 
     if (format == 'MOVIE') {
-      final label = (subtitle != null && subtitle.length > 2 && subtitle.length < 32)
-          ? subtitle
-          : 'Movie';
-      return (
-        chipLabel: label,
-        orderLabel: label,
-        seasonNumber: null,
-      );
+      final label =
+          (subtitle != null && subtitle.length > 2 && subtitle.length < 32)
+              ? subtitle
+              : 'Movie';
+      return (chipLabel: label, orderLabel: label, seasonNumber: null);
     }
 
     if (format == 'SPECIAL' || format == 'OVA' || format == 'ONA') {
       final prefix = format == 'SPECIAL' ? 'Special' : format;
-      final label = (subtitle != null && subtitle.length > 2 && subtitle.length < 32)
-          ? '$prefix: $subtitle'
-          : prefix;
-      return (
-        chipLabel: label,
-        orderLabel: label,
-        seasonNumber: null,
-      );
+      final label =
+          (subtitle != null && subtitle.length > 2 && subtitle.length < 32)
+              ? '$prefix: $subtitle'
+              : prefix;
+      return (chipLabel: label, orderLabel: label, seasonNumber: null);
     }
 
-    return (
-      chipLabel: format,
-      orderLabel: format,
-      seasonNumber: null,
-    );
+    return (chipLabel: format, orderLabel: format, seasonNumber: null);
   }
 
   bool _matchesSeasonNum(UniversalMedia m, int targetSeasonNum) {
-    final t = (m.title.english ?? m.title.romaji ?? m.title.userPreferred).toLowerCase();
+    final t =
+        (m.title.english ?? m.title.romaji ?? m.title.userPreferred)
+            .toLowerCase();
     if (t.contains('season $targetSeasonNum') ||
         t.contains('${targetSeasonNum}nd season') ||
         t.contains('${targetSeasonNum}rd season') ||
@@ -665,7 +694,8 @@ query (\$id: Int) {
     UniversalMedia movie,
     List<UniversalMedia> mainChain,
   ) {
-    final title = (movie.title.english ?? movie.title.userPreferred).toLowerCase();
+    final title =
+        (movie.title.english ?? movie.title.userPreferred).toLowerCase();
     if (title.contains('recap') || title.contains('summary')) {
       return null;
     }
@@ -673,29 +703,34 @@ query (\$id: Int) {
     // 1. Specific known placements
     // My Hero Academia
     if (title.contains('two heroes')) {
-      final s = mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 2)) ??
+      final s =
+          mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 2)) ??
           mainChain.elementAtOrNull(1);
       return (note: 'Movie • Watch after Season 2', insertAfterId: s?.id);
     }
     if (title.contains('heroes rising') || title.contains('heroes: rising')) {
-      final s = mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 4)) ??
+      final s =
+          mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 4)) ??
           mainChain.elementAtOrNull(3);
       return (note: 'Movie • Watch after Season 4', insertAfterId: s?.id);
     }
     if (title.contains('world heroes')) {
-      final s = mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 5)) ??
+      final s =
+          mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 5)) ??
           mainChain.elementAtOrNull(4);
       return (note: 'Movie • Watch after Season 5', insertAfterId: s?.id);
     }
     if (title.contains("you're next") || title.contains("you are next")) {
-      final s = mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 7)) ??
+      final s =
+          mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 7)) ??
           mainChain.elementAtOrNull(6);
       return (note: 'Movie • Watch after Season 7', insertAfterId: s?.id);
     }
 
     // Demon Slayer
     if (title.contains('mugen train') || title.contains('mugen ressha')) {
-      final s = mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 1)) ??
+      final s =
+          mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 1)) ??
           mainChain.firstOrNull;
       return (
         note: 'Movie • Watch after Season 1 (Canon Bridge)',
@@ -704,8 +739,10 @@ query (\$id: Int) {
     }
 
     // Jujutsu Kaisen 0
-    if (title.contains('jujutsu kaisen 0') || (title.contains('jujutsu kaisen') && title.contains(' 0'))) {
-      final s = mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 1)) ??
+    if (title.contains('jujutsu kaisen 0') ||
+        (title.contains('jujutsu kaisen') && title.contains(' 0'))) {
+      final s =
+          mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 1)) ??
           mainChain.firstOrNull;
       return (
         note: 'Prequel Movie • Watch after Season 1 (or before)',
@@ -714,8 +751,10 @@ query (\$id: Int) {
     }
 
     // Konosuba
-    if (title.contains('legend of crimson') || title.contains('kurenai densetsu')) {
-      final s = mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 2)) ??
+    if (title.contains('legend of crimson') ||
+        title.contains('kurenai densetsu')) {
+      final s =
+          mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 2)) ??
           mainChain.elementAtOrNull(1);
       return (
         note: 'Movie • Watch after Season 2 (Canon Bridge)',
@@ -724,8 +763,10 @@ query (\$id: Int) {
     }
 
     // Made in Abyss
-    if (title.contains('dawn of the deep soul') || title.contains('fukaki tamashii')) {
-      final s = mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 1)) ??
+    if (title.contains('dawn of the deep soul') ||
+        title.contains('fukaki tamashii')) {
+      final s =
+          mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 1)) ??
           mainChain.firstOrNull;
       return (
         note: 'Movie • Watch after Season 1 (Canon Bridge)',
@@ -735,14 +776,16 @@ query (\$id: Int) {
 
     // Rascal Does Not Dream
     if (title.contains('dreaming girl')) {
-      final s = mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 1)) ??
+      final s =
+          mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 1)) ??
           mainChain.firstOrNull;
       return (note: 'Movie • Watch after Season 1', insertAfterId: s?.id);
     }
 
     // Haikyu!!
     if (title.contains('dumpster battle') || title.contains('gomi suteba')) {
-      final s = mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 4)) ??
+      final s =
+          mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 4)) ??
           mainChain.elementAtOrNull(3);
       return (note: 'Movie • Watch after Season 4', insertAfterId: s?.id);
     }
@@ -771,24 +814,40 @@ query (\$id: Int) {
 
     // One Piece
     if (title.contains('strong world')) {
-      return (note: 'Film 10 • Watch after Episode 429', insertAfterId: mainChain.lastOrNull?.id);
+      return (
+        note: 'Film 10 • Watch after Episode 429',
+        insertAfterId: mainChain.lastOrNull?.id,
+      );
     }
     if (title.contains('film z')) {
-      return (note: 'Film 12 • Watch after Episode 578', insertAfterId: mainChain.lastOrNull?.id);
+      return (
+        note: 'Film 12 • Watch after Episode 578',
+        insertAfterId: mainChain.lastOrNull?.id,
+      );
     }
     if (title.contains('film gold')) {
-      return (note: 'Film 13 • Watch after Episode 750', insertAfterId: mainChain.lastOrNull?.id);
+      return (
+        note: 'Film 13 • Watch after Episode 750',
+        insertAfterId: mainChain.lastOrNull?.id,
+      );
     }
     if (title.contains('stampede')) {
-      return (note: 'Film 14 • Watch after Episode 896', insertAfterId: mainChain.lastOrNull?.id);
+      return (
+        note: 'Film 14 • Watch after Episode 896',
+        insertAfterId: mainChain.lastOrNull?.id,
+      );
     }
     if (title.contains('film red')) {
-      return (note: 'Film 15 • Watch after Episode 1030', insertAfterId: mainChain.lastOrNull?.id);
+      return (
+        note: 'Film 15 • Watch after Episode 1030',
+        insertAfterId: mainChain.lastOrNull?.id,
+      );
     }
 
     // Spy x Family
     if (title.contains('code: white')) {
-      final s = mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 1)) ??
+      final s =
+          mainChain.firstWhereOrNull((m) => _matchesSeasonNum(m, 1)) ??
           mainChain.firstOrNull;
       return (note: 'Movie • Watch after Season 1', insertAfterId: s?.id);
     }
@@ -805,10 +864,13 @@ query (\$id: Int) {
       }
       if (bestTvPredecessor != null) {
         final tvTitle =
-            bestTvPredecessor.title.english ?? bestTvPredecessor.title.userPreferred;
+            bestTvPredecessor.title.english ??
+            bestTvPredecessor.title.userPreferred;
         final shortTv =
-            RegExp(r'(?:Season\s*\d+|Final Season|\bPart\s*\d+)').firstMatch(tvTitle)?.group(0) ??
-                'TV Series';
+            RegExp(
+              r'(?:Season\s*\d+|Final Season|\bPart\s*\d+)',
+            ).firstMatch(tvTitle)?.group(0) ??
+            'TV Series';
         return (
           note: 'Movie • Watch after $shortTv',
           insertAfterId: bestTvPredecessor.id,
@@ -823,44 +885,47 @@ query (\$id: Int) {
     FranchiseWatchOrder original,
     String currentId,
   ) {
-    final updatedMain = original.mainStory.map((item) {
-      return FranchiseWatchOrderItem(
-        media: item.media,
-        relationType: item.relationType,
-        isCurrent: item.id == currentId,
-        chipLabel: item.chipLabel,
-        orderLabel: item.orderLabel,
-        seasonNumber: item.seasonNumber,
-        placementNote: item.placementNote,
-        isMainStory: true,
-      );
-    }).toList();
+    final updatedMain =
+        original.mainStory.map((item) {
+          return FranchiseWatchOrderItem(
+            media: item.media,
+            relationType: item.relationType,
+            isCurrent: item.id == currentId,
+            chipLabel: item.chipLabel,
+            orderLabel: item.orderLabel,
+            seasonNumber: item.seasonNumber,
+            placementNote: item.placementNote,
+            isMainStory: true,
+          );
+        }).toList();
 
-    final updatedExtras = original.optionalExtras.map((item) {
-      return FranchiseWatchOrderItem(
-        media: item.media,
-        relationType: item.relationType,
-        isCurrent: item.id == currentId,
-        chipLabel: item.chipLabel,
-        orderLabel: item.orderLabel,
-        seasonNumber: item.seasonNumber,
-        placementNote: item.placementNote,
-        isMainStory: false,
-      );
-    }).toList();
+    final updatedExtras =
+        original.optionalExtras.map((item) {
+          return FranchiseWatchOrderItem(
+            media: item.media,
+            relationType: item.relationType,
+            isCurrent: item.id == currentId,
+            chipLabel: item.chipLabel,
+            orderLabel: item.orderLabel,
+            seasonNumber: item.seasonNumber,
+            placementNote: item.placementNote,
+            isMainStory: false,
+          );
+        }).toList();
 
-    final updatedTv = original.tvSeasons.map((item) {
-      return FranchiseWatchOrderItem(
-        media: item.media,
-        relationType: item.relationType,
-        isCurrent: item.id == currentId,
-        chipLabel: item.chipLabel,
-        orderLabel: item.orderLabel,
-        seasonNumber: item.seasonNumber,
-        placementNote: item.placementNote,
-        isMainStory: item.isMainStory,
-      );
-    }).toList();
+    final updatedTv =
+        original.tvSeasons.map((item) {
+          return FranchiseWatchOrderItem(
+            media: item.media,
+            relationType: item.relationType,
+            isCurrent: item.id == currentId,
+            chipLabel: item.chipLabel,
+            orderLabel: item.orderLabel,
+            seasonNumber: item.seasonNumber,
+            placementNote: item.placementNote,
+            isMainStory: item.isMainStory,
+          );
+        }).toList();
 
     return FranchiseWatchOrder(
       mainStory: updatedMain,
@@ -872,18 +937,20 @@ query (\$id: Int) {
 
   Future<UniversalMedia?> _fetchMediaWithRelations(String mediaId) async {
     try {
-      final res = await http.post(
-        Uri.parse(_graphQlUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'AniDash',
-        },
-        body: jsonEncode({
-          'query': _franchiseNodeQuery,
-          'variables': {'id': int.tryParse(mediaId)},
-        }),
-      ).timeout(const Duration(seconds: 6));
+      final res = await http
+          .post(
+            Uri.parse(_graphQlUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'User-Agent': 'AniDash',
+            },
+            body: jsonEncode({
+              'query': _franchiseNodeQuery,
+              'variables': {'id': int.tryParse(mediaId)},
+            }),
+          )
+          .timeout(const Duration(seconds: 6));
 
       if (res.statusCode != 200 || res.body.isEmpty) return null;
 
@@ -899,12 +966,7 @@ query (\$id: Int) {
   }
 
   bool _isIgnoredFormat(String format) {
-    const ignored = {
-      'MANGA',
-      'NOVEL',
-      'ONE_SHOT',
-      'MUSIC',
-    };
+    const ignored = {'MANGA', 'NOVEL', 'ONE_SHOT', 'MUSIC'};
     return ignored.contains(format);
   }
 
@@ -917,56 +979,89 @@ query (\$id: Int) {
       'OTHER',
       'SPIN_OFF',
     };
-    const validFormats = {
-      'TV',
-      'TV_SHORT',
-      'MOVIE',
-      'OVA',
-      'ONA',
-      'SPECIAL',
-    };
+    const validFormats = {'TV', 'TV_SHORT', 'MOVIE', 'OVA', 'ONA', 'SPECIAL'};
     return validRelations.contains(relationType) &&
         validFormats.contains(format);
   }
 
   bool _hasSignificantTitleOverlap(UniversalMedia base, UniversalMedia rel) {
-    final baseTitles = [
-      base.title.english,
-      base.title.romaji,
-      base.title.userPreferred,
-    ].whereType<String>().map((s) => s.toLowerCase()).toList();
+    final baseTitles =
+        [
+          base.title.english,
+          base.title.romaji,
+          base.title.userPreferred,
+        ].whereType<String>().map((s) => s.toLowerCase()).toList();
 
-    final relTitles = [
-      rel.title.english,
-      rel.title.romaji,
-      rel.title.userPreferred,
-    ].whereType<String>().map((s) => s.toLowerCase()).toList();
+    final relTitles =
+        [
+          rel.title.english,
+          rel.title.romaji,
+          rel.title.userPreferred,
+        ].whereType<String>().map((s) => s.toLowerCase()).toList();
 
     if (baseTitles.isEmpty || relTitles.isEmpty) return true;
 
     const stopWords = {
-      'the', 'a', 'an', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for',
-      'with', 'no', 'ni', 'wa', 'wo', 'ga', 'de', 'na', 'season', 'part',
-      'movie', 'tv', 'ova', 'ona', 'special', 'act', 'chapter', 'arc', 'final',
+      'the',
+      'a',
+      'an',
+      'and',
+      'or',
+      'of',
+      'in',
+      'on',
+      'at',
+      'to',
+      'for',
+      'with',
+      'no',
+      'ni',
+      'wa',
+      'wo',
+      'ga',
+      'de',
+      'na',
+      'season',
+      'part',
+      'movie',
+      'tv',
+      'ova',
+      'ona',
+      'special',
+      'act',
+      'chapter',
+      'arc',
+      'final',
     };
 
-    final baseTokens = baseTitles
-        .expand((t) => t.replaceAll(RegExp(r'[^\w\s]'), ' ').split(RegExp(r'\s+')))
-        .where((w) => w.length >= 2 && !stopWords.contains(w))
-        .toSet();
+    final baseTokens =
+        baseTitles
+            .expand(
+              (t) =>
+                  t.replaceAll(RegExp(r'[^\w\s]'), ' ').split(RegExp(r'\s+')),
+            )
+            .where((w) => w.length >= 2 && !stopWords.contains(w))
+            .toSet();
 
     if (baseTokens.isEmpty) return true;
 
-    final relTokens = relTitles
-        .expand((t) => t.replaceAll(RegExp(r'[^\w\s]'), ' ').split(RegExp(r'\s+')))
-        .where((w) => w.length >= 2 && !stopWords.contains(w))
-        .toSet();
+    final relTokens =
+        relTitles
+            .expand(
+              (t) =>
+                  t.replaceAll(RegExp(r'[^\w\s]'), ' ').split(RegExp(r'\s+')),
+            )
+            .where((w) => w.length >= 2 && !stopWords.contains(w))
+            .toSet();
 
     return baseTokens.intersection(relTokens).isNotEmpty;
   }
 }
 
 final franchiseWatchOrderProvider =
-    FutureProvider.family<FranchiseWatchOrder, UniversalMedia>((ref, anime) async {
-  return FranchiseService().getFranchiseWatchOrder(anime);
-});
+    FutureProvider.family<FranchiseWatchOrder, UniversalMedia>((
+      ref,
+      anime,
+    ) async {
+      return FranchiseService().getFranchiseWatchOrder(anime);
+    });

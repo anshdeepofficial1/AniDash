@@ -20,6 +20,8 @@ import 'package:ani_dash/shared/providers/permissions_provider.dart';
 import 'package:ani_dash/shared/providers/settings/theme_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/ui_notifier.dart';
 import 'package:ani_dash/shared/providers/update_provider.dart';
+import 'package:ani_dash/features/ai/view/widgets/assistant_avatar.dart';
+import 'package:ani_dash/features/ai/view/widgets/anidash_ai_emblem.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -52,7 +54,7 @@ class _OnboardingBenefit extends StatelessWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  final int _totalPages = Platform.isAndroid ? 9 : 8;
+  final int _totalPages = Platform.isAndroid ? 10 : 9;
 
   @override
   void dispose() {
@@ -131,6 +133,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   _buildCardModeStep(context, ref),
                   _buildSpotlightModeStep(context, ref),
                   _buildHomeLayoutStep(context, ref),
+                  _buildAiTeamStep(context),
                   if (Platform.isAndroid) _buildPermissionsStep(context, ref),
                   _buildUpdatesStep(context, ref),
                 ],
@@ -205,6 +208,101 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             style: theme.textTheme.bodyLarge?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               fontSize: 18,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiTeamStep(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    const team = [
+      ('coordinator', 'Mira', 'Plans and coordinates'),
+      ('anime_text', 'Nia', 'Anime and watch-order expert'),
+      ('vision', 'Aira', 'Understands screenshots'),
+      ('action', 'Kiro', 'Handles approved actions'),
+    ];
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(
+            context,
+            'Meet your\nAI team',
+            'Four specialists work together so you can ask naturally from anywhere in AniDash.',
+          ),
+          Center(
+            child: Container(
+              width: 112,
+              height: 112,
+              margin: const EdgeInsets.only(bottom: 22),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: scheme.primaryContainer.withValues(alpha: .34),
+                border: Border.all(
+                  color: scheme.primary.withValues(alpha: .22),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.primary.withValues(alpha: .18),
+                    blurRadius: 28,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: const Center(child: AniDashAiEmblem(size: 72)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: team.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisExtent: 132,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemBuilder: (context, index) {
+                final member = team[index];
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: scheme.outlineVariant.withValues(alpha: .45),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AssistantAvatar(assistantId: member.$1, size: 48),
+                      const Spacer(),
+                      Text(
+                        member.$2,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        member.$3,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(32, 18, 32, 8),
+            child: Text(
+              'Ask from Home, Search, anime details, Episodes or Downloads. The right specialist joins automatically.',
+              textAlign: TextAlign.center,
             ),
           ),
         ],

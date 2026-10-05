@@ -18,6 +18,9 @@ import 'package:ani_dash/features/browse/view/section_screen.dart';
 import 'package:ani_dash/main.dart';
 import 'package:ani_dash/core/jikan/jikan_service.dart';
 import 'package:ani_dash/shared/ui/cards/anime/anime_card_components.dart';
+import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
+import 'package:ani_dash/shared/ui/adaptive_media_skeleton.dart';
+import 'package:ani_dash/shared/ui/voice_text_button.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
   final String? keyword;
@@ -59,6 +62,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   var _isSearchFocused = false;
   var _isExploreLoading = true;
   var _isSearchSubmitted = false;
+  String? _fuzzySuggestion;
   int _searchGeneration = 0;
 
   @override
@@ -178,21 +182,51 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     setState(() => _isLoading = true);
 
     try {
-      final results = await _repo.searchAnime(
-        keyword,
+      var searchWord = keyword;
+      var results = await _repo.searchAnime(
+        searchWord,
         page: page,
         perPage: 20,
         filter: _currentFilter,
       );
 
-      final effectiveResults = List<UniversalMedia>.from(
+      var effectiveResults = List<UniversalMedia>.from(
         page == 1 && results.isEmpty
-            ? await JikanService().searchUniversal(keyword)
+            ? await JikanService().searchUniversal(searchWord)
             : results,
       );
 
+      // Typo-tolerant / Fuzzy fallback: If 0 results found on page 1, try fuzzy correction
+      if (page == 1 && effectiveResults.isEmpty && searchWord.trim().isNotEmpty) {
+        final fuzzyCorrection = _findFuzzyCorrection(searchWord);
+        if (fuzzyCorrection != null &&
+            fuzzyCorrection.toLowerCase() != searchWord.trim().toLowerCase()) {
+          AppLogger.d("Fuzzy search correcting '$searchWord' -> '$fuzzyCorrection'");
+          final fuzzyRes = await _repo.searchAnime(
+            fuzzyCorrection,
+            page: 1,
+            perPage: 20,
+            filter: _currentFilter,
+          );
+          if (fuzzyRes.isNotEmpty) {
+            effectiveResults = List<UniversalMedia>.from(fuzzyRes);
+            if (mounted && generation == _searchGeneration) {
+              setState(() => _fuzzySuggestion = fuzzyCorrection);
+            }
+          } else {
+            final jikanFuzzy = await JikanService().searchUniversal(fuzzyCorrection);
+            if (jikanFuzzy.isNotEmpty) {
+              effectiveResults = List<UniversalMedia>.from(jikanFuzzy);
+              if (mounted && generation == _searchGeneration) {
+                setState(() => _fuzzySuggestion = fuzzyCorrection);
+              }
+            }
+          }
+        }
+      }
+
       if (page == 1) {
-        _sortSearchResults(effectiveResults, keyword);
+        _sortSearchResults(effectiveResults, searchWord);
       }
 
       if (mounted && generation == _searchGeneration) {
@@ -223,6 +257,113 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       }
     }
     return false;
+  }
+
+  String? _findFuzzyCorrection(String query) {
+    final cleanQuery = query.trim().toLowerCase();
+    if (cleanQuery.isEmpty) return null;
+
+    // Check pre-populated popular titles
+    final candidateTitles = <String>{
+      ..._trending.map((a) => a.title.userPreferred),
+      ..._popular.map((a) => a.title.userPreferred),
+      ..._upcoming.map((a) => a.title.userPreferred),
+      ..._searchHistory,
+      ..._remoteSuggestions,
+      // Well-known popular anime to handle common user typos
+      'One Piece',
+      'Naruto',
+      'Naruto Shippuden',
+      'Bleach',
+      'Demon Slayer: Kimetsu no Yaiba',
+      'Jujutsu Kaisen',
+      'Attack on Titan',
+      'Solo Leveling',
+      'Lord of the Mysteries',
+      'Dragon Ball',
+      'Dragon Ball Z',
+      'Dragon Ball Super',
+      'Death Note',
+      'Fullmetal Alchemist: Brotherhood',
+      'Hunter x Hunter',
+      'My Hero Academia',
+      'Black Clover',
+      'Chainsaw Man',
+      'Tokyo Ghoul',
+      'Sword Art Online',
+      'Frieren: Beyond Journey\'s End',
+      'Vinland Saga',
+      'Spy x Family',
+      'Mob Psycho 100',
+      'Bungo Stray Dogs',
+      'Re:Zero - Starting Life in Another World',
+      'Steins;Gate',
+      'Cowboy Bebop',
+      'Code Geass',
+      'Haikyu!!',
+      'Blue Lock',
+      'Dr. Stone',
+      'Fire Force',
+      'Wind Breaker',
+      'Kaiju No. 8',
+      'Mashle: Magic and Muscles',
+      'Mushoku Tensei: Jobless Reincarnation',
+      'That Time I Got Reincarnated as a Slime',
+      'Overlord',
+      'Classroom of the Elite',
+      'Oshi no Ko',
+      'Baki',
+      'Kengan Ashura',
+      'JoJo\'s Bizarre Adventure',
+    };
+
+    String? bestTitle;
+    double highestScore = 0.0;
+
+    for (final title in candidateTitles) {
+      if (title.isEmpty) continue;
+      final t = title.toLowerCase();
+      // If query is close substring or vice-versa
+      if (t.contains(cleanQuery) || cleanQuery.contains(t)) {
+        return title;
+      }
+      final sim = _levenshteinSimilarity(cleanQuery, t);
+      if (sim > highestScore && sim >= 0.45) {
+        highestScore = sim;
+        bestTitle = title;
+      }
+    }
+
+    return bestTitle;
+  }
+
+  double _levenshteinSimilarity(String s, String t) {
+    if (s == t) return 1.0;
+    if (s.isEmpty || t.isEmpty) return 0.0;
+    final d = _levenshteinDistance(s, t);
+    final maxLen = s.length > t.length ? s.length : t.length;
+    return 1.0 - (d / maxLen);
+  }
+
+  int _levenshteinDistance(String s, String t) {
+    if (s == t) return 0;
+    if (s.isEmpty) return t.length;
+    if (t.isEmpty) return s.length;
+
+    var v0 = List<int>.generate(t.length + 1, (i) => i);
+    var v1 = List<int>.filled(t.length + 1, 0);
+
+    for (var i = 0; i < s.length; i++) {
+      v1[0] = i + 1;
+      for (var j = 0; j < t.length; j++) {
+        final cost = s[i] == t[j] ? 0 : 1;
+        v1[j + 1] = [v1[j] + 1, v0[j + 1] + 1, v0[j] + cost].reduce((a, b) => a < b ? a : b);
+      }
+      final temp = v0;
+      v0 = v1;
+      v1 = temp;
+    }
+    return v0[t.length];
   }
 
   void _sortSearchResults(List<UniversalMedia> results, String keyword) {
@@ -445,7 +586,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                             onRetry: _fetchExploreData,
                           )
                           : _results.isEmpty && !_isLoading
-                          ? _EmptyState()
+                          ? _EmptyState(fuzzySuggestion: _fuzzySuggestion)
                           : _results.isEmpty && _isLoading
                           ? const _BrowseLoadingSkeleton()
                           : _ResultsGrid(
@@ -454,6 +595,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                             columnCount: _getColumnCount(),
                             isLoading: _isLoading,
                             animation: _animationController,
+                            fuzzySuggestion: _fuzzySuggestion,
+                            onApplySuggestion: (suggested) {
+                              _searchController.text = suggested;
+                              _submitSearch();
+                            },
                           ),
                 ),
                 if (_isSearchFocused && _suggestions.isNotEmpty)
@@ -572,11 +718,17 @@ class _Header extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Discover Anime',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Discover Anime',
+                          style: Theme.of(context).textTheme.headlineLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const AskNiaButton(compact: true),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -672,6 +824,11 @@ class _SearchBar extends StatelessWidget {
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                VoiceTextButton(
+                  controller: controller,
+                  onChanged: onSearchChanged,
+                  tooltip: 'Speak an anime name',
+                ),
                 if (controller.text.isNotEmpty)
                   IconButton(
                     icon: const Icon(Icons.clear),
@@ -713,6 +870,8 @@ class _ResultsGrid extends ConsumerWidget {
   final int columnCount;
   final bool isLoading;
   final AnimationController animation;
+  final String? fuzzySuggestion;
+  final ValueChanged<String>? onApplySuggestion;
 
   const _ResultsGrid({
     required this.results,
@@ -720,6 +879,8 @@ class _ResultsGrid extends ConsumerWidget {
     required this.columnCount,
     required this.isLoading,
     required this.animation,
+    this.fuzzySuggestion,
+    this.onApplySuggestion,
   });
 
   @override
@@ -731,19 +892,58 @@ class _ResultsGrid extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(10, 0, 10, 16),
-          child: AnimatedBuilder(
-            animation: animation,
-            builder: (context, child) {
-              return Opacity(
-                opacity: animation.value,
-                child: Text(
-                  '${results.length} Results',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AnimatedBuilder(
+                animation: animation,
+                builder: (context, child) {
+                  return Opacity(
+                    opacity: animation.value,
+                    child: Text(
+                      '${results.length} Results',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  );
+                },
+              ),
+              if (fuzzySuggestion != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.auto_fix_high_rounded,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Showing results for: ',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        fuzzySuggestion!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            },
+              ],
+            ],
           ),
         ),
         Expanded(
@@ -791,6 +991,10 @@ class _ResultsGrid extends ConsumerWidget {
 }
 
 class _EmptyState extends StatelessWidget {
+  final String? fuzzySuggestion;
+
+  const _EmptyState({this.fuzzySuggestion});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -837,29 +1041,22 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _BrowseLoadingSkeleton extends StatelessWidget {
+class _BrowseLoadingSkeleton extends ConsumerWidget {
   const _BrowseLoadingSkeleton();
 
   @override
-  Widget build(BuildContext context) {
-    final placeholder = Theme.of(context).colorScheme.surfaceContainerHighest;
-    return GridView.builder(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(uiSettingsProvider).cardStyle;
+    final size = mode.getDimensions(context);
+    return AniDashGridView(
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 100),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.68,
-      ),
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      crossAxisExtent: size.width,
+      childAspectRatio: size.width / size.height,
       itemCount: 8,
-      itemBuilder:
-          (_, _) => Container(
-            decoration: BoxDecoration(
-              color: placeholder,
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
+      itemBuilder: (_, index) => AdaptiveMediaSkeleton(size: size),
     );
   }
 }

@@ -85,3 +85,6 @@ repomix-output.xml
 
 # Codex temporary attachments
 .codex-remote-attachments/
+
+.vercel
+.env*

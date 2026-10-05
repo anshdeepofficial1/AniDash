@@ -236,6 +236,7 @@ class AniSkipNotifier extends _$AniSkipNotifier {
           skipType: SkipType.op,
           action: 'skip',
           episodeLength: 0,
+          skipId: 'source-intro',
         ),
       );
     }
@@ -252,6 +253,7 @@ class AniSkipNotifier extends _$AniSkipNotifier {
           skipType: SkipType.ed,
           action: 'skip',
           episodeLength: 0,
+          skipId: 'source-outro',
         ),
       );
     }

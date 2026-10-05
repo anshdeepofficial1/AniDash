@@ -14,6 +14,7 @@ import 'package:ani_dash/core/utils/greeting_methods.dart';
 import 'package:ani_dash/features/manga/utils/manga_helpers.dart';
 import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
+import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
 import 'manga_details_screen.dart';
 import 'manga_reader_screen.dart';
 import 'manga_section_screen.dart';
@@ -532,6 +533,9 @@ class _MangaScreenState extends ConsumerState<MangaScreen> {
                   ],
                 ),
               ),
+
+              const AskNiaButton(compact: true),
+              const SizedBox(width: 8),
 
               // Action 2: Toggle Search
               Material(
@@ -1628,7 +1632,7 @@ class _MangaScreenState extends ConsumerState<MangaScreen> {
                   hasSearchQuery
                       ? _buildSearchResultsGrid(colorScheme)
                       : _isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const _MangaHomeSkeleton()
                       : _error != null
                       ? Center(
                         child: Padding(
@@ -1711,6 +1715,75 @@ class _MangaScreenState extends ConsumerState<MangaScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MangaHomeSkeleton extends StatelessWidget {
+  const _MangaHomeSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(
+      context,
+    ).colorScheme.surfaceContainerHighest.withValues(alpha: .65);
+    Widget block({double? width, required double height, double radius = 12}) =>
+        Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(radius),
+          ),
+        );
+
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 100),
+      children: [
+        block(height: 205, radius: 20),
+        const SizedBox(height: 24),
+        block(width: 150, height: 20),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 190,
+          child: Row(
+            children: List.generate(
+              3,
+              (index) => Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: index == 2 ? 0 : 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: block(height: 150)),
+                      const SizedBox(height: 8),
+                      block(height: 10),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        block(width: 130, height: 20),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 190,
+          child: Row(
+            children: List.generate(
+              3,
+              (index) => Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: index == 2 ? 0 : 10),
+                  child: block(height: 190),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

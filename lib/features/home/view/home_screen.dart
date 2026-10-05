@@ -25,6 +25,9 @@ import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
 import 'package:ani_dash/shared/providers/continue_watching_dismissed_provider.dart';
 import 'package:ani_dash/shared/providers/settings/notification_settings_notifier.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ani_dash/shared/providers/settings/ui_notifier.dart';
+import 'package:ani_dash/shared/ui/adaptive_media_skeleton.dart';
+import 'package:ani_dash/features/ai/view/widgets/anidash_ai_emblem.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -46,6 +49,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _setAppOpenStatus(true);
     _setupAuthListener();
     _setupNewsListener();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showWhatsNew());
     Future.microtask(() {
       if (!mounted) return;
       final auth = ref.read(authProvider);
@@ -53,6 +57,88 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         _syncAccountWatchProgress();
       }
     });
+  }
+
+  Future<void> _showWhatsNew() async {
+    const version = '1.18.1';
+    if (!mounted || sharedPrefs.getString('whats_new_seen') == version) return;
+    await sharedPrefs.setString('whats_new_seen', version);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            icon: Container(
+              width: 84,
+              height: 84,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Theme.of(
+                      dialogContext,
+                    ).colorScheme.primary.withValues(alpha: 0.22),
+                    Theme.of(
+                      dialogContext,
+                    ).colorScheme.tertiary.withValues(alpha: 0.08),
+                  ],
+                ),
+                border: Border.all(
+                  color: Theme.of(
+                    dialogContext,
+                  ).colorScheme.primary.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: const AniDashAiEmblem(size: 44),
+            ),
+            title: const Text(
+              "Introducing AniDash AI ✨",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Meet AniDash AI (AnyCore)',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Your smart companion for anime insights, characters, episode summaries, watch order, and personal recommendations.',
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Supercharged Playback & Matching',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Instant stream discovery with direct manual fallback, reliable Continue Watching titles, and auto-scrolling episode panel.',
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Try Later'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  if (mounted) context.push('/ai');
+                },
+                child: const Text('Explore'),
+              ),
+            ],
+          ),
+    );
   }
 
   void _setupAuthListener() {
@@ -336,21 +422,26 @@ class _HomeLoadingSkeleton extends StatelessWidget {
   }
 }
 
-class _SkeletonCardRow extends StatelessWidget {
+class _SkeletonCardRow extends ConsumerWidget {
   const _SkeletonCardRow();
 
   @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 205,
-      child: Row(
-        children: [
-          Expanded(child: _SkeletonBox(height: 205, radius: 14)),
-          SizedBox(width: 12),
-          Expanded(child: _SkeletonBox(height: 205, radius: 14)),
-          SizedBox(width: 12),
-          Expanded(child: _SkeletonBox(height: 205, radius: 14)),
-        ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(uiSettingsProvider).cardStyle;
+    final size = mode.getDimensions(context);
+    return SizedBox(
+      height: size.height,
+      child: ListView.separated(
+        physics: const NeverScrollableScrollPhysics(),
+        scrollDirection: Axis.horizontal,
+        itemCount: (MediaQuery.sizeOf(context).width / size.width).ceil() + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder:
+            (_, index) => SizedBox(
+              width: size.width,
+              height: size.height,
+              child: AdaptiveMediaSkeleton(size: size),
+            ),
       ),
     );
   }

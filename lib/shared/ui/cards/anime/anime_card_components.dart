@@ -6,27 +6,61 @@ import 'package:ani_dash/core/models/universal/universal_media.dart';
 String? animeSeasonBadge(UniversalMedia anime) {
   final format = anime.format?.toUpperCase() ?? '';
   if (format == 'MOVIE') return 'M';
-  if (const {'OVA', 'ONA', 'SPECIAL', 'MUSIC'}.contains(format)) {
-    return null;
-  }
+  if (format == 'MUSIC') return null;
 
   final titles = [
     anime.title.english,
     anime.title.romaji,
+    anime.title.native,
     ...anime.synonyms,
   ].whereType<String>().join(' ');
+
+  final lowerTitles = titles.toLowerCase();
+  if (format == 'OVA') return 'OVA';
+  if (format == 'SPECIAL' ||
+      lowerTitles.contains('special') ||
+      lowerTitles.contains('chibi')) {
+    return 'SP';
+  }
+
   final seasonMatch = RegExp(
-    r'(?:season|series)\s*(\d+)|\b(\d+)(?:st|nd|rd|th)\s+season\b',
+    r'(?:season|series)\s*(\d+)|\b(\d+)(?:st|nd|rd|th)\s+season\b|第\s*(\d+)\s*季',
     caseSensitive: false,
   ).firstMatch(titles);
+
   final partMatch = RegExp(
     r'(?:part|cour)\s*(\d+)',
     caseSensitive: false,
   ).firstMatch(titles);
-  final season =
-      int.tryParse(seasonMatch?.group(1) ?? seasonMatch?.group(2) ?? '') ?? 1;
-  final part = int.tryParse(partMatch?.group(1) ?? '');
-  return part != null && part > 1 ? 'S$season-$part' : 'S$season';
+
+  if (seasonMatch != null) {
+    final sNum =
+        int.tryParse(
+          seasonMatch.group(1) ??
+              seasonMatch.group(2) ??
+              seasonMatch.group(3) ??
+              '',
+        ) ??
+        1;
+    final pNum = int.tryParse(partMatch?.group(1) ?? '');
+    return pNum != null && pNum > 1 ? 'S$sNum-$pNum' : 'S$sNum';
+  }
+
+  if (partMatch != null) {
+    final pNum = int.tryParse(partMatch.group(1) ?? '');
+    if (pNum != null && pNum > 1) {
+      return 'S1-$pNum';
+    }
+  }
+
+  if (RegExp(
+    r'\bii\b|season\s*2|2nd\s*season|wu\s*mian\s*ren',
+    caseSensitive: false,
+  ).hasMatch(titles)) {
+    return 'S2';
+  }
+
+  return 'S1';
 }
 
 int animeSeasonSortKey(UniversalMedia anime) {

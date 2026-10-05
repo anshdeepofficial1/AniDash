@@ -88,6 +88,13 @@ class SettingsSearchDelegate extends SearchDelegate<void> {
       Iconsax.notification,
     ),
     _SettingsSearchEntry(
+      'AnyCore',
+      'Content & Playback',
+      'Ask Nia AI team assistant rename custom instructions privacy personalization',
+      '/settings/ai',
+      Icons.auto_awesome_rounded,
+    ),
+    _SettingsSearchEntry(
       'Theme Settings',
       'Appearance',
       'dark light system theme accent color adaptive app logo',

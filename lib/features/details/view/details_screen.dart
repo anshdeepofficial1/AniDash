@@ -102,6 +102,10 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
       body: SafeArea(
         bottom: false,
         child: NestedScrollView(
+          // Give downward drags to the floating cover header before the
+          // active tab consumes them. This lets every tab reveal the cover
+          // again without first switching back to About.
+          floatHeaderSlivers: true,
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
               DetailsHeader(

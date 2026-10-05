@@ -125,19 +125,32 @@ class ContinueSection extends ConsumerWidget {
                   activeEpisodeList.animeTitle == entry.animeTitle;
               if (listMatchesEntry) {
                 for (final episode in activeEpisodeList.episodes) {
-                  if (episode.number == nextEpisodeNum &&
-                      episode.thumbnail?.isNotEmpty == true) {
-                    listThumbnail = episode.thumbnail;
-                    listEpisodeTitle = episode.title;
-                    final cacheKey = '${entry.animeId}:$nextEpisodeNum';
-                    _continueEpisodeThumbnailCache[cacheKey] = listThumbnail!;
-                    _persistEpisodeThumbnail(
-                      ref,
-                      entry,
-                      nextEpisodeNum,
-                      episode.title,
-                      listThumbnail,
-                    );
+                  if (episode.number == nextEpisodeNum) {
+                    final epTitle = episode.title?.trim();
+                    final isGeneric =
+                        epTitle == null ||
+                        RegExp(
+                          r'^(episode|ep\.?)\s*\d+$',
+                          caseSensitive: false,
+                        ).hasMatch(epTitle);
+                    if (!isGeneric && epTitle.isNotEmpty) {
+                      listEpisodeTitle = epTitle;
+                    }
+                    if (episode.thumbnail?.trim().isNotEmpty == true) {
+                      listThumbnail = episode.thumbnail!.trim();
+                      final cacheKey = '${entry.animeId}:$nextEpisodeNum';
+                      _continueEpisodeThumbnailCache[cacheKey] = listThumbnail;
+                    }
+                    if (listThumbnail != null ||
+                        (listEpisodeTitle != null && !isGeneric)) {
+                      _persistEpisodeMetadata(
+                        ref,
+                        entry,
+                        nextEpisodeNum,
+                        listEpisodeTitle,
+                        listThumbnail,
+                      );
+                    }
                     break;
                   }
                 }
@@ -405,21 +418,43 @@ class ContinueSection extends ConsumerWidget {
     return '$minutes:${remainder.toString().padLeft(2, '0')}';
   }
 
-  void _persistEpisodeThumbnail(
+  void _persistEpisodeMetadata(
     WidgetRef ref,
     AnimeWatchProgressEntry entry,
     int episodeNumber,
     String? episodeTitle,
-    String thumbnail,
+    String? thumbnail,
   ) {
-    final existing = entry.episodesProgress[episodeNumber];
-    if (existing?.episodeThumbnail == thumbnail) return;
-
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final repository = ref.read(watchProgressRepositoryProvider);
       final current = repository.getProgress(entry.animeId) ?? entry;
       final currentEpisode = current.episodesProgress[episodeNumber];
-      if (currentEpisode?.episodeThumbnail == thumbnail) return;
+
+      final currentTitle = currentEpisode?.episodeTitle.trim() ?? '';
+      final currentIsGeneric =
+          currentTitle.isEmpty ||
+          RegExp(
+            r'^(episode|ep\.?)\s*\d+$',
+            caseSensitive: false,
+          ).hasMatch(currentTitle);
+
+      final newTitle =
+          (episodeTitle != null && episodeTitle.trim().isNotEmpty)
+              ? episodeTitle.trim()
+              : null;
+      final titleNeedsUpdate =
+          newTitle != null && (currentIsGeneric || currentTitle != newTitle);
+
+      final currentThumbnail = currentEpisode?.episodeThumbnail?.trim() ?? '';
+      final newThumbnail =
+          (thumbnail != null && thumbnail.trim().isNotEmpty)
+              ? thumbnail.trim()
+              : null;
+      final thumbnailNeedsUpdate =
+          newThumbnail != null &&
+          (currentThumbnail.isEmpty || currentThumbnail != newThumbnail);
+
+      if (!titleNeedsUpdate && !thumbnailNeedsUpdate) return;
 
       final updatedEpisodes = Map<int, EpisodeProgress>.from(
         current.episodesProgress,
@@ -427,10 +462,11 @@ class ContinueSection extends ConsumerWidget {
       updatedEpisodes[episodeNumber] = EpisodeProgress(
         episodeNumber: episodeNumber,
         episodeTitle:
-            episodeTitle ??
-            currentEpisode?.episodeTitle ??
-            'Episode $episodeNumber',
-        episodeThumbnail: thumbnail,
+            (titleNeedsUpdate ? newTitle : null) ??
+            (currentTitle.isNotEmpty ? currentTitle : 'Episode $episodeNumber'),
+        episodeThumbnail:
+            (thumbnailNeedsUpdate ? newThumbnail : null) ??
+            (currentThumbnail.isNotEmpty ? currentThumbnail : null),
         progressInSeconds: currentEpisode?.progressInSeconds,
         durationInSeconds: currentEpisode?.durationInSeconds,
         isCompleted: currentEpisode?.isCompleted ?? false,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,10 +18,49 @@ class FloatingSkipButtonOverlay extends ConsumerStatefulWidget {
 }
 
 class _FloatingSkipButtonOverlayState
-    extends ConsumerState<FloatingSkipButtonOverlay> {
+    extends ConsumerState<FloatingSkipButtonOverlay>
+    with SingleTickerProviderStateMixin {
   int? _lastEpisode;
   bool _introDismissed = false;
   bool _outroDismissed = false;
+  Timer? _visibilityTimer;
+  String? _visibleRangeKey;
+  late final AnimationController _countdownController;
+
+  @override
+  void initState() {
+    super.initState();
+    _countdownController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+  }
+
+  @override
+  void dispose() {
+    _visibilityTimer?.cancel();
+    _countdownController.dispose();
+    super.dispose();
+  }
+
+  void _showBriefly(String key, {required bool intro}) {
+    if (_visibleRangeKey == key) return;
+    _visibleRangeKey = key;
+    _visibilityTimer?.cancel();
+    _countdownController
+      ..reset()
+      ..forward();
+    _visibilityTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() {
+        if (intro) {
+          _introDismissed = true;
+        } else {
+          _outroDismissed = true;
+        }
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +79,8 @@ class _FloatingSkipButtonOverlayState
       _lastEpisode = currentEp;
       _introDismissed = false;
       _outroDismissed = false;
+      _visibleRangeKey = null;
+      _visibilityTimer?.cancel();
     }
 
     final (pos, dur) = ref.watch(
@@ -47,17 +89,6 @@ class _FloatingSkipButtonOverlayState
     final isControlsVisible = ref.watch(
       playerUIControllerProvider.select((s) => s.isVisible),
     );
-
-    // Reset intro dismissal if user rewound back to the very start (< 5 seconds)
-    if (pos.inSeconds < 5 && _introDismissed) {
-      _introDismissed = false;
-    }
-    // Reset outro dismissal if user rewound back before the ending credits
-    if (dur.inSeconds > 180 &&
-        pos < dur - const Duration(seconds: 120) &&
-        _outroDismissed) {
-      _outroDismissed = false;
-    }
 
     final skips = ref.watch(aniSkipProvider);
 
@@ -87,8 +118,34 @@ class _FloatingSkipButtonOverlayState
           currentSkip.skipType == SkipType.ed ||
           (currentSkip.skipType == SkipType.mixed &&
               currentSkip.interval!.startTime >= 700);
+      final isSourceVerified =
+          currentSkip.skipId?.startsWith('source-') ?? false;
+      final durationMatches =
+          currentSkip.episodeLength > 0 &&
+          (currentSkip.episodeLength - dur.inSeconds).abs() <= 90;
+      // AniSkip IDs are already tied to the selected MAL episode. Some valid
+      // providers report rounded episode lengths, so a strict 90-second
+      // duration match hid real intro/outro buttons. Placement checks below
+      // still prevent unrelated ranges from appearing.
+      final verified =
+          isSourceVerified ||
+          currentSkip.skipId?.isNotEmpty == true ||
+          durationMatches;
+      final plausiblePlacement =
+          (isOp && currentSkip.interval!.startTime <= 180) ||
+          (isEd &&
+              dur.inSeconds > 0 &&
+              currentSkip.interval!.startTime >= dur.inSeconds * .55);
+
+      if (!verified || !plausiblePlacement) {
+        return const SizedBox.shrink();
+      }
 
       if (isOp && !_introDismissed) {
+        _showBriefly(
+          '${currentEp}_intro_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
+          intro: true,
+        );
         label = 'Skip Intro';
         onSkip = () {
           setState(() => _introDismissed = true);
@@ -99,6 +156,10 @@ class _FloatingSkipButtonOverlayState
           ref.read(playerUIControllerProvider.notifier).restartHideTimer();
         };
       } else if (isEd && !_outroDismissed) {
+        _showBriefly(
+          '${currentEp}_outro_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
+          intro: false,
+        );
         label = 'Skip Outro';
         onSkip = () {
           setState(() => _outroDismissed = true);
@@ -132,10 +193,6 @@ class _FloatingSkipButtonOverlayState
               onTap: onSkip,
               borderRadius: BorderRadius.circular(24),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.78),
                   borderRadius: BorderRadius.circular(24),
@@ -151,23 +208,48 @@ class _FloatingSkipButtonOverlayState
                     ),
                   ],
                 ),
-                child: Row(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.fast_forward_rounded,
-                      size: 20,
-                      color: scheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.4,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 9, 16, 7),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.fast_forward_rounded,
+                            size: 20,
+                            color: scheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            label,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    AnimatedBuilder(
+                      animation: _countdownController,
+                      builder:
+                          (context, _) => ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              bottom: Radius.circular(24),
+                            ),
+                            child: LinearProgressIndicator(
+                              value: 1 - _countdownController.value,
+                              minHeight: 2.5,
+                              backgroundColor: Colors.white10,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                scheme.primary,
+                              ),
+                            ),
+                          ),
                     ),
                   ],
                 ),

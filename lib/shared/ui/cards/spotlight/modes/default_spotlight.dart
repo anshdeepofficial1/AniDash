@@ -63,6 +63,7 @@ class _DefaultSpotlightState extends State<DefaultSpotlight> {
           ),
           child: ClipRRect(
             borderRadius: borderRadius,
+            clipBehavior: Clip.antiAliasWithSaveLayer,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -89,10 +90,18 @@ class _DefaultSpotlightState extends State<DefaultSpotlight> {
                         Colors.black.withValues(alpha: 0.2),
                         Colors.black.withValues(alpha: 0.8),
                         Colors.black,
+                        Colors.black,
                       ],
-                      stops: const [0.0, 0.4, 0.8, 1.0],
+                      stops: const [0.0, 0.4, 0.75, 0.93, 1.0],
                     ),
                   ),
+                ),
+                const Positioned(
+                  bottom: -1,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  child: ColoredBox(color: Colors.black),
                 ),
                 Positioned(
                   top: 24,

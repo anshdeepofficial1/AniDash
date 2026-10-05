@@ -9,6 +9,8 @@ import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart'
 import 'package:ani_dash/features/watch/view/widgets/player/dialogs/jump_to_time_dialog.dart';
 import 'package:ani_dash/shared/providers/settings/player_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/player/pip_controller.dart';
+import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
+import 'package:ani_dash/core/services/share_link_service.dart';
 
 class SettingsSheetContent extends ConsumerWidget {
   final VoidCallback onDismiss;
@@ -35,6 +37,7 @@ class SettingsSheetContent extends ConsumerWidget {
     final streamNotifier = ref.read(episodeDataProvider.notifier);
     final playerSettings = ref.watch(playerSettingsProvider);
     final playerNotifier = ref.read(playerSettingsProvider.notifier);
+    final episodeList = ref.watch(episodeListProvider);
 
     final currentQuality =
         streamData.selectedQualityIdx != null &&
@@ -382,6 +385,22 @@ class SettingsSheetContent extends ConsumerWidget {
                     Navigator.pop(context);
                     await ref.read(pipProvider.notifier).enterPiP();
                   },
+                ),
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.share_rounded),
+                  title: const Text('Share episode'),
+                  onTap:
+                      episodeList.mediaId == null ||
+                              streamData.selectedEpisode == null
+                          ? null
+                          : () async {
+                            await ShareLinkService.shareEpisode(
+                              animeId: episodeList.mediaId!,
+                              animeTitle: episodeList.animeTitle ?? 'Anime',
+                              episode: streamData.selectedEpisode!,
+                            );
+                          },
                 ),
                 ListTile(
                   dense: true,

@@ -256,12 +256,16 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
             currentTracked != null && currentTracked.isNotEmpty
                 ? (jsonDecode(currentTracked) as Map<String, dynamic>)
                 : <String, dynamic>{};
-        if (entry.isCompletedOrFinished ||
-            entry.status.toLowerCase() == 'completed') {
-          map.remove(entry.animeId);
-        } else {
-          map[entry.animeId] = entry.animeTitle;
-        }
+        // Keep completed shows in the lightweight release cache as well. A
+        // future sequel/season uses another AniList ID, and the background
+        // worker needs the completed predecessor to discover that relation.
+        // Continue-watching reminders still exclude completed entries.
+        map[entry.animeId] = <String, dynamic>{
+          'title': entry.animeTitle,
+          'currentEpisode': entry.currentEpisode,
+          'totalEpisodes': entry.totalEpisodes,
+          'status': entry.status,
+        };
         await sharedPrefs.setString(
           'cached_tracked_anime_map',
           jsonEncode(map),

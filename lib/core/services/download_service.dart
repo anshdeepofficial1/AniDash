@@ -44,7 +44,6 @@ class DownloadService {
         return;
       }
       if (_settings.wifiOnly && !r.contains(ConnectivityResult.wifi)) return;
-      if (!await _hasInternetAccess()) return;
       final pending = _waitingForWifi.values.toList(growable: false);
       _waitingForWifi.clear();
       for (final item in pending) {
@@ -56,26 +55,6 @@ class DownloadService {
 
   DownloadSettingsModel get _settings => ref.read(downloadSettingsProvider);
 
-  Future<bool> _hasInternetAccess() async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
-    try {
-      final request = await client
-          .getUrl(
-            Uri.parse('https://connectivitycheck.gstatic.com/generate_204'),
-          )
-          .timeout(const Duration(seconds: 5));
-      final response = await request.close().timeout(
-        const Duration(seconds: 5),
-      );
-      await response.drain<void>();
-      return response.statusCode >= 200 && response.statusCode < 400;
-    } catch (_) {
-      return false;
-    } finally {
-      client.close(force: true);
-    }
-  }
-
   void _scheduleNetworkRetry() {
     _networkRetryTimer ??= Timer(const Duration(seconds: 10), () async {
       _networkRetryTimer = null;
@@ -86,7 +65,7 @@ class DownloadService {
         _scheduleNetworkRetry();
         return;
       }
-      if (!await _hasInternetAccess()) {
+      if (connectivity.contains(ConnectivityResult.none)) {
         _scheduleNetworkRetry();
         return;
       }
@@ -99,10 +78,14 @@ class DownloadService {
   }
 
   Future<void> startDownload(DownloadItem item) async {
+    List<ConnectivityResult>? connectivity;
+    try {
+      connectivity = await Connectivity().checkConnectivity();
+    } catch (_) {}
     if (_settings.wifiOnly) {
       try {
-        final connectivity = await Connectivity().checkConnectivity();
-        if (!connectivity.contains(ConnectivityResult.wifi)) {
+        if (connectivity != null &&
+            !connectivity.contains(ConnectivityResult.wifi)) {
           _waitingForWifi[item.id] = item;
           _notifier.updateDownloadState(
             item.copyWith(
@@ -115,7 +98,11 @@ class DownloadService {
       } catch (_) {}
     }
 
-    if (!await _hasInternetAccess()) {
+    // A connectivity-check host can be blocked by DNS, privacy tools, or a
+    // captive network even when the actual video CDN is reachable. Only hold
+    // the task when Android reports no network; otherwise let the real request
+    // run and use its retry policy as the source of truth.
+    if (connectivity?.contains(ConnectivityResult.none) == true) {
       _waitingForWifi[item.id] = item;
       _notifier.updateDownloadState(
         item.copyWith(
@@ -467,7 +454,7 @@ Future<DownloadItem> _processFile(
   final throttler = _Throttler(task.settings.speedLimitKBps);
 
   try {
-    await for (final chunk in res.stream.timeout(const Duration(seconds: 12))) {
+    await for (final chunk in res.stream.timeout(const Duration(seconds: 30))) {
       if (isCancelled()) throw Exception("Cancelled");
       sink.add(chunk);
       current += chunk.length;
@@ -524,7 +511,7 @@ Future<DownloadItem> _processM3U8(
   // Wi-Fi while capping concurrency to avoid provider throttling.
   // Six concurrent segments saturate typical mobile/Wi-Fi links without
   // provoking CDN throttling or starving the active video player.
-  const workerCount = 6;
+  const workerCount = 8;
   int completed = 0;
   int downloadedBytesTotal = 0;
   int? estimatedTotalBytes;
@@ -741,8 +728,10 @@ Future<Uint8List?> _fetch(String url, Map headers, http.Client client) async {
     try {
       final res = await client
           .get(Uri.parse(url), headers: headers.cast())
-          .timeout(const Duration(seconds: 12));
-      if (res.statusCode == 200) return res.bodyBytes;
+          .timeout(const Duration(seconds: 25));
+      if (res.statusCode == 200 || res.statusCode == 206) {
+        return res.bodyBytes;
+      }
     } catch (_) {}
     if (i < 4) {
       await Future.delayed(Duration(milliseconds: 250 * (i + 1)));

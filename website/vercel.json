@@ -8,6 +8,9 @@
     }
   },
   "rewrites": [
+    { "source": "/c/:id", "destination": "/api/share-page?kind=chat&id=:id" },
+    { "source": "/anime/:id", "destination": "/api/share-page?kind=anime&id=:id" },
+    { "source": "/episode/:id/:episode", "destination": "/api/share-page?kind=episode&id=:id&episode=:episode" },
     { "source": "/watch", "destination": "/watch/index.html" }
   ]
 }

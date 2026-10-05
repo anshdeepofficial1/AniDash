@@ -13,6 +13,8 @@ import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart';
 import 'package:ani_dash/core/services/franchise_service.dart';
 import 'package:ani_dash/features/details/view/widgets/watch_guide_bottom_sheet.dart';
+import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
+import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
 
 class DetailsContent extends ConsumerWidget {
   final UniversalMedia anime;
@@ -30,6 +32,12 @@ class DetailsContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentEpisode =
+        ref
+            .watch(animeWatchProgressProvider(mediaId))
+            .asData
+            ?.value
+            ?.currentEpisode;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -40,6 +48,18 @@ class DetailsContent extends ConsumerWidget {
             const SizedBox(height: 12),
           ],
           AvailableLanguagesCard(mediaId: mediaId, anime: anime),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: AskNiaButton(
+              animeId: mediaId,
+              animeTitle:
+                  anime.title.english ??
+                  anime.title.romaji ??
+                  anime.title.native,
+              currentEpisode: currentEpisode,
+            ),
+          ),
           const SizedBox(height: 16),
           AnimeSynopsis(
             description: anime.description ?? '',
@@ -52,10 +72,7 @@ class DetailsContent extends ConsumerWidget {
           ],
           const SizedBox(height: 24),
           AdditionalInfoWidget(anime: anime),
-          _WatchOrderSection(
-            anime: anime,
-            onMediaTap: onMediaTap,
-          ),
+          _WatchOrderSection(anime: anime, onMediaTap: onMediaTap),
           if (anime.staff.isNotEmpty) ...[
             const SizedBox(height: 24),
             HorizontalMediaSection<UniversalStaff>(
@@ -114,10 +131,7 @@ class _WatchOrderSection extends ConsumerStatefulWidget {
   final UniversalMedia anime;
   final Function(UniversalMedia)? onMediaTap;
 
-  const _WatchOrderSection({
-    required this.anime,
-    this.onMediaTap,
-  });
+  const _WatchOrderSection({required this.anime, this.onMediaTap});
 
   @override
   ConsumerState<_WatchOrderSection> createState() => _WatchOrderSectionState();
@@ -136,7 +150,9 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
       data: (franchise) {
         final mainItems = franchise.mainStory;
         final extraItems = franchise.optionalExtras;
-        if (mainItems.length <= 1 && extraItems.isEmpty) return const SizedBox.shrink();
+        if (mainItems.length <= 1 && extraItems.isEmpty) {
+          return const SizedBox.shrink();
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,7 +168,10 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(12),
@@ -164,6 +183,15 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                ),
+                const Spacer(),
+                AskNiaButton(
+                  compact: true,
+                  animeId: widget.anime.id,
+                  animeTitle:
+                      widget.anime.title.english ??
+                      widget.anime.title.romaji ??
+                      widget.anime.title.native,
                 ),
               ],
             ),
@@ -177,9 +205,10 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                 final item = mainItems[index];
                 final isCurrent = item.isCurrent;
 
-                final epCount = item.episodes != null && item.episodes! > 0
-                    ? '${item.episodes} eps'
-                    : null;
+                final epCount =
+                    item.episodes != null && item.episodes! > 0
+                        ? '${item.episodes} eps'
+                        : null;
                 final yearText = item.year != null ? '${item.year}' : null;
 
                 final metadataParts = [
@@ -203,14 +232,22 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: isCurrent
-                          ? colorScheme.primaryContainer.withValues(alpha: 0.35)
-                          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                      color:
+                          isCurrent
+                              ? colorScheme.primaryContainer.withValues(
+                                alpha: 0.35,
+                              )
+                              : colorScheme.surfaceContainerHighest.withValues(
+                                alpha: 0.4,
+                              ),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isCurrent
-                            ? colorScheme.primary
-                            : colorScheme.outlineVariant.withValues(alpha: 0.5),
+                        color:
+                            isCurrent
+                                ? colorScheme.primary
+                                : colorScheme.outlineVariant.withValues(
+                                  alpha: 0.5,
+                                ),
                         width: isCurrent ? 1.5 : 1,
                       ),
                     ),
@@ -222,17 +259,19 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                           height: 28,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: isCurrent
-                                ? colorScheme.primary
-                                : colorScheme.surfaceContainerHigh,
+                            color:
+                                isCurrent
+                                    ? colorScheme.primary
+                                    : colorScheme.surfaceContainerHigh,
                             shape: BoxShape.circle,
                           ),
                           child: Text(
                             '${index + 1}',
                             style: theme.textTheme.labelMedium?.copyWith(
-                              color: isCurrent
-                                  ? colorScheme.onPrimary
-                                  : colorScheme.onSurface,
+                              color:
+                                  isCurrent
+                                      ? colorScheme.onPrimary
+                                      : colorScheme.onSurface,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -248,12 +287,14 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: isCurrent
-                                      ? FontWeight.bold
-                                      : FontWeight.w600,
-                                  color: isCurrent
-                                      ? colorScheme.primary
-                                      : colorScheme.onSurface,
+                                  fontWeight:
+                                      isCurrent
+                                          ? FontWeight.bold
+                                          : FontWeight.w600,
+                                  color:
+                                      isCurrent
+                                          ? colorScheme.primary
+                                          : colorScheme.onSurface,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -339,7 +380,10 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
@@ -358,7 +402,9 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
               Builder(
                 builder: (context) {
                   final displayedExtras =
-                      _isExtrasExpanded ? extraItems : extraItems.take(3).toList();
+                      _isExtrasExpanded
+                          ? extraItems
+                          : extraItems.take(3).toList();
 
                   return Column(
                     children: [
@@ -370,15 +416,16 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                         itemBuilder: (context, index) {
                           final item = displayedExtras[index];
                           final isCurrent = item.isCurrent;
-                          final note = item.placementNote ?? item.format ?? 'Extra';
+                          final note =
+                              item.placementNote ?? item.format ?? 'Extra';
 
                           return InkWell(
                             onTap: () {
                               WatchGuideBottomSheet.show(
                                 context,
                                 item: item,
-                                onOpenDetails: () =>
-                                    widget.onMediaTap?.call(item.media),
+                                onOpenDetails:
+                                    () => widget.onMediaTap?.call(item.media),
                               );
                             },
                             borderRadius: BorderRadius.circular(12),
@@ -388,17 +435,19 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                                 vertical: 10,
                               ),
                               decoration: BoxDecoration(
-                                color: isCurrent
-                                    ? colorScheme.primaryContainer
-                                        .withValues(alpha: 0.25)
-                                    : colorScheme.surfaceContainerHigh
-                                        .withValues(alpha: 0.35),
+                                color:
+                                    isCurrent
+                                        ? colorScheme.primaryContainer
+                                            .withValues(alpha: 0.25)
+                                        : colorScheme.surfaceContainerHigh
+                                            .withValues(alpha: 0.35),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: isCurrent
-                                      ? colorScheme.primary
-                                      : colorScheme.outlineVariant
-                                          .withValues(alpha: 0.3),
+                                  color:
+                                      isCurrent
+                                          ? colorScheme.primary
+                                          : colorScheme.outlineVariant
+                                              .withValues(alpha: 0.3),
                                 ),
                               ),
                               child: Row(
@@ -424,13 +473,15 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                                           overflow: TextOverflow.ellipsis,
                                           style: theme.textTheme.bodyMedium
                                               ?.copyWith(
-                                            fontWeight: isCurrent
-                                                ? FontWeight.bold
-                                                : FontWeight.w500,
-                                            color: isCurrent
-                                                ? colorScheme.primary
-                                                : colorScheme.onSurface,
-                                          ),
+                                                fontWeight:
+                                                    isCurrent
+                                                        ? FontWeight.bold
+                                                        : FontWeight.w500,
+                                                color:
+                                                    isCurrent
+                                                        ? colorScheme.primary
+                                                        : colorScheme.onSurface,
+                                              ),
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
@@ -439,11 +490,9 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                                           overflow: TextOverflow.ellipsis,
                                           style: theme.textTheme.labelSmall
                                               ?.copyWith(
-                                            color: colorScheme.onSurface
-                                                .withValues(
-                                              alpha: 0.6,
-                                            ),
-                                          ),
+                                                color: colorScheme.onSurface
+                                                    .withValues(alpha: 0.6),
+                                              ),
                                         ),
                                       ],
                                     ),
@@ -463,18 +512,19 @@ class _WatchOrderSectionState extends ConsumerState<_WatchOrderSection> {
                                         'CURRENT',
                                         style: theme.textTheme.labelSmall
                                             ?.copyWith(
-                                          color: colorScheme.onPrimary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 9,
-                                        ),
+                                              color: colorScheme.onPrimary,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 9,
+                                            ),
                                       ),
                                     )
                                   else
                                     Icon(
                                       Icons.chevron_right,
                                       size: 18,
-                                      color: colorScheme.onSurface
-                                          .withValues(alpha: 0.4),
+                                      color: colorScheme.onSurface.withValues(
+                                        alpha: 0.4,
+                                      ),
                                     ),
                                 ],
                               ),
@@ -611,9 +661,7 @@ class _AvailableLanguagesCardState
     );
   }
 
-  Future<({bool sub, bool dub})> _checkAvailability(
-    dynamic episode,
-  ) async {
+  Future<({bool sub, bool dub})> _checkAvailability(dynamic episode) async {
     final regular = await ref
         .read(episodeDataProvider.notifier)
         .checkLanguageAvailability(episode);

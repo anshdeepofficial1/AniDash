@@ -21,6 +21,8 @@ import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 import 'package:ani_dash/helpers/matcher.dart';
 import 'package:ani_dash/main.dart';
+import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
+import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
 
 part 'episode_list_provider.g.dart';
 
@@ -102,7 +104,16 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     String? animeId,
     String animeTitle,
   ) =>
-      'corrected_episode_titles_v1_${mediaId ?? animeId ?? animeTitle.toLowerCase().trim()}';
+      // v2 intentionally invalidates the old cache which could persist titles
+      // from a mismatched catalogue result (notably One Piece 183-200).
+      'corrected_episode_titles_v2_${mediaId ?? animeId ?? animeTitle.toLowerCase().trim()}';
+
+  String _correctedThumbnailCacheKey(
+    String? mediaId,
+    String? animeId,
+    String animeTitle,
+  ) =>
+      'corrected_episode_thumbnails_v2_${mediaId ?? animeId ?? animeTitle.toLowerCase().trim()}';
 
   Future<List<EpisodeDataModel>> _applyPersistedCorrectedTitles(
     List<EpisodeDataModel> episodes, {
@@ -110,21 +121,49 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     String? animeId,
     String? mediaId,
   }) async {
-    final raw = (await SharedPreferences.getInstance()).getString(
+    final prefs = await SharedPreferences.getInstance();
+    final rawTitles = prefs.getString(
       _correctedTitleCacheKey(mediaId, animeId, animeTitle),
     );
-    if (raw == null || raw.isEmpty) return episodes;
+    final rawThumbs = prefs.getString(
+      _correctedThumbnailCacheKey(mediaId, animeId, animeTitle),
+    );
+    if ((rawTitles == null || rawTitles.isEmpty) &&
+        (rawThumbs == null || rawThumbs.isEmpty)) {
+      return episodes;
+    }
     try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return episodes;
+      final decodedTitles =
+          rawTitles != null && rawTitles.isNotEmpty
+              ? jsonDecode(rawTitles)
+              : null;
+      final decodedThumbs =
+          rawThumbs != null && rawThumbs.isNotEmpty
+              ? jsonDecode(rawThumbs)
+              : null;
+      final titleMap = decodedTitles is Map ? decodedTitles : null;
+      final thumbMap = decodedThumbs is Map ? decodedThumbs : null;
+
       return episodes
           .map((episode) {
             final number = episode.number;
             if (number == null) return episode;
-            final corrected = decoded[number.toString()]?.toString().trim();
-            return corrected == null || corrected.isEmpty
-                ? episode
-                : episode.copyWith(title: corrected);
+            final numKey = number.toString();
+            var next = episode;
+            if (titleMap != null) {
+              final corrected = titleMap[numKey]?.toString().trim();
+              if (corrected != null && corrected.isNotEmpty) {
+                next = next.copyWith(title: corrected);
+              }
+            }
+            if (thumbMap != null &&
+                (next.thumbnail == null || next.thumbnail!.isEmpty)) {
+              final thumb = thumbMap[numKey]?.toString().trim();
+              if (thumb != null && thumb.isNotEmpty) {
+                next = next.copyWith(thumbnail: thumb);
+              }
+            }
+            return next;
           })
           .toList(growable: false);
     } catch (_) {
@@ -139,24 +178,36 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     String? mediaId,
   }) async {
     final titles = <String, String>{};
+    final thumbs = <String, String>{};
     for (final episode in episodes) {
       final number = episode.number;
+      if (number == null) continue;
       final title = episode.title?.trim() ?? '';
-      if (number == null ||
-          title.isEmpty ||
-          RegExp(
+      if (title.isNotEmpty &&
+          !RegExp(
             r'^(episode|ep\.?)\s*\d+$',
             caseSensitive: false,
           ).hasMatch(title)) {
-        continue;
+        titles[number.toString()] = title;
       }
-      titles[number.toString()] = title;
+      final thumbnail = episode.thumbnail?.trim() ?? '';
+      if (thumbnail.isNotEmpty) {
+        thumbs[number.toString()] = thumbnail;
+      }
     }
-    if (titles.isEmpty) return;
-    await (await SharedPreferences.getInstance()).setString(
-      _correctedTitleCacheKey(mediaId, animeId, animeTitle),
-      jsonEncode(titles),
-    );
+    final prefs = await SharedPreferences.getInstance();
+    if (titles.isNotEmpty) {
+      await prefs.setString(
+        _correctedTitleCacheKey(mediaId, animeId, animeTitle),
+        jsonEncode(titles),
+      );
+    }
+    if (thumbs.isNotEmpty) {
+      await prefs.setString(
+        _correctedThumbnailCacheKey(mediaId, animeId, animeTitle),
+        jsonEncode(thumbs),
+      );
+    }
   }
 
   // --- Core Fetching Logic ---
@@ -206,14 +257,12 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         animeTitle: animeTitle,
         isMovie: isMovie,
       );
-      if (!force) {
-        normalized = await _applyPersistedCorrectedTitles(
-          normalized,
-          animeTitle: animeTitle,
-          animeId: animeId,
-          mediaId: mediaId,
-        );
-      }
+      normalized = await _applyPersistedCorrectedTitles(
+        normalized,
+        animeTitle: animeTitle,
+        animeId: animeId,
+        mediaId: mediaId,
+      );
       if (requestGeneration != _requestGeneration) return const [];
       state = state.copyWith(episodes: normalized, isLoading: false);
       _syncMetadataIfEnabled();
@@ -229,14 +278,12 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       animeTitle: animeTitle,
       isMovie: isMovie,
     );
-    if (!force) {
-      fetched = await _applyPersistedCorrectedTitles(
-        fetched,
-        animeTitle: animeTitle,
-        animeId: animeId,
-        mediaId: mediaId,
-      );
-    }
+    fetched = await _applyPersistedCorrectedTitles(
+      fetched,
+      animeTitle: animeTitle,
+      animeId: animeId,
+      mediaId: mediaId,
+    );
 
     if (fetched.isEmpty) {
       final titleLow = animeTitle.toLowerCase();
@@ -497,6 +544,8 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
 
   static final Map<String, List<EpisodeDataModel>> _justAnimeTitlesCache = {};
   static final Map<String, Map<int, String>> _tvMazeThumbnailCache = {};
+  static final Map<String, Map<int, String>> _tvMazeTitleCache = {};
+  static final Map<String, String> _kitsuAnimeIdCache = {};
 
   void _syncMetadataIfEnabled() {
     if (state.episodes.isEmpty || state.animeTitle == null) {
@@ -517,31 +566,119 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
   }
 
   Future<void> _runMetadataSync() async {
-    // 1. Instant Filler Sync via AnimeFillerService (AnimeFillerList + local cache)
-    await _syncFillerInfo();
+    try {
+      // 1. Immediately enrich from TVMaze and JustAnime.
+      // TVMaze delivers all 16:9 thumbnails and episode titles in 1 fast request (~1s).
+      await _syncMissingThumbnailsFromTvMaze().catchError(
+        (e) => AppLogger.d('TVMaze sync error: $e'),
+      );
+      await _syncWithJustAnime().catchError(
+        (e) => AppLogger.d('JustAnime sync error: $e'),
+      );
+      await _persistCurrentEpisodeMetadata().catchError((_) {});
 
-    // 2. Fetch and enrich episode names & rich metadata from JustAnime
-    await _syncWithJustAnime();
+      // 2. Concurrently enrich Jikan & Kitsu for official MAL/Kitsu titles and filler info
+      await Future.wait([
+        _syncWithJikan().catchError((e) => AppLogger.d('Jikan sync error: $e')),
+        _syncWithKitsu().catchError((e) => AppLogger.d('Kitsu sync error: $e')),
+        _syncFillerInfo().catchError((e) => AppLogger.d('Filler sync error: $e')),
+      ]);
 
-    // 3. Long-running shows often have only a small subset of images in the
-    // streaming catalogue. TVMaze supplies episode stills independently of
-    // playback, so it is safe to use only for missing thumbnails.
-    await _syncMissingThumbnailsFromTvMaze();
+      // 3. Final TVMaze pass in case any thumbnails or titles remain unfilled
+      await _syncMissingThumbnailsFromTvMaze().catchError((_) {});
+      await _persistCurrentEpisodeMetadata().catchError((_) {});
+    } catch (e, st) {
+      AppLogger.w('Metadata enrichment exception: $e', e, st);
+    }
+  }
 
-    // 4. Fallback / supplementary title and metadata sync via Jikan (MAL)
-    await _syncWithJikan();
+  Future<void> _persistCurrentEpisodeMetadata() async {
+    if (state.episodes.isEmpty) return;
+    final repository = ref.read(watchProgressRepositoryProvider);
+    AnimeWatchProgressEntry? progress;
+    for (final candidate in <String?>[state.mediaId, state.animeId]) {
+      if (candidate == null || candidate.isEmpty) continue;
+      progress = repository.getProgress(candidate);
+      if (progress != null) break;
+    }
+    if (progress == null && state.animeTitle?.trim().isNotEmpty == true) {
+      final normalized = state.animeTitle!.trim().toLowerCase();
+      progress = repository.getAllProgress().firstWhereOrNull(
+        (entry) => entry.animeTitle.trim().toLowerCase() == normalized,
+      );
+    }
+    if (progress == null || progress.currentEpisode <= 0) return;
+
+    final targetEpisodes = <int>[
+      progress.currentEpisode,
+      progress.currentEpisode + 1,
+    ];
+    final updatedEpisodes = Map<int, EpisodeProgress>.from(
+      progress.episodesProgress,
+    );
+    bool changed = false;
+
+    for (final epNum in targetEpisodes) {
+      if (epNum <= 0) continue;
+      final metadata = state.getEpisode(epNum);
+      if (metadata == null) continue;
+      final existing = updatedEpisodes[epNum];
+      final title = metadata.title?.trim() ?? '';
+      final thumbnail = metadata.thumbnail?.trim() ?? '';
+      final isGeneric = RegExp(
+        r'^(episode|ep\.?)\s*\d+$',
+        caseSensitive: false,
+      ).hasMatch(title);
+      final resolvedTitle =
+          title.isNotEmpty && !isGeneric
+              ? title
+              : (existing?.episodeTitle ?? 'Episode $epNum');
+      final resolvedThumbnail =
+          thumbnail.isNotEmpty ? thumbnail : existing?.episodeThumbnail;
+
+      if (existing?.episodeTitle == resolvedTitle &&
+          existing?.episodeThumbnail == resolvedThumbnail) {
+        continue;
+      }
+
+      updatedEpisodes[epNum] = EpisodeProgress(
+        episodeNumber: epNum,
+        episodeTitle: resolvedTitle,
+        episodeThumbnail: resolvedThumbnail,
+        progressInSeconds: existing?.progressInSeconds,
+        durationInSeconds: existing?.durationInSeconds,
+        isCompleted: existing?.isCompleted ?? false,
+        watchedAt: existing?.watchedAt,
+      );
+      changed = true;
+    }
+
+    if (changed) {
+      await repository.saveProgress(
+        progress.copyWith(episodesProgress: updatedEpisodes),
+      );
+    }
   }
 
   Future<void> _syncMissingThumbnailsFromTvMaze() async {
     final currentEpisodes = state.episodes;
     final currentTitle = state.animeTitle?.trim();
-    if (currentEpisodes.length < 100 || currentTitle == null) return;
+    if (currentEpisodes.isEmpty || currentTitle == null) return;
 
     final missingCount =
         currentEpisodes
             .where((episode) => episode.thumbnail?.trim().isNotEmpty != true)
             .length;
-    if (missingCount < currentEpisodes.length ~/ 2) return;
+    final hasGenericTitles = currentEpisodes.any((episode) {
+      final t = episode.title?.trim() ?? '';
+      return t.isEmpty ||
+          RegExp(
+            r'^(episode|ep\.?)\s*\d+$',
+            caseSensitive: false,
+          ).hasMatch(t);
+    });
+
+    if (missingCount == 0 && !hasGenericTitles) return;
 
     final mediaId = state.mediaId;
     final animeId = state.animeId;
@@ -549,6 +686,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
 
     try {
       var thumbnails = _tvMazeThumbnailCache[cacheKey];
+      var titles = _tvMazeTitleCache[cacheKey];
       if (thumbnails == null) {
         final searchUri = Uri.https('api.tvmaze.com', '/search/shows', {
           'q': currentTitle,
@@ -572,6 +710,31 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             break;
           }
         }
+
+        // Secondary matching: partial/contained title for animation shows
+        if (matchedShow == null) {
+          for (final result in searchResults) {
+            final show = Map<String, dynamic>.from(
+              (result as Map)['show'] as Map,
+            );
+            final showNorm = _normalizeMetadataTitle(show['name']?.toString() ?? '');
+            final showType = show['type']?.toString().toLowerCase() ?? '';
+            if (showType == 'animation' &&
+                (showNorm.contains(normalizedTitle) ||
+                    normalizedTitle.contains(showNorm))) {
+              matchedShow = show;
+              break;
+            }
+          }
+        }
+
+        // Fallback: first animation show
+        matchedShow ??= searchResults
+            .map((r) => Map<String, dynamic>.from((r as Map)['show'] as Map))
+            .firstWhereOrNull(
+              (s) => s['type']?.toString().toLowerCase() == 'animation',
+            );
+
         if (matchedShow == null) return;
 
         final showId = matchedShow['id'];
@@ -581,18 +744,29 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             .timeout(const Duration(seconds: 25));
         final rawEpisodes = jsonDecode(episodeResponse.body) as List<dynamic>;
         thumbnails = <int, String>{};
+        titles = <int, String>{};
         var absoluteNumber = 0;
         for (final raw in rawEpisodes) {
           final episode = Map<String, dynamic>.from(raw as Map);
           if (episode['type']?.toString().toLowerCase() != 'regular') continue;
           absoluteNumber++;
           final image = episode['image'];
-          if (image is! Map) continue;
-          final url =
-              image['original']?.toString() ?? image['medium']?.toString();
-          if (url != null && url.isNotEmpty) thumbnails[absoluteNumber] = url;
+          if (image is Map) {
+            final url =
+                image['medium']?.toString() ?? image['original']?.toString();
+            if (url != null && url.isNotEmpty) {
+              thumbnails[absoluteNumber] = url;
+            }
+          }
+          final name = episode['name']?.toString().trim();
+          if (name != null && name.isNotEmpty) {
+            titles[absoluteNumber] = name;
+          }
         }
         _tvMazeThumbnailCache[cacheKey] = thumbnails;
+        if (titles.isNotEmpty) {
+          _tvMazeTitleCache[cacheKey] = titles;
+        }
       }
 
       if (thumbnails.isEmpty) return;
@@ -604,20 +778,55 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       }
 
       final updated = List<EpisodeDataModel>.of(latestState.episodes);
-      var added = 0;
+      var addedThumbnails = 0;
+      var addedTitles = 0;
       for (var index = 0; index < updated.length; index++) {
-        final episode = updated[index];
-        if (episode.thumbnail?.trim().isNotEmpty == true) continue;
+        var episode = updated[index];
         final number = episode.number ?? index + 1;
-        final thumbnail = thumbnails[number];
-        if (thumbnail == null) continue;
-        updated[index] = episode.copyWith(thumbnail: thumbnail);
-        added++;
+        bool changed = false;
+
+        // Enrich missing thumbnail
+        if (episode.thumbnail?.trim().isNotEmpty != true) {
+          final thumbnail = thumbnails[number];
+          if (thumbnail != null && thumbnail.isNotEmpty) {
+            episode = episode.copyWith(thumbnail: thumbnail);
+            changed = true;
+            addedThumbnails++;
+          }
+        }
+
+        // Enrich generic title if TVMaze provides a real name
+        final currentEpTitle = episode.title?.trim() ?? '';
+        final isGeneric =
+            currentEpTitle.isEmpty ||
+            RegExp(
+              r'^(episode|ep\.?)\s*\d+$',
+              caseSensitive: false,
+            ).hasMatch(currentEpTitle);
+        if (isGeneric && titles != null) {
+          final tvTitle = titles[number];
+          if (tvTitle != null && tvTitle.isNotEmpty) {
+            episode = episode.copyWith(title: tvTitle);
+            changed = true;
+            addedTitles++;
+          }
+        }
+
+        if (changed) {
+          updated[index] = episode;
+        }
       }
-      if (added > 0) {
+
+      if (addedThumbnails > 0 || addedTitles > 0) {
         state = state.copyWith(episodes: updated);
         AppLogger.success(
-          'Added $added missing episode thumbnails from TVMaze for "$currentTitle"',
+          'Enriched $addedThumbnails thumbnails & $addedTitles titles from TVMaze for "$currentTitle"',
+        );
+        await _persistCorrectedTitles(
+          updated,
+          animeTitle: currentTitle,
+          animeId: animeId,
+          mediaId: mediaId,
         );
       }
     } catch (error) {
@@ -627,6 +836,145 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
 
   String _normalizeMetadataTitle(String title) =>
       title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+
+  Future<void> _syncWithKitsu() async {
+    final animeTitle = state.animeTitle?.trim();
+    if (animeTitle == null || animeTitle.isEmpty || state.episodes.isEmpty) {
+      return;
+    }
+    final mediaId = state.mediaId;
+    final animeId = state.animeId;
+    final genericNumbers =
+        state.episodes
+            .where((episode) {
+              final title = episode.title?.trim() ?? '';
+              return title.isEmpty ||
+                  RegExp(
+                    r'^(episode|ep\.?)\s*\d+$',
+                    caseSensitive: false,
+                  ).hasMatch(title);
+            })
+            .map((episode) => episode.number)
+            .whereType<int>()
+            .toSet();
+    if (genericNumbers.isEmpty) return;
+
+    try {
+      final normalized = _normalizeMetadataTitle(animeTitle);
+      var kitsuId = _kitsuAnimeIdCache[normalized];
+      if (kitsuId == null) {
+        final searchUri = Uri.https('kitsu.io', '/api/edge/anime', {
+          'filter[text]': animeTitle,
+          'page[limit]': '10',
+        });
+        final response = await UniversalHttpClient.instance
+            .get(
+              searchUri,
+              headers: const {'Accept': 'application/vnd.api+json'},
+              cacheConfig: CacheConfig.long,
+            )
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode != 200) return;
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final results = body['data'] as List<dynamic>? ?? const [];
+        for (final raw in results) {
+          final item = Map<String, dynamic>.from(raw as Map);
+          final attributes = Map<String, dynamic>.from(
+            item['attributes'] as Map? ?? const {},
+          );
+          final candidate =
+              attributes['canonicalTitle']?.toString() ??
+              attributes['titles']?['en']?.toString() ??
+              '';
+          if (_normalizeMetadataTitle(candidate) == normalized) {
+            kitsuId = item['id']?.toString();
+            break;
+          }
+        }
+        if (kitsuId == null || kitsuId.isEmpty) return;
+        _kitsuAnimeIdCache[normalized] = kitsuId;
+      }
+
+      final offsets =
+          genericNumbers
+              .map((number) => ((number - 1) ~/ 20) * 20)
+              .toSet()
+              .toList()
+            ..sort();
+      for (var start = 0; start < offsets.length; start += 5) {
+        final end = (start + 5).clamp(0, offsets.length);
+        final batch = offsets.sublist(start, end);
+        final responses = await Future.wait(
+          batch.map((offset) async {
+            final uri = Uri.https(
+              'kitsu.io',
+              '/api/edge/anime/$kitsuId/episodes',
+              {'page[limit]': '20', 'page[offset]': '$offset'},
+            );
+            try {
+              final response = await UniversalHttpClient.instance
+                  .get(
+                    uri,
+                    headers: const {'Accept': 'application/vnd.api+json'},
+                    cacheConfig: CacheConfig.long,
+                  )
+                  .timeout(const Duration(seconds: 15));
+              if (response.statusCode != 200) return const <(int, String)>[];
+              final body = jsonDecode(response.body) as Map<String, dynamic>;
+              final data = body['data'] as List<dynamic>? ?? const [];
+              return data
+                  .map((raw) {
+                    final item = Map<String, dynamic>.from(raw as Map);
+                    final attributes = Map<String, dynamic>.from(
+                      item['attributes'] as Map? ?? const {},
+                    );
+                    final number = (attributes['number'] as num?)?.toInt();
+                    final title =
+                        attributes['canonicalTitle']?.toString().trim() ?? '';
+                    return (number ?? 0, title);
+                  })
+                  .where((item) => item.$1 > 0 && item.$2.isNotEmpty)
+                  .toList();
+            } catch (_) {
+              return const <(int, String)>[];
+            }
+          }),
+        );
+
+        if (state.mediaId != mediaId ||
+            state.animeId != animeId ||
+            state.animeTitle?.trim() != animeTitle) {
+          return;
+        }
+        final titleByNumber = <int, String>{
+          for (final item in responses.expand((items) => items))
+            item.$1: item.$2,
+        };
+        if (titleByNumber.isEmpty) continue;
+        final updated = List<EpisodeDataModel>.of(state.episodes);
+        var changed = false;
+        for (var index = 0; index < updated.length; index++) {
+          final episode = updated[index];
+          final number = episode.number ?? index + 1;
+          if (!genericNumbers.contains(number)) continue;
+          final title = titleByNumber[number];
+          if (title == null || title.isEmpty) continue;
+          updated[index] = episode.copyWith(title: title);
+          changed = true;
+        }
+        if (changed) state = state.copyWith(episodes: updated);
+      }
+
+      await _persistCorrectedTitles(
+        state.episodes,
+        animeTitle: animeTitle,
+        animeId: animeId,
+        mediaId: mediaId,
+      );
+    } catch (error) {
+      AppLogger.d('Kitsu episode-title enrichment skipped: $error');
+    }
+  }
 
   Future<void> _syncFillerInfo() async {
     try {
@@ -862,6 +1210,12 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             '$enrichedThumbnailCount thumbnails from JustAnime for "$currentTitle"',
           );
           state = state.copyWith(episodes: updated);
+          await _persistCorrectedTitles(
+            updated,
+            animeTitle: currentTitle,
+            animeId: animeId,
+            mediaId: mediaId,
+          );
         }
       }
     } catch (e) {
@@ -929,14 +1283,28 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         final totalNeeded = state.episodes.length;
 
         while (allJikanEpisodes.length < totalNeeded && page <= 15) {
-          final jikanEpisodes = await _jikan
-              .getEpisodes(malId, page)
-              .timeout(const Duration(seconds: 10));
-          if (jikanEpisodes.isEmpty) break;
-          allJikanEpisodes.addAll(jikanEpisodes);
-          if (jikanEpisodes.length < 100) break; // Last page
-          page++;
-          await Future.delayed(const Duration(milliseconds: 300));
+          try {
+            final jikanEpisodes = await _jikan
+                .getEpisodes(malId, page)
+                .timeout(const Duration(seconds: 10));
+            if (jikanEpisodes.isEmpty) break;
+            allJikanEpisodes.addAll(jikanEpisodes);
+            // Publish each page immediately. Long-running shows can need more
+            // than ten catalogue requests, so waiting for every page left the
+            // visible range showing generic "Episode N" labels for a long time.
+            _applyJikanEpisodePage(
+              jikanEpisodes,
+              animeTitle: currentTitle,
+              animeId: state.animeId,
+              mediaId: state.mediaId,
+            );
+            if (jikanEpisodes.length < 100) break; // Last page
+            page++;
+            await Future.delayed(const Duration(milliseconds: 300));
+          } catch (e) {
+            AppLogger.d('Jikan page $page fetch interrupted: $e');
+            break;
+          }
         }
 
         if (allJikanEpisodes.isNotEmpty) {
@@ -964,13 +1332,6 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             }
             if (syncedTitle != null && syncedTitle.isNotEmpty) {
               final currentEpTitle = updated[i].title ?? '';
-              final currentPlainTitle =
-                  currentEpTitle
-                      .replaceFirst(
-                        RegExp(r'^EP\s*\d+\s*-\s*', caseSensitive: false),
-                        '',
-                      )
-                      .trim();
               final isGeneric =
                   currentEpTitle.isEmpty ||
                   RegExp(
@@ -980,18 +1341,9 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
 
               // Jikan is keyed by the real episode number and becomes the
               // authoritative display title after the MAL series is matched.
-              if (isGeneric || currentEpTitle != 'EP $epNum - $syncedTitle') {
+              if (isGeneric || currentEpTitle != syncedTitle) {
                 updated[i] = updated[i].copyWith(
-                  title: 'EP $epNum - $syncedTitle',
-                  // Title and image arrive as one catalogue record. If its
-                  // title disagrees with Jikan's number-keyed title, its image
-                  // is from that same wrong record (seen on One Piece 183-200),
-                  // so fall back to the anime cover instead of showing a false
-                  // episode thumbnail.
-                  clearThumbnail:
-                      !isGeneric &&
-                      currentPlainTitle.toLowerCase() !=
-                          syncedTitle.trim().toLowerCase(),
+                  title: syncedTitle,
                 );
                 syncedCount++;
               }
@@ -1004,10 +1356,56 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             );
           }
           state = state.copyWith(episodes: updated);
+          await _persistCorrectedTitles(
+            updated,
+            animeTitle: currentTitle,
+            animeId: state.animeId,
+            mediaId: state.mediaId,
+          );
         }
       }
     } catch (e, st) {
       AppLogger.w('Metadata and filler sync failed: $e', e, st);
     }
+  }
+
+  void _applyJikanEpisodePage(
+    List<JikanEpisode> page, {
+    required String animeTitle,
+    required String? animeId,
+    required String? mediaId,
+  }) {
+    if (page.isEmpty ||
+        state.animeTitle != animeTitle ||
+        state.animeId != animeId ||
+        state.mediaId != mediaId) {
+      return;
+    }
+
+    final byNumber = <int, JikanEpisode>{for (final ep in page) ep.malId: ep};
+    final updated = List<EpisodeDataModel>.of(state.episodes);
+    var changed = false;
+    for (var index = 0; index < updated.length; index++) {
+      final episode = updated[index];
+      final number = episode.number ?? index + 1;
+      final catalogue = byNumber[number];
+      if (catalogue == null) continue;
+
+      var next = episode;
+      if (catalogue.filler && episode.isFiller != true) {
+        next = next.copyWith(isFiller: true);
+      }
+      if (catalogue.title.trim().isNotEmpty &&
+          episode.title?.trim() != catalogue.title.trim()) {
+        next = next.copyWith(
+          title: catalogue.title.trim(),
+        );
+      }
+      if (!identical(next, episode)) {
+        updated[index] = next;
+        changed = true;
+      }
+    }
+    if (changed) state = state.copyWith(episodes: updated);
   }
 }

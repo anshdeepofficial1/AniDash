@@ -31,6 +31,21 @@ class NotificationSettingsScreen extends ConsumerWidget {
             tooltip: 'Send test notification',
             icon: const Icon(Icons.notifications_active_outlined),
             onPressed: () async {
+              final allowed =
+                  await NotificationService().requestSystemPermission();
+              if (!allowed) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Notification permission is disabled in system settings.',
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+                return;
+              }
               await NotificationService().showTestNotification(
                 body: 'Notifications are enabled and using your system sound.',
               );
@@ -132,51 +147,75 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
-                final res = await EpisodeReleaseTask.performCheck(isManual: true);
+                final res = await EpisodeReleaseTask.performCheck(
+                  isManual: true,
+                );
                 if (context.mounted) {
                   showModalBottomSheet(
                     context: context,
                     backgroundColor: Theme.of(context).colorScheme.surface,
                     shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                    ),
-                    builder: (ctx) => Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                res.success ? Icons.check_circle_outline : Icons.error_outline,
-                                color: res.success ? Colors.green : Colors.red,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                res.success ? 'Check Completed' : 'Check Failed',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text('• AniList Query Status: ${res.success ? "Success" : "Failed"}'),
-                          Text('• Total Airing Schedules: ${res.schedulesReturned}'),
-                          Text('• Relevant Watching Titles: ${res.relevantCount}'),
-                          Text('• Notifications Sent: ${res.sentCount}'),
-                          Text('• Duplicates Suppressed: ${res.duplicateSuppressed}'),
-                          const SizedBox(height: 8),
-                          Text(
-                            res.message,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(16),
                       ),
                     ),
+                    builder:
+                        (ctx) => Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    res.success
+                                        ? Icons.check_circle_outline
+                                        : Icons.error_outline,
+                                    color:
+                                        res.success ? Colors.green : Colors.red,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    res.success
+                                        ? 'Check Completed'
+                                        : 'Check Failed',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                '• AniList Query Status: ${res.success ? "Success" : "Failed"}',
+                              ),
+                              Text(
+                                '• Total Airing Schedules: ${res.schedulesReturned}',
+                              ),
+                              Text(
+                                '• Relevant Watching Titles: ${res.relevantCount}',
+                              ),
+                              Text('• Notifications Sent: ${res.sentCount}'),
+                              Text(
+                                '• Duplicates Suppressed: ${res.duplicateSuppressed}',
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                res.message,
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                          ),
+                        ),
                   );
                 }
               },

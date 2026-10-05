@@ -44,6 +44,9 @@ import 'package:ani_dash/features/settings/view/screens/notification_settings_sc
 import 'package:ani_dash/features/settings/view/screens/security_settings_screen.dart';
 import 'package:ani_dash/features/settings/view/screens/admin_broadcast_screen.dart';
 import 'package:ani_dash/router/router_wrapper.dart';
+import 'package:ani_dash/features/ai/domain/ai_models.dart';
+import 'package:ani_dash/features/ai/view/ai_chat_screen.dart';
+import 'package:ani_dash/features/ai/view/ai_settings_screen.dart';
 
 class AnimatedGoRoute extends GoRoute {
   AnimatedGoRoute({
@@ -140,6 +143,21 @@ final routerConfig = GoRouter(
       contentBuilder: (_, _) => const NotificationInboxScreen(),
     ),
     AnimatedGoRoute(
+      path: '/ai',
+      contentBuilder:
+          (_, state) => AiChatScreen(
+            contextData:
+                state.extra is AiContext
+                    ? state.extra as AiContext
+                    : const AiContext(),
+          ),
+    ),
+    AnimatedGoRoute(
+      path: '/c/:id',
+      contentBuilder:
+          (_, state) => AiChatScreen(sharedChatId: state.pathParameters['id']),
+    ),
+    AnimatedGoRoute(
       path: '/onboarding',
       contentBuilder: (_, _) => const OnboardingScreen(),
     ),
@@ -201,6 +219,19 @@ final routerConfig = GoRouter(
           initialTabIndex: initialTabIndex,
         );
       },
+    ),
+    AnimatedGoRoute(
+      path: '/episode/:id/:episode',
+      contentBuilder:
+          (context, state) => WatchScreen(
+            mediaId: state.pathParameters['id']!,
+            animeId: state.pathParameters['id']!,
+            animeName: state.uri.queryParameters['title'] ?? 'Anime',
+            animeCover: state.uri.queryParameters['cover'] ?? '',
+            episode: int.tryParse(state.pathParameters['episode'] ?? '1') ?? 1,
+            forceRefetch: true,
+            episodes: const <EpisodeDataModel>[],
+          ),
     ),
     AnimatedGoRoute(
       path: '/watch/:id',
@@ -335,6 +366,10 @@ final routerConfig = GoRouter(
         AnimatedGoRoute(
           path: 'admin-broadcast',
           contentBuilder: (_, _) => const AdminBroadcastScreen(),
+        ),
+        AnimatedGoRoute(
+          path: 'ai',
+          contentBuilder: (_, _) => const AiSettingsScreen(),
         ),
       ],
     ),

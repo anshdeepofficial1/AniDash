@@ -118,6 +118,8 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
                       _sectionGap,
                       _buildSectionPadding(_buildCommonFilters(theme)),
                       _sectionGap,
+                      _buildSectionPadding(_buildRatingSection(theme)),
+                      _sectionGap,
                       _buildExpansionCategory(
                         context,
                         title: 'Genres',
@@ -349,6 +351,52 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
               ),
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRatingSection(ThemeData theme) {
+    final ratings = [
+      ('ALL', 'All Ages (U)'),
+      ('PG13', 'Teens (PG-13)'),
+      ('R17', 'Mature (R-17+)'),
+      ('ADULT', 'Adult (18+)'),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(theme, 'Content Rating'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ratings.map((item) {
+            final key = item.$1;
+            final label = item.$2;
+            final isSelected = _filter.contentRating == key;
+            return ChoiceChip(
+              label: Text(label),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    final isAdult = key == 'ADULT' ? true : (key == 'ALL' ? false : null);
+                    _filter = _filter.copyWith(
+                      contentRating: key,
+                      isAdult: isAdult,
+                      resetAdult: isAdult == null,
+                    );
+                  } else {
+                    _filter = _filter.copyWith(
+                      resetContentRating: true,
+                      resetAdult: true,
+                    );
+                  }
+                });
+              },
+            );
+          }).toList(),
         ),
       ],
     );

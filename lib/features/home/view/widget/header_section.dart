@@ -11,6 +11,7 @@ import 'package:ani_dash/features/home/view/widget/search_model.dart';
 import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
 import 'package:ani_dash/core/utils/greeting_methods.dart';
 import 'package:ani_dash/core/services/notification_inbox_service.dart';
+import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
 
 class HeaderSection extends ConsumerWidget {
   final bool isDesktop;
@@ -61,25 +62,39 @@ class HeaderSection extends ConsumerWidget {
                   child: _UserAvatar(user: user, size: 48),
                 ),
                 const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      getGreeting(),
-                      style: colorScheme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.colorScheme.primary,
-                        fontWeight: FontWeight.w500,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        getGreeting(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: colorScheme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.colorScheme.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    Text(
-                      user?.name ?? "Guest",
-                      style: colorScheme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+                      SizedBox(
+                        width: double.infinity,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            user?.name ?? "Guest",
+                            maxLines: 1,
+                            style: colorScheme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 6),
+                const AskNiaButton(compact: true),
+                const SizedBox(width: 8),
                 const _NewsActionBadge(),
                 const SizedBox(width: 8),
                 const _NotificationInboxButton(),

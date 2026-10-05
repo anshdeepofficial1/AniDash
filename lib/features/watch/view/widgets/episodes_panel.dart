@@ -11,6 +11,11 @@ import 'package:ani_dash/features/downloads/model/download_status.dart';
 import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
 import 'package:collection/collection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:ani_dash/main.dart';
+import 'package:ani_dash/core/models/anime/episode_model.dart';
+import 'package:ani_dash/features/episode_groups/model/named_episode_group.dart';
+import 'package:ani_dash/features/episode_groups/repository/episode_grouping_repository.dart';
 
 class EpisodesPanel extends ConsumerStatefulWidget {
   final AnimationController panelAnimation;
@@ -32,12 +37,64 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
   int _currentStart = 1;
   bool _initializedForEp = false;
   int? _lastSelectedEp;
+  int? _lastScrolledEp;
+  bool _useNamedGroups = false;
+  List<NamedEpisodeGroup> _namedGroups = const [];
+  NamedEpisodeGroup? _selectedNamedGroup;
+  String? _groupsLoadedFor;
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadRangeSize();
+    _useNamedGroups = sharedPrefs.getString('episode_grouping_mode') == 'named';
+    widget.panelAnimation.addStatusListener(_onPanelStatusChanged);
+  }
+
+  void _onPanelStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      _lastScrolledEp = null;
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _scrollToEpisode(int epNum, List<EpisodeDataModel> visible) {
+    final selectedIndex =
+        visible.indexWhere((e) => e.number != null && e.number == epNum);
+    if (selectedIndex < 0) return;
+
+    void performJump() {
+      if (!mounted || !_scrollController.hasClients) return;
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final target = selectedIndex * 72.0;
+      if (maxScroll > 0) {
+        _scrollController.jumpTo(target.clamp(0.0, maxScroll));
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => performJump());
+    Future.delayed(const Duration(milliseconds: 100), performJump);
+    Future.delayed(const Duration(milliseconds: 250), performJump);
+  }
+
+  Future<void> _loadNamedGroups(String? animeTitle) async {
+    final token = '${widget.mediaId}:${animeTitle ?? ''}';
+    if (!_useNamedGroups || _groupsLoadedFor == token) return;
+    _groupsLoadedFor = token;
+    final groups = await const VerifiedEpisodeGroupingRepository()
+        .getNamedGroups(animeId: widget.mediaId, title: animeTitle);
+    if (!mounted) return;
+    final selectedEp = ref.read(episodeDataProvider).selectedEpisode ?? 1;
+    setState(() {
+      _namedGroups = groups;
+      _selectedNamedGroup = groups.firstWhereOrNull(
+        (group) => group.contains(selectedEp),
+      );
+      _selectedNamedGroup ??= groups.firstOrNull;
+      if (groups.isEmpty) _useNamedGroups = false;
+      _lastScrolledEp = null;
+    });
   }
 
   Future<void> _loadRangeSize() async {
@@ -52,6 +109,7 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
 
   @override
   void dispose() {
+    widget.panelAnimation.removeStatusListener(_onPanelStatusChanged);
     _scrollController.dispose();
     super.dispose();
   }
@@ -134,6 +192,20 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
 
     final total = episodes.length;
     final ranges = _generateRanges(total);
+    final animeTitle = ref.watch(
+      episodeListProvider.select((s) => s.animeTitle),
+    );
+    final currentGroupingMode = sharedPrefs.getString('episode_grouping_mode');
+    final wantNamedGroups = currentGroupingMode == 'named';
+    if (_useNamedGroups != wantNamedGroups) {
+      _useNamedGroups = wantNamedGroups;
+      _groupsLoadedFor = null;
+    }
+    if (_useNamedGroups && _groupsLoadedFor == null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _loadNamedGroups(animeTitle),
+      );
+    }
 
     if (selectedEp != null && selectedEp > 0) {
       if (!_initializedForEp || _lastSelectedEp != selectedEp) {
@@ -157,11 +229,23 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
     final startIdx = (_currentStart - 1).clamp(0, total);
     final endIdx = (_currentStart + _rangeSize - 1).clamp(0, total);
 
-    final visibleEpisodes = episodes.sublist(startIdx, endIdx);
-    final animeTitle = ref.watch(
-      episodeListProvider.select((s) => s.animeTitle),
-    );
-
+    final visibleEpisodes =
+        _useNamedGroups && _selectedNamedGroup != null
+            ? episodes
+                .where((episode) {
+                  final number = episode.number;
+                  return number != null &&
+                      _selectedNamedGroup!.contains(number);
+                })
+                .toList(growable: false)
+            : episodes.sublist(startIdx, endIdx);
+    if (selectedEp != null &&
+        selectedEp > 0 &&
+        _lastScrolledEp != selectedEp &&
+        visibleEpisodes.isNotEmpty) {
+      _lastScrolledEp = selectedEp;
+      _scrollToEpisode(selectedEp, visibleEpisodes);
+    }
     final progressAsync = ref.watch(watchProgressStreamProvider);
     final allProgress = progressAsync.value ?? [];
     final singleProgress =
@@ -197,7 +281,34 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
                 children: [
                   Text("Episodes", style: theme.textTheme.titleMedium),
                   const Spacer(),
-                  if (ranges.isNotEmpty)
+                  if (_useNamedGroups && _namedGroups.isNotEmpty)
+                    DropdownButton<String>(
+                      value: _selectedNamedGroup?.id,
+                      underline: const SizedBox.shrink(),
+                      items:
+                          _namedGroups
+                              .map(
+                                (group) => DropdownMenuItem(
+                                  value: group.id,
+                                  child: Text(
+                                    group.title,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (id) {
+                        final group = _namedGroups.firstWhereOrNull(
+                          (item) => item.id == id,
+                        );
+                        if (group == null) return;
+                        setState(() {
+                          _selectedNamedGroup = group;
+                          _lastScrolledEp = null;
+                        });
+                      },
+                    )
+                  else if (ranges.isNotEmpty)
                     DropdownButton<int>(
                       value: _currentStart,
                       underline: const SizedBox.shrink(),
@@ -214,16 +325,20 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
                         if (v == null) return;
                         setState(() {
                           _currentStart = v;
+                          _lastScrolledEp = null;
                           _scrollController.jumpTo(0);
                         });
                       },
                     ),
-                  IconButton(
-                    icon: const Icon(Iconsax.setting_2, size: 20),
-                    onPressed:
-                        () =>
-                            _showRangeSizeDialog(context, episodeListNotifier),
-                  ),
+                  if (!_useNamedGroups)
+                    IconButton(
+                      icon: const Icon(Iconsax.setting_2, size: 20),
+                      onPressed:
+                          () => _showRangeSizeDialog(
+                            context,
+                            episodeListNotifier,
+                          ),
+                    ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -233,7 +348,7 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
                   itemCount: visibleEpisodes.length,
                   itemBuilder: (_, i) {
                     final episode = visibleEpisodes[i];
-                    final actualIndex = startIdx + i;
+                    final actualIndex = episodes.indexOf(episode);
 
                     final epNum = episode.number ?? (actualIndex + 1);
                     final epProgress = animeProgress?.episodesProgress[epNum];
@@ -252,14 +367,48 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
                           d.episodeNumber == epNum,
                     );
 
+                    final savedEpProgress =
+                        animeProgress?.episodesProgress[epNum];
+                    final epRawTitle = episode.title?.trim();
+                    final isGeneric =
+                        epRawTitle == null ||
+                        RegExp(
+                          r'^(episode|ep\.?)\s*\d+$',
+                          caseSensitive: false,
+                        ).hasMatch(epRawTitle);
+                    final resolvedTitle =
+                        (!isGeneric && epRawTitle.isNotEmpty)
+                            ? epRawTitle
+                            : (savedEpProgress?.episodeTitle != null &&
+                                    savedEpProgress!
+                                        .episodeTitle
+                                        .trim()
+                                        .isNotEmpty &&
+                                    !RegExp(
+                                      r'^(episode|ep\.?)\s*\d+$',
+                                      caseSensitive: false,
+                                    ).hasMatch(
+                                      savedEpProgress.episodeTitle.trim(),
+                                    ))
+                            ? savedEpProgress.episodeTitle.trim()
+                            : (epRawTitle?.isNotEmpty == true
+                                ? epRawTitle!
+                                : "Episode ${episode.number}");
+                    final resolvedThumbnail =
+                        (episode.thumbnail?.trim().isNotEmpty == true)
+                            ? episode.thumbnail
+                            : savedEpProgress?.episodeThumbnail;
+
                     return EpisodeTile(
                       isFiller: episode.isFiller ?? false,
                       isMixed: episode.isMixed ?? false,
                       isCompleted: isCompleted,
                       watchProgress: watchProgress,
                       episodeNumber: episode.number?.toString() ?? "?",
-                      episodeTitle:
-                          episode.title ?? "Episode ${episode.number}",
+                      episodeTitle: resolvedTitle,
+                      thumbnail: resolvedThumbnail,
+                      durationSeconds:
+                          duration > 0 ? duration : download?.durationSeconds,
                       isSelected: episode.number == selectedEp,
                       download: download,
                       onTap: () {
@@ -387,6 +536,8 @@ class EpisodeTile extends StatelessWidget {
   final double watchProgress;
   final String episodeNumber;
   final String episodeTitle;
+  final String? thumbnail;
+  final int? durationSeconds;
   final bool isSelected;
   final DownloadItem? download;
   final VoidCallback onTap;
@@ -400,6 +551,8 @@ class EpisodeTile extends StatelessWidget {
     this.watchProgress = 0.0,
     required this.episodeNumber,
     required this.episodeTitle,
+    this.thumbnail,
+    this.durationSeconds,
     required this.isSelected,
     this.download,
     required this.onTap,
@@ -409,14 +562,6 @@ class EpisodeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    // Dim text if watched and not currently selected
-    final textColor =
-        isSelected
-            ? theme.colorScheme.onPrimary
-            : isCompleted
-            ? theme.colorScheme.outline
-            : theme.colorScheme.onSurfaceVariant;
 
     final bgColor =
         isSelected
@@ -428,6 +573,14 @@ class EpisodeTile extends StatelessWidget {
             : isCompleted
             ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
             : theme.colorScheme.surfaceContainerHighest;
+
+    String durationLabel(int seconds) {
+      final minutes = seconds ~/ 60;
+      final remainder = seconds % 60;
+      return remainder == 0
+          ? '$minutes min'
+          : '$minutes:${remainder.toString().padLeft(2, '0')}';
+    }
 
     return InkWell(
       onTap: onTap,
@@ -464,31 +617,53 @@ class EpisodeTile extends StatelessWidget {
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color:
-                            isSelected
-                                ? theme.colorScheme.primary
-                                : isCompleted
-                                ? theme.colorScheme.primaryContainer.withValues(
-                                  alpha: 0.6,
-                                )
-                                : bgColor,
-                        borderRadius: BorderRadius.circular(6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 96,
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child:
+                              thumbnail?.trim().isNotEmpty == true
+                                  ? CachedNetworkImage(
+                                    imageUrl: thumbnail!,
+                                    fit: BoxFit.cover,
+                                    placeholder:
+                                        (_, __) => ColoredBox(color: bgColor),
+                                    errorWidget:
+                                        (_, __, ___) => ColoredBox(
+                                          color: bgColor,
+                                          child: const Icon(
+                                            Icons.movie_outlined,
+                                          ),
+                                        ),
+                                  )
+                                  : ColoredBox(
+                                    color: bgColor,
+                                    child: const Icon(Icons.movie_outlined),
+                                  ),
+                        ),
                       ),
-                      child: Text(
-                        episodeNumber,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color:
-                              isSelected
-                                  ? theme.colorScheme.onPrimary
-                                  : isCompleted
-                                  ? theme.colorScheme.primary
-                                  : textColor,
+                    ),
+                    Positioned(
+                      left: 4,
+                      bottom: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: .76),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          'E$episodeNumber',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -513,20 +688,34 @@ class EpisodeTile extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    episodeTitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
-                      color:
-                          isSelected
-                              ? theme.colorScheme.onSurface
-                              : isCompleted
-                              ? theme.colorScheme.outline
-                              : theme.colorScheme.onSurface,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        episodeTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                          color:
+                              isSelected
+                                  ? theme.colorScheme.onSurface
+                                  : isCompleted
+                                  ? theme.colorScheme.outline
+                                  : theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      if (durationSeconds != null && durationSeconds! > 0) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          durationLabel(durationSeconds!),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 if (isMixed)

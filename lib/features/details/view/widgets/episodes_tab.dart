@@ -32,8 +32,14 @@ import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart';
 import 'package:ani_dash/shared/providers/tracker/media_tracker_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/watch_sync_notifier.dart';
 import 'package:ani_dash/core/services/franchise_service.dart';
+import 'package:ani_dash/main.dart';
+import 'package:ani_dash/features/episode_groups/model/named_episode_group.dart';
+import 'package:ani_dash/features/episode_groups/repository/episode_grouping_repository.dart';
+import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
 
 enum EpisodeViewMode { list, compact, grid, block, banner }
+
+enum EpisodeGroupingMode { ranges, named }
 
 final Map<String, ValueNotifier<Set<int>>> _episodesSelectionStore = {};
 ValueNotifier<Set<int>> _getEpisodesSelectionNotifier(String mediaId) {
@@ -81,23 +87,82 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
   final TextEditingController _searchController = TextEditingController();
   bool _showSearch = false;
   bool _isSelecting = false;
-  final ScrollController _episodesScrollController = ScrollController();
   final GlobalKey _currentEpisodeKey = GlobalKey();
   int? _autoScrollEpisode;
   String? _lastAutoScrollToken;
+  EpisodeGroupingMode _groupingMode = EpisodeGroupingMode.ranges;
+  List<NamedEpisodeGroup> _namedGroups = const [];
+  NamedEpisodeGroup? _selectedNamedGroup;
   @override
   void initState() {
     super.initState();
     _selectionNotifier = _getEpisodesSelectionNotifier(widget.mediaId);
     _selectionNotifier.addListener(_onSelectionChanged);
+    _restoreGroupingPreference();
+    _loadNamedGroups();
     WidgetsBinding.instance.addPostFrameCallback((_) {});
+  }
+
+  Future<void> _restoreGroupingPreference() async {
+    final stored = sharedPrefs.getString('episode_grouping_mode');
+    if (!mounted || stored == null) return;
+    setState(() {
+      _groupingMode =
+          stored == EpisodeGroupingMode.named.name
+              ? EpisodeGroupingMode.named
+              : EpisodeGroupingMode.ranges;
+    });
+    _selectCurrentNamedGroup();
+  }
+
+  Future<void> _loadNamedGroups() async {
+    final title = widget.mediaTitle.english ?? widget.mediaTitle.romaji;
+    final groups = await const VerifiedEpisodeGroupingRepository()
+        .getNamedGroups(
+          animeId: widget.mediaId,
+          malId: widget.malId?.toString(),
+          title: title,
+        );
+    if (!mounted) return;
+    setState(() {
+      _namedGroups = groups;
+      if (groups.isEmpty) _groupingMode = EpisodeGroupingMode.ranges;
+    });
+    _selectCurrentNamedGroup();
+  }
+
+  void _selectCurrentNamedGroup() {
+    if (!mounted ||
+        _groupingMode != EpisodeGroupingMode.named ||
+        _namedGroups.isEmpty) {
+      return;
+    }
+    final progress = ref
+        .read(watchProgressRepositoryProvider)
+        .getProgress(widget.mediaId);
+    final currentEpisode = progress?.currentEpisode ?? 1;
+    final matching = _namedGroups.cast<NamedEpisodeGroup?>().firstWhere(
+      (group) => group?.contains(currentEpisode) ?? false,
+      orElse: () => _namedGroups.first,
+    );
+    if (_selectedNamedGroup?.id == matching?.id) return;
+    setState(() => _selectedNamedGroup = matching);
+  }
+
+  Future<void> _setGroupingMode(EpisodeGroupingMode mode) async {
+    if (mode == EpisodeGroupingMode.named && _namedGroups.isEmpty) return;
+    setState(() {
+      _groupingMode = mode;
+      _selectedNamedGroup = null;
+    });
+    if (mode == EpisodeGroupingMode.named) _selectCurrentNamedGroup();
+    await sharedPrefs.setString('episode_grouping_mode', mode.name);
   }
 
   @override
   void dispose() {
     _selectionNotifier.removeListener(_onSelectionChanged);
     _searchController.dispose();
-    _episodesScrollController.dispose();
     super.dispose();
   }
 
@@ -117,14 +182,16 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     _autoScrollEpisode = episodeNumber;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || !_episodesScrollController.hasClients) return;
+      if (!mounted) return;
+      final scrollController = PrimaryScrollController.maybeOf(context);
+      if (scrollController == null || !scrollController.hasClients) return;
 
-      final maxExtent = _episodesScrollController.position.maxScrollExtent;
+      final maxExtent = scrollController.position.maxScrollExtent;
       final fraction =
           visibleEpisodes.length <= 1
               ? 0.0
               : targetIndex / (visibleEpisodes.length - 1);
-      await _episodesScrollController.animateTo(
+      await scrollController.animateTo(
         (maxExtent * fraction).clamp(0.0, maxExtent),
         duration: const Duration(milliseconds: 280),
         curve: Curves.easeOutCubic,
@@ -361,16 +428,6 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
 
     final notifier = ref.read(detailsPageProvider(widget.mediaId).notifier);
     final state = ref.watch(detailsPageProvider(widget.mediaId));
-    final experimentalSettings = ref.watch(experimentalProvider);
-    final uiSettings = ref.watch(uiSettingsProvider);
-    final viewMode =
-        experimentalSettings.useEpisodeBannerStyle
-            ? EpisodeViewMode.banner
-            : EpisodeViewMode.values.firstWhere(
-              (e) => e.name == uiSettings.episodeViewMode,
-              orElse: () => EpisodeViewMode.list,
-            );
-
     final episodeListState = ref.watch(episodeListProvider);
     if (widget.malId != null &&
         episodeListState.episodes.isNotEmpty &&
@@ -469,7 +526,17 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           );
 
     List<EpisodeDataModel> visibleEpisodes = episodes;
-    if (state.selectedRange != 'All') {
+    if (_groupingMode == EpisodeGroupingMode.named &&
+        _selectedNamedGroup != null) {
+      final group = _selectedNamedGroup!;
+      visibleEpisodes =
+          episodes
+              .where(
+                (episode) =>
+                    episode.number != null && group.contains(episode.number!),
+              )
+              .toList();
+    } else if (state.selectedRange != 'All') {
       final parts = state.selectedRange.split('–');
       if (parts.length == 2) {
         final start = int.tryParse(parts[0]) ?? 1;
@@ -553,14 +620,14 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
       _scheduleCurrentEpisodeScroll(
         episodeNumber: watchProgress.currentEpisode,
         visibleEpisodes: visibleEpisodes,
-        selectedRange: state.selectedRange,
+        selectedRange: _selectedNamedGroup?.id ?? state.selectedRange,
       );
     }
 
     return RefreshIndicator(
       onRefresh: () async => await notifier.refresh(),
       child: CustomScrollView(
-        controller: _episodesScrollController,
+        primary: true,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
@@ -641,6 +708,13 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                     ),
                     tooltip: 'Wrong match?',
                     onPressed: () => _handleWrongMatch(context, ref, notifier),
+                  ),
+                  AskNiaButton(
+                    compact: true,
+                    animeId: widget.mediaId,
+                    animeTitle:
+                        widget.mediaTitle.english ?? widget.mediaTitle.romaji,
+                    currentEpisode: watchProgress?.currentEpisode,
                   ),
                 ],
               ),
@@ -761,15 +835,93 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
             ),
 
           if (state.isSearchingMatch)
-            const SliverFillRemaining(
+            SliverFillRemaining(
+              hasScrollBody: false,
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Searching for best match...'),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 20.0,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.25,
+                        ),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Searching for best match…',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Resolving stream sources for ${widget.mediaTitle.english ?? widget.mediaTitle.romaji ?? "anime"}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 20),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed:
+                                  () => _handleWrongMatch(
+                                    context,
+                                    ref,
+                                    notifier,
+                                  ),
+                              icon: const Icon(
+                                Icons.touch_app_rounded,
+                                size: 18,
+                              ),
+                              label: const Text('Manual Selection'),
+                            ),
+                            TextButton.icon(
+                              onPressed:
+                                  () => _showSourceSelectionDialog(
+                                    context,
+                                    ref,
+                                    notifier,
+                                  ),
+                              icon: const Icon(
+                                Icons.swap_horiz_rounded,
+                                size: 18,
+                              ),
+                              label: const Text('Change Source'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             )
@@ -1058,46 +1210,81 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                           _enterSelectionMode();
                                         },
                                       ),
-                                      // View Mode Toggle
-                                      PopupMenuButton<EpisodeViewMode>(
-                                        icon: const Icon(
-                                          Icons.view_agenda_outlined,
-                                        ),
-                                        tooltip: 'View Mode',
-                                        initialValue: viewMode,
-                                        onSelected: (mode) {
-                                          if (mode == EpisodeViewMode.banner) {
+                                      PopupMenuButton<Object>(
+                                        icon: const Icon(Icons.more_vert),
+                                        tooltip: 'Episode display',
+                                        onSelected: (value) {
+                                          if (value is EpisodeViewMode) {
+                                            final mode = value;
+                                            if (mode ==
+                                                EpisodeViewMode.banner) {
+                                              ref
+                                                  .read(
+                                                    experimentalProvider
+                                                        .notifier,
+                                                  )
+                                                  .updateSettings(
+                                                    (s) => s.copyWith(
+                                                      useEpisodeBannerStyle:
+                                                          true,
+                                                    ),
+                                                  );
+                                            } else {
+                                              ref
+                                                  .read(
+                                                    experimentalProvider
+                                                        .notifier,
+                                                  )
+                                                  .updateSettings(
+                                                    (s) => s.copyWith(
+                                                      useEpisodeBannerStyle:
+                                                          false,
+                                                    ),
+                                                  );
+                                            }
                                             ref
                                                 .read(
-                                                  experimentalProvider.notifier,
+                                                  uiSettingsProvider.notifier,
                                                 )
                                                 .updateSettings(
                                                   (s) => s.copyWith(
-                                                    useEpisodeBannerStyle: true,
+                                                    episodeViewMode: mode.name,
                                                   ),
                                                 );
-                                          } else {
+                                          } else if (value
+                                              is EpisodeGroupingMode) {
+                                            _setGroupingMode(value);
+                                          } else if (value == 'toggle_filler') {
+                                            final current =
+                                                ref
+                                                    .read(
+                                                      playerSettingsProvider,
+                                                    )
+                                                    .skipFillerEpisodes;
                                             ref
                                                 .read(
-                                                  experimentalProvider.notifier,
+                                                  playerSettingsProvider
+                                                      .notifier,
                                                 )
                                                 .updateSettings(
                                                   (s) => s.copyWith(
-                                                    useEpisodeBannerStyle:
-                                                        false,
+                                                    skipFillerEpisodes:
+                                                        !current,
                                                   ),
                                                 );
                                           }
-                                          ref
-                                              .read(uiSettingsProvider.notifier)
-                                              .updateSettings(
-                                                (s) => s.copyWith(
-                                                  episodeViewMode: mode.name,
-                                                ),
-                                              );
                                         },
                                         itemBuilder:
                                             (context) => [
+                                              const PopupMenuItem<Object>(
+                                                enabled: false,
+                                                child: Text(
+                                                  'Episode style',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
                                               const PopupMenuItem(
                                                 value: EpisodeViewMode.list,
                                                 child: Row(
@@ -1148,6 +1335,54 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                                   ],
                                                 ),
                                               ),
+                                              if (_namedGroups.isNotEmpty) ...[
+                                                const PopupMenuDivider(),
+                                                const PopupMenuItem<Object>(
+                                                  enabled: false,
+                                                  child: Text(
+                                                    'Grouping',
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                                CheckedPopupMenuItem<Object>(
+                                                  value:
+                                                      EpisodeGroupingMode
+                                                          .ranges,
+                                                  checked:
+                                                      _groupingMode ==
+                                                      EpisodeGroupingMode
+                                                          .ranges,
+                                                  child: const Text(
+                                                    'Episode ranges',
+                                                  ),
+                                                ),
+                                                CheckedPopupMenuItem<Object>(
+                                                  value:
+                                                      EpisodeGroupingMode.named,
+                                                  checked:
+                                                      _groupingMode ==
+                                                      EpisodeGroupingMode.named,
+                                                  child: const Text(
+                                                    'Story arcs',
+                                                  ),
+                                                ),
+                                              ],
+                                              const PopupMenuDivider(),
+                                              CheckedPopupMenuItem<Object>(
+                                                value: 'toggle_filler',
+                                                checked:
+                                                    ref
+                                                        .read(
+                                                          playerSettingsProvider,
+                                                        )
+                                                        .skipFillerEpisodes,
+                                                child: const Text(
+                                                  'Hide filler episodes',
+                                                ),
+                                              ),
                                             ],
                                       ),
                                       IconButton(
@@ -1172,70 +1407,47 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.only(right: 6.0),
-                              child: Center(
-                                child: FilterChip(
-                                  avatar: Icon(
-                                    ref
-                                            .watch(playerSettingsProvider)
-                                            .skipFillerEpisodes
-                                        ? Icons.check_circle_rounded
-                                        : Icons.skip_next_rounded,
-                                    size: 15,
-                                    color:
-                                        ref
-                                                .watch(playerSettingsProvider)
-                                                .skipFillerEpisodes
-                                            ? theme.colorScheme.primary
-                                            : null,
+                            if (_groupingMode == EpisodeGroupingMode.ranges)
+                              ...state.rangeOptions.map((range) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4.0,
                                   ),
-                                  label: Text(
-                                    'Skip Filler',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight:
-                                          ref
-                                                  .watch(playerSettingsProvider)
-                                                  .skipFillerEpisodes
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
+                                  child: Center(
+                                    child: ChoiceChip(
+                                      label: Text(range),
+                                      selected: state.selectedRange == range,
+                                      onSelected: (isSelected) {
+                                        if (isSelected) {
+                                          notifier.updateRange(range);
+                                        }
+                                      },
                                     ),
                                   ),
-                                  selected:
-                                      ref
-                                          .watch(playerSettingsProvider)
-                                          .skipFillerEpisodes,
-                                  onSelected: (val) {
-                                    ref
-                                        .read(playerSettingsProvider.notifier)
-                                        .updateSettings(
-                                          (s) => s.copyWith(
-                                            skipFillerEpisodes: val,
+                                );
+                              })
+                            else ...[
+                              ..._namedGroups.map(
+                                (group) => Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: Center(
+                                    child: ChoiceChip(
+                                      label: Text(
+                                        '${group.title} (${group.rangeLabel})',
+                                      ),
+                                      selected:
+                                          _selectedNamedGroup?.id == group.id,
+                                      onSelected:
+                                          (_) => setState(
+                                            () => _selectedNamedGroup = group,
                                           ),
-                                        );
-                                  },
-                                ),
-                              ),
-                            ),
-                            ...state.rangeOptions.map((range) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4.0,
-                                ),
-                                child: Center(
-                                  child: ChoiceChip(
-                                    label: Text(range),
-                                    selected: state.selectedRange == range,
-                                    onSelected: (isSelected) {
-                                      if (isSelected) {
-                                        notifier.updateRange(range);
-                                      }
-                                    },
+                                    ),
                                   ),
                                 ),
-                              );
-                            }),
+                              ),
+                            ],
                           ],
                         ),
                       ),

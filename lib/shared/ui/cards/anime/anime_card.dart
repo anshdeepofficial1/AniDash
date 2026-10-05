@@ -76,15 +76,18 @@ class _AnimeCardState extends State<AnimeCard> {
                             ? 34
                             : 8,
                     left: 8,
-                    child: SeasonBadge(anime: widget.anime),
-                  ),
-                  if (widget.anime.isMature &&
-                      widget.mode != AnimeCardMode.manga)
-                    Positioned(
-                      top: widget.anime.averageScore != null ? 42 : 8,
-                      right: 8,
-                      child: AdultBadge(anime: widget.anime),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SeasonBadge(anime: widget.anime),
+                        if (widget.anime.isMature &&
+                            widget.mode != AnimeCardMode.manga) ...[
+                          const SizedBox(width: 4),
+                          AdultBadge(anime: widget.anime),
+                        ],
+                      ],
                     ),
+                  ),
                 ],
               ),
             ),

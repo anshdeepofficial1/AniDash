@@ -11,6 +11,7 @@ import 'package:ani_dash/features/downloads/model/download_item.dart';
 import 'package:ani_dash/features/downloads/view/widgets/download_card.dart';
 import 'package:ani_dash/features/downloads/view_model/downloads_notifier.dart';
 import 'package:ani_dash/storage_provider.dart';
+import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
 
 class DownloadsScreen extends ConsumerWidget {
   final bool isAdult;
@@ -31,6 +32,7 @@ class DownloadsScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text(isAdult ? '18+ Downloads' : 'Downloads'),
+          actions: const [AskNiaButton(compact: true), SizedBox(width: 8)],
           bottom: TabBar(
             tabs: const [
               Tab(text: 'All'),
