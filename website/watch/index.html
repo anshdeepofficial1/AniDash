@@ -10,9 +10,17 @@
   <meta name="apple-mobile-web-app-title" content="AniDash">
   <meta name="application-name" content="AniDash">
   <meta name="format-detection" content="telephone=no">
-  <link rel="icon" href="/assets/anidash_logo.png">
-  <link rel="apple-touch-icon" href="/assets/anidash_logo.png">
-  <link rel="manifest" href="/watch/manifest.webmanifest">
+  <link rel="icon" href="https://anidashweb.vercel.app/assets/anidash_logo.png">
+  <link rel="apple-touch-icon" href="https://anidashweb.vercel.app/assets/anidash_logo.png">
+  <script>
+    (() => {
+      const nested = location.pathname === '/watch' || location.pathname.startsWith('/watch/');
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = nested ? '/watch/manifest.webmanifest' : '/manifest.webmanifest';
+      document.head.appendChild(link);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -150,7 +158,7 @@
 
   <dialog id="accountDialog" class="sheet">
     <button class="sheet-close" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
-    <div class="sheet-icon"><img src="/assets/anidash_logo.png" alt=""></div>
+    <div class="sheet-icon"><img src="https://anidashweb.vercel.app/assets/anidash_logo.png" alt="AniDash"></div>
     <h2>Welcome to AniDash</h2>
     <p>Your web app keeps local Continue Watching and Library data on this device. Account sync remains optional.</p>
     <button class="primary" id="accountBrowse">Explore AniDash</button>
