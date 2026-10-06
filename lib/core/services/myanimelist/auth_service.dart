@@ -40,7 +40,7 @@ class MyAnimeListAuthService extends BaseOAuthService {
   @override
   String get redirectUri =>
       isDesktop
-          ? 'http://localhost:43824/success?code=1337'
+          ? 'http://localhost:43824/mal-callback'
           : 'anidash://mal-auth';
 
   @override

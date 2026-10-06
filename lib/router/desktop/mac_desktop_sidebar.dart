@@ -8,6 +8,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:ani_dash/features/home/view_model/watch_history_notifier.dart';
 import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
 import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
+import 'package:ani_dash/shared/ui/brand_logo.dart';
 import 'package:ani_dash/router/router_wrapper.dart';
 
 class MacDesktopSidebar extends ConsumerStatefulWidget {
@@ -126,15 +127,15 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                         icon: Iconsax.clock,
                         label: 'Watch History',
                         shortcutHint: '${mod}H',
-                        isSelected: currentRoute == '/watch-history',
+                        isSelected: currentRoute == '/settings/watch-history',
                         isCollapsed: isCollapsed,
                         isDark: isDark,
                         badgeText: _getRecentHistoryCountBadge(),
-                        onTap: () => context.push('/watch-history'),
+                        onTap: () => context.push('/settings/watch-history'),
                       ),
                       _SidebarTile(
                         icon: Iconsax.magicpen,
-                        label: 'AniAI Assistant',
+                        label: 'AniCore',
                         shortcutHint: '${mod}K',
                         isSelected: currentRoute == '/ai',
                         isCollapsed: isCollapsed,
@@ -151,91 +152,20 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                         isDark: isDark,
                         onTap: () => context.push('/news'),
                       ),
-                      _SidebarTile(
-                        icon: Iconsax.notification,
-                        label: 'Notifications',
-                        isSelected: currentRoute == '/notifications',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        onTap: () => context.push('/notifications'),
-                      ),
 
                       const SizedBox(height: 14),
 
-                      // SECTION: EXTENSIONS & SOURCES
+                      // SECTION: SETTINGS
                       if (!isCollapsed)
-                        _buildSectionHeader('EXTENSIONS & SOURCES', isDark),
-                      _SidebarTile(
-                        icon: Icons.extension_outlined,
-                        label: 'Extensions',
-                        shortcutHint: '${mod}E',
-                        isSelected: currentRoute == '/extensions',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        onTap: () => context.push('/extensions'),
-                      ),
-
-                      const SizedBox(height: 14),
-
-                      // SECTION: PREFERENCES (Complete Settings ported directly from Android)
-                      if (!isCollapsed)
-                        _buildSectionHeader('PREFERENCES', isDark),
+                        _buildSectionHeader('SETTINGS', isDark),
                       _SidebarTile(
                         icon: Iconsax.setting_2,
-                        label: 'All Settings',
+                        label: 'Settings',
                         shortcutHint: '$mod,',
                         isSelected: currentRoute == '/settings',
                         isCollapsed: isCollapsed,
                         isDark: isDark,
                         onTap: () => context.push('/settings'),
-                      ),
-                      _SidebarTile(
-                        icon: Iconsax.colorfilter,
-                        label: 'Appearance & Themes',
-                        isSelected: currentRoute == '/settings/theme',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        onTap: () => context.push('/settings/theme'),
-                      ),
-                      _SidebarTile(
-                        icon: Iconsax.video_play,
-                        label: 'Video Player',
-                        isSelected: currentRoute == '/settings/player',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        onTap: () => context.push('/settings/player'),
-                      ),
-                      _SidebarTile(
-                        icon: Iconsax.user_tag,
-                        label: 'Account & Tracking',
-                        isSelected: currentRoute == '/settings/account',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        onTap: () => context.push('/settings/account'),
-                      ),
-                      _SidebarTile(
-                        icon: Iconsax.document_download,
-                        label: 'Download Settings',
-                        isSelected: currentRoute == '/settings/downloads',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        onTap: () => context.push('/settings/downloads'),
-                      ),
-                      _SidebarTile(
-                        icon: Icons.data_object,
-                        label: 'Data & Storage',
-                        isSelected: currentRoute == '/settings/data',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        onTap: () => context.push('/settings/data'),
-                      ),
-                      _SidebarTile(
-                        icon: Iconsax.info_circle,
-                        label: 'About AniDash',
-                        isSelected: currentRoute == '/settings/about',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        onTap: () => context.push('/settings/about'),
                       ),
                     ],
                   ),
@@ -286,7 +216,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
                           color: colorScheme.primary.withValues(alpha: 0.28),
@@ -296,87 +226,58 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                       ],
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: Image.asset(
-                      'assets/icons/anidash_logo.png',
-                      fit: BoxFit.cover,
+                    child: BrandLogo(
+                      size: 32,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'AniDash',
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary.withValues(alpha: 0.16),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: colorScheme.primary.withValues(alpha: 0.3),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Text(
-                                Platform.isMacOS
-                                    ? 'macOS Edition'
-                                    : (Platform.isWindows
-                                        ? 'Windows Edition'
-                                        : 'Desktop Edition'),
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  Text(
+                    'AniDash',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
                   ),
                 ],
               ),
             ),
-          ] else ...[
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(9),
+            IconButton(
+              tooltip: 'Collapse Sidebar',
+              iconSize: 18,
+              style: IconButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(6),
               ),
-              clipBehavior: Clip.antiAlias,
-              child: Image.asset(
-                'assets/icons/anidash_logo.png',
-                fit: BoxFit.cover,
+              icon: Icon(
+                Iconsax.sidebar_left,
+                color: isDark ? Colors.white60 : Colors.black54,
+              ),
+              onPressed: widget.onToggleCollapse,
+            ),
+          ] else ...[
+            Tooltip(
+              message: 'Expand Sidebar',
+              child: InkWell(
+                onTap: widget.onToggleCollapse,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: BrandLogo(
+                    size: 32,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
               ),
             ),
           ],
-          IconButton(
-            tooltip: isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar',
-            iconSize: 18,
-            style: IconButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(6),
-            ),
-            icon: Icon(
-              isCollapsed ? Iconsax.sidebar_right : Iconsax.sidebar_left,
-              color: isDark ? Colors.white60 : Colors.black54,
-            ),
-            onPressed: widget.onToggleCollapse,
-          ),
         ],
       ),
     );
@@ -393,7 +294,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14),
         child: Tooltip(
-          message: 'Ask AniAI (${mod}K)',
+          message: 'Ask AniCore (${mod}K)',
           child: InkWell(
             onTap: () => context.push('/ai'),
             borderRadius: BorderRadius.circular(10),
@@ -475,7 +376,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ask AniAI',
+                      'Ask AniCore',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -566,10 +467,10 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                     CircleAvatar(
                       radius: 16,
                       backgroundColor: colorScheme.primary.withValues(alpha: 0.15),
-                      backgroundImage: user?.avatar != null
-                          ? CachedNetworkImageProvider(user.avatar!)
+                      backgroundImage: (user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty)
+                          ? CachedNetworkImageProvider(user.avatarUrl!)
                           : null,
-                      child: user?.avatar == null
+                      child: (user?.avatarUrl == null || user!.avatarUrl!.isEmpty)
                           ? Icon(Iconsax.user, size: 16, color: colorScheme.primary)
                           : null,
                     ),

@@ -232,6 +232,8 @@ class AppInitializer {
             }
           },
         );
+        await windowManager.show();
+        await windowManager.focus();
 
         AppLogger.success('Window manager initialized');
       } catch (e, st) {

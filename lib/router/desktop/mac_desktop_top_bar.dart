@@ -7,6 +7,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/shared/providers/settings/theme_notifier.dart';
+import 'package:ani_dash/features/notifications/view/notification_inbox_screen.dart';
 
 class MacDesktopTopBar extends ConsumerStatefulWidget {
   final String title;
@@ -156,71 +157,74 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
 
                 const SizedBox(width: 24),
 
-                // 3. Apple / Windows Fluent Spotlight Search Field
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: Container(
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : Colors.black.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
+                // 3. Apple / Windows Fluent Spotlight Search Field (hidden on Browse and Manga to avoid duplicate search inputs)
+                if (widget.title != 'Browse' && widget.title != 'Manga')
+                  Expanded(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        child: Container(
+                          height: 30,
+                          decoration: BoxDecoration(
                             color: isDark
-                                ? Colors.white.withValues(alpha: 0.12)
-                                : Colors.black.withValues(alpha: 0.08),
-                            width: 1,
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : Colors.black.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.12)
+                                  : Colors.black.withValues(alpha: 0.08),
+                              width: 1,
+                            ),
                           ),
-                        ),
-                        child: TextField(
-                          controller: _searchCtrl,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: isDark ? Colors.white : Colors.black87,
+                          child: TextField(
+                            controller: _searchCtrl,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6.5,
+                              ),
+                              hintText: 'Search anime, manga, genres... (${mod}F)',
+                              hintStyle: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white38 : Colors.black38,
+                              ),
+                              prefixIcon: Icon(
+                                Iconsax.search_normal_1,
+                                size: 13,
+                                color: isDark ? Colors.white54 : Colors.black45,
+                              ),
+                              prefixIconConstraints: const BoxConstraints(
+                                minWidth: 28,
+                                minHeight: 28,
+                              ),
+                              border: InputBorder.none,
+                            ),
+                            onSubmitted: (query) {
+                              if (query.trim().isNotEmpty) {
+                                context.push(
+                                  '/browse?keyword=${Uri.encodeComponent(query.trim())}',
+                                );
+                              }
+                            },
                           ),
-                          decoration: InputDecoration(
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6.5,
-                            ),
-                            hintText: 'Search anime, manga, genres... (${mod}F)',
-                            hintStyle: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? Colors.white38 : Colors.black38,
-                            ),
-                            prefixIcon: Icon(
-                              Iconsax.search_normal_1,
-                              size: 13,
-                              color: isDark ? Colors.white54 : Colors.black45,
-                            ),
-                            prefixIconConstraints: const BoxConstraints(
-                              minWidth: 28,
-                              minHeight: 28,
-                            ),
-                            border: InputBorder.none,
-                          ),
-                          onSubmitted: (query) {
-                            if (query.trim().isNotEmpty) {
-                              context.push(
-                                '/browse?keyword=${Uri.encodeComponent(query.trim())}',
-                              );
-                            }
-                          },
                         ),
                       ),
                     ),
-                  ),
-                ),
+                  )
+                else
+                  const Spacer(),
 
                 const SizedBox(width: 16),
 
                 // 4. Quick Action Controls with tooltips & keyboard hints
                 _MacIconButton(
-                  tooltip: 'Ask AniAI (${mod}K)',
+                  tooltip: 'Ask AniCore (${mod}K)',
                   icon: Iconsax.magicpen,
                   iconColor: colorScheme.primary,
                   isDark: isDark,
@@ -231,7 +235,24 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
                   tooltip: 'Notifications (${mod}N)',
                   icon: Iconsax.notification,
                   isDark: isDark,
-                  onPressed: () => context.push('/notifications'),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => Dialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: 520,
+                            maxHeight: 640,
+                          ),
+                          child: const NotificationInboxScreen(),
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 6),
                 _MacIconButton(
@@ -239,13 +260,6 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
                   icon: Iconsax.moon,
                   isDark: isDark,
                   onPressed: _cycleTheme,
-                ),
-                const SizedBox(width: 6),
-                _MacIconButton(
-                  tooltip: 'Toggle Fullscreen (${isMac ? '⌃⌘F' : 'F11'})',
-                  icon: Iconsax.maximize_4,
-                  isDark: isDark,
-                  onPressed: () => UIHelper.handleToggleFullscreen(),
                 ),
 
                 // 5. Native Windows Window Caption Buttons (Minimize, Maximize/Restore, Close)

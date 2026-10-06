@@ -78,7 +78,7 @@ final List<NavItem> navItems = [
     path: '/watchlist',
     icon: Iconsax.bookmark,
     screen: WatchlistScreen(),
-    label: 'Watchlist',
+    label: 'Your Library',
   ),
 ];
 
@@ -496,9 +496,9 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
         const SingleActivator(LogicalKeyboardKey.comma, control: true):
             () => context.push('/settings'),
         const SingleActivator(LogicalKeyboardKey.keyH, meta: true):
-            () => context.push('/watch-history'),
+            () => context.push('/settings/watch-history'),
         const SingleActivator(LogicalKeyboardKey.keyH, control: true):
-            () => context.push('/watch-history'),
+            () => context.push('/settings/watch-history'),
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true):
             () => context.push('/news'),
         const SingleActivator(LogicalKeyboardKey.keyN, control: true):
@@ -509,6 +509,14 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
             () => context.push('/extensions'),
         const SingleActivator(LogicalKeyboardKey.f11):
             () => UIHelper.handleToggleFullscreen(),
+        // Smart Escape: step back 1 level, or go to Home
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else if (widget.navigationShell.currentIndex != 0) {
+            _onNavTap(0, visibleNavItems);
+          }
+        },
       };
 
       return CallbackShortcuts(

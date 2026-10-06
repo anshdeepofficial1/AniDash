@@ -678,6 +678,14 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
           const SingleActivator(LogicalKeyboardKey.keyM): notifier.toggleMute,
           const SingleActivator(LogicalKeyboardKey.f11): _cycleVideoFit,
           const SingleActivator(LogicalKeyboardKey.keyF): _cycleVideoFit,
+          // Smart Escape: if in fullscreen exit fullscreen, else close panel / exit
+          const SingleActivator(LogicalKeyboardKey.escape): () {
+            if (UIHelper.isFullscreen) {
+              UIHelper.handleToggleFullscreen();
+            } else {
+              widget.onPanelCloseRequest?.call();
+            }
+          },
         },
         child: Focus(
           focusNode: _focusNode,

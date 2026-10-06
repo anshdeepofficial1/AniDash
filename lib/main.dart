@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 
 import 'package:dynamic_color/dynamic_color.dart';
@@ -22,14 +23,22 @@ final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  FlutterError.onError = (details) {
+    AppLogger.e('FlutterError: ${details.exceptionAsString()}', details.exception, details.stack);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    AppLogger.e('Uncaught Platform Error: $error', error, stack);
+    return true;
+  };
+
   try {
     AppLogger.i('Starting app initialization');
     await AppInitializer.initialize();
-  } catch (e) {
-    AppLogger.e('Error initializing app: $e');
+  } catch (e, st) {
+    AppLogger.e('Error initializing app: $e', e, st);
     runApp(
-      const MaterialApp(
-        home: Scaffold(body: Center(child: Text('Initialization failed'))),
+      MaterialApp(
+        home: Scaffold(body: Center(child: Text('Initialization failed: $e'))),
       ),
     );
     return;

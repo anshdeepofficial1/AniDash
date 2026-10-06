@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:install_plugin/install_plugin.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:crypto/crypto.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:ani_dash/core/network/http_client.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 
@@ -44,13 +45,43 @@ class UpdateService {
         final assets = data['assets'] as List;
         if (assets.isEmpty) return null;
 
-        final apkAsset = assets.firstWhere(
-          (asset) => asset['name'].toString().endsWith('.apk'),
-          orElse: () => null,
-        );
-        if (apkAsset == null) return null;
-        final downloadUrl = apkAsset['browser_download_url'] as String;
-        final digest = apkAsset['digest']?.toString();
+        dynamic matchedAsset;
+        if (Platform.isAndroid) {
+          matchedAsset = assets.firstWhere(
+            (asset) => asset['name'].toString().toLowerCase().endsWith('.apk'),
+            orElse: () => null,
+          );
+        } else if (Platform.isWindows) {
+          matchedAsset = assets.firstWhere(
+            (asset) {
+              final name = asset['name'].toString().toLowerCase();
+              return name.endsWith('.exe') ||
+                  name.contains('windows-portable.zip') ||
+                  name.endsWith('.zip');
+            },
+            orElse: () => null,
+          );
+        } else if (Platform.isMacOS) {
+          matchedAsset = assets.firstWhere(
+            (asset) {
+              final name = asset['name'].toString().toLowerCase();
+              return name.endsWith('.dmg') ||
+                  name.contains('macos.zip') ||
+                  name.endsWith('.zip');
+            },
+            orElse: () => null,
+          );
+        } else if (Platform.isLinux) {
+          matchedAsset = assets.firstWhere(
+            (asset) =>
+                asset['name'].toString().toLowerCase().contains('linux.zip'),
+            orElse: () => null,
+          );
+        }
+
+        if (matchedAsset == null) return null;
+        final downloadUrl = matchedAsset['browser_download_url'] as String;
+        final digest = matchedAsset['digest']?.toString();
 
         final packageInfo = await PackageInfo.fromPlatform();
         final currentVersion = packageInfo.version;
@@ -133,6 +164,11 @@ class UpdateService {
     String? expectedSha256,
     void Function(int receivedBytes, int totalBytes)? onProgress,
   }) async {
+    if (!Platform.isAndroid) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      return;
+    }
+
     final client = http.Client();
     try {
       final tempDir = await getTemporaryDirectory();
