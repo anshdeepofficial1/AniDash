@@ -4,7 +4,7 @@
   "short_name": "AniDash",
   "description": "AniDash for iPhone and iPad — discover, track, and watch anime from your Home Screen.",
   "start_url": "/watch",
-  "scope": "/watch/",
+  "scope": "/watch",
   "display": "standalone",
   "display_override": ["standalone"],
   "orientation": "any",
