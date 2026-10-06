@@ -219,6 +219,7 @@ class Auth extends _$Auth {
         return;
       }
       await sharedPrefs.setString('anilist-user-cache', jsonEncode(userData));
+      await sharedPrefs.setBool('is_onboarded', true);
 
       // Login to Commentum
       try {
@@ -295,6 +296,7 @@ class Auth extends _$Auth {
 
       final profile = await _malAuthService.getUserProfile(accesToken);
       if (profile != null) {
+        await sharedPrefs.setBool('is_onboarded', true);
         // Login to Commentum
         try {
           await commentumClient.login(

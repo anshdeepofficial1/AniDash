@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ani_dash/main.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:ani_dash/shared/providers/anime_source_provider.dart';
@@ -67,6 +68,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _nextPage() {
+    // Immediately persist that onboarding has started/progressed
+    sharedPrefs.setBool('is_onboarded', true);
     if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 600),
@@ -86,8 +89,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  Future<void> _skipOnboarding() async {
+    await sharedPrefs.setBool('is_onboarded', true);
+    final diskPrefs = await SharedPreferences.getInstance();
+    await diskPrefs.setBool('is_onboarded', true);
+    if (mounted) context.go('/');
+  }
+
   Future<void> _completeOnboarding() async {
     await sharedPrefs.setBool('is_onboarded', true);
+    final diskPrefs = await SharedPreferences.getInstance();
+    await diskPrefs.setBool('is_onboarded', true);
     if (mounted) context.go('/');
   }
 
@@ -205,26 +217,40 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ),
                     )
                   else
-                    const SizedBox(width: 80),
-                  FilledButton.icon(
-                    onPressed: _nextPage,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 16,
+                    TextButton(
+                      onPressed: _skipOnboarding,
+                      child: const Text('Skip to Home'),
+                    ),
+                  Row(
+                    children: [
+                      if (_currentPage > 0 && _currentPage < _totalPages - 1) ...[
+                        TextButton(
+                          onPressed: _skipOnboarding,
+                          child: const Text('Skip to Home'),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      FilledButton.icon(
+                        onPressed: _nextPage,
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        label: Text(
+                          _currentPage == _totalPages - 1 ? 'Get Started' : 'Next',
+                        ),
+                        icon: Icon(
+                          _currentPage == _totalPages - 1
+                              ? Iconsax.tick_circle
+                              : Iconsax.arrow_right_3,
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    label: Text(
-                      _currentPage == _totalPages - 1 ? 'Get Started' : 'Next',
-                    ),
-                    icon: Icon(
-                      _currentPage == _totalPages - 1
-                          ? Iconsax.tick_circle
-                          : Iconsax.arrow_right_3,
-                    ),
+                    ],
                   ),
                 ],
               ),

@@ -18,6 +18,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 SetupIconFile=..\runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
+CloseApplications=force
+CloseApplicationsFilter=AniDash.exe
 
 [Files]
 Source: "..\..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
