@@ -520,5 +520,8 @@ loadHome();
 if(initialPage!=='homePage') openPage(initialPage);
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/watch/sw.js',{scope:'/watch'}).catch(()=>{});
+  const nested=location.pathname==='/watch'||location.pathname.startsWith('/watch/');
+  const swUrl=nested?'/watch/sw.js':'/sw.js';
+  const swScope=nested?'/watch':'/';
+  navigator.serviceWorker.register(swUrl,{scope:swScope}).catch(()=>{});
 }
