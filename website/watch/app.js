@@ -840,23 +840,278 @@ async function loadManga(query=''){
   }
 }
 
-function openPage(pageId){
+const desktopShellQuery=window.matchMedia('(min-width:1100px)');
+const isDesktopShell=()=>desktopShellQuery.matches;
+
+const MAC_PAGE_META={
+  homePage:['Home','i-home'],
+  browsePage:['Browse','i-search'],
+  mangaPage:['Manga','i-book'],
+  downloadsPage:['Downloads','i-download'],
+  watchlistPage:['Watchlist','i-bookmark'],
+  historyPage:['Watch History','i-history'],
+  aiPage:['AniAI Assistant','i-spark'],
+  newsPage:['Anime News','i-news'],
+  notificationsPage:['Notifications','i-bell'],
+  extensionsPage:['Extensions','i-extension'],
+  settingsPage:['Settings','i-settings']
+};
+
+function syncMacChrome(pageId,label,icon){
+  const meta=MAC_PAGE_META[pageId]||['AniDash','i-home'];
+  const title=label||meta[0];
+  const iconId=icon||meta[1];
+  const titleNode=$('#macPageTitle');
+  const iconUse=$('#macPageIcon use');
+  if(titleNode) titleNode.textContent=title;
+  if(iconUse) iconUse.setAttribute('href','#'+iconId);
+  $$('.mac-nav-item[data-page]').forEach(button=>{
+    button.classList.toggle('active',button.dataset.page===pageId);
+  });
+}
+
+function formatRelativeTime(timestamp){
+  const diff=Math.max(0,Date.now()-Number(timestamp||0));
+  const minutes=Math.floor(diff/60000);
+  if(minutes<1) return 'Just now';
+  if(minutes<60) return minutes+'m ago';
+  const hours=Math.floor(minutes/60);
+  if(hours<24) return hours+'h ago';
+  const days=Math.floor(hours/24);
+  if(days<30) return days+'d ago';
+  return new Date(timestamp).toLocaleDateString();
+}
+
+function renderHistoryPage(){
+  const grid=$('#historyGrid');
+  const empty=$('#historyEmpty');
+  if(!grid||!empty) return;
+  let list=[];
+  try{list=JSON.parse(localStorage.getItem('anidash-progress')||'[]')}catch(_){}
+  const badge=$('#macHistoryBadge');
+  if(badge) badge.textContent=list.length?(list.length>99?'99+':String(list.length)):'';
+
+  grid.innerHTML=list.map(item=>`
+    <button class="history-item" data-history-id="${esc(item.id)}">
+      <img src="${esc(item.bannerImage||item.cover||'')}" loading="lazy" alt="">
+      <span><b>${esc(item.title||'Anime')}</b><small>E${esc(item.episode||1)} · ${esc(item.episodeTitle||'Continue watching')}</small></span>
+      <time>${esc(formatRelativeTime(item.time))}</time>
+    </button>
+  `).join('');
+  empty.hidden=list.length>0;
+
+  grid.querySelectorAll('.history-item').forEach(button=>{
+    button.onclick=()=>{
+      const item=list.find(entry=>String(entry.id)===button.dataset.historyId);
+      if(item) openDetails({
+        id:+item.id,
+        title:item.title,
+        cover:item.cover||item.bannerImage||''
+      });
+    };
+  });
+}
+
+function buildAiContext(){
+  let progress=[];
+  let library=[];
+  try{progress=JSON.parse(localStorage.getItem('anidash-progress')||'[]')}catch(_){}
+  try{library=JSON.parse(localStorage.getItem('anidash-library')||'[]')}catch(_){}
+  return {
+    currentPage:$('.page.active')?.id||'homePage',
+    librarySummary:{
+      continueWatching:progress.slice(0,20),
+      library:library.slice(0,50)
+    },
+    conversationHistory:state.aiConversation.slice(-12)
+  };
+}
+
+function appendAiMessage(role,text){
+  const box=$('#aiMessages');
+  if(!box) return;
+  const item=document.createElement('div');
+  item.className='ai-message '+role;
+  item.innerHTML=`
+    <span class="ai-avatar"><svg class="icon"><use href="#${role==='user'?'i-user':'i-spark'}"/></svg></span>
+    <div><b>${role==='user'?'You':'AniAI'}</b><p></p></div>
+  `;
+  item.querySelector('p').textContent=text;
+  box.appendChild(item);
+  box.scrollTop=box.scrollHeight;
+}
+
+async function sendAiMessage(message){
+  const clean=String(message||'').trim();
+  if(!clean) return;
+  appendAiMessage('user',clean);
+  state.aiConversation.push({role:'user',content:clean});
+  const send=$('#aiSendButton');
+  const input=$('#aiChatInput');
+  if(send) send.disabled=true;
+  if(input) input.disabled=true;
+
+  const pending='Thinking…';
+  appendAiMessage('assistant',pending);
+  const pendingNode=$('#aiMessages .ai-message:last-child p');
+
+  try{
+    const response=await fetch('/api/ai',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        message:clean,
+        assistantId:'coordinator',
+        assistantDisplayName:'NEXUS',
+        editAuthorized:false,
+        context:buildAiContext(),
+        instructions:{
+          global:'Be concise, useful and focused on anime, manga and AniDash.',
+          specialist:'Use the local AniDash watch/library context when it is relevant.'
+        }
+      })
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok) throw Error(data.error||'AniAI is temporarily unavailable');
+    const answer=String(data.text||'').trim()||'I could not generate a response.';
+    if(pendingNode) pendingNode.textContent=answer;
+    state.aiConversation.push({role:'assistant',content:answer});
+  }catch(error){
+    if(pendingNode) pendingNode.textContent=error?.message||'AniAI is temporarily unavailable.';
+  }finally{
+    if(send) send.disabled=false;
+    if(input){input.disabled=false;input.focus()}
+  }
+}
+
+async function loadDesktopNews(force=false){
+  if(state.newsLoaded&&!force) return;
+  const status=$('#newsStatus');
+  const grid=$('#newsGrid');
+  if(!status||!grid) return;
+  status.textContent='Loading latest anime news…';
+  try{
+    const response=await fetch('/api/news'+(force?'?refresh=1':''));
+    const payload=await response.json().catch(()=>({}));
+    if(!response.ok) throw Error(payload.error||'Could not load news');
+    const items=Array.isArray(payload.items)?payload.items:[];
+    grid.innerHTML=items.map(item=>`
+      <a class="news-card" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">
+        ${item.imageUrl?`<img src="${esc(item.imageUrl)}" loading="lazy" alt="">`:'<div class="news-card-placeholder"></div>'}
+        <div><time>${esc(item.date?new Date(item.date).toLocaleDateString():'')}</time><b>${esc(item.title)}</b><p>${esc(item.excerpt||'')}</p></div>
+      </a>
+    `).join('');
+    status.textContent=items.length?`${items.length} latest articles`:'No news is available right now.';
+    state.newsLoaded=true;
+  }catch(error){
+    grid.innerHTML='';
+    status.textContent=error?.message||'Anime news is temporarily unavailable.';
+  }
+}
+
+function renderDesktopNotifications(){
+  const card=$('#desktopNotificationCard');
+  const button=$('#desktopNotificationPermission');
+  if(!card||!button) return;
+  const supported='Notification' in window;
+  const permission=supported?Notification.permission:'unsupported';
+  const installed=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+  const label=permission==='granted'?'Allowed':permission==='denied'?'Blocked':permission==='default'?'Not requested':'Unsupported';
+  card.innerHTML=`<h2>Notification Status</h2><p><b>${esc(label)}</b> · ${installed?'AniDash is running in standalone app mode.':'Install AniDash as a PWA for the most app-like notification experience.'}</p>`;
+  button.hidden=!supported||permission==='granted';
+  button.textContent=permission==='denied'?'Open Browser Settings':'Enable Notifications';
+}
+
+async function requestDesktopNotifications(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission==='default'){
+    try{await Notification.requestPermission()}catch(_){}
+  }
+  renderDesktopNotifications();
+  updateNotificationPermissionStatus();
+}
+
+async function checkSourceHealth(){
+  const badge=$('#sourceHealthBadge');
+  if(!badge) return;
+  badge.className='source-badge';
+  badge.textContent='Checking…';
+  try{
+    await api({action:'search',query:'One Piece',page:'1'},{timeout:12000});
+    badge.textContent='Online';
+    badge.classList.add('ok');
+  }catch(_){
+    badge.textContent='Unavailable';
+    badge.classList.add('bad');
+  }
+}
+
+function openSettingsFocus(query='',label='Settings',icon='i-settings'){
+  openPage('settingsPage',{label,icon});
+  const input=$('#settingsSearchInput');
+  const wrap=$('#settingsSearchWrap');
+  if(input&&wrap){
+    input.value=query;
+    wrap.hidden=!query;
+    input.dispatchEvent(new Event('input'));
+  }
+}
+
+function cycleDesktopTheme(){
+  if(webSettings.theme==='dark'&&!webSettings.amoled){
+    webSettings.amoled=true;
+  }else if(webSettings.amoled){
+    webSettings.amoled=false;
+    webSettings.theme='light';
+  }else{
+    webSettings.amoled=false;
+    webSettings.theme='dark';
+  }
+  saveWebSettings();
+}
+
+async function toggleFullscreen(){
+  try{
+    if(document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
+  }catch(_){}
+}
+
+function desktopBack(){
+  if(state.pageHistory.length){
+    const previous=state.pageHistory.pop();
+    openPage(previous,{fromBack:true});
+  }else{
+    openPage('homePage',{fromBack:true});
+  }
+}
+
+function openPage(pageId,options={}){
   const current=$('.page.active')?.id;
+  if(current&&current!==pageId&&!options.fromBack){
+    state.pageHistory.push(current);
+    if(state.pageHistory.length>30) state.pageHistory.shift();
+  }
   if(pageId==='settingsPage'&&current&&current!=='settingsPage') state.lastMainPage=current;
   const isSubpage=pageId==='settingsPage';
   document.body.classList.toggle('subpage-open',isSubpage);
   $$('.page').forEach(p=>p.classList.toggle('active',p.id===pageId));
   $$('[data-page]').forEach(b=>b.classList.toggle('active',!isSubpage&&b.dataset.page===pageId));
+  syncMacChrome(pageId,options.label,options.icon);
+
   if(pageId==='browsePage'){
     renderHistory();
     if(!$('#searchInput').value.trim()) renderBrowseLanding(state.browseFilter);
   }
   if(pageId==='mangaPage'&&!$('#mangaGrid').children.length) loadManga();
   if(pageId==='watchlistPage') renderLibrary();
+  if(pageId==='historyPage') renderHistoryPage();
+  if(pageId==='newsPage') loadDesktopNews();
+  if(pageId==='notificationsPage') renderDesktopNotifications();
+  if(pageId==='extensionsPage') checkSourceHealth();
   if(pageId==='settingsPage') syncSettingsControls();
   window.scrollTo({top:0,behavior:'auto'});
 }
-
 function showUtility(title,body){
   $('#utilityTitle').textContent=title;
   $('#utilityBody').textContent=body;
