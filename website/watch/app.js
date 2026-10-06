@@ -749,6 +749,8 @@ function persistPlaybackProgress(ep,video,{force=false}={}){
 
 async function playEpisode(ep){
   const dlg=$('#playerDialog'),video=$('#video'),loading=$('#playerLoading');
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,video,{force:true});
+  state.playingEpisode=null;
   if(!dlg.open) dlg.showModal();
   $('#playerTitle').textContent=`E${ep.number} — ${ep.title||'Episode '+ep.number}`;
   $('#playerStatus').textContent='';
@@ -1211,6 +1213,17 @@ function showUtility(title,body){
 
 $$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
 
+function syncDesktopEdition(){
+  const badge=$('#macEditionBadge');
+  if(!badge) return;
+  const ua=navigator.userAgent||'';
+  badge.textContent=/Windows/i.test(ua)
+    ? 'Windows Edition'
+    : /(Macintosh|Mac OS X)/i.test(ua)
+      ? 'macOS Edition'
+      : 'Desktop Edition';
+}
+
 $('#macSidebarToggle').onclick=()=>{
   const collapsed=!document.body.classList.contains('mac-sidebar-collapsed');
   document.body.classList.toggle('mac-sidebar-collapsed',collapsed);
@@ -1355,6 +1368,8 @@ $('.utility-close-action').onclick=()=>$('#utilityDialog').close();
 $('.details-back').onclick=()=>$('#detailsDialog').close();
 $('.player-back').onclick=()=>{
   const v=$('#video');
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,v,{force:true});
+  state.playingEpisode=null;
   v.pause();
   if(state.hls){state.hls.destroy();state.hls=null}
   v.removeAttribute('src');
@@ -1479,6 +1494,7 @@ document.body.classList.toggle(
   'mac-sidebar-collapsed',
   localStorage.getItem('anidash-mac-sidebar-collapsed')==='1'
 );
+syncDesktopEdition();
 applyWebSettings();
 syncSettingsControls();
 renderHistory();
@@ -1497,6 +1513,20 @@ desktopShellQuery.addEventListener?.('change',event=>{
     return;
   }
   syncMacChrome(active);
+});
+
+const playerVideo=$('#video');
+playerVideo.addEventListener('timeupdate',()=>{
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,playerVideo);
+});
+playerVideo.addEventListener('pause',()=>{
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,playerVideo,{force:true});
+});
+playerVideo.addEventListener('ended',()=>{
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,playerVideo,{force:true});
+});
+window.addEventListener('pagehide',()=>{
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,playerVideo,{force:true});
 });
 
 if('serviceWorker' in navigator){
