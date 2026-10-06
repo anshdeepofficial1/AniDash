@@ -2,8 +2,10 @@ import 'dart:io';
 
 import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:ani_dash/main.dart';
 import 'package:iconsax/iconsax.dart';
@@ -54,7 +56,7 @@ class _OnboardingBenefit extends StatelessWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  final int _totalPages = Platform.isAndroid ? 10 : 9;
+  final int _totalPages = Platform.isAndroid ? 11 : 10;
 
   @override
   void dispose() {
@@ -136,6 +138,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   _buildAiTeamStep(context),
                   if (Platform.isAndroid) _buildPermissionsStep(context, ref),
                   _buildUpdatesStep(context, ref),
+                  _buildSupportDeveloperStep(context),
                 ],
               ),
             ),
@@ -681,6 +684,189 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSupportDeveloperStep(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    const upiId = 'anshdeep200618-3@oksbi';
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(
+            context,
+            'Support\nAniDash ☕✨',
+            '100% free, open source, and ad-free.',
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'AniDash is built and maintained by a passionate solo developer. If you love the experience and want to support active development and server costs, every contribution helps keep the app fast and ad-free! ❤️🚀',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.8),
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Buy Me A Coffee Button
+                Material(
+                  color: const Color(0xFFFFDD00).withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () async {
+                      final uri = Uri.parse('https://buymeacoffee.com/anshdeepofficial');
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      child: Row(
+                        children: [
+                          const Icon(Iconsax.coffee, color: Color(0xFFFFDD00), size: 24),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Buy Me a Coffee',
+                                  style: textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'buymeacoffee.com/anshdeepofficial',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.open_in_new_rounded, size: 20, color: colorScheme.onSurfaceVariant),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // GitHub Sponsors Button
+                Material(
+                  color: const Color(0xFFEA4AAA).withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () async {
+                      final uri = Uri.parse('https://github.com/sponsors/anshdeepofficial1');
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      child: Row(
+                        children: [
+                          const Icon(Iconsax.heart, color: Color(0xFFEA4AAA), size: 24),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'GitHub Sponsor',
+                                  style: textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'github.com/sponsors/anshdeepofficial1',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.open_in_new_rounded, size: 20, color: colorScheme.onSurfaceVariant),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Direct UPI Payment Button
+                Material(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () async {
+                      final upiUri = Uri.parse(
+                        'upi://pay?pa=$upiId&pn=Anshdeep%20Singh&cu=INR&tn=AniDash%20Support',
+                      );
+                      bool launched = false;
+                      try {
+                        launched = await launchUrl(
+                          upiUri,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      } catch (_) {}
+                      if (!launched && context.mounted) {
+                        await Clipboard.setData(const ClipboardData(text: upiId));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'UPI ID ($upiId) copied to clipboard! Open your UPI app to sponsor.',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      child: Row(
+                        children: [
+                          Icon(Iconsax.card, color: colorScheme.primary, size: 24),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Sponsor via UPI (GPay, PhonePe, Paytm)',
+                                  style: textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  upiId,
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.touch_app_rounded, size: 20, color: colorScheme.primary),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

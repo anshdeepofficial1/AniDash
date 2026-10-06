@@ -20,6 +20,13 @@ import android.content.ComponentName
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.app.PendingIntent
+import android.app.PictureInPictureParams
+import android.app.RemoteAction
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.graphics.drawable.Icon
+import android.util.Rational
 
 class MainActivity : FlutterFragmentActivity() {
     private var landscapeListener: OrientationEventListener? = null
@@ -33,6 +40,22 @@ class MainActivity : FlutterFragmentActivity() {
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     private var hasAudioFocus = false
+    private var pipIsPlaying = true
+
+    companion object {
+        private const val ACTION_PIP_CONTROL = "com.anidash.anime.PIP_CONTROL"
+        private const val EXTRA_CONTROL_TYPE = "control_type"
+    }
+
+    private val pipReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent == null || intent.action != ACTION_PIP_CONTROL) return
+            val control = intent.getStringExtra(EXTRA_CONTROL_TYPE) ?: return
+            runOnUiThread {
+                pipChannel?.invokeMethod("onPiPAction", control)
+            }
+        }
+    }
 
     private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         runOnUiThread {
@@ -155,8 +178,76 @@ class MainActivity : FlutterFragmentActivity() {
         landscapeListener = null
     }
 
+    private fun buildPiPParams(isPlaying: Boolean): PictureInPictureParams? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null
+        val prevIntent = PendingIntent.getBroadcast(
+            this, 101,
+            Intent(ACTION_PIP_CONTROL).putExtra(EXTRA_CONTROL_TYPE, "prev"),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val prevAction = RemoteAction(
+            Icon.createWithResource(this, android.R.drawable.ic_media_previous),
+            "Previous",
+            "Previous Episode",
+            prevIntent
+        )
+
+        val playPauseIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        val playPauseTitle = if (isPlaying) "Pause" else "Play"
+        val playPauseIntent = PendingIntent.getBroadcast(
+            this, 102,
+            Intent(ACTION_PIP_CONTROL).putExtra(EXTRA_CONTROL_TYPE, "play_pause"),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val playPauseAction = RemoteAction(
+            Icon.createWithResource(this, playPauseIcon),
+            playPauseTitle,
+            playPauseTitle,
+            playPauseIntent
+        )
+
+        val nextIntent = PendingIntent.getBroadcast(
+            this, 103,
+            Intent(ACTION_PIP_CONTROL).putExtra(EXTRA_CONTROL_TYPE, "next"),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val nextAction = RemoteAction(
+            Icon.createWithResource(this, android.R.drawable.ic_media_next),
+            "Next",
+            "Next Episode",
+            nextIntent
+        )
+
+        val actions = listOf(prevAction, playPauseAction, nextAction)
+        val builder = PictureInPictureParams.Builder()
+            .setActions(actions)
+        try {
+            builder.setAspectRatio(Rational(16, 9))
+        } catch (_: Exception) {}
+        return builder.build()
+    }
+
+    private fun updatePiPActions(isPlaying: Boolean) {
+        pipIsPlaying = isPlaying
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val params = buildPiPParams(isPlaying)
+                if (params != null) {
+                    setPictureInPictureParams(params)
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        val pipFilter = IntentFilter(ACTION_PIP_CONTROL)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(pipReceiver, pipFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(pipReceiver, pipFilter)
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "shonenx/orientation")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -350,7 +441,9 @@ class MainActivity : FlutterFragmentActivity() {
                 "enterPiP" -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         try {
-                            val params = android.app.PictureInPictureParams.Builder().build()
+                            val isPlaying = call.argument<Boolean>("isPlaying") ?: pipIsPlaying
+                            pipIsPlaying = isPlaying
+                            val params = buildPiPParams(isPlaying) ?: PictureInPictureParams.Builder().build()
                             val success = enterPictureInPictureMode(params)
                             result.success(success)
                         } catch (e: Exception) {
@@ -359,6 +452,11 @@ class MainActivity : FlutterFragmentActivity() {
                     } else {
                         result.success(false)
                     }
+                }
+                "updatePlaybackState" -> {
+                    val isPlaying = call.argument<Boolean>("isPlaying") ?: true
+                    updatePiPActions(isPlaying)
+                    result.success(null)
                 }
                 "exitPiP" -> {
                     try {
@@ -402,7 +500,7 @@ class MainActivity : FlutterFragmentActivity() {
         super.onUserLeaveHint()
         if (interceptVolumeKeys && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
-                val params = android.app.PictureInPictureParams.Builder().build()
+                val params = buildPiPParams(pipIsPlaying) ?: PictureInPictureParams.Builder().build()
                 enterPictureInPictureMode(params)
             } catch (_: Exception) {}
         }
@@ -493,6 +591,9 @@ class MainActivity : FlutterFragmentActivity() {
             val lp = window.attributes
             lp.screenBrightness = android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
             window.attributes = lp
+        } catch (_: Exception) {}
+        try {
+            unregisterReceiver(pipReceiver)
         } catch (_: Exception) {}
         super.onDestroy()
     }

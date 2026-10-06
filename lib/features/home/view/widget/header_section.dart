@@ -12,6 +12,7 @@ import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
 import 'package:ani_dash/core/utils/greeting_methods.dart';
 import 'package:ani_dash/core/services/notification_inbox_service.dart';
 import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
+import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 
 class HeaderSection extends ConsumerWidget {
   final bool isDesktop;
@@ -98,6 +99,11 @@ class HeaderSection extends ConsumerWidget {
                 const _NewsActionBadge(),
                 const SizedBox(width: 8),
                 const _NotificationInboxButton(),
+                const SizedBox(width: 8),
+                _ActionButton(
+                  icon: Icons.favorite_rounded,
+                  onTap: () => SponsorDialog.show(context),
+                ),
                 const SizedBox(width: 8),
                 _ActionButton(
                   icon: Icons.settings_outlined,
@@ -319,6 +325,11 @@ class ActionPanel extends StatelessWidget {
             const _NotificationInboxButton(),
             const SizedBox(width: 8),
           ],
+          _ActionButton(
+            icon: Icons.favorite_rounded,
+            onTap: () => SponsorDialog.show(context),
+          ),
+          const SizedBox(width: 8),
           const _ActionButton(icon: Iconsax.setting_2, route: '/settings'),
         ],
       ),

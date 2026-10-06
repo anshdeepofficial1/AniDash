@@ -594,6 +594,12 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     final uiController = ref.watch(playerUIControllerProvider.notifier);
     final isPiP = ref.watch(pipProvider);
 
+    ref.listen(playerStateProvider.select((p) => p.isPlaying), (prev, next) {
+      if (ref.read(pipProvider)) {
+        ref.read(pipProvider.notifier).updatePlaybackState(next);
+      }
+    });
+
     final episodeStreamState = ref.watch(
       episodeDataProvider.select((e) => e.states),
     );

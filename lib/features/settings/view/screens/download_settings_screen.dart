@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
@@ -57,6 +58,7 @@ class DownloadSettingsScreen extends ConsumerWidget {
                     String? selectedDirectory =
                         await FilePicker.getDirectoryPath();
                     if (selectedDirectory != null) {
+                      bool isWritable = false;
                       try {
                         final dir = Directory(selectedDirectory);
                         if (!dir.existsSync()) {
@@ -65,6 +67,12 @@ class DownloadSettingsScreen extends ConsumerWidget {
                         final testFile = File('${dir.path}/.shonenx_test');
                         testFile.writeAsStringSync('write_ok');
                         testFile.deleteSync();
+                        isWritable = true;
+                      } catch (_) {
+                        isWritable = false;
+                      }
+
+                      if (isWritable) {
                         notifier.setCustomPath(selectedDirectory);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -76,12 +84,52 @@ class DownloadSettingsScreen extends ConsumerWidget {
                             ),
                           );
                         }
-                      } catch (e) {
+                        return;
+                      }
+
+                      // Attempt to resolve app-specific writable directory on SD card
+                      String? sdCardPath;
+                      if (Platform.isAndroid) {
+                        try {
+                          final extDirs = await getExternalStorageDirectories();
+                          if (extDirs != null) {
+                            final match = RegExp(r'/storage/([A-Fa-f0-9]{4}-[A-Fa-f0-9]{4})')
+                                .firstMatch(selectedDirectory);
+                            if (match != null) {
+                              final sdId = match.group(1)!;
+                              final sdDir = extDirs.where((d) => d.path.contains(sdId)).firstOrNull;
+                              if (sdDir != null) {
+                                final appSdTarget = '${sdDir.path}/AniDash';
+                                final targetDir = Directory(appSdTarget);
+                                if (!targetDir.existsSync()) targetDir.createSync(recursive: true);
+                                final test = File('$appSdTarget/.shonenx_test');
+                                test.writeAsStringSync('ok');
+                                test.deleteSync();
+                                sdCardPath = appSdTarget;
+                              }
+                            }
+                          }
+                        } catch (_) {}
+                      }
+
+                      if (sdCardPath != null) {
+                        notifier.setCustomPath(sdCardPath);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                'Selected directory is not writable: $e',
+                                'Set to writable SD Card folder: $sdCardPath',
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } else {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Selected directory is not writable. Please pick an accessible folder.',
                               ),
                               backgroundColor: Colors.red,
                               behavior: SnackBarBehavior.floating,

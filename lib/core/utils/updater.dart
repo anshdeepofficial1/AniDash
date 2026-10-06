@@ -149,6 +149,13 @@ Future<void> checkForUpdates(
       return value(a);
     }
     if (Platform.isLinux && name.contains('linux.zip')) return value(a);
+    if (Platform.isMacOS &&
+        (name.endsWith('.dmg') ||
+            name.contains('macos.zip') ||
+            name.contains('darwin.zip') ||
+            name.endsWith('.zip'))) {
+      return value(a);
+    }
   }
   return null;
 }

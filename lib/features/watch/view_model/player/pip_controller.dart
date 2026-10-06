@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
+import 'package:ani_dash/features/watch/view_model/player/player_provider.dart';
+import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart';
 
 final pipProvider = NotifierProvider<PiPNotifier, bool>(
   PiPNotifier.new,
@@ -33,18 +35,36 @@ class PiPNotifier extends Notifier<bool> {
       final bool inPiP = call.arguments as bool? ?? false;
       AppLogger.i('PiP state changed: $inPiP');
       state = inPiP;
+    } else if (call.method == 'onPiPAction') {
+      final String action = call.arguments?.toString() ?? '';
+      AppLogger.i('PiP action received: $action');
+      if (action == 'play_pause') {
+        ref.read(playerStateProvider.notifier).videoController.player.playOrPause();
+      } else if (action == 'prev') {
+        ref.read(episodeDataProvider.notifier).changeEpisode(null, by: -1);
+      } else if (action == 'next') {
+        ref.read(episodeDataProvider.notifier).changeEpisode(null, by: 1);
+      }
     }
   }
 
-  Future<bool> enterPiP() async {
+  Future<bool> enterPiP({bool? isPlaying}) async {
     if (!Platform.isAndroid) return false;
     try {
-      final res = await _channel.invokeMethod<bool>('enterPiP');
+      final playing = isPlaying ?? ref.read(playerStateProvider).isPlaying;
+      final res = await _channel.invokeMethod<bool>('enterPiP', {'isPlaying': playing});
       return res ?? false;
     } catch (e) {
       AppLogger.e('Failed to enter PiP: $e');
       return false;
     }
+  }
+
+  Future<void> updatePlaybackState(bool isPlaying) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('updatePlaybackState', {'isPlaying': isPlaying});
+    } catch (_) {}
   }
 
   Future<bool> exitPiP() async {

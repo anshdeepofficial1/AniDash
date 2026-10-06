@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ani_dash/core/models/universal/universal_news.dart';
 import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
+import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 
 import 'package:ani_dash/main.dart';
@@ -27,7 +28,6 @@ import 'package:ani_dash/shared/providers/settings/notification_settings_notifie
 import 'package:go_router/go_router.dart';
 import 'package:ani_dash/shared/providers/settings/ui_notifier.dart';
 import 'package:ani_dash/shared/ui/adaptive_media_skeleton.dart';
-import 'package:ani_dash/features/ai/view/widgets/anidash_ai_emblem.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -60,85 +60,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Future<void> _showWhatsNew() async {
-    const version = '1.18.1';
-    if (!mounted || sharedPrefs.getString('whats_new_seen') == version) return;
-    await sharedPrefs.setString('whats_new_seen', version);
+    const dialogKey = 'support_dev_seen_v1182';
+    if (!mounted || sharedPrefs.getBool(dialogKey) == true) return;
+    await sharedPrefs.setBool(dialogKey, true);
     if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            icon: Container(
-              width: 84,
-              height: 84,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    Theme.of(
-                      dialogContext,
-                    ).colorScheme.primary.withValues(alpha: 0.22),
-                    Theme.of(
-                      dialogContext,
-                    ).colorScheme.tertiary.withValues(alpha: 0.08),
-                  ],
-                ),
-                border: Border.all(
-                  color: Theme.of(
-                    dialogContext,
-                  ).colorScheme.primary.withValues(alpha: 0.3),
-                  width: 1.5,
-                ),
-              ),
-              child: const AniDashAiEmblem(size: 44),
-            ),
-            title: const Text(
-              "Introducing AniDash AI ✨",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            content: const Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Meet AniDash AI (AnyCore)',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Your smart companion for anime insights, characters, episode summaries, watch order, and personal recommendations.',
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'Supercharged Playback & Matching',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Instant stream discovery with direct manual fallback, reliable Continue Watching titles, and auto-scrolling episode panel.',
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Try Later'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  if (mounted) context.push('/ai');
-                },
-                child: const Text('Explore'),
-              ),
-            ],
-          ),
-    );
+
+    await SponsorDialog.show(context);
   }
 
   void _setupAuthListener() {
@@ -243,7 +170,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       for (final entry in response.data) {
         final media = entry.media;
         final mediaId = media.id;
-        final targetProgress = entry.progress > 0 ? entry.progress : 1;
+        final watchedCount = entry.progress > 0 ? entry.progress : 0;
+        final nextEpisode = watchedCount > 0 ? watchedCount + 1 : 1;
 
         final local = progressRepo.getProgress(mediaId);
 
@@ -262,7 +190,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           continue;
         }
 
-        if (local != null && local.currentEpisode > targetProgress) {
+        if (local != null && local.currentEpisode > nextEpisode) {
           continue;
         }
 
@@ -270,18 +198,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           local?.episodesProgress ?? {},
         );
 
-        for (int i = 1; i <= targetProgress; i++) {
+        for (int i = 1; i <= watchedCount; i++) {
           final existing = episodesMap[i];
           if (existing == null || !existing.isCompleted) {
             episodesMap[i] = EpisodeProgress(
               episodeNumber: i,
               episodeTitle: existing?.episodeTitle ?? 'Episode $i',
               episodeThumbnail: existing?.episodeThumbnail,
-              progressInSeconds:
-                  existing?.progressInSeconds ??
-                  (i == targetProgress && entry.progress == 0 ? 0 : 1440),
+              progressInSeconds: existing?.durationInSeconds ?? 1440,
               durationInSeconds: existing?.durationInSeconds ?? 1440,
-              isCompleted: i < targetProgress,
+              isCompleted: true,
               watchedAt:
                   existing?.watchedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
             );
@@ -307,12 +233,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       local?.lastUpdated ??
                       DateTime.fromMillisecondsSinceEpoch(0),
                   lastPlayedAt: local?.lastPlayedAt,
-                  currentEpisode: targetProgress,
+                  currentEpisode: nextEpisode,
                   status: 'watching',
                 ))
             .copyWith(
               episodesProgress: episodesMap,
-              currentEpisode: targetProgress,
+              currentEpisode: nextEpisode,
               lastPlayedAt: local?.lastPlayedAt,
               status: 'watching',
               animeTitle: title.isNotEmpty ? title : null,

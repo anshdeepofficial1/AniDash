@@ -5,7 +5,8 @@ import 'package:ani_dash/core/network/http_client.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 
 abstract class BaseOAuthService {
-  bool get isDesktop => Platform.isWindows || Platform.isLinux;
+  bool get isDesktop =>
+      Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
   String get redirectUri =>
       isDesktop
