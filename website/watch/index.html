@@ -56,6 +56,14 @@
     <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
     <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.1M4 12h.1M4 18h.1"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19"/></symbol>
+    <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16M13 9l3 3-3 3"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2M5.8 5.8 3.5 5.5 3.8 8"/></symbol>
+    <symbol id="i-extension" viewBox="0 0 24 24"><path d="M9 3h6v4h2.5a3.5 3.5 0 1 1 0 7H15v7H9v-3a3 3 0 1 0 0-6V3z"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18h1.1a2 2 0 0 0 1.5-3.3 1.8 1.8 0 0 1 1.4-3h1.4A3.6 3.6 0 0 0 21 11.1 8.1 8.1 0 0 0 12 3z"/><circle cx="7.5" cy="10" r=".7"/><circle cx="10" cy="6.8" r=".7"/><circle cx="14" cy="6.8" r=".7"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="3"/><path d="m17 10 4-2v8l-4-2zM9 9l4 3-4 3z"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.1"/></symbol>
+    <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 11 18-8-8 18-2-8zM11 13l10-10"/></symbol>
   </svg>
 
   <aside class="side-nav" aria-label="Main navigation">
@@ -65,6 +73,83 @@
     <button data-page="downloadsPage" aria-label="Downloads"><svg class="icon"><use href="#i-download"/></svg></button>
     <button data-page="watchlistPage" aria-label="Watchlist"><svg class="icon"><use href="#i-bookmark"/></svg></button>
   </aside>
+
+  <aside id="macSidebar" class="mac-sidebar" aria-label="AniDash desktop navigation">
+    <div class="mac-sidebar-head">
+      <div class="mac-brand">
+        <img src="https://anidashweb.vercel.app/assets/anidash_logo.png" alt="">
+        <span><b>AniDash</b><small>macOS Edition</small></span>
+      </div>
+      <button id="macSidebarToggle" class="mac-icon-button" aria-label="Collapse sidebar" title="Collapse Sidebar">
+        <svg class="icon"><use href="#i-sidebar"/></svg>
+      </button>
+    </div>
+
+    <button id="macAiHero" class="mac-ai-hero">
+      <span class="mac-ai-icon"><svg class="icon"><use href="#i-spark"/></svg></span>
+      <span class="mac-ai-copy"><b>Ask AniAI</b><small>Recommend & Explore</small></span>
+      <kbd>⌘K</kbd>
+    </button>
+
+    <div class="mac-sidebar-scroll">
+      <section class="mac-nav-section">
+        <h3>DISCOVER</h3>
+        <button class="mac-nav-item active" data-page="homePage" data-mac-label="Home" data-mac-icon="i-home"><svg class="icon"><use href="#i-home"/></svg><span>Home</span><kbd>⌘1</kbd></button>
+        <button class="mac-nav-item" data-page="browsePage" data-mac-label="Browse" data-mac-icon="i-search"><svg class="icon"><use href="#i-search"/></svg><span>Browse</span><kbd>⌘2</kbd></button>
+        <button class="mac-nav-item" data-page="mangaPage" data-mac-label="Manga" data-mac-icon="i-book"><svg class="icon"><use href="#i-book"/></svg><span>Manga</span><kbd>⌘3</kbd></button>
+        <button class="mac-nav-item" data-page="downloadsPage" data-mac-label="Downloads" data-mac-icon="i-download"><svg class="icon"><use href="#i-download"/></svg><span>Downloads</span><kbd>⌘4</kbd></button>
+        <button class="mac-nav-item" data-page="watchlistPage" data-mac-label="Watchlist" data-mac-icon="i-bookmark"><svg class="icon"><use href="#i-bookmark"/></svg><span>Watchlist</span><kbd>⌘5</kbd></button>
+      </section>
+
+      <section class="mac-nav-section">
+        <h3>LIBRARY &amp; ACTIVITY</h3>
+        <button class="mac-nav-item" data-page="historyPage" data-mac-label="Watch History" data-mac-icon="i-history"><svg class="icon"><use href="#i-history"/></svg><span>Watch History</span><em id="macHistoryBadge"></em><kbd>⌘H</kbd></button>
+        <button class="mac-nav-item" data-page="aiPage" data-mac-label="AniAI Assistant" data-mac-icon="i-spark"><svg class="icon"><use href="#i-spark"/></svg><span>AniAI Assistant</span><kbd>⌘K</kbd></button>
+        <button class="mac-nav-item" data-page="newsPage" data-mac-label="Anime News" data-mac-icon="i-news"><svg class="icon"><use href="#i-news"/></svg><span>Anime News</span><kbd>⌘N</kbd></button>
+        <button class="mac-nav-item" data-page="notificationsPage" data-mac-label="Notifications" data-mac-icon="i-bell"><svg class="icon"><use href="#i-bell"/></svg><span>Notifications</span></button>
+      </section>
+
+      <section class="mac-nav-section">
+        <h3>EXTENSIONS &amp; SOURCES</h3>
+        <button class="mac-nav-item" data-page="extensionsPage" data-mac-label="Extensions" data-mac-icon="i-extension"><svg class="icon"><use href="#i-extension"/></svg><span>Extensions</span><kbd>⌘E</kbd></button>
+      </section>
+
+      <section class="mac-nav-section">
+        <h3>PREFERENCES</h3>
+        <button class="mac-nav-item mac-settings-link" data-settings-focus="" data-mac-label="All Settings" data-mac-icon="i-settings"><svg class="icon"><use href="#i-settings"/></svg><span>All Settings</span><kbd>⌘,</kbd></button>
+        <button class="mac-nav-item mac-settings-link" data-settings-focus="appearance" data-mac-label="Appearance & Themes" data-mac-icon="i-palette"><svg class="icon"><use href="#i-palette"/></svg><span>Appearance &amp; Themes</span></button>
+        <button class="mac-nav-item mac-settings-link" data-settings-focus="content playback video quality audio" data-mac-label="Video Player" data-mac-icon="i-video"><svg class="icon"><use href="#i-video"/></svg><span>Video Player</span></button>
+        <button class="mac-nav-item mac-settings-link" data-settings-focus="account" data-mac-label="Account & Tracking" data-mac-icon="i-user"><svg class="icon"><use href="#i-user"/></svg><span>Account &amp; Tracking</span></button>
+        <button class="mac-nav-item mac-settings-link" data-settings-focus="data storage" data-mac-label="Data & Storage" data-mac-icon="i-download"><svg class="icon"><use href="#i-download"/></svg><span>Data &amp; Storage</span></button>
+        <button class="mac-nav-item" id="macAboutButton" data-mac-label="About AniDash" data-mac-icon="i-info"><svg class="icon"><use href="#i-info"/></svg><span>About AniDash</span></button>
+      </section>
+    </div>
+
+    <button id="macProfileFooter" class="mac-profile-footer">
+      <span class="mac-profile-avatar"><svg class="icon"><use href="#i-user"/></svg></span>
+      <span><b>Guest User</b><small><i></i> Not logged in</small></span>
+    </button>
+  </aside>
+
+  <header id="macTopbar" class="mac-topbar">
+    <div class="mac-topbar-left">
+      <button id="macBack" class="mac-icon-button" aria-label="Go back" title="Go Back"><svg class="icon"><use href="#i-back"/></svg></button>
+      <span id="macPageIcon" class="mac-page-icon"><svg class="icon"><use href="#i-home"/></svg></span>
+      <b id="macPageTitle">Home</b>
+    </div>
+
+    <form id="macSearchForm" class="mac-spotlight-search" role="search">
+      <svg class="icon"><use href="#i-search"/></svg>
+      <input id="macSearchInput" type="search" placeholder="Search anime, manga, genres... (⌘F)" autocomplete="off">
+    </form>
+
+    <div class="mac-topbar-actions">
+      <button id="macAiButton" class="mac-icon-button accent" aria-label="Ask AniAI" title="Ask AniAI (⌘K)"><svg class="icon"><use href="#i-spark"/></svg></button>
+      <button id="macNotificationsButton" class="mac-icon-button" aria-label="Notifications" title="Notifications"><svg class="icon"><use href="#i-bell"/></svg></button>
+      <button id="macThemeButton" class="mac-icon-button" aria-label="Cycle theme" title="Cycle Theme"><svg class="icon"><use href="#i-palette"/></svg></button>
+      <button id="macFullscreenButton" class="mac-icon-button" aria-label="Toggle fullscreen" title="Toggle Fullscreen"><svg class="icon"><use href="#i-maximize"/></svg></button>
+    </div>
+  </header>
 
   <main id="app-shell">
     <div id="app">
@@ -122,6 +207,46 @@
             <div><b>Audio and subtitles</b><small>Choose the available version before playing.</small></div>
           </div>
         </div>
+      </section>
+
+      <section id="historyPage" class="page desktop-feature-page">
+        <div class="desktop-page-head"><div><small>LIBRARY &amp; ACTIVITY</small><h1>Watch History</h1><p>Your recent AniDash playback on this device.</p></div><button id="clearHistoryFromPage" class="secondary">Clear History</button></div>
+        <div id="historyGrid" class="desktop-history-grid"></div>
+        <div id="historyEmpty" class="empty-state" hidden><span class="empty-icon"><svg class="icon"><use href="#i-history"/></svg></span><h2>No watch history yet</h2><p>Episodes you start watching will appear here.</p><button class="primary" id="historyExplore">Explore Anime</button></div>
+      </section>
+
+      <section id="aiPage" class="page desktop-feature-page ai-page">
+        <div class="desktop-page-head"><div><small>ANIDASH INTELLIGENCE</small><h1>AniAI Assistant</h1><p>Anime and manga help powered by your AniDash context.</p></div><span class="desktop-status-pill">NEXUS</span></div>
+        <div class="ai-chat-shell">
+          <div id="aiMessages" class="ai-messages">
+            <div class="ai-message assistant"><span class="ai-avatar"><svg class="icon"><use href="#i-spark"/></svg></span><div><b>AniAI</b><p>Ask me about anime, manga, recommendations, episodes, fillers, or your local AniDash library.</p></div></div>
+          </div>
+          <form id="aiChatForm" class="ai-composer">
+            <textarea id="aiChatInput" rows="1" placeholder="Ask AniAI anything about anime…" maxlength="8000"></textarea>
+            <button id="aiSendButton" type="submit" class="primary" aria-label="Send"><svg class="icon"><use href="#i-send"/></svg></button>
+          </form>
+        </div>
+      </section>
+
+      <section id="newsPage" class="page desktop-feature-page">
+        <div class="desktop-page-head"><div><small>LIBRARY &amp; ACTIVITY</small><h1>Anime News</h1><p>Latest headlines from Anime News Network.</p></div><button id="refreshNewsButton" class="secondary">Refresh</button></div>
+        <div id="newsStatus" class="subtle"></div>
+        <div id="newsGrid" class="news-grid"></div>
+      </section>
+
+      <section id="notificationsPage" class="page desktop-feature-page">
+        <div class="desktop-page-head"><div><small>LIBRARY &amp; ACTIVITY</small><h1>Notifications</h1><p>Browser notification status and AniDash alerts on this device.</p></div><button id="desktopNotificationPermission" class="primary">Enable Notifications</button></div>
+        <div id="desktopNotificationCard" class="desktop-info-panel"></div>
+      </section>
+
+      <section id="extensionsPage" class="page desktop-feature-page">
+        <div class="desktop-page-head"><div><small>EXTENSIONS &amp; SOURCES</small><h1>Extensions</h1><p>Web-compatible AniDash source status.</p></div><button id="checkSourceButton" class="secondary">Check Source</button></div>
+        <div class="extension-card">
+          <div class="extension-icon"><svg class="icon"><use href="#i-extension"/></svg></div>
+          <div><b>JustAnime</b><small>Built-in anime source used by AniDash Watch</small></div>
+          <span id="sourceHealthBadge" class="source-badge">Checking…</span>
+        </div>
+        <div class="desktop-info-panel"><h2>Web source compatibility</h2><p>The PWA uses AniDash's server-side resolver for browser-safe playback. Native extension packages that require the desktop bridge stay inside the macOS/Android builds.</p></div>
       </section>
 
       <section id="settingsPage" class="page settings-page">
