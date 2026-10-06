@@ -62,7 +62,7 @@ function applyWebSettings(){
   };
   $$('[data-page]').forEach(button=>{
     if(button.dataset.page==='homePage') button.hidden=false;
-    else if(Object.hasOwn(visibility,button.dataset.page)) button.hidden=!visibility[button.dataset.page];
+    else if(Object.prototype.hasOwnProperty.call(visibility,button.dataset.page)) button.hidden=!visibility[button.dataset.page];
   });
 
   const audio=$('#audio');
