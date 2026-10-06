@@ -24,6 +24,8 @@ import 'package:ani_dash/shared/providers/settings/ui_notifier.dart';
 import 'package:ani_dash/shared/providers/update_provider.dart';
 import 'package:ani_dash/features/ai/view/widgets/assistant_avatar.dart';
 import 'package:ani_dash/features/ai/view/widgets/anidash_ai_emblem.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:ani_dash/router/desktop/windows_caption_buttons.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -93,15 +95,58 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDesktop = !Platform.isAndroid && !Platform.isIOS;
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-              child: Row(
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (_currentPage > 0) {
+            _previousPage();
+          }
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          backgroundColor: colorScheme.surface,
+          body: SafeArea(
+            child: Column(
+              children: [
+                if (isDesktop)
+                  Container(
+                    height: 38,
+                    color: colorScheme.surface,
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 16),
+                        Icon(
+                          Icons.dashboard_rounded,
+                          size: 16,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'AniDash Setup',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: theme.brightness == Brightness.dark
+                                ? Colors.white70
+                                : Colors.black87,
+                          ),
+                        ),
+                        const Expanded(
+                          child: DragToMoveArea(
+                            child: SizedBox(height: double.infinity),
+                          ),
+                        ),
+                        const WindowsCaptionButtons(height: 38),
+                      ],
+                    ),
+                  ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(24, isDesktop ? 8 : 16, 24, 0),
+                  child: Row(
                 children: List.generate(_totalPages, (index) {
                   final isActive = index <= _currentPage;
                   return Expanded(
@@ -187,6 +232,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ],
         ),
       ),
+    ),
+    ),
     );
   }
 

@@ -112,6 +112,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="anidash" android:host="callback" />
                 <data android:scheme="shonenx" android:host="callback" />
             </intent-filter>
             <intent-filter android:label="AniDash MyAnimeList OAuth">

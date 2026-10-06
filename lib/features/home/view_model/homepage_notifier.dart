@@ -38,21 +38,32 @@ class HomepageState {
 
 class HomepageNotifier extends Notifier<HomepageState> {
   AnimeRepository get _repo => ref.read(animeRepositoryProvider);
-  Box<HomePageModel> get _box => Hive.box<HomePageModel>(_boxName);
   static const _boxName = 'home_page';
+  Box<HomePageModel>? get _box =>
+      Hive.isBoxOpen(_boxName) ? Hive.box<HomePageModel>(_boxName) : null;
 
   @override
   HomepageState build() {
-    final cachedModel = _box.get(0);
+    HomePageModel? cachedModel;
+    try {
+      cachedModel = _box?.get(0);
+    } catch (_) {}
 
+    final hasData = cachedModel != null;
     return HomepageState(
       homePage: cachedModel?.toHomePage(),
       lastUpdated: cachedModel?.lastUpdated ?? DateTime.now(),
-      isLoading: false,
+      isLoading: !hasData,
     );
   }
 
   Future<HomepageState> initialize({bool forceRefresh = false}) async {
+    if (!Hive.isBoxOpen(_boxName)) {
+      try {
+        await Hive.openBox<HomePageModel>(_boxName);
+      } catch (_) {}
+    }
+
     final shouldRefresh =
         forceRefresh ||
         state.homePage == null ||
@@ -69,7 +80,11 @@ class HomepageNotifier extends Notifier<HomepageState> {
   }
 
   void clearCache() {
-    Hive.box<HomePageModel>(_boxName).clear();
+    try {
+      if (Hive.isBoxOpen(_boxName)) {
+        Hive.box<HomePageModel>(_boxName).clear();
+      }
+    } catch (_) {}
     state = HomepageState(lastUpdated: DateTime.now(), isLoading: false);
   }
 
@@ -127,9 +142,12 @@ class HomepageNotifier extends Notifier<HomepageState> {
   }
 
   void _saveToHive(HomePage page) {
-    final box = Hive.box<HomePageModel>(_boxName);
     final model = HomePageModel.fromHomePage(page);
-    box.put(0, model);
+    try {
+      if (Hive.isBoxOpen(_boxName)) {
+        Hive.box<HomePageModel>(_boxName).put(0, model);
+      }
+    } catch (_) {}
     state = state.copyWith(
       homePage: page,
       lastUpdated: model.lastUpdated,

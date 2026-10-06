@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -302,8 +303,9 @@ class SecurityNotifier extends Notifier<SecurityState> {
   }
 
   void _applySecureFlag(bool enable) {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
-      _channel.invokeMethod('setSecureFlag', {'enable': enable});
+      _channel.invokeMethod('setSecureFlag', {'enable': enable}).catchError((_) {});
     } catch (_) {}
   }
 

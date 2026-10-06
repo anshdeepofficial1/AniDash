@@ -11,6 +11,7 @@ class UIHelper {
   static const _orientationChannel = MethodChannel('shonenx/orientation');
   static const _volumeChannel = MethodChannel('shonenx/volume');
   static bool _isFullscreen = false;
+  static bool get isFullscreen => _isFullscreen;
   static bool get _isDesktop => !Platform.isAndroid && !Platform.isIOS;
 
   /// Enable intercepting physical volume buttons to suppress system UI

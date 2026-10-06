@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
@@ -279,13 +280,14 @@ class SettingsScreen extends ConsumerWidget {
                   description: 'Few extra features',
                   onTap: () => context.push('/settings/experimental'),
                 ),
-                NormalSettingsItem(
-                  icon: Icon(Iconsax.key, color: colorScheme.primary),
-                  accent: colorScheme.primary,
-                  title: 'Permissions',
-                  description: 'Manage app permissions',
-                  onTap: () => context.push('/settings/permissions'),
-                ),
+                if (!Platform.isWindows && !Platform.isLinux)
+                  NormalSettingsItem(
+                    icon: Icon(Iconsax.key, color: colorScheme.primary),
+                    accent: colorScheme.primary,
+                    title: 'Permissions',
+                    description: 'Manage app permissions',
+                    onTap: () => context.push('/settings/permissions'),
+                  ),
                 NormalSettingsItem(
                   icon: Icon(Iconsax.refresh, color: colorScheme.primary),
                   accent: colorScheme.primary,

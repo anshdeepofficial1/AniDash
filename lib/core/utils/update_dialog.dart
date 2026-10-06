@@ -84,6 +84,9 @@ class _UpdateDialogState extends State<UpdateDialog>
             ? widget.latestVersion
             : 'v${widget.latestVersion}';
     final isBeta = tag.toLowerCase().contains('beta');
+    if (Platform.isWindows) {
+      return 'https://github.com/anshdeepofficial1/AniDash/releases/download/$tag/AniDash-$tag-Setup.exe';
+    }
     final apkName =
         isBeta
             ? 'AniDash-Beta-$tag-Universal.apk'
@@ -128,7 +131,8 @@ class _UpdateDialogState extends State<UpdateDialog>
         } catch (_) {}
       }
       dir ??= await getTemporaryDirectory();
-      final savePath = '${dir.path}/app-update.apk';
+      final ext = Platform.isWindows ? 'exe' : (Platform.isMacOS ? 'dmg' : 'apk');
+      final savePath = '${dir.path}/AniDash-Update.$ext';
       final file = File(savePath);
       if (await file.exists()) await file.delete();
 
@@ -207,6 +211,34 @@ class _UpdateDialogState extends State<UpdateDialog>
 
   Future<void> _launchInstaller(String savePath) async {
     try {
+      if (Platform.isWindows) {
+        if (mounted) {
+          setState(() {
+            _downloading = false;
+            _statusMessage = 'Launching Windows installer...';
+          });
+        }
+        await Process.start(savePath, [], runInShell: true);
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        return;
+      }
+
+      if (Platform.isMacOS) {
+        if (mounted) {
+          setState(() {
+            _downloading = false;
+            _statusMessage = 'Opening macOS update image...';
+          });
+        }
+        await Process.run('open', [savePath]);
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        return;
+      }
+
       final canInstall =
           await _installer.invokeMethod<bool>('canInstallPackages') ?? false;
       if (!canInstall) {

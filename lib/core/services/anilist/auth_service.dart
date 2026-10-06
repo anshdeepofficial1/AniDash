@@ -7,6 +7,7 @@ class AniListAuthService extends BaseOAuthService {
       isDesktop
           ? ANILIST_CLIENT_ID.split('|')[1]
           : ANILIST_CLIENT_ID.split('|')[0];
+
   String get _clientSecret =>
       isDesktop
           ? ANILIST_CLIENT_SECRET.split('|')[1]
@@ -26,11 +27,6 @@ class AniListAuthService extends BaseOAuthService {
       'response_type': useDesktopFlow ? 'code' : 'token',
     };
 
-    // AniList's implicit grant uses the redirect URL registered against the
-    // OAuth client. Supplying a second mobile redirect here can make AniList
-    // reject the request (or leave some browsers on a blank page) when the
-    // strings do not match byte-for-byte. Desktop still needs an explicit
-    // redirect for the authorization-code flow.
     if (useDesktopFlow) {
       parameters['redirect_uri'] = redirectUri;
     }
@@ -45,28 +41,23 @@ class AniListAuthService extends BaseOAuthService {
     return queryParams?[isDesktop ? 'code' : 'access_token'];
   }
 
-  Future<Map<String, dynamic>?> getAccessToken(String code) async {
-    if (!isDesktop) {
-      return {'access_token': code, 'token_type': 'Bearer'};
+  Future<Map<String, dynamic>?> getAccessToken(String tokenOrCode) async {
+    if (!isDesktop || tokenOrCode.length > 50) {
+      return {'access_token': tokenOrCode, 'token_type': 'Bearer'};
     }
-    if (_clientSecret.trim().isEmpty) {
-      throw StateError(
-        'AniList login is not configured for this build. Provide '
-        'ANILIST_CLIENT_SECRET using --dart-define at build time.',
-      );
-    }
+
     return await postTokenRequest(
       _tokenUrl,
       headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: jsonEncode({
-        "grant_type": "authorization_code",
-        "client_id": _clientId,
-        "client_secret": _clientSecret,
+        'grant_type': 'authorization_code',
+        'client_id': _clientId,
+        'client_secret': _clientSecret,
         'redirect_uri': redirectUri,
-        "code": code,
+        'code': tokenOrCode,
       }),
     );
   }

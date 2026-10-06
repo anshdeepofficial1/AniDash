@@ -52,6 +52,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) => _showWhatsNew());
     Future.microtask(() {
       if (!mounted) return;
+      ref.read(homepageProvider.notifier).initialize();
       final auth = ref.read(authProvider);
       if (auth.isAniListAuthenticated || auth.isMalAuthenticated) {
         _syncAccountWatchProgress();

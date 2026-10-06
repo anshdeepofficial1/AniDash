@@ -16,9 +16,13 @@ final ANIDASH_ADMIN_API_URL =
 
 const ANILIST_CLIENT_ID = String.fromEnvironment(
   'ANILIST_CLIENT_ID',
-  defaultValue: '50037|50037',
+  defaultValue: '50037|52962',
 );
-const ANILIST_CLIENT_SECRET = String.fromEnvironment('ANILIST_CLIENT_SECRET');
+const ANILIST_CLIENT_SECRET = String.fromEnvironment(
+  'ANILIST_CLIENT_SECRET',
+  defaultValue:
+      'inpCGvXD5r2UglDrE6UHslYdSbW8GNBCBbgddDzW|cZEcp7iSA5jm730eJ0lJ13ACuZdPPFCLtLu2Typj',
+);
 
 const MAL_CLIENT_ID = String.fromEnvironment(
   'MAL_CLIENT_ID',
