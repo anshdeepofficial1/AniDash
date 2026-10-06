@@ -129,11 +129,20 @@ const anilist=async(query,variables={})=>{
   return payload.data;
 };
 
-const api=async params=>{
-  const r=await fetch('/api/anidash?'+new URLSearchParams(params));
-  const x=await r.json().catch(()=>({}));
-  if(!r.ok) throw Error(x.error||'Could not load');
-  return x;
+const api=async(params,{timeout=20000}={})=>{
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeout);
+  try{
+    const r=await fetch('/api/anidash?'+new URLSearchParams(params),{signal:controller.signal});
+    const x=await r.json().catch(()=>({}));
+    if(!r.ok) throw Error(x.error||'Could not load');
+    return x;
+  }catch(error){
+    if(error?.name==='AbortError') throw Error('Episode source took too long to respond. Please retry.');
+    throw error;
+  }finally{
+    clearTimeout(timer);
+  }
 };
 
 const titleOf=x=>x?.title?.english||x?.title?.romaji||x?.title?.native||x?.name||x?.title||'Untitled';
@@ -362,25 +371,119 @@ async function openMangaDetails(media){
   }
 }
 
-async function ensureEpisodes(){
+function normalizeEpisodePages(payload){
+  const direct=Number(payload?.totalPages);
+  if(Number.isFinite(direct)&&direct>0) return direct;
+  const pageInfo=Number(payload?.pageInfo?.lastPage);
+  if(Number.isFinite(pageInfo)&&pageInfo>0) return pageInfo;
+  const pagination=Number(payload?.pagination?.totalPages||payload?.pagination?.lastPage);
+  if(Number.isFinite(pagination)&&pagination>0) return pagination;
+  return 1;
+}
+
+function mergeEpisodes(items){
+  const byNumber=new Map(state.episodes.map(ep=>[String(ep.number),ep]));
+  for(const ep of items||[]){
+    if(ep?.number===undefined||ep?.number===null) continue;
+    byNumber.set(String(ep.number),ep);
+  }
+  state.episodes=[...byNumber.values()].sort((a,b)=>Number(a.number)-Number(b.number));
+}
+
+function synthesizeEpisodesFromAniList(){
+  const count=Number(
+    state.current?.episodes||
+    (state.current?.nextAiringEpisode?.episode?state.current.nextAiringEpisode.episode-1:0)
+  );
+  if(!Number.isFinite(count)||count<=0) return false;
+  state.episodes=Array.from({length:count},(_,i)=>({
+    number:i+1,
+    title:`Episode ${i+1}`,
+    image:state.current?.bannerImage||state.current?.cover||''
+  }));
+  return true;
+}
+
+async function ensureEpisodes(onProgress){
   if(state.episodes.length) return;
-  let page=1,x;
-  do{
-    x=await api({action:'episodes',id:state.current.id,page});
-    state.episodes.push(...(x.episodes||[]));
-    page++;
-  }while(page<=(x.totalPages||1));
+
+  let first;
+  try{
+    first=await api({action:'episodes',id:state.current.id,page:1},{timeout:18000});
+  }catch(error){
+    if(synthesizeEpisodesFromAniList()) return;
+    throw error;
+  }
+
+  mergeEpisodes(first.episodes||[]);
+  const totalPages=Math.min(50,normalizeEpisodePages(first));
+  onProgress?.({loadedPages:1,totalPages,episodes:state.episodes.length});
+
+  if(totalPages>1){
+    let completed=1;
+    const pages=Array.from({length:totalPages-1},(_,i)=>i+2);
+    const results=await Promise.all(
+      pages.map(async page=>{
+        try{
+          return await api({action:'episodes',id:state.current.id,page},{timeout:18000});
+        }catch(_){
+          return null;
+        }finally{
+          completed++;
+          onProgress?.({loadedPages:completed,totalPages,episodes:state.episodes.length});
+        }
+      })
+    );
+    for(const payload of results){
+      if(payload) mergeEpisodes(payload.episodes||[]);
+    }
+  }else if((first.episodes||[]).length>=100){
+    for(let page=2;page<=25;page++){
+      let payload;
+      try{
+        payload=await api({action:'episodes',id:state.current.id,page},{timeout:15000});
+      }catch(_){
+        break;
+      }
+      const next=payload.episodes||[];
+      if(!next.length) break;
+      mergeEpisodes(next);
+      onProgress?.({loadedPages:page,totalPages:null,episodes:state.episodes.length});
+      if(next.length<100) break;
+    }
+  }
+
+  if(!state.episodes.length) synthesizeEpisodesFromAniList();
+}
+
+function renderEpisodeButtons(box,loadingText=''){
+  if(!state.episodes.length){
+    box.innerHTML='<p>No episodes are available from this source.</p>';
+    return;
+  }
+  box.innerHTML=`${loadingText?`<p class="episode-loading-note">${esc(loadingText)}</p>`:''}<div class="episode-list">${state.episodes.map(ep=>`<button class="episode" data-episode="${esc(ep.number)}"><img src="${esc(ep.image||state.current.cover)}" loading="lazy" alt=""><span><strong>E${esc(ep.number)} — ${esc(ep.title||'Episode '+ep.number)}</strong><small>${ep.filler?'Filler episode':'Tap to watch'}</small></span></button>`).join('')}</div>`;
+  box.querySelectorAll('.episode').forEach((b,i)=>b.onclick=()=>playEpisode(state.episodes[i]));
 }
 
 async function showEpisodes(){
   const box=$('#tabContent');
   box.innerHTML='<p>Fetching episodes…</p>';
   try{
-    await ensureEpisodes();
-    if(!state.episodes.length){box.innerHTML='<p>No episodes are available from this source.</p>';return}
-    box.innerHTML=`<div class="episode-list">${state.episodes.map(ep=>`<button class="episode" data-episode="${esc(ep.number)}"><img src="${esc(ep.image||state.current.cover)}" loading="lazy" alt=""><span><strong>E${esc(ep.number)} — ${esc(ep.title||'Episode '+ep.number)}</strong><small>${ep.filler?'Filler episode':'Tap to watch'}</small></span></button>`).join('')}</div>`;
-    box.querySelectorAll('.episode').forEach((b,i)=>b.onclick=()=>playEpisode(state.episodes[i]));
-  }catch(e){box.innerHTML=`<p>${esc(e.message)}</p>`}
+    await ensureEpisodes(progress=>{
+      const suffix=progress.totalPages
+        ? `Loading episodes… ${progress.loadedPages}/${progress.totalPages} pages`
+        : `Loading episodes… ${progress.episodes} found`;
+      if(state.episodes.length) renderEpisodeButtons(box,suffix);
+      else box.innerHTML=`<p>${esc(suffix)}</p>`;
+    });
+    renderEpisodeButtons(box);
+  }catch(e){
+    box.innerHTML=`<div class="episode-load-error"><p>${esc(e.message)}</p><button class="primary" id="retryEpisodes">Retry</button></div>`;
+    $('#retryEpisodes')?.addEventListener('click',()=>{
+      state.episodes=[];
+      showEpisodes();
+    });
+  }
 }
 
 async function playEpisode(ep){
