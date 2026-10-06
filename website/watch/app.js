@@ -151,7 +151,7 @@ const api=async(params,{timeout=20000}={})=>{
 const titleOf=x=>x?.title?.english||x?.title?.romaji||x?.title?.native||x?.name||x?.title||'Untitled';
 const imageOf=x=>x?.coverImage?.extraLarge||x?.coverImage?.large||x?.cover||x?.poster||'';
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-const mediaFields=`id title{english romaji native} synonyms coverImage{extraLarge large} bannerImage seasonYear episodes format averageScore status description(asHtml:false) genres isAdult nextAiringEpisode{episode timeUntilAiring}`;
+const mediaFields=`id title{english romaji native} synonyms coverImage{extraLarge large} bannerImage seasonYear episodes duration format averageScore status description(asHtml:false) genres isAdult nextAiringEpisode{episode timeUntilAiring}`;
 const mangaFields=`id title{english romaji native} synonyms coverImage{extraLarge large} bannerImage seasonYear chapters volumes format averageScore status description(asHtml:false) genres isAdult`;
 
 function seasonBadge(x){
@@ -173,6 +173,14 @@ function seasonBadge(x){
   return 'S1';
 }
 
+function formatWatchClock(seconds){
+  const safe=Math.max(0,Math.floor(Number(seconds)||0));
+  const minutes=Math.floor(safe/60);
+  const remainder=safe%60;
+  if(minutes===0) return `${remainder}s`;
+  return `${minutes}:${String(remainder).padStart(2,'0')}`;
+}
+
 function card(x,wide=false,type='anime'){
   const title=titleOf(x);
   const baseImage=imageOf(x);
@@ -181,18 +189,27 @@ function card(x,wide=false,type='anime'){
     ? (x.chapters?`${x.chapters} CHAPTERS`:(x.format||'MANGA'))
     : (x.format==='MOVIE'?'MOVIE':(x.episodes?`${x.episodes} EPS`:(x.nextAiringEpisode?.episode>1?`${x.nextAiringEpisode.episode-1}+ EPS`:'? EPS')));
   const badge=type==='manga'?(x.format==='NOVEL'?'LN':'M'):seasonBadge(x);
+  const watched=Number(x.progressSeconds)||0;
+  const duration=Number(x.durationSeconds)||0;
+  const progress=duration>0?Math.max(0,Math.min(1,watched/duration)):0;
+  const remaining=duration>watched?duration-watched:0;
+  const continueMeta=wide
+    ? `<small class="continue-episode">E${esc(x.episode||1)} · ${esc(x.episodeTitle||'Continue watching')}</small>`+
+      (duration>0?`<small class="continue-time">${esc(formatWatchClock(watched))} watched · ${esc(formatWatchClock(remaining))} left</small>`:'')
+    : `<small>${esc(meta)}</small>`;
+
   return `<button class="anime-card" data-id="${esc(x.id)}" data-title="${encodeURIComponent(title)}" data-image="${encodeURIComponent(baseImage)}" data-type="${type}">
     <div class="cover">
       <img src="${esc(image)}" loading="lazy" alt="">
       ${badge?`<span class="corner">${esc(badge)}</span>`:''}
       ${x.averageScore?`<span class="rating">★ ${(x.averageScore/10).toFixed(1)}</span>`:''}
-      ${wide?'<span class="play-fab">▶</span><span class="progress"><i></i></span>':''}
+      ${wide?'<span class="play-fab">▶</span>':''}
+      ${wide?`<span class="progress"><i style="width:${(progress*100).toFixed(1)}%"></i></span>`:''}
     </div>
     <strong>${esc(title)}</strong>
-    <small>${wide?`E${x.episode||1} · ${esc(x.episodeTitle||'Continue watching')}`:esc(meta)}</small>
+    ${continueMeta}
   </button>`;
 }
-
 function rail(title,items,homeKey,browseFilter='all'){
   return `<section class="home-block" data-home-section="${esc(homeKey)}">
     <div class="section-title"><h2>${esc(title)}</h2><button class="section-more" data-filter="${esc(browseFilter)}" aria-label="Open ${esc(title)}">›</button></div>
@@ -226,24 +243,30 @@ function renderSpotlight(items){
   const rail=$('#spotlightRail');
   const heroes=items.slice(0,Math.min(8,items.length));
   rail.classList.remove('skeleton');
-  rail.innerHTML=heroes.map(hero=>`
-    <button class="spotlight-slide" data-id="${hero.id}" data-title="${encodeURIComponent(titleOf(hero))}" data-image="${encodeURIComponent(imageOf(hero))}" style="background-image:url('${esc(hero.bannerImage||imageOf(hero))}')">
-      <span class="score">★ ${hero.averageScore?(hero.averageScore/10).toFixed(1):'—'}</span>
-      <div class="spotlight-content">
-        <div class="spotlight-meta">
-          <span class="badge">${esc(hero.status?.replaceAll('_',' ')||'ONGOING')}</span>
-          <span class="badge">${esc(hero.format||'TV')}</span>
-          <span class="badge">${hero.episodes||hero.nextAiringEpisode?.episode-1||'?'} EPISODES</span>
+  rail.innerHTML=heroes.map(hero=>{
+    const status=String(hero.status||'').toUpperCase()==='RELEASING'?'Ongoing':String(hero.status||'').replaceAll('_',' ');
+    const description=String(hero.description||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+    return `
+      <button class="spotlight-slide" data-id="${hero.id}" data-title="${encodeURIComponent(titleOf(hero))}" data-image="${encodeURIComponent(imageOf(hero))}" style="background-image:url('${esc(hero.bannerImage||imageOf(hero))}')">
+        ${hero.averageScore?`<span class="score">★ ${(hero.averageScore/10).toFixed(1)}</span>`:''}
+        <div class="spotlight-content">
+          <h1>${esc(titleOf(hero))}</h1>
+          ${description?`<p class="spotlight-description">${esc(description)}</p>`:''}
+          <div class="spotlight-meta">
+            ${status?`<span class="badge">${esc(status)}</span>`:''}
+            ${hero.format?`<span class="badge">${esc(hero.format)}</span>`:''}
+            ${hero.duration?`<span class="badge">${esc(hero.duration)} min</span>`:''}
+          </div>
         </div>
-        <h1>${esc(titleOf(hero))}</h1>
-      </div>
-    </button>
-  `).join('');
+      </button>`;
+  }).join('');
+
   rail.querySelectorAll('.spotlight-slide').forEach(b=>b.onclick=()=>openDetails({
     id:+b.dataset.id,
     title:decodeURIComponent(b.dataset.title),
     cover:decodeURIComponent(b.dataset.image)
   }));
+
   if(heroes.length>1&&webSettings.spotlightAutoPlay){
     state.spotlightTimer=setInterval(()=>{
       if(document.hidden) return;
@@ -253,7 +276,6 @@ function renderSpotlight(items){
     },5000);
   }
 }
-
 async function loadHome(){
   try{
     const q=`query{
