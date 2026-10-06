@@ -332,7 +332,8 @@ jobs:
       always() &&
       (needs.build-android.result == 'success' ||
        needs.build-linux.result == 'success' ||
-       needs.build-windows.result == 'success')
+       needs.build-windows.result == 'success' ||
+       needs.build-macos.result == 'success')
     steps:
       - uses: actions/checkout@v4
         with:
