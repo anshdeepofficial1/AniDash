@@ -520,5 +520,5 @@ loadHome();
 if(initialPage!=='homePage') openPage(initialPage);
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/watch/sw.js',{scope:'/watch/'}).catch(()=>{});
+  navigator.serviceWorker.register('/watch/sw.js',{scope:'/watch'}).catch(()=>{});
 }
