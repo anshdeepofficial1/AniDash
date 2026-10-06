@@ -439,7 +439,7 @@ function openPage(pageId){
   }
   if(pageId==='mangaPage'&&!$('#mangaGrid').children.length) loadManga();
   if(pageId==='watchlistPage') renderLibrary();
-  window.scrollTo({top:0,behavior:'instant'});
+  window.scrollTo({top:0,behavior:'auto'});
 }
 
 function showUtility(title,body){
