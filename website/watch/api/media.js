@@ -1,3 +1,5 @@
+const STREAM_PROXY = 'https://neko.justanime.to/m3u8-proxy';
+
 const ALLOWED_HOSTS = [
   'neko.justanime.to',
   'nexabloom.top',
@@ -6,8 +8,6 @@ const ALLOWED_HOSTS = [
 
 const allowed = host =>
   ALLOWED_HOSTS.some(domain => host === domain || host.endsWith('.' + domain));
-
-const proxyUrl = target => '/api/media?url=' + encodeURIComponent(target);
 
 function headersFor(target, req) {
   const isJustAnimeProxy =
@@ -24,7 +24,87 @@ function headersFor(target, req) {
   return headers;
 }
 
-function rewritePlaylist(playlist, baseUrl) {
+function proxyContext(target) {
+  try {
+    if (
+      target.hostname === 'neko.justanime.to' &&
+      target.pathname.includes('m3u8-proxy')
+    ) {
+      const rawUrl = target.searchParams.get('url');
+      const rawHeaders = target.searchParams.get('headers') || '{}';
+      const original = rawUrl ? new URL(rawUrl) : null;
+      return {
+        original,
+        headersJson: rawHeaders,
+      };
+    }
+  } catch (_) {}
+  return {
+    original: null,
+    headersJson: '{}',
+  };
+}
+
+function externalProxyUrl(url, headersJson) {
+  return (
+    STREAM_PROXY +
+    '?url=' +
+    encodeURIComponent(url) +
+    '&headers=' +
+    encodeURIComponent(headersJson || '{}')
+  );
+}
+
+function sameOriginProxy(url, headersJson, isHls) {
+  let upstream = url;
+  try {
+    const parsed = new URL(url);
+    const alreadyProxy =
+      parsed.hostname === 'neko.justanime.to' &&
+      parsed.pathname.includes('m3u8-proxy');
+    if (!alreadyProxy) upstream = externalProxyUrl(url, headersJson);
+  } catch (_) {
+    upstream = externalProxyUrl(url, headersJson);
+  }
+
+  return (
+    '/api/media?url=' +
+    encodeURIComponent(upstream) +
+    '&hls=' +
+    (isHls ? '1' : '0')
+  );
+}
+
+function rewriteUriAttributes(line, baseUrl, headersJson) {
+  const upper = line.trim().toUpperCase();
+  const playlistUri =
+    upper.startsWith('#EXT-X-MEDIA:') ||
+    upper.startsWith('#EXT-X-I-FRAME-STREAM-INF:');
+
+  const binaryUri =
+    upper.startsWith('#EXT-X-KEY:') ||
+    upper.startsWith('#EXT-X-SESSION-KEY:') ||
+    upper.startsWith('#EXT-X-MAP:');
+
+  if (!playlistUri && !binaryUri) return line;
+
+  return line.replace(/URI="([^"]+)"/g, (_, uri) => {
+    const absolute = new URL(uri, baseUrl).toString();
+    return (
+      'URI="' +
+      sameOriginProxy(absolute, headersJson, playlistUri) +
+      '"'
+    );
+  });
+}
+
+function rewritePlaylist(playlist, target) {
+  const context = proxyContext(target);
+  const baseUrl = context.original || target;
+  const headersJson = context.headersJson;
+
+  let nextLineIsPlaylist = false;
+
   return playlist
     .split('\n')
     .map(line => {
@@ -32,16 +112,30 @@ function rewritePlaylist(playlist, baseUrl) {
       if (!value) return line;
 
       if (value.startsWith('#')) {
-        return line.replace(/URI="([^"]+)"/g, (_, uri) => {
-          const absolute = new URL(uri, baseUrl).toString();
-          return 'URI="' + proxyUrl(absolute) + '"';
-        });
+        const upper = value.toUpperCase();
+        const rewritten = rewriteUriAttributes(line, baseUrl, headersJson);
+        nextLineIsPlaylist = upper.startsWith('#EXT-X-STREAM-INF');
+        return rewritten;
       }
 
       const absolute = new URL(value, baseUrl).toString();
-      return proxyUrl(absolute);
+      const isPlaylist =
+        nextLineIsPlaylist || /\.m3u8(?:$|\?)/i.test(absolute);
+      nextLineIsPlaylist = false;
+      return sameOriginProxy(absolute, headersJson, isPlaylist);
     })
     .join('\n');
+}
+
+async function streamBody(upstream, res) {
+  if (!upstream.body) return res.end();
+  try {
+    const { Readable } = await import('node:stream');
+    Readable.fromWeb(upstream.body).pipe(res);
+  } catch (_) {
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    res.end(buffer);
+  }
 }
 
 export default async function handler(req, res) {
@@ -52,7 +146,8 @@ export default async function handler(req, res) {
     }
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
+    const timer = setTimeout(() => controller.abort(), 25000);
+
     const upstream = await fetch(target, {
       signal: controller.signal,
       headers: headersFor(target, req),
@@ -66,16 +161,21 @@ export default async function handler(req, res) {
     const looksLikeHls =
       req.query.hls === '1' ||
       type.toLowerCase().includes('mpegurl') ||
-      target.pathname.toLowerCase().endsWith('.m3u8');
+      (() => {
+        const ctx = proxyContext(target);
+        return !!ctx.original && /\.m3u8(?:$|\?)/i.test(ctx.original.toString());
+      })();
 
     if (looksLikeHls) {
       const playlist = await upstream.text();
       if (!playlist.trim().startsWith('#EXTM3U')) {
-        res.setHeader('Content-Type', type || 'text/plain; charset=utf-8');
-        return res.status(502).send(playlist.slice(0, 1000));
+        return res.status(502).json({
+          error: 'Stream proxy did not return a valid HLS playlist',
+        });
       }
+
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-      res.setHeader('Cache-Control', 'public, max-age=8, s-maxage=8');
+      res.setHeader('Cache-Control', 'public, max-age=5, s-maxage=5');
       return res.status(200).send(rewritePlaylist(playlist, target));
     }
 
@@ -84,14 +184,16 @@ export default async function handler(req, res) {
       'content-length',
       'content-range',
       'accept-ranges',
+      'etag',
+      'last-modified',
     ]) {
       const value = upstream.headers.get(name);
       if (value) res.setHeader(name, value);
     }
 
     res.setHeader('Cache-Control', 'public, max-age=1800');
-    const buffer = Buffer.from(await upstream.arrayBuffer());
-    return res.status(upstream.status).send(buffer);
+    res.status(upstream.status);
+    return streamBody(upstream, res);
   } catch (error) {
     if (error?.name === 'AbortError') {
       return res.status(504).json({ error: 'Media source timed out' });
