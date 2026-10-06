@@ -1,51 +1,524 @@
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const state={current:null,episodes:[],hls:null,home:[],searchTimer:null};
-const anilist=async(query,variables={})=>{const r=await fetch('https://graphql.anilist.co',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({query,variables})});if(!r.ok)throw Error('Could not load AniList');return (await r.json()).data};
-const api=async params=>{const r=await fetch('/api/anidash?'+new URLSearchParams(params));const x=await r.json();if(!r.ok)throw Error(x.error||'Could not load');return x};
-const titleOf=x=>x.title?.english||x.title?.romaji||x.title?.native||x.name||'Untitled';
-const imageOf=x=>x.coverImage?.extraLarge||x.coverImage?.large||x.cover||x.poster||'';
-const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-const mediaFields=`id title{english romaji native} coverImage{extraLarge large} bannerImage seasonYear episodes format averageScore status description(asHtml:false) genres isAdult nextAiringEpisode{episode timeUntilAiring}`;
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
 
-function card(x,wide=false){const title=titleOf(x),image=wide?(x.bannerImage||imageOf(x)):imageOf(x),eps=x.episodes?`${x.episodes} EPS`:(x.format==='MOVIE'?'MOVIE':'? EPS'),season=x.season?`S${x.season}`:'S1';return `<button class="anime-card" data-id="${x.id}" data-title="${encodeURIComponent(title)}" data-image="${encodeURIComponent(imageOf(x))}"><div class="cover"><img src="${esc(image)}" loading="lazy" alt=""><span class="corner">${x.format==='MOVIE'?'M':season}</span>${x.averageScore?`<span class="rating">★ ${(x.averageScore/10).toFixed(1)}</span>`:''}${wide?'<span class="play-fab">▶</span><span class="progress"><i></i></span>':''}</div><strong>${esc(title)}</strong><small>${wide?`E${x.episode||1} - ${esc(x.episodeTitle||'Continue watching')}`:eps}</small></button>`}
-function rail(title,items,key){return `<section class="home-block"><div class="section-title"><h2>${title}</h2><button data-section="${key}">›</button></div><div class="rail">${items.map(x=>card(x)).join('')}</div></section>`}
+const state={
+  current:null,
+  episodes:[],
+  hls:null,
+  home:[],
+  homeData:null,
+  searchTimer:null,
+  mangaTimer:null,
+  spotlightTimer:null,
+  spotlightIndex:0,
+  libraryStatus:'watching',
+  browseFilter:'all'
+};
+
+const anilist=async(query,variables={})=>{
+  const r=await fetch('https://graphql.anilist.co',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Accept':'application/json'},
+    body:JSON.stringify({query,variables})
+  });
+  if(!r.ok) throw Error('Could not load AniList');
+  const payload=await r.json();
+  if(payload.errors?.length) throw Error(payload.errors[0].message||'AniList request failed');
+  return payload.data;
+};
+
+const api=async params=>{
+  const r=await fetch('/api/anidash?'+new URLSearchParams(params));
+  const x=await r.json().catch(()=>({}));
+  if(!r.ok) throw Error(x.error||'Could not load');
+  return x;
+};
+
+const titleOf=x=>x?.title?.english||x?.title?.romaji||x?.title?.native||x?.name||x?.title||'Untitled';
+const imageOf=x=>x?.coverImage?.extraLarge||x?.coverImage?.large||x?.cover||x?.poster||'';
+const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const mediaFields=`id title{english romaji native} synonyms coverImage{extraLarge large} bannerImage seasonYear episodes format averageScore status description(asHtml:false) genres isAdult nextAiringEpisode{episode timeUntilAiring}`;
+const mangaFields=`id title{english romaji native} synonyms coverImage{extraLarge large} bannerImage seasonYear chapters volumes format averageScore status description(asHtml:false) genres isAdult`;
+
+function seasonBadge(x){
+  const format=(x?.format||'').toUpperCase();
+  if(format==='MOVIE') return 'M';
+  if(format==='MUSIC') return '';
+  if(format==='OVA') return 'OVA';
+  const titles=[titleOf(x),...(x?.synonyms||[])].join(' ');
+  if(format==='SPECIAL'||/special|chibi/i.test(titles)) return 'SP';
+  const match=titles.match(/(?:season|series)\s*(\d+)|\b(\d+)(?:st|nd|rd|th)\s+season\b/i);
+  const part=titles.match(/(?:part|cour)\s*(\d+)/i);
+  if(match){
+    const season=Number(match[1]||match[2]||1);
+    const partNo=Number(part?.[1]||1);
+    return partNo>1?`S${season}-${partNo}`:`S${season}`;
+  }
+  if(part&&Number(part[1])>1) return `S1-${part[1]}`;
+  if(/\bii\b|season\s*2|2nd\s*season/i.test(titles)) return 'S2';
+  return 'S1';
+}
+
+function card(x,wide=false,type='anime'){
+  const title=titleOf(x);
+  const baseImage=imageOf(x);
+  const image=wide?(x.bannerImage||baseImage):baseImage;
+  const meta=type==='manga'
+    ? (x.chapters?`${x.chapters} CHAPTERS`:(x.format||'MANGA'))
+    : (x.format==='MOVIE'?'MOVIE':(x.episodes?`${x.episodes} EPS`:(x.nextAiringEpisode?.episode>1?`${x.nextAiringEpisode.episode-1}+ EPS`:'? EPS')));
+  const badge=type==='manga'?(x.format==='NOVEL'?'LN':'M'):seasonBadge(x);
+  return `<button class="anime-card" data-id="${esc(x.id)}" data-title="${encodeURIComponent(title)}" data-image="${encodeURIComponent(baseImage)}" data-type="${type}">
+    <div class="cover">
+      <img src="${esc(image)}" loading="lazy" alt="">
+      ${badge?`<span class="corner">${esc(badge)}</span>`:''}
+      ${x.averageScore?`<span class="rating">★ ${(x.averageScore/10).toFixed(1)}</span>`:''}
+      ${wide?'<span class="play-fab">▶</span><span class="progress"><i></i></span>':''}
+    </div>
+    <strong>${esc(title)}</strong>
+    <small>${wide?`E${x.episode||1} · ${esc(x.episodeTitle||'Continue watching')}`:esc(meta)}</small>
+  </button>`;
+}
+
+function rail(title,items,key){
+  return `<section class="home-block">
+    <div class="section-title"><h2>${esc(title)}</h2><button class="section-more" data-filter="${esc(key)}" aria-label="Open ${esc(title)}">›</button></div>
+    <div class="rail">${items.map(x=>card(x)).join('')}</div>
+  </section>`;
+}
+
+function bindCards(root=document){
+  root.querySelectorAll('.anime-card[data-type="anime"]').forEach(b=>{
+    b.onclick=()=>openDetails({
+      id:+b.dataset.id,
+      title:decodeURIComponent(b.dataset.title),
+      cover:decodeURIComponent(b.dataset.image)
+    });
+  });
+}
+
+function bindMangaCards(root=document){
+  root.querySelectorAll('.anime-card[data-type="manga"]').forEach(b=>{
+    b.onclick=()=>openMangaDetails({
+      id:+b.dataset.id,
+      title:decodeURIComponent(b.dataset.title),
+      cover:decodeURIComponent(b.dataset.image)
+    });
+  });
+}
+
+function renderSpotlight(items){
+  clearInterval(state.spotlightTimer);
+  state.spotlightIndex=0;
+  const rail=$('#spotlightRail');
+  const heroes=items.slice(0,Math.min(8,items.length));
+  rail.classList.remove('skeleton');
+  rail.innerHTML=heroes.map(hero=>`
+    <button class="spotlight-slide" data-id="${hero.id}" data-title="${encodeURIComponent(titleOf(hero))}" data-image="${encodeURIComponent(imageOf(hero))}" style="background-image:url('${esc(hero.bannerImage||imageOf(hero))}')">
+      <span class="score">★ ${hero.averageScore?(hero.averageScore/10).toFixed(1):'—'}</span>
+      <div class="spotlight-content">
+        <div class="spotlight-meta">
+          <span class="badge">${esc(hero.status?.replaceAll('_',' ')||'ONGOING')}</span>
+          <span class="badge">${esc(hero.format||'TV')}</span>
+          <span class="badge">${hero.episodes||hero.nextAiringEpisode?.episode-1||'?'} EPISODES</span>
+        </div>
+        <h1>${esc(titleOf(hero))}</h1>
+      </div>
+    </button>
+  `).join('');
+  rail.querySelectorAll('.spotlight-slide').forEach(b=>b.onclick=()=>openDetails({
+    id:+b.dataset.id,
+    title:decodeURIComponent(b.dataset.title),
+    cover:decodeURIComponent(b.dataset.image)
+  }));
+  if(heroes.length>1){
+    state.spotlightTimer=setInterval(()=>{
+      if(document.hidden) return;
+      state.spotlightIndex=(state.spotlightIndex+1)%heroes.length;
+      const slide=rail.children[state.spotlightIndex];
+      if(slide) rail.scrollTo({left:Math.max(0,slide.offsetLeft-(rail.clientWidth-slide.clientWidth)/2),behavior:'smooth'});
+    },5000);
+  }
+}
 
 async function loadHome(){
   try{
-    const q=`query{trending:Page(page:1,perPage:25){media(type:ANIME,sort:TRENDING_DESC){${mediaFields}}}popular:Page(page:1,perPage:20){media(type:ANIME,sort:POPULARITY_DESC){${mediaFields}}}rated:Page(page:1,perPage:20){media(type:ANIME,sort:SCORE_DESC){${mediaFields}}}updated:Page(page:1,perPage:20){media(type:ANIME,sort:UPDATED_AT_DESC,status:RELEASING){${mediaFields}}}upcoming:Page(page:1,perPage:20){media(type:ANIME,sort:START_DATE,status:NOT_YET_RELEASED){${mediaFields}}}}`;
-    const d=await anilist(q),trend=d.trending.media;state.home=trend;
-    const hero=trend[0];const spot=$('#spotlight');spot.classList.remove('skeleton');spot.style.backgroundImage=`url('${hero.bannerImage||imageOf(hero)}')`;spot.dataset.id=hero.id;spot.dataset.title=encodeURIComponent(titleOf(hero));spot.dataset.image=encodeURIComponent(imageOf(hero));spot.innerHTML=`<span class="score">★ ${(hero.averageScore/10).toFixed(1)}</span><div class="spotlight-content"><div class="spotlight-meta"><span class="badge">${hero.status?.replaceAll('_',' ')||'ONGOING'}</span><span class="badge">${hero.format||'TV'}</span><span class="badge">${hero.episodes||'?'} EPISODES</span></div><h1>${esc(titleOf(hero))}</h1></div>`;
-    $('#homeSections').innerHTML=rail('Trending Anime',trend,'trending')+rail('Popular Anime',d.popular.media,'popular')+rail('Most Favorite',d.rated.media,'rated')+rail('Recently Updated',d.updated.media,'updated')+rail('Upcoming Anime',d.upcoming.media,'upcoming');
-    renderContinue();bindCards(document);renderDesktopList();
-  }catch(e){$('#spotlight').innerHTML=`<div class="spotlight-content"><h1>Could not load home</h1><p>${esc(e.message)}</p></div>`}
+    const q=`query{
+      trending:Page(page:1,perPage:25){media(type:ANIME,sort:TRENDING_DESC){${mediaFields}}}
+      popular:Page(page:1,perPage:20){media(type:ANIME,sort:POPULARITY_DESC){${mediaFields}}}
+      favorite:Page(page:1,perPage:20){media(type:ANIME,sort:FAVOURITES_DESC){${mediaFields}}}
+      updated:Page(page:1,perPage:20){media(type:ANIME,sort:UPDATED_AT_DESC,status:RELEASING){${mediaFields}}}
+      upcoming:Page(page:1,perPage:20){media(type:ANIME,sort:START_DATE,status:NOT_YET_RELEASED){${mediaFields}}}
+    }`;
+    const d=await anilist(q);
+    state.homeData=d;
+    state.home=d.trending.media;
+    renderSpotlight(state.home);
+    $('#homeSections').innerHTML=
+      rail('Trending Anime',d.trending.media,'all')+
+      rail('Popular Anime',d.popular.media,'popular')+
+      rail('Most Favorite',d.favorite.media,'popular')+
+      rail('Recently Updated',d.updated.media,'airing')+
+      rail('Upcoming Anime',d.upcoming.media,'all');
+    renderContinue();
+    bindCards($('#homePage'));
+    $$('.section-more').forEach(b=>b.onclick=()=>{
+      state.browseFilter=b.dataset.filter||'all';
+      openPage('browsePage');
+      setBrowseFilter(state.browseFilter);
+    });
+    if(!$('#searchInput').value.trim()) renderBrowseLanding(state.browseFilter);
+  }catch(e){
+    $('#spotlightRail').classList.remove('skeleton');
+    $('#spotlightRail').innerHTML=`<div class="empty-state"><h2>Could not load Home</h2><p>${esc(e.message)}</p></div>`;
+  }
 }
-function renderContinue(){const saved=JSON.parse(localStorage.getItem('anidash-progress')||'[]').sort((a,b)=>b.time-a.time);const section=$('#continueSection');if(!saved.length){section.hidden=true;return}section.hidden=false;$('#continueRail').innerHTML=saved.map(x=>card({...x,id:x.id,episode:x.episode,episodeTitle:x.episodeTitle},true)).join('');bindCards($('#continueRail'))}
-function renderDesktopList(){const saved=JSON.parse(localStorage.getItem('anidash-progress')||'[]');const fallback=state.home.slice(0,4).map((x,i)=>({...x,episode:i+1}));const rows=(saved.length?saved:fallback).slice(0,4);$('#desktopContinue').innerHTML=rows.map(x=>`<div class="desktop-list-item"><img src="${esc(x.cover||imageOf(x))}" alt=""><div><b>${esc(x.title||titleOf(x))}</b><small>Ep ${x.episode||1}${x.episodes?' of '+x.episodes:''}</small></div></div>`).join('')}
-function bindCards(root){root.querySelectorAll('.anime-card').forEach(b=>b.onclick=()=>openDetails({id:+b.dataset.id,title:decodeURIComponent(b.dataset.title),cover:decodeURIComponent(b.dataset.image)}));}
 
-async function openDetails(media){state.current=media;state.episodes=[];const dlg=$('#detailsDialog');dlg.showModal();$('#detailsContent').innerHTML=`<div class="detail-hero skeleton" style="background-image:url('${media.cover}')"><div class="detail-title"><h1>${esc(media.title)}</h1><p>Loading details…</p></div></div>`;
+function renderContinue(){
+  const saved=JSON.parse(localStorage.getItem('anidash-progress')||'[]').sort((a,b)=>b.time-a.time);
+  const section=$('#continueSection');
+  if(!saved.length){section.hidden=true;return}
+  section.hidden=false;
+  $('#continueRail').innerHTML=saved.map(x=>card({...x,id:x.id,episode:x.episode,episodeTitle:x.episodeTitle},true)).join('');
+  bindCards($('#continueRail'));
+}
+
+async function openDetails(media){
+  state.current=media;
+  state.episodes=[];
+  const dlg=$('#detailsDialog');
+  if(!dlg.open) dlg.showModal();
+  $('#detailsContent').innerHTML=`<div class="detail-hero skeleton" style="background-image:url('${esc(media.cover)}')"><div class="detail-title"><h1>${esc(media.title)}</h1><p>Loading details…</p></div></div>`;
   try{
-    const d=await anilist(`query($id:Int){Media(id:$id,type:ANIME){${mediaFields}characters(sort:ROLE,perPage:18){nodes{id name{full}image{large}}}}}`,{id:media.id});const m=d.Media;state.current={...media,...m,title:titleOf(m),cover:imageOf(m)};
-    $('#detailsContent').innerHTML=`<div class="detail-hero" style="background-image:url('${m.bannerImage||imageOf(m)}')"><div class="detail-title"><div><span class="badge">${m.format||'TV'}</span> <span class="badge">★ ${m.averageScore?(m.averageScore/10).toFixed(1):'—'}</span></div><h1>${esc(titleOf(m))}</h1><p>${m.seasonYear||''} · ${m.episodes||'?'} episodes · ${m.status?.replaceAll('_',' ')||''}</p></div></div><div class="detail-body"><div class="detail-actions"><button class="primary" id="playFirst">▶ Play</button><button class="secondary" id="trackAnime">＋ Track</button></div><div class="detail-tabs"><button data-tab="about" class="active">About</button><button data-tab="episodes">Episodes</button><button data-tab="characters">Characters</button></div><div id="tabContent"></div></div>`;
+    const d=await anilist(`query($id:Int){Media(id:$id,type:ANIME){${mediaFields} characters(sort:ROLE,perPage:18){nodes{id name{full}image{large}}}}}`,{id:media.id});
+    const m=d.Media;
+    state.current={...media,...m,title:titleOf(m),cover:imageOf(m)};
+    const tracked=getLibrary().some(x=>String(x.id)===String(m.id));
+    $('#detailsContent').innerHTML=`
+      <div class="detail-hero" style="background-image:url('${esc(m.bannerImage||imageOf(m))}')">
+        <div class="detail-title">
+          <div><span class="badge">${esc(m.format||'TV')}</span> <span class="badge">★ ${m.averageScore?(m.averageScore/10).toFixed(1):'—'}</span></div>
+          <h1>${esc(titleOf(m))}</h1>
+          <p>${m.seasonYear||''} · ${m.episodes||'?'} episodes · ${esc(m.status?.replaceAll('_',' ')||'')}</p>
+        </div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-actions">
+          <button class="primary" id="playFirst">▶ Play</button>
+          <button class="secondary" id="trackAnime">${tracked?'✓ Tracked':'＋ Track'}</button>
+        </div>
+        <div class="detail-tabs"><button data-tab="about" class="active">About</button><button data-tab="episodes">Episodes</button><button data-tab="characters">Characters</button></div>
+        <div id="tabContent"></div>
+      </div>`;
     const about=`<section class="tab-pane"><h2>Synopsis</h2><p>${esc(m.description||'No synopsis available.')}</p><h3>Available languages</h3><div class="chips"><button>Japanese · SUB</button><button>English · DUB</button></div><h3>Genres</h3><div class="chips">${(m.genres||[]).map(g=>`<button>${esc(g)}</button>`).join('')}</div></section>`;
-    const chars=`<div class="poster-grid">${(m.characters?.nodes||[]).map(c=>`<div class="anime-card"><div class="cover"><img src="${c.image.large}" alt=""></div><strong>${esc(c.name.full)}</strong></div>`).join('')}</div>`;
+    const chars=`<div class="poster-grid">${(m.characters?.nodes||[]).map(c=>`<div class="anime-card"><div class="cover"><img src="${esc(c.image.large)}" alt=""></div><strong>${esc(c.name.full)}</strong></div>`).join('')}</div>`;
     $('#tabContent').innerHTML=about;
-    $$('.detail-tabs button').forEach(b=>b.onclick=async()=>{$$('.detail-tabs button').forEach(x=>x.classList.toggle('active',x===b));if(b.dataset.tab==='about')$('#tabContent').innerHTML=about;if(b.dataset.tab==='characters')$('#tabContent').innerHTML=chars;if(b.dataset.tab==='episodes')await showEpisodes()});
-    $('#playFirst').onclick=async()=>{await ensureEpisodes();if(state.episodes.length)playEpisode(state.episodes[0])};
-    $('#trackAnime').onclick=()=>{const list=JSON.parse(localStorage.getItem('anidash-library')||'[]');if(!list.some(x=>x.id===m.id))list.unshift({id:m.id,title:titleOf(m),cover:imageOf(m)});localStorage.setItem('anidash-library',JSON.stringify(list));$('#trackAnime').textContent='✓ Tracked'};
-  }catch(e){$('#detailsContent').innerHTML+=`<div class="detail-body"><p>${esc(e.message)}</p></div>`}
+    $$('.detail-tabs button').forEach(b=>b.onclick=async()=>{
+      $$('.detail-tabs button').forEach(x=>x.classList.toggle('active',x===b));
+      if(b.dataset.tab==='about') $('#tabContent').innerHTML=about;
+      if(b.dataset.tab==='characters') $('#tabContent').innerHTML=chars;
+      if(b.dataset.tab==='episodes') await showEpisodes();
+    });
+    $('#playFirst').onclick=async()=>{await ensureEpisodes();if(state.episodes.length) playEpisode(state.episodes[0])};
+    $('#trackAnime').onclick=()=>{
+      let list=getLibrary();
+      const idx=list.findIndex(x=>String(x.id)===String(m.id));
+      if(idx>=0){
+        list.splice(idx,1);
+        $('#trackAnime').textContent='＋ Track';
+      }else{
+        list.unshift({id:m.id,title:titleOf(m),cover:imageOf(m),format:m.format,episodes:m.episodes,status:'watching',favorite:false});
+        $('#trackAnime').textContent='✓ Tracked';
+      }
+      setLibrary(list);
+      renderLibrary();
+    };
+  }catch(e){
+    $('#detailsContent').innerHTML+=`<div class="detail-body"><p>${esc(e.message)}</p></div>`;
+  }
 }
-async function ensureEpisodes(){if(state.episodes.length)return;let page=1,x;do{x=await api({action:'episodes',id:state.current.id,page});state.episodes.push(...(x.episodes||[]));page++}while(page<=(x.totalPages||1))}
-async function showEpisodes(){const box=$('#tabContent');box.innerHTML='<p>Fetching episodes…</p>';try{await ensureEpisodes();box.innerHTML=`<div class="episode-list">${state.episodes.map(ep=>`<button class="episode" data-episode="${ep.number}"><img src="${ep.image||state.current.cover}" loading="lazy"><span><strong>E${ep.number} — ${esc(ep.title||'Episode '+ep.number)}</strong><small>${ep.filler?'Filler episode':'Tap to watch'}</small></span></button>`).join('')}</div>`;box.querySelectorAll('.episode').forEach((b,i)=>b.onclick=()=>playEpisode(state.episodes[i]))}catch(e){box.innerHTML=`<p>${esc(e.message)}</p>`}}
 
-async function playEpisode(ep){const dlg=$('#playerDialog'),video=$('#video'),loading=$('#playerLoading');dlg.showModal();$('#playerTitle').textContent=`E${ep.number} — ${ep.title||'Episode '+ep.number}`;$('#playerStatus').textContent='';loading.hidden=false;if(state.hls){state.hls.destroy();state.hls=null}video.pause();video.removeAttribute('src');video.load();try{const x=await api({action:'source',id:state.current.id,episode:ep.number,audio:$('#audio').value});const src=x.sources?.[0]?.url;if(!src)throw Error($('#audio').value==='dub'?'English dub is not available. Try SUB.':'No playable source was found.');if(globalThis.Hls&&Hls.isSupported()){state.hls=new Hls({maxBufferLength:100,maxMaxBufferLength:120,backBufferLength:30,enableWorker:true});await new Promise((ok,no)=>{state.hls.on(Hls.Events.MANIFEST_PARSED,ok);state.hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal)no(Error('Video stream could not be loaded'))});state.hls.loadSource(src);state.hls.attachMedia(video)});await video.play()}else if(video.canPlayType('application/vnd.apple.mpegurl')){video.src=src;await video.play()}else throw Error('This browser cannot play this stream');saveProgress(ep);loading.hidden=true}catch(e){loading.hidden=true;$('#playerStatus').textContent=e.name==='NotAllowedError'?'Tap play to start':e.message}}
-function saveProgress(ep){let list=JSON.parse(localStorage.getItem('anidash-progress')||'[]').filter(x=>x.id!==state.current.id);list.unshift({id:state.current.id,title:state.current.title,cover:ep.image||state.current.bannerImage||state.current.cover,bannerImage:ep.image||state.current.bannerImage,episode:+ep.number,episodeTitle:ep.title||`Episode ${ep.number}`,episodes:state.current.episodes,format:state.current.format,time:Date.now()});localStorage.setItem('anidash-progress',JSON.stringify(list.slice(0,20)));renderContinue()}
+async function openMangaDetails(media){
+  state.current=media;
+  const dlg=$('#detailsDialog');
+  if(!dlg.open) dlg.showModal();
+  $('#detailsContent').innerHTML=`<div class="detail-hero skeleton" style="background-image:url('${esc(media.cover)}')"><div class="detail-title"><h1>${esc(media.title)}</h1><p>Loading manga…</p></div></div>`;
+  try{
+    const d=await anilist(`query($id:Int){Media(id:$id,type:MANGA){${mangaFields} staff(perPage:8){nodes{id name{full}}}}}`,{id:media.id});
+    const m=d.Media;
+    $('#detailsContent').innerHTML=`
+      <div class="detail-hero" style="background-image:url('${esc(m.bannerImage||imageOf(m))}')"><div class="detail-title"><div><span class="badge">${esc(m.format||'MANGA')}</span> <span class="badge">★ ${m.averageScore?(m.averageScore/10).toFixed(1):'—'}</span></div><h1>${esc(titleOf(m))}</h1><p>${m.seasonYear||''} · ${m.chapters||'?'} chapters · ${esc(m.status?.replaceAll('_',' ')||'')}</p></div></div>
+      <div class="detail-body"><div class="detail-tabs"><button class="active">About</button></div><section class="tab-pane"><h2>Synopsis</h2><p>${esc(m.description||'No synopsis available.')}</p><h3>Genres</h3><div class="chips">${(m.genres||[]).map(g=>`<button>${esc(g)}</button>`).join('')}</div><h3>Web reader</h3><p>Manga discovery is available here. Extension-based reading remains a native AniDash feature.</p></section></div>`;
+  }catch(e){
+    $('#detailsContent').innerHTML+=`<div class="detail-body"><p>${esc(e.message)}</p></div>`;
+  }
+}
 
-async function runSearch(){const q=$('#searchInput').value.trim();$('#clearSearch').hidden=!q;if(!q){renderHistory();$('#searchGrid').innerHTML='';return}$('#searchStatus').textContent='Searching…';try{const d=await anilist(`query($q:String){Page(page:1,perPage:40){media(type:ANIME,search:$q,sort:SEARCH_MATCH){${mediaFields}}}}`,{q});const items=d.Page.media;$('#searchGrid').innerHTML=items.map(x=>card(x)).join('');bindCards($('#searchGrid'));$('#searchStatus').textContent=`${items.length} results`;let h=JSON.parse(localStorage.getItem('anidash-searches')||'[]').filter(x=>x!==q);h.unshift(q);localStorage.setItem('anidash-searches',JSON.stringify(h.slice(0,8)))}catch(e){$('#searchStatus').textContent=e.message}}
-function renderHistory(){const h=JSON.parse(localStorage.getItem('anidash-searches')||'[]');$('#searchHistory').innerHTML=h.length?`<div class="section-title"><h2>Recent searches</h2></div><div class="chips">${h.map(x=>`<button class="history">${esc(x)}</button>`).join('')}</div>`:'';$$('.history').forEach(b=>b.onclick=()=>{$('#searchInput').value=b.textContent;runSearch()})}
+async function ensureEpisodes(){
+  if(state.episodes.length) return;
+  let page=1,x;
+  do{
+    x=await api({action:'episodes',id:state.current.id,page});
+    state.episodes.push(...(x.episodes||[]));
+    page++;
+  }while(page<=(x.totalPages||1));
+}
 
-$$('.bottom-nav button').forEach(b=>b.onclick=()=>{$$('.bottom-nav button').forEach(x=>x.classList.toggle('active',x===b));$$('.page').forEach(x=>x.classList.toggle('active',x.id===b.dataset.page));if(b.dataset.page==='searchPage'){$('#searchInput').focus();renderHistory()}if(b.dataset.page==='mangaPage')loadManga()});
-$$('[data-desktop-page]').forEach(b=>b.onclick=()=>{$$('[data-desktop-page]').forEach(x=>x.classList.toggle('active',x===b));const mobile=$(`.bottom-nav [data-page="${b.dataset.desktopPage}"]`);if(mobile)mobile.click()});$('#desktopSearch').onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){$('.bottom-nav [data-page="searchPage"]').click();$('#searchInput').value=e.target.value;runSearch()}};document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#desktopSearch').focus()}});
-$('#searchInput').oninput=()=>{clearTimeout(state.searchTimer);state.searchTimer=setTimeout(runSearch,350)};$('#clearSearch').onclick=()=>{$('#searchInput').value='';runSearch()};$('#libraryExplore').onclick=()=>$$('.bottom-nav button')[1].click();$('#profileButton').onclick=()=>$('#accountDialog').showModal();$('.sheet-close').onclick=()=>$('#accountDialog').close();$('.details-back').onclick=()=>$('#detailsDialog').close();$('.player-back').onclick=()=>{const v=$('#video');v.pause();if(state.hls){state.hls.destroy();state.hls=null}v.removeAttribute('src');v.load();$('#playerDialog').close()};$('#audio').onchange=()=>{const ep=$('#playerTitle').textContent.match(/^E([\d.]+)/)?.[1];const item=state.episodes.find(x=>String(x.number)===ep);if(item)playEpisode(item)};$('#spotlight').onclick=()=>{if($('#spotlight').dataset.id)openDetails({id:+$('#spotlight').dataset.id,title:decodeURIComponent($('#spotlight').dataset.title),cover:decodeURIComponent($('#spotlight').dataset.image)})};
-async function loadManga(){if($('#mangaGrid').children.length)return;try{const d=await anilist(`query{Page(page:1,perPage:24){media(type:MANGA,sort:TRENDING_DESC){${mediaFields}}}}`);$('#mangaGrid').innerHTML=d.Page.media.map(x=>card(x)).join('')}catch(e){$('#mangaGrid').innerHTML=`<p>${esc(e.message)}</p>`}}
-const hour=new Date().getHours(),greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';$('#greeting').textContent=greeting;$('#desktopGreeting').textContent=greeting+',';renderHistory();loadHome();if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js');
+async function showEpisodes(){
+  const box=$('#tabContent');
+  box.innerHTML='<p>Fetching episodes…</p>';
+  try{
+    await ensureEpisodes();
+    if(!state.episodes.length){box.innerHTML='<p>No episodes are available from this source.</p>';return}
+    box.innerHTML=`<div class="episode-list">${state.episodes.map(ep=>`<button class="episode" data-episode="${esc(ep.number)}"><img src="${esc(ep.image||state.current.cover)}" loading="lazy" alt=""><span><strong>E${esc(ep.number)} — ${esc(ep.title||'Episode '+ep.number)}</strong><small>${ep.filler?'Filler episode':'Tap to watch'}</small></span></button>`).join('')}</div>`;
+    box.querySelectorAll('.episode').forEach((b,i)=>b.onclick=()=>playEpisode(state.episodes[i]));
+  }catch(e){box.innerHTML=`<p>${esc(e.message)}</p>`}
+}
+
+async function playEpisode(ep){
+  const dlg=$('#playerDialog'),video=$('#video'),loading=$('#playerLoading');
+  if(!dlg.open) dlg.showModal();
+  $('#playerTitle').textContent=`E${ep.number} — ${ep.title||'Episode '+ep.number}`;
+  $('#playerStatus').textContent='';
+  loading.hidden=false;
+  if(state.hls){state.hls.destroy();state.hls=null}
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+  try{
+    const x=await api({action:'source',id:state.current.id,episode:ep.number,audio:$('#audio').value});
+    const src=x.sources?.[0]?.url;
+    if(!src) throw Error($('#audio').value==='dub'?'English dub is not available. Try SUB.':'No playable source was found.');
+
+    // Safari/iPhone/iPad have excellent native HLS support. Prefer it so an
+    // installed Home Screen app uses the same native media pipeline as Safari.
+    if(video.canPlayType('application/vnd.apple.mpegurl')){
+      video.src=src;
+      video.load();
+      await video.play();
+    }else if(globalThis.Hls&&Hls.isSupported()){
+      state.hls=new Hls({
+        maxBufferLength:100,
+        maxMaxBufferLength:120,
+        backBufferLength:30,
+        enableWorker:true
+      });
+      await new Promise((ok,no)=>{
+        let settled=false;
+        state.hls.on(Hls.Events.MANIFEST_PARSED,()=>{if(!settled){settled=true;ok()}});
+        state.hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal&&!settled){settled=true;no(Error('Video stream could not be loaded'))}});
+        state.hls.loadSource(src);
+        state.hls.attachMedia(video);
+      });
+      await video.play();
+    }else{
+      throw Error('This browser cannot play this stream');
+    }
+    saveProgress(ep);
+    loading.hidden=true;
+  }catch(e){
+    loading.hidden=true;
+    $('#playerStatus').textContent=e.name==='NotAllowedError'?'Tap play to start':e.message;
+  }
+}
+
+function saveProgress(ep){
+  let list=JSON.parse(localStorage.getItem('anidash-progress')||'[]').filter(x=>String(x.id)!==String(state.current.id));
+  list.unshift({
+    id:state.current.id,
+    title:state.current.title||titleOf(state.current),
+    cover:ep.image||state.current.bannerImage||state.current.cover||imageOf(state.current),
+    bannerImage:ep.image||state.current.bannerImage,
+    episode:+ep.number,
+    episodeTitle:ep.title||`Episode ${ep.number}`,
+    episodes:state.current.episodes,
+    format:state.current.format,
+    time:Date.now()
+  });
+  localStorage.setItem('anidash-progress',JSON.stringify(list.slice(0,30)));
+  renderContinue();
+}
+
+function getLibrary(){
+  try{return JSON.parse(localStorage.getItem('anidash-library')||'[]')}catch(_){return[]}
+}
+function setLibrary(list){localStorage.setItem('anidash-library',JSON.stringify(list))}
+function renderLibrary(){
+  const list=getLibrary();
+  const filtered=state.libraryStatus==='favorites'
+    ? list.filter(x=>x.favorite)
+    : list.filter(x=>(x.status||'watching')===state.libraryStatus);
+  $('#libraryGrid').innerHTML=filtered.map(x=>card(x)).join('');
+  $('#libraryEmpty').hidden=filtered.length>0;
+  bindCards($('#libraryGrid'));
+}
+function setLibraryStatus(status){
+  state.libraryStatus=status;
+  $$('#libraryFilters button').forEach(b=>b.classList.toggle('active',b.dataset.status===status));
+  renderLibrary();
+}
+
+async function runSearch(){
+  const q=$('#searchInput').value.trim();
+  $('#clearSearch').hidden=!q;
+  if(!q){
+    $('#searchHistory').hidden=false;
+    renderHistory();
+    await renderBrowseLanding(state.browseFilter);
+    return;
+  }
+  $('#searchHistory').hidden=true;
+  $('#searchStatus').textContent='Searching…';
+  try{
+    const d=await anilist(`query($q:String){Page(page:1,perPage:40){media(type:ANIME,search:$q,sort:SEARCH_MATCH){${mediaFields}}}}`,{q});
+    const items=d.Page.media;
+    $('#searchGrid').innerHTML=items.map(x=>card(x)).join('');
+    bindCards($('#searchGrid'));
+    $('#searchStatus').textContent=`${items.length} results`;
+    let h=JSON.parse(localStorage.getItem('anidash-searches')||'[]').filter(x=>x!==q);
+    h.unshift(q);
+    localStorage.setItem('anidash-searches',JSON.stringify(h.slice(0,8)));
+  }catch(e){
+    $('#searchGrid').innerHTML='';
+    $('#searchStatus').textContent=e.message;
+  }
+}
+
+function renderHistory(){
+  const h=JSON.parse(localStorage.getItem('anidash-searches')||'[]');
+  $('#searchHistory').innerHTML=h.length?`<div class="section-title"><h2>Recent searches</h2></div><div class="chips">${h.map(x=>`<button class="history">${esc(x)}</button>`).join('')}</div>`:'';
+  $$('.history').forEach(b=>b.onclick=()=>{$('#searchInput').value=b.textContent;runSearch()});
+}
+
+async function renderBrowseLanding(filter='all'){
+  state.browseFilter=filter;
+  $('#searchStatus').textContent='Loading…';
+  try{
+    let items=[];
+    if(filter==='all'&&state.homeData) items=state.homeData.trending.media;
+    else if(filter==='popular'&&state.homeData) items=state.homeData.popular.media;
+    else{
+      const args=filter==='airing'?'status:RELEASING,sort:TRENDING_DESC':filter==='movie'?'format:MOVIE,sort:POPULARITY_DESC':'sort:TRENDING_DESC';
+      const d=await anilist(`query{Page(page:1,perPage:36){media(type:ANIME,${args}){${mediaFields}}}}`);
+      items=d.Page.media;
+    }
+    $('#searchGrid').innerHTML=items.map(x=>card(x)).join('');
+    bindCards($('#searchGrid'));
+    $('#searchStatus').textContent=filter==='all'?'Trending now':filter==='airing'?'Currently airing':filter==='movie'?'Popular movies':'Popular anime';
+  }catch(e){$('#searchStatus').textContent=e.message}
+}
+
+function setBrowseFilter(filter){
+  state.browseFilter=filter;
+  $$('#browseFilters button').forEach(b=>b.classList.toggle('active',b.dataset.filter===filter));
+  if(!$('#searchInput').value.trim()) renderBrowseLanding(filter);
+}
+
+async function loadManga(query=''){
+  $('#clearManga').hidden=!query;
+  $('#mangaStatus').textContent=query?'Searching…':'Loading manga…';
+  try{
+    const d=query
+      ? await anilist(`query($q:String){Page(page:1,perPage:36){media(type:MANGA,search:$q,sort:SEARCH_MATCH){${mangaFields}}}}`,{q:query})
+      : await anilist(`query{Page(page:1,perPage:36){media(type:MANGA,sort:TRENDING_DESC){${mangaFields}}}}`);
+    const items=d.Page.media;
+    $('#mangaGrid').innerHTML=items.map(x=>card(x,false,'manga')).join('');
+    bindMangaCards($('#mangaGrid'));
+    $('#mangaStatus').textContent=query?`${items.length} results`:'Trending manga';
+  }catch(e){
+    $('#mangaGrid').innerHTML='';
+    $('#mangaStatus').textContent=e.message;
+  }
+}
+
+function openPage(pageId){
+  $$('.page').forEach(p=>p.classList.toggle('active',p.id===pageId));
+  $$('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===pageId));
+  if(pageId==='browsePage'){
+    renderHistory();
+    if(!$('#searchInput').value.trim()) renderBrowseLanding(state.browseFilter);
+  }
+  if(pageId==='mangaPage'&&!$('#mangaGrid').children.length) loadManga();
+  if(pageId==='watchlistPage') renderLibrary();
+  window.scrollTo({top:0,behavior:'instant'});
+}
+
+function showUtility(title,body){
+  $('#utilityTitle').textContent=title;
+  $('#utilityBody').textContent=body;
+  const dlg=$('#utilityDialog');
+  if(!dlg.open) dlg.showModal();
+}
+
+$$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
+
+$('#searchInput').oninput=()=>{
+  clearTimeout(state.searchTimer);
+  state.searchTimer=setTimeout(runSearch,350);
+};
+$('#clearSearch').onclick=()=>{
+  $('#searchInput').value='';
+  runSearch();
+};
+$$('#browseFilters button').forEach(b=>b.onclick=()=>setBrowseFilter(b.dataset.filter));
+
+$('#mangaSearch').oninput=()=>{
+  clearTimeout(state.mangaTimer);
+  const q=$('#mangaSearch').value.trim();
+  $('#clearManga').hidden=!q;
+  state.mangaTimer=setTimeout(()=>loadManga(q),420);
+};
+$('#clearManga').onclick=()=>{
+  $('#mangaSearch').value='';
+  loadManga();
+};
+
+$$('#libraryFilters button').forEach(b=>b.onclick=()=>setLibraryStatus(b.dataset.status));
+$('#libraryExplore').onclick=()=>openPage('browsePage');
+$('#downloadsExplore').onclick=()=>openPage('browsePage');
+
+$('#profileButton').onclick=()=>$('#accountDialog').showModal();
+$('.sheet-close').onclick=()=>$('#accountDialog').close();
+$('.sheet-close-action').onclick=()=>$('#accountDialog').close();
+$('#accountBrowse').onclick=()=>{$('#accountDialog').close();openPage('browsePage')};
+
+$('#niaButton').onclick=()=>showUtility('AniDash AI','The native AniDash AI experience is not exposed to the public web client yet. The PWA keeps the same app shell while web-safe features stay available.');
+$('#newsButton').onclick=()=>showUtility('AniDash News','News is part of the AniDash interface. Web news sync will appear here when its app service is exposed to the PWA.');
+$('#notificationButton').onclick=()=>showUtility('Notifications','Home Screen notifications depend on Safari notification permission and the web push service. Your local Continue Watching data is already preserved.');
+$('#settingsButton').onclick=()=>showUtility('Settings','AniDash follows your iPhone or iPad light/dark appearance automatically. More app settings will be added as their web equivalents become available.');
+$('#libraryTune').onclick=()=>showUtility('Customize Library','The web library currently keeps your tracked titles locally on this device and uses the same AniDash status tabs.');
+$('.utility-close').onclick=()=>$('#utilityDialog').close();
+$('.utility-close-action').onclick=()=>$('#utilityDialog').close();
+
+$('.details-back').onclick=()=>$('#detailsDialog').close();
+$('.player-back').onclick=()=>{
+  const v=$('#video');
+  v.pause();
+  if(state.hls){state.hls.destroy();state.hls=null}
+  v.removeAttribute('src');
+  v.load();
+  $('#playerDialog').close();
+};
+$('#audio').onchange=()=>{
+  const ep=$('#playerTitle').textContent.match(/^E([\d.]+)/)?.[1];
+  const item=state.episodes.find(x=>String(x.number)===ep);
+  if(item) playEpisode(item);
+};
+
+const hour=new Date().getHours();
+const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+$('#greeting').textContent=greeting;
+
+const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+document.documentElement.classList.toggle('standalone',standalone);
+
+const initialTab=new URLSearchParams(location.search).get('tab');
+const initialPage={browse:'browsePage',manga:'mangaPage',downloads:'downloadsPage',watchlist:'watchlistPage'}[initialTab]||'homePage';
+
+renderHistory();
+renderLibrary();
+loadHome();
+if(initialPage!=='homePage') openPage(initialPage);
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/watch/sw.js',{scope:'/watch/'}).catch(()=>{});
+}
