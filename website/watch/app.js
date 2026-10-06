@@ -12,7 +12,8 @@ const state={
   spotlightTimer:null,
   spotlightIndex:0,
   libraryStatus:'watching',
-  browseFilter:'all'
+  browseFilter:'all',
+  lastMainPage:'homePage'
 };
 
 const DEFAULT_WEB_SETTINGS={
@@ -394,7 +395,13 @@ async function playEpisode(ep){
   video.load();
   try{
     const x=await api({action:'source',id:state.current.id,episode:ep.number,audio:$('#audio').value});
-    const src=x.sources?.[0]?.url;
+    const sources=x.sources||[];
+    const preferred=String(webSettings.preferredQuality||'Auto').toLowerCase();
+    const wanted=preferred==='auto'?null:preferred.replace('p','');
+    const selected=wanted
+      ? sources.find(source=>String(source.quality||'').toLowerCase().replace('p','').includes(wanted))
+      : null;
+    const src=(selected||sources[0])?.url;
     if(!src) throw Error($('#audio').value==='dub'?'English dub is not available. Try SUB.':'No playable source was found.');
 
     // Safari/iPhone/iPad have excellent native HLS support. Prefer it so an
@@ -430,6 +437,7 @@ async function playEpisode(ep){
 }
 
 function saveProgress(ep){
+  if(webSettings.incognito) return;
   let list=JSON.parse(localStorage.getItem('anidash-progress')||'[]').filter(x=>String(x.id)!==String(state.current.id));
   list.unshift({
     id:state.current.id,
@@ -478,7 +486,7 @@ async function runSearch(){
   $('#searchStatus').textContent='Searching…';
   try{
     const d=await anilist(`query($q:String){Page(page:1,perPage:40){media(type:ANIME,search:$q,sort:SEARCH_MATCH){${mediaFields}}}}`,{q});
-    const items=d.Page.media;
+    const items=d.Page.media.filter(mediaVisible);
     $('#searchGrid').innerHTML=items.map(x=>card(x)).join('');
     bindCards($('#searchGrid'));
     $('#searchStatus').textContent=`${items.length} results`;
@@ -509,6 +517,7 @@ async function renderBrowseLanding(filter='all'){
       const d=await anilist(`query{Page(page:1,perPage:36){media(type:ANIME,${args}){${mediaFields}}}}`);
       items=d.Page.media;
     }
+    items=items.filter(mediaVisible);
     $('#searchGrid').innerHTML=items.map(x=>card(x)).join('');
     bindCards($('#searchGrid'));
     $('#searchStatus').textContent=filter==='all'?'Trending now':filter==='airing'?'Currently airing':filter==='movie'?'Popular movies':'Popular anime';
@@ -528,7 +537,7 @@ async function loadManga(query=''){
     const d=query
       ? await anilist(`query($q:String){Page(page:1,perPage:36){media(type:MANGA,search:$q,sort:SEARCH_MATCH){${mangaFields}}}}`,{q:query})
       : await anilist(`query{Page(page:1,perPage:36){media(type:MANGA,sort:TRENDING_DESC){${mangaFields}}}}`);
-    const items=d.Page.media;
+    const items=d.Page.media.filter(mediaVisible);
     $('#mangaGrid').innerHTML=items.map(x=>card(x,false,'manga')).join('');
     bindMangaCards($('#mangaGrid'));
     $('#mangaStatus').textContent=query?`${items.length} results`:'Trending manga';
@@ -539,8 +548,12 @@ async function loadManga(query=''){
 }
 
 function openPage(pageId){
-  $$('.page').forEach(p=>p.classList.toggle('active',p.id===pageId));
-  $$('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===pageId));
+  const current=$('.page.active')?.id;
+  if(pageId==='settingsPage'&&current&&current!=='settingsPage') state.lastMainPage=current;
+  const isSubpage=pageId==='settingsPage';
+  document.body.classList.toggle('subpage-open',isSubpage);
+  $('.page').forEach(p=>p.classList.toggle('active',p.id===pageId));
+  $('[data-page]').forEach(b=>b.classList.toggle('active',!isSubpage&&b.dataset.page===pageId));
   if(pageId==='browsePage'){
     renderHistory();
     if(!$('#searchInput').value.trim()) renderBrowseLanding(state.browseFilter);
