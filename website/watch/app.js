@@ -486,56 +486,180 @@ async function showEpisodes(){
   }
 }
 
+function resetVideoElement(video){
+  if(state.hls){
+    state.hls.destroy();
+    state.hls=null;
+  }
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+}
+
+function orderedStreamCandidates(sources){
+  const preferred=String(webSettings.preferredQuality||'Auto').toLowerCase();
+  const wanted=preferred==='auto'?null:preferred.replace('p','');
+  const serverRank={'Neko HD':0,'Momo':1,'Zoko':2,'Gigi':3,'Neko':4};
+  return [...new Map(
+    (sources||[]).filter(source=>source?.url).map(source=>[source.url,source])
+  ).values()].sort((a,b)=>{
+    const aq=wanted&&String(a.quality||'').toLowerCase().replace('p','').includes(wanted)?0:1;
+    const bq=wanted&&String(b.quality||'').toLowerCase().replace('p','').includes(wanted)?0:1;
+    if(aq!==bq) return aq-bq;
+    return (serverRank[a.server]??99)-(serverRank[b.server]??99);
+  });
+}
+
+async function tryNativeStream(video,source){
+  return new Promise((resolve,reject)=>{
+    let settled=false;
+    const finish=(error)=>{
+      if(settled) return;
+      settled=true;
+      clearTimeout(timer);
+      video.removeEventListener('loadedmetadata',ready);
+      video.removeEventListener('canplay',ready);
+      video.removeEventListener('error',failed);
+      error?reject(error):resolve();
+    };
+    const ready=()=>finish();
+    const failed=()=>finish(Error('This stream could not be decoded'));
+    const timer=setTimeout(()=>finish(Error('This stream timed out')),14000);
+    video.addEventListener('loadedmetadata',ready,{once:true});
+    video.addEventListener('canplay',ready,{once:true});
+    video.addEventListener('error',failed,{once:true});
+    video.src=source.url;
+    video.load();
+  });
+}
+
+async function tryHlsStream(video,source){
+  if(!globalThis.Hls||!Hls.isSupported()){
+    throw Error('HLS playback library is unavailable');
+  }
+
+  return new Promise((resolve,reject)=>{
+    let settled=false;
+    const hls=new Hls({
+      maxBufferLength:90,
+      maxMaxBufferLength:120,
+      backBufferLength:30,
+      enableWorker:true,
+      manifestLoadingTimeOut:12000,
+      levelLoadingTimeOut:12000,
+      fragLoadingTimeOut:15000,
+    });
+    state.hls=hls;
+
+    const finish=(error)=>{
+      if(settled) return;
+      settled=true;
+      clearTimeout(timer);
+      video.removeEventListener('error',videoFailed);
+      if(error){
+        hls.destroy();
+        if(state.hls===hls) state.hls=null;
+        reject(error);
+      }else{
+        resolve();
+      }
+    };
+    const videoFailed=()=>finish(Error('Browser rejected this video stream'));
+    const timer=setTimeout(()=>finish(Error('Video stream timed out')),18000);
+
+    video.addEventListener('error',videoFailed,{once:true});
+    hls.on(Hls.Events.ERROR,(_,data)=>{
+      if(data.fatal){
+        finish(Error(
+          data.type===Hls.ErrorTypes.NETWORK_ERROR
+            ? 'Stream network request failed'
+            : 'Stream format could not be decoded'
+        ));
+      }
+    });
+    hls.on(Hls.Events.FRAG_BUFFERED,()=>finish());
+    hls.loadSource(source.url);
+    hls.attachMedia(video);
+  });
+}
+
 async function playEpisode(ep){
   const dlg=$('#playerDialog'),video=$('#video'),loading=$('#playerLoading');
   if(!dlg.open) dlg.showModal();
   $('#playerTitle').textContent=`E${ep.number} — ${ep.title||'Episode '+ep.number}`;
   $('#playerStatus').textContent='';
   loading.hidden=false;
-  if(state.hls){state.hls.destroy();state.hls=null}
-  video.pause();
-  video.removeAttribute('src');
-  video.load();
-  try{
-    const x=await api({action:'source',id:state.current.id,episode:ep.number,audio:$('#audio').value});
-    const sources=x.sources||[];
-    const preferred=String(webSettings.preferredQuality||'Auto').toLowerCase();
-    const wanted=preferred==='auto'?null:preferred.replace('p','');
-    const selected=wanted
-      ? sources.find(source=>String(source.quality||'').toLowerCase().replace('p','').includes(wanted))
-      : null;
-    const src=(selected||sources[0])?.url;
-    if(!src) throw Error($('#audio').value==='dub'?'English dub is not available. Try SUB.':'No playable source was found.');
+  resetVideoElement(video);
 
-    // Safari/iPhone/iPad have excellent native HLS support. Prefer it so an
-    // installed Home Screen app uses the same native media pipeline as Safari.
-    if(video.canPlayType('application/vnd.apple.mpegurl')){
-      video.src=src;
-      video.load();
-      await video.play();
-    }else if(globalThis.Hls&&Hls.isSupported()){
-      state.hls=new Hls({
-        maxBufferLength:100,
-        maxMaxBufferLength:120,
-        backBufferLength:30,
-        enableWorker:true
-      });
-      await new Promise((ok,no)=>{
-        let settled=false;
-        state.hls.on(Hls.Events.MANIFEST_PARSED,()=>{if(!settled){settled=true;ok()}});
-        state.hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal&&!settled){settled=true;no(Error('Video stream could not be loaded'))}});
-        state.hls.loadSource(src);
-        state.hls.attachMedia(video);
-      });
-      await video.play();
-    }else{
-      throw Error('This browser cannot play this stream');
+  try{
+    const audio=$('#audio').value;
+    const x=await api({
+      action:'source',
+      id:state.current.id,
+      episode:ep.number,
+      audio
+    },{timeout:18000});
+
+    const candidates=orderedStreamCandidates(x.sources||[]);
+    if(!candidates.length){
+      throw Error(
+        audio==='dub'
+          ? 'English dub is not available for this episode.'
+          : 'No playable source was found.'
+      );
     }
+
+    let lastError=null;
+    let chosen=null;
+
+    for(let index=0;index<candidates.length;index++){
+      const source=candidates[index];
+      const label=[source.server,source.quality].filter(Boolean).join(' · ');
+      $('#playerStatus').textContent=
+        candidates.length>1
+          ? `Trying ${label||'stream'} (${index+1}/${candidates.length})…`
+          : `Loading ${label||'stream'}…`;
+
+      resetVideoElement(video);
+
+      try{
+        if(video.canPlayType('application/vnd.apple.mpegurl')){
+          await tryNativeStream(video,source);
+        }else{
+          await tryHlsStream(video,source);
+        }
+        chosen=source;
+        break;
+      }catch(error){
+        lastError=error;
+      }
+    }
+
+    if(!chosen){
+      throw lastError||Error('No working stream server was found.');
+    }
+
+    const chosenLabel=[chosen.server,chosen.quality].filter(Boolean).join(' · ');
+    $('#playerStatus').textContent=chosenLabel||'Ready';
+    loading.hidden=true;
+
+    try{
+      await video.play();
+      $('#playerStatus').textContent='';
+    }catch(error){
+      if(error?.name==='NotAllowedError'){
+        $('#playerStatus').textContent=(chosenLabel?chosenLabel+' · ':'')+'Tap play to start';
+      }else{
+        throw error;
+      }
+    }
+
     saveProgress(ep);
+  }catch(error){
     loading.hidden=true;
-  }catch(e){
-    loading.hidden=true;
-    $('#playerStatus').textContent=e.name==='NotAllowedError'?'Tap play to start':e.message;
+    resetVideoElement(video);
+    $('#playerStatus').textContent=
+      error?.message||'Playback failed. Try another audio track.';
   }
 }
 
