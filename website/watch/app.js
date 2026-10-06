@@ -500,14 +500,32 @@ function orderedStreamCandidates(sources){
   const preferred=String(webSettings.preferredQuality||'Auto').toLowerCase();
   const wanted=preferred==='auto'?null:preferred.replace('p','');
   const serverRank={'Neko HD':0,'Momo':1,'Zoko':2,'Gigi':3,'Neko':4};
-  return [...new Map(
-    (sources||[]).filter(source=>source?.url).map(source=>[source.url,source])
-  ).values()].sort((a,b)=>{
-    const aq=wanted&&String(a.quality||'').toLowerCase().replace('p','').includes(wanted)?0:1;
-    const bq=wanted&&String(b.quality||'').toLowerCase().replace('p','').includes(wanted)?0:1;
-    if(aq!==bq) return aq-bq;
-    return (serverRank[a.server]??99)-(serverRank[b.server]??99);
-  });
+
+  const sorted=[...(sources||[])]
+    .filter(source=>source?.url)
+    .sort((a,b)=>{
+      const aq=wanted&&String(a.quality||'').toLowerCase().replace('p','').includes(wanted)?0:1;
+      const bq=wanted&&String(b.quality||'').toLowerCase().replace('p','').includes(wanted)?0:1;
+      if(aq!==bq) return aq-bq;
+      return (serverRank[a.server]??99)-(serverRank[b.server]??99);
+    });
+
+  const expanded=[];
+  const seen=new Set();
+  for(const source of sorted){
+    const variants=[
+      {...source,transport:'AniDash proxy'},
+      ...(source.directProxyUrl&&source.directProxyUrl!==source.url
+        ? [{...source,url:source.directProxyUrl,transport:'Direct proxy'}]
+        : [])
+    ];
+    for(const variant of variants){
+      if(!variant.url||seen.has(variant.url)) continue;
+      seen.add(variant.url);
+      expanded.push(variant);
+    }
+  }
+  return expanded;
 }
 
 async function tryNativeStream(video,source){
@@ -611,10 +629,14 @@ async function playEpisode(ep){
 
     let lastError=null;
     let chosen=null;
+    let needsTap=false;
 
     for(let index=0;index<candidates.length;index++){
       const source=candidates[index];
-      const label=[source.server,source.quality].filter(Boolean).join(' · ');
+      const label=[source.server,source.quality,source.transport]
+        .filter(Boolean)
+        .join(' · ');
+
       $('#playerStatus').textContent=
         candidates.length>1
           ? `Trying ${label||'stream'} (${index+1}/${candidates.length})…`
@@ -623,15 +645,33 @@ async function playEpisode(ep){
       resetVideoElement(video);
 
       try{
-        if(video.canPlayType('application/vnd.apple.mpegurl')){
-          await tryNativeStream(video,source);
-        }else{
+        const useNative=
+          source.isM3U8
+            ? !!video.canPlayType('application/vnd.apple.mpegurl')
+            : true;
+
+        if(source.isM3U8&& !useNative){
           await tryHlsStream(video,source);
+        }else{
+          await tryNativeStream(video,source);
         }
+
+        try{
+          await video.play();
+          needsTap=false;
+        }catch(playError){
+          if(playError?.name==='NotAllowedError'){
+            needsTap=true;
+          }else{
+            throw playError;
+          }
+        }
+
         chosen=source;
         break;
       }catch(error){
         lastError=error;
+        resetVideoElement(video);
       }
     }
 
@@ -639,21 +679,12 @@ async function playEpisode(ep){
       throw lastError||Error('No working stream server was found.');
     }
 
-    const chosenLabel=[chosen.server,chosen.quality].filter(Boolean).join(' · ');
-    $('#playerStatus').textContent=chosenLabel||'Ready';
     loading.hidden=true;
-
-    try{
-      await video.play();
-      $('#playerStatus').textContent='';
-    }catch(error){
-      if(error?.name==='NotAllowedError'){
-        $('#playerStatus').textContent=(chosenLabel?chosenLabel+' · ':'')+'Tap play to start';
-      }else{
-        throw error;
-      }
-    }
-
+    const chosenLabel=[chosen.server,chosen.quality].filter(Boolean).join(' · ');
+    $('#playerStatus').textContent=
+      needsTap
+        ? (chosenLabel?chosenLabel+' · ':'')+'Tap play to start'
+        : '';
     saveProgress(ep);
   }catch(error){
     loading.hidden=true;
