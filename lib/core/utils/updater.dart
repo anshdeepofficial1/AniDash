@@ -140,14 +140,25 @@ Future<void> checkForUpdates(
     }
   }
 
+  if (Platform.isWindows) {
+    // 1. Prefer Setup installer exe
+    for (final a in assets) {
+      final name = (a['name'] as String).toLowerCase();
+      if (name.endsWith('-setup.exe') || (name.endsWith('.exe') && !name.contains('portable'))) {
+        return value(a);
+      }
+    }
+    // 2. Fallback to any windows asset
+    for (final a in assets) {
+      final name = (a['name'] as String).toLowerCase();
+      if (name.endsWith('.exe') || name.endsWith('.zip')) {
+        return value(a);
+      }
+    }
+  }
+
   for (final a in assets) {
     final name = (a['name'] as String).toLowerCase();
-    if (Platform.isWindows &&
-        (name.endsWith('-setup.exe') ||
-            name.contains('windows-portable.zip') ||
-            name.endsWith('.zip'))) {
-      return value(a);
-    }
     if (Platform.isLinux && name.contains('linux.zip')) return value(a);
     if (Platform.isMacOS &&
         (name.endsWith('.dmg') ||

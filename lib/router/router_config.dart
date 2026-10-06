@@ -79,11 +79,33 @@ class AnimatedGoRoute extends GoRoute {
        );
 }
 
+bool _isUserOnboarded() {
+  if (sharedPrefs.getBool('is_onboarded') == true) return true;
+
+  // Detect existing installations, updates, or prior sessions:
+  final hasTokens = sharedPrefs.containsKey('anilist-token') ||
+      sharedPrefs.containsKey('mal-token') ||
+      sharedPrefs.containsKey('anilist-user-cache') ||
+      sharedPrefs.containsKey('mal-user-cache');
+  final hasConfigured = sharedPrefs.containsKey('selected_provider') ||
+      sharedPrefs.containsKey('app_version') ||
+      sharedPrefs.containsKey('last_presented_update') ||
+      sharedPrefs.containsKey('notification_inbox_v1');
+
+  if (hasTokens || hasConfigured) {
+    // Mark onboarded permanently so existing users and updates land straight on home
+    sharedPrefs.setBool('is_onboarded', true);
+    return true;
+  }
+
+  return false;
+}
+
 final routerConfig = GoRouter(
   errorBuilder: (context, state) => ErrorScreen(error: state.error),
   initialLocation: '/',
   redirect: (context, state) {
-    final isOnboarded = sharedPrefs.getBool('is_onboarded') ?? false;
+    final isOnboarded = _isUserOnboarded();
     final isGoingToOnboarding = state.matchedLocation == '/onboarding';
     if (!isOnboarded && !isGoingToOnboarding) return '/onboarding';
     if (isOnboarded && isGoingToOnboarding) return '/';

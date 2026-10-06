@@ -97,9 +97,13 @@ class AppInitializer {
             info.buildNumber.isNotEmpty
                 ? '${info.version}+${info.buildNumber}'
                 : info.version;
-        await sharedPrefs.setString('app_version', fullVersion);
         final diskPrefs = await SharedPreferences.getInstance();
         await diskPrefs.setString('app_version', fullVersion);
+        if (diskPrefs.getBool('is_onboarded') == true) {
+          await sharedPrefs.setBool('is_onboarded', true);
+        } else if (sharedPrefs.getBool('is_onboarded') == true) {
+          await diskPrefs.setBool('is_onboarded', true);
+        }
       } catch (_) {}
       AppLogger.success('Shared Preferences initialized');
     } catch (e, st) {

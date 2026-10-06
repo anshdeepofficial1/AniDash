@@ -218,11 +218,15 @@ class _UpdateDialogState extends State<UpdateDialog>
             _statusMessage = 'Launching Windows installer...';
           });
         }
-        await Process.start(savePath, [], runInShell: true);
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
-        return;
+        // Launch installer detached so it stays running after AniDash exits
+        await Process.start(
+          savePath,
+          [],
+          mode: ProcessStartMode.detached,
+        );
+        // Allow the installer process to spawn, then exit AniDash cleanly so files are not locked
+        await Future.delayed(const Duration(milliseconds: 600));
+        exit(0);
       }
 
       if (Platform.isMacOS) {
