@@ -1,6 +1,9 @@
 const API = 'https://core.justanime.to/api';
 const STREAM_PROXY = 'https://neko.justanime.to/m3u8-proxy';
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+  'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+  'Chrome/122.0.0.0 Safari/537.36';
 
 const BASE_HEADERS = {
   Origin: 'https://justanime.to',
@@ -8,6 +11,38 @@ const BASE_HEADERS = {
   'User-Agent': UA,
   Accept: 'application/json, text/plain, */*',
 };
+
+const SERVER_ORDER = [
+  {
+    id: 'megaplay',
+    name: 'Momo',
+    type: 'hls',
+    referer: 'https://megaplay.buzz/',
+    path: (id, episode) => '/watch/' + id + '/episode/' + episode + '/megaplay',
+  },
+  {
+    id: 'zokoanime',
+    name: 'Zoko',
+    type: 'hls',
+    referer: 'https://zokoanime.video/',
+    path: (id, episode) => '/watch/' + id + '/episode/' + episode + '/zokoanime',
+  },
+  {
+    id: 'animegg',
+    name: 'Gigi',
+    type: 'mp4',
+    referer: 'https://www.animegg.org/',
+    path: (id, episode) => '/watch/' + id + '/episode/' + episode + '/animegg',
+  },
+  {
+    id: 'anineko',
+    name: 'Neko',
+    type: 'hls',
+    referer: 'https://justanime.to/',
+    path: (id, episode, audio) =>
+      '/watch/' + id + '/episode/' + episode + '/anineko/' + audio,
+  },
+];
 
 async function fetchJson(path, timeout = 12000) {
   const controller = new AbortController();
@@ -27,103 +62,188 @@ async function fetchJson(path, timeout = 12000) {
   }
 }
 
-function selectedPayload(data, audio, server) {
-  if (!data || typeof data !== 'object') return null;
+function normalizeHeaders(input) {
+  const out = {};
+  if (!input || typeof input !== 'object') return out;
 
-  if (Array.isArray(data.sources)) {
-    if (server === 'Neko HD' || server === 'Neko' || audio === 'sub') return data;
-    const hint = String(
-      data.audio || data.language || data.category ||
-      data.type || ''
-    ).toLowerCase();
-    const sourceSaysDub = data.sources.some(source =>
-      source?.isDub === true ||
-      /\bdub\b/i.test(String(source?.audio || source?.language || source?.type || ''))
-    );
-    return hint.includes('dub') || sourceSaysDub ? data : null;
-  }
+  for (const [rawKey, rawValue] of Object.entries(input)) {
+    const key = String(rawKey || '').trim();
+    const value = String(rawValue || '').trim();
+    if (!key || !value) continue;
 
-  if (audio === 'dub') {
-    if (Array.isArray(data.dub?.sources) && data.dub.sources.length) return data.dub;
-    return null;
+    const lower = key.toLowerCase();
+    const canonical =
+      lower === 'user-agent'
+        ? 'User-Agent'
+        : lower === 'referer' || lower === 'referrer'
+        ? 'Referer'
+        : lower === 'origin'
+        ? 'Origin'
+        : lower === 'cookie'
+        ? 'Cookie'
+        : key;
+
+    for (const existing of Object.keys(out)) {
+      if (existing.toLowerCase() === canonical.toLowerCase()) delete out[existing];
+    }
+    out[canonical] = value;
   }
-  if (Array.isArray(data.sub?.sources) && data.sub.sources.length) return data.sub;
-  if (Array.isArray(data.hsub?.sources) && data.hsub.sources.length) return data.hsub;
-  return null;
+  return out;
 }
 
-function proxyStream(url, isM3U8) {
-  const headers = JSON.stringify({
+function externalProxyUrl(url, headers) {
+  return (
+    STREAM_PROXY +
+    '?url=' +
+    encodeURIComponent(url) +
+    '&headers=' +
+    encodeURIComponent(JSON.stringify(headers))
+  );
+}
+
+function browserProxyUrl(url, headers, isM3U8) {
+  const proxy = externalProxyUrl(url, headers);
+  return (
+    '/api/media?url=' +
+    encodeURIComponent(proxy) +
+    '&hls=' +
+    (isM3U8 ? '1' : '0')
+  );
+}
+
+function parseServerPayload(server, endpoint, payload, requestedAudio) {
+  if (!payload || typeof payload !== 'object') return null;
+
+  let raw = null;
+  let actualAudio = requestedAudio;
+
+  if (
+    Object.prototype.hasOwnProperty.call(payload, 'sub') ||
+    Object.prototype.hasOwnProperty.call(payload, 'dub')
+  ) {
+    if (requestedAudio === 'dub') {
+      raw = payload.dub;
+      if (!raw || !Array.isArray(raw.sources) || !raw.sources.length) return null;
+      actualAudio = 'dub';
+    } else {
+      raw = payload.sub || payload.hsub;
+      if (!raw || !Array.isArray(raw.sources) || !raw.sources.length) return null;
+      actualAudio = 'sub';
+    }
+  } else {
+    const endpointAudio = endpoint.includes('/dub') ? 'dub' : 'sub';
+    if (endpoint.includes('/anineko/') && endpointAudio !== requestedAudio) {
+      return null;
+    }
+    raw = payload;
+    actualAudio = endpointAudio;
+  }
+
+  if (!raw || !Array.isArray(raw.sources) || !raw.sources.length) return null;
+
+  const rawHeaders = normalizeHeaders(raw.headers || payload.headers || {});
+  const commonHeaders = normalizeHeaders({
     'User-Agent': UA,
-    Referer: 'https://justanime.to/',
-    Origin: 'https://justanime.to',
+    Referer: server.referer,
+    Origin: server.referer.replace(/\/+$/, ''),
+    ...rawHeaders,
   });
-  const upstreamProxy =
-    STREAM_PROXY + '?url=' + encodeURIComponent(url) + '&headers=' + encodeURIComponent(headers);
-  return {
-    sameOrigin:
-      '/api/media?url=' + encodeURIComponent(upstreamProxy) + (isM3U8 ? '&hls=1' : ''),
-    direct: upstreamProxy,
-  };
-}
 
-function normalizeSources(payload, server) {
-  return (payload?.sources || [])
+  const sources = raw.sources
     .map(source => {
-      const url = source?.url?.toString().trim();
-      if (!url || !/^https:\/\//i.test(url)) return null;
-      let originalHost = '';
-      try { originalHost = new URL(url).hostname; } catch (_) {}
+      if (!source || typeof source !== 'object') return null;
+      const rawUrl = String(source.url || '').trim();
+      if (!/^https:\/\//i.test(rawUrl)) return null;
+
+      const itemHeaders = normalizeHeaders(source.headers || {});
+      const playbackHeaders = normalizeHeaders({
+        ...commonHeaders,
+        ...itemHeaders,
+      });
+
       const isM3U8 =
-        source?.isM3U8 === true ||
-        /\.m3u8(?:$|\?)/i.test(url) ||
-        /mpegurl/i.test(String(source?.type || ''));
-      const proxied = proxyStream(url, isM3U8);
+        server.type === 'hls' ||
+        source.isM3U8 === true ||
+        /\.m3u8(?:$|\?)/i.test(rawUrl);
+
+      let originalHost = '';
+      try {
+        originalHost = new URL(rawUrl).hostname;
+      } catch (_) {}
+
       return {
-        ...source,
-        server,
-        originalHost,
+        quality: source.quality || 'Auto',
+        type: server.name,
+        server: server.name,
+        serverId: server.id,
         isM3U8,
-        url: proxied.sameOrigin,
-        directProxyUrl: proxied.direct,
+        isDub: actualAudio === 'dub',
+        originalHost,
+        url: browserProxyUrl(rawUrl, playbackHeaders, isM3U8),
       };
     })
     .filter(Boolean);
+
+  if (!sources.length) return null;
+
+  const tracks =
+    raw.subtitles ||
+    raw.tracks ||
+    payload.subtitles ||
+    payload.tracks ||
+    [];
+
+  return {
+    server,
+    headers: commonHeaders,
+    sources,
+    subtitles: Array.isArray(tracks) ? tracks : [],
+    intro:
+      raw.intro ||
+      payload.intro ||
+      payload.sub?.intro ||
+      payload.dub?.intro ||
+      null,
+    outro:
+      raw.outro ||
+      payload.outro ||
+      payload.sub?.outro ||
+      payload.dub?.outro ||
+      null,
+  };
 }
 
-async function resolveStreamingSources(id, episode, audio) {
-  const candidates = [
-    { server: 'Neko HD', path: '/watch/' + id + '/episode/' + episode + '/anineko/' + audio + '/hd1' },
-    { server: 'Momo', path: '/watch/' + id + '/episode/' + episode + '/megaplay' },
-    { server: 'Zoko', path: '/watch/' + id + '/episode/' + episode + '/zokoanime' },
-    { server: 'Gigi', path: '/watch/' + id + '/episode/' + episode + '/animegg' },
-    { server: 'Neko', path: '/watch/' + id + '/episode/' + episode + '/anineko/' + audio },
-  ];
+function orderedServers(preferred) {
+  if (!preferred) return SERVER_ORDER;
+  const first = SERVER_ORDER.find(server => server.id === preferred);
+  if (!first) return SERVER_ORDER;
+  return [first, ...SERVER_ORDER.filter(server => server.id !== preferred)];
+}
 
-  const settled = await Promise.all(
-    candidates.map(async candidate => {
-      const data = await fetchJson(candidate.path, 10000);
-      const selected = selectedPayload(data, audio, candidate.server);
-      if (!selected) return null;
-      const sources = normalizeSources(selected, candidate.server);
-      if (!sources.length) return null;
-      return {
-        server: candidate.server,
-        data,
-        selected,
-        sources,
-      };
+async function resolveStreamingSources(id, episode, audio, preferredServer) {
+  const servers = orderedServers(preferredServer);
+
+  const results = await Promise.all(
+    servers.map(async server => {
+      const endpoint = server.path(id, episode, audio);
+      const payload = await fetchJson(endpoint, 12000);
+      return parseServerPayload(server, endpoint, payload, audio);
     })
   );
 
-  const valid = settled.filter(Boolean);
+  const valid = results.filter(Boolean);
   if (!valid.length) return null;
 
-  const seen = new Set();
   const sources = [];
-  for (const result of valid) {
-    for (const source of result.sources) {
-      const key = source.server + '|' + (source.quality || '') + '|' + source.url;
+  const seen = new Set();
+  for (const model of valid) {
+    for (const source of model.sources) {
+      const key =
+        source.serverId +
+        '|' +
+        String(source.quality || '') +
+        '|' +
+        source.url;
       if (seen.has(key)) continue;
       seen.add(key);
       sources.push(source);
@@ -131,22 +251,34 @@ async function resolveStreamingSources(id, episode, audio) {
   }
 
   const first = valid[0];
+  const subtitles = [];
+  const subtitleSeen = new Set();
+  for (const model of valid) {
+    for (const track of model.subtitles || []) {
+      const url = String(track?.url || track?.file || '').trim();
+      if (!url || subtitleSeen.has(url)) continue;
+      subtitleSeen.add(url);
+      subtitles.push({
+        ...track,
+        url,
+        lang: track?.lang || track?.label || 'English',
+      });
+    }
+  }
+
   return {
-    ...first.selected,
     sources,
-    subtitles:
-      first.selected.subtitles ||
-      first.selected.tracks ||
-      first.data.subtitles ||
-      [],
-    intro: first.selected.intro || first.data.intro,
-    outro: first.selected.outro || first.data.outro,
-    resolvedServers: valid.map(item => item.server),
+    subtitles,
+    intro: first.intro,
+    outro: first.outro,
+    resolvedServer: first.server.id,
+    resolvedServers: valid.map(model => model.server.id),
   };
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Cache-Control', 's-maxage=45, stale-while-revalidate=180');
+  res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=120');
+
   const {
     action,
     query = '',
@@ -154,16 +286,22 @@ export default async function handler(req, res) {
     episode = '1',
     audio = 'sub',
     page = '1',
+    server = '',
   } = req.query;
 
   if (action === 'search') {
     const data = await fetchJson(
-      '/search?query=' + encodeURIComponent(query) + '&page=' + encodeURIComponent(page),
+      '/search?query=' +
+        encodeURIComponent(query) +
+        '&page=' +
+        encodeURIComponent(page),
       15000
     );
     return data
       ? res.json(data)
-      : res.status(502).json({ error: 'The source service is temporarily unavailable' });
+      : res
+          .status(502)
+          .json({ error: 'The source service is temporarily unavailable' });
   }
 
   if (action === 'episodes' && /^\d+$/.test(id)) {
@@ -173,15 +311,32 @@ export default async function handler(req, res) {
     );
     return data
       ? res.json(data)
-      : res.status(504).json({ error: 'Episode source timed out. Please retry.' });
+      : res
+          .status(504)
+          .json({ error: 'Episode source timed out. Please retry.' });
   }
 
-  if (action === 'source' && /^\d+$/.test(id) && /^\d+(\.\d+)?$/.test(episode)) {
+  if (
+    action === 'source' &&
+    /^\d+$/.test(id) &&
+    /^\d+(\.\d+)?$/.test(episode)
+  ) {
     const lang = audio === 'dub' ? 'dub' : 'sub';
-    const resolved = await resolveStreamingSources(id, episode, lang);
+    const preferredServer = SERVER_ORDER.some(item => item.id === server)
+      ? server
+      : '';
+    const resolved = await resolveStreamingSources(
+      id,
+      episode,
+      lang,
+      preferredServer
+    );
+
     if (!resolved?.sources?.length) {
       return res.status(404).json({
-        error: lang.toUpperCase() + ' stream is unavailable for this episode',
+        error:
+          lang.toUpperCase() +
+          ' stream is unavailable for this episode on all Android servers',
       });
     }
     return res.json(resolved);
