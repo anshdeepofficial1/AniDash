@@ -893,3 +893,13 @@ html.compact-cards .poster-grid{grid-template-columns:repeat(3,minmax(0,1fr));ga
   .settings-row{grid-template-columns:38px minmax(0,1fr) auto;gap:9px;padding-inline:10px}
   .setting-leading{width:35px;height:35px}
 }
+
+@media(prefers-color-scheme:dark){
+  html[data-amoled="true"]:not([data-theme="light"]){
+    --bg:#000;--surface:#050505;--surface-2:#0b0b0b;--surface-3:#111;--line:#202020
+  }
+}
+@media(min-width:801px){
+  body.subpage-open #app-shell{padding-left:15px}
+}
+body.subpage-open{padding-bottom:0}
