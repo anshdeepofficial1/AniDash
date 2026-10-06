@@ -1026,6 +1026,11 @@ function renderDesktopNotifications(){
 
 async function requestDesktopNotifications(){
   if(!('Notification' in window)) return;
+  if(Notification.permission==='denied'){
+    showUtility('Notifications','Notification permission is blocked for AniDash. Re-enable it from your browser or system site-notification settings, then reopen AniDash.');
+    renderDesktopNotifications();
+    return;
+  }
   if(Notification.permission==='default'){
     try{await Notification.requestPermission()}catch(_){}
   }
