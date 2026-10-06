@@ -60,7 +60,7 @@ function applyWebSettings(){
     downloadsPage:webSettings.nav.downloads,
     watchlistPage:webSettings.nav.watchlist
   };
-  $('[data-page]').forEach(button=>{
+  $$('[data-page]').forEach(button=>{
     if(button.dataset.page==='homePage') button.hidden=false;
     else if(Object.hasOwn(visibility,button.dataset.page)) button.hidden=!visibility[button.dataset.page];
   });
@@ -98,7 +98,7 @@ function syncSettingsControls(){
   }
   if($('#settingAudio')) $('#settingAudio').value=webSettings.preferredAudio;
   if($('#settingQuality')) $('#settingQuality').value=webSettings.preferredQuality;
-  $('#themeSegments [data-theme-value]').forEach(button=>{
+  $$('#themeSegments [data-theme-value]').forEach(button=>{
     button.classList.toggle('active',button.dataset.themeValue===webSettings.theme);
   });
   updateNotificationPermissionStatus();
@@ -552,8 +552,8 @@ function openPage(pageId){
   if(pageId==='settingsPage'&&current&&current!=='settingsPage') state.lastMainPage=current;
   const isSubpage=pageId==='settingsPage';
   document.body.classList.toggle('subpage-open',isSubpage);
-  $('.page').forEach(p=>p.classList.toggle('active',p.id===pageId));
-  $('[data-page]').forEach(b=>b.classList.toggle('active',!isSubpage&&b.dataset.page===pageId));
+  $$('.page').forEach(p=>p.classList.toggle('active',p.id===pageId));
+  $$('[data-page]').forEach(b=>b.classList.toggle('active',!isSubpage&&b.dataset.page===pageId));
   if(pageId==='browsePage'){
     renderHistory();
     if(!$('#searchInput').value.trim()) renderBrowseLanding(state.browseFilter);
@@ -571,7 +571,7 @@ function showUtility(title,body){
   if(!dlg.open) dlg.showModal();
 }
 
-$$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
+$$$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
 
 $('#searchInput').oninput=()=>{
   clearTimeout(state.searchTimer);
@@ -641,7 +641,7 @@ $('#settingsSearchClear').onclick=()=>{
 $('#settingsSearchInput').oninput=()=>{
   const q=$('#settingsSearchInput').value.trim().toLowerCase();
   let shown=0;
-  $('#settingsList .settings-section').forEach(section=>{
+  $$('#settingsList .settings-section').forEach(section=>{
     const match=!q||section.textContent.toLowerCase().includes(q)||String(section.dataset.settingText||'').includes(q);
     section.hidden=!match;
     if(match) shown++;
@@ -668,7 +668,7 @@ bindToggle('settingNavWatchlist',v=>{webSettings.nav.watchlist=v;saveWebSettings
 
 $('#settingAudio').onchange=()=>{webSettings.preferredAudio=$('#settingAudio').value;saveWebSettings()};
 $('#settingQuality').onchange=()=>{webSettings.preferredQuality=$('#settingQuality').value;saveWebSettings()};
-$('#themeSegments [data-theme-value]').forEach(button=>{
+$$('#themeSegments [data-theme-value]').forEach(button=>{
   button.onclick=()=>{
     webSettings.theme=button.dataset.themeValue;
     saveWebSettings();
