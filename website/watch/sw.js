@@ -1,4 +1,4 @@
-const CACHE='anidash-stream-v11';
+const CACHE='anidash-stream-v12';
 const scopePath=new URL(self.registration.scope).pathname.replace(/\/$/,'');
 const BASE=scopePath==='/'?'':scopePath;
 const pathFor=file=>BASE+`/${file}`;

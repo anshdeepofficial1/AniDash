@@ -2,16 +2,17 @@
   "id": ".",
   "name": "AniDash",
   "short_name": "AniDash",
-  "description": "AniDash for iPhone and iPad — discover, track, and watch anime from your Home Screen.",
+  "description": "AniDash — app-like anime discovery, tracking and playback across phone, tablet and desktop.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "display_override": [
+    "window-controls-overlay",
     "standalone"
   ],
   "orientation": "any",
-  "background_color": "#f8faf7",
-  "theme_color": "#f8faf7",
+  "background_color": "#040805",
+  "theme_color": "#121518",
   "categories": [
     "entertainment"
   ],
