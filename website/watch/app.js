@@ -16,7 +16,9 @@ const state={
   lastMainPage:'homePage',
   pageHistory:[],
   aiConversation:[],
-  newsLoaded:false
+  newsLoaded:false,
+  playingEpisode:null,
+  lastProgressSave:0
 };
 
 const DEFAULT_WEB_SETTINGS={
@@ -75,6 +77,8 @@ function applyWebSettings(){
   const dark=webSettings.theme==='dark'||(webSettings.theme==='system'&&systemDark);
   const themeColor=dark?(webSettings.amoled?'#000000':'#090d0a'):'#f8faf7';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content',themeColor);
+  const themeUse=$('#macThemeButton use');
+  if(themeUse) themeUse.setAttribute('href',dark?'#i-moon':'#i-sun');
 }
 
 function saveWebSettings(){
@@ -317,7 +321,13 @@ async function loadHome(){
 }
 
 function renderContinue(){
-  const saved=JSON.parse(localStorage.getItem('anidash-progress')||'[]').sort((a,b)=>b.time-a.time);
+  const saved=JSON.parse(localStorage.getItem('anidash-progress')||'[]')
+    .filter(item=>{
+      const progress=Number(item.progressSeconds)||0;
+      const duration=Number(item.durationSeconds)||0;
+      return !(duration>0&&progress/duration>=0.92);
+    })
+    .sort((a,b)=>b.time-a.time);
   const section=$('#continueSection');
   if(!saved.length){section.hidden=true;return}
   section.hidden=false;
@@ -671,6 +681,72 @@ async function startAndConfirmPlayback(video){
   });
 }
 
+function savedProgressFor(ep){
+  try{
+    const list=JSON.parse(localStorage.getItem('anidash-progress')||'[]');
+    return list.find(item=>
+      String(item.id)===String(state.current?.id)&&
+      Number(item.episode)===Number(ep?.number)
+    )||null;
+  }catch(_){
+    return null;
+  }
+}
+
+async function restoreResumePosition(video,ep){
+  const saved=savedProgressFor(ep);
+  const position=Number(saved?.progressSeconds)||0;
+  if(position<=1) return;
+
+  if(video.readyState<1){
+    await Promise.race([
+      new Promise(resolve=>video.addEventListener('loadedmetadata',resolve,{once:true})),
+      new Promise(resolve=>setTimeout(resolve,3000))
+    ]);
+  }
+
+  const duration=Number(video.duration)||Number(saved?.durationSeconds)||0;
+  if(duration>0&&position>=duration*0.92) return;
+  try{video.currentTime=position}catch(_){}
+}
+
+function persistPlaybackProgress(ep,video,{force=false}={}){
+  if(webSettings.incognito||!ep||!state.current) return;
+  const now=Date.now();
+  if(!force&&now-state.lastProgressSave<4500) return;
+  state.lastProgressSave=now;
+
+  let list=[];
+  try{list=JSON.parse(localStorage.getItem('anidash-progress')||'[]')}catch(_){}
+  const previous=list.find(item=>String(item.id)===String(state.current.id));
+  list=list.filter(item=>String(item.id)!==String(state.current.id));
+
+  const progressSeconds=Math.max(0,Math.floor(Number(video?.currentTime)||Number(previous?.progressSeconds)||0));
+  const mediaDuration=Number(video?.duration);
+  const durationSeconds=Number.isFinite(mediaDuration)&&mediaDuration>0
+    ? Math.floor(mediaDuration)
+    : Math.max(0,Math.floor(Number(previous?.durationSeconds)||0));
+
+  list.unshift({
+    ...previous,
+    id:state.current.id,
+    title:state.current.title||titleOf(state.current),
+    cover:ep.image||state.current.bannerImage||state.current.cover||imageOf(state.current),
+    bannerImage:ep.image||state.current.bannerImage,
+    episode:+ep.number,
+    episodeTitle:ep.title||`Episode ${ep.number}`,
+    episodes:state.current.episodes,
+    format:state.current.format,
+    progressSeconds,
+    durationSeconds,
+    time:now
+  });
+
+  localStorage.setItem('anidash-progress',JSON.stringify(list.slice(0,30)));
+  renderContinue();
+  renderHistoryPage();
+}
+
 async function playEpisode(ep){
   const dlg=$('#playerDialog'),video=$('#video'),loading=$('#playerLoading');
   if(!dlg.open) dlg.showModal();
@@ -722,6 +798,7 @@ async function playEpisode(ep){
           await tryNativeStream(video,source);
         }
 
+        await restoreResumePosition(video,ep);
         const result=await startAndConfirmPlayback(video);
         needsTap=result.needsTap;
         chosen=source;
@@ -742,32 +819,14 @@ async function playEpisode(ep){
       needsTap
         ? (chosenLabel?chosenLabel+' · ':'')+'Tap play to start'
         : '';
-    saveProgress(ep);
+    state.playingEpisode=ep;
+    persistPlaybackProgress(ep,video,{force:true});
   }catch(error){
     loading.hidden=true;
     resetVideoElement(video);
     $('#playerStatus').textContent=
       error?.message||'Playback failed. Try another audio track.';
   }
-}
-
-function saveProgress(ep){
-  if(webSettings.incognito) return;
-  let list=JSON.parse(localStorage.getItem('anidash-progress')||'[]').filter(x=>String(x.id)!==String(state.current.id));
-  list.unshift({
-    id:state.current.id,
-    title:state.current.title||titleOf(state.current),
-    cover:ep.image||state.current.bannerImage||state.current.cover||imageOf(state.current),
-    bannerImage:ep.image||state.current.bannerImage,
-    episode:+ep.number,
-    episodeTitle:ep.title||`Episode ${ep.number}`,
-    episodes:state.current.episodes,
-    format:state.current.format,
-    time:Date.now()
-  });
-  localStorage.setItem('anidash-progress',JSON.stringify(list.slice(0,30)));
-  renderContinue();
-  renderHistoryPage();
 }
 
 function getLibrary(){
