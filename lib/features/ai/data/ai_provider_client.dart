@@ -68,6 +68,7 @@ class AniDashAiProxyClient implements AiProviderClient {
       final system = Uri.encodeComponent(
         'You are AniDash AI, a passionate anime and manga assistant. '
         'Answer questions about anime, manga, characters, episodes, arcs, watch order, and recommendations accurately with friendly, concise markdown. '
+        'Never reject newly released episodes, continuations or upcoming sequels (like Black Clover continuation beyond ep 170) as non-existent; explain that sub is available or upcoming and provide expected dub timing on platforms like Crunchyroll. '
         'Never mention internal models or APIs. Keep tone engaging and helpful.',
       );
       final uri = Uri.parse('https://text.pollinations.ai/$prompt?system=$system');

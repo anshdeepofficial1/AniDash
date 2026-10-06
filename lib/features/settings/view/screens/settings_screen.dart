@@ -12,6 +12,7 @@ import 'package:ani_dash/core/services/developer_access_service.dart';
 import 'package:ani_dash/core/utils/env_loader.dart';
 import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
 import 'package:ani_dash/features/settings/view/settings_search_delegate.dart';
+import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -45,6 +46,21 @@ class SettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10.0),
         child: ListView(
           children: [
+            SettingsSection(
+              title: 'Support & Sponsor',
+              titleColor: Colors.pinkAccent,
+              onTap: () {},
+              children: [
+                NormalSettingsItem(
+                  icon: const Icon(Icons.favorite_rounded, color: Colors.pinkAccent),
+                  accent: Colors.pinkAccent,
+                  title: 'Sponsor AniDash 💖',
+                  description: 'Keep AniDash 100% free and ad-free',
+                  onTap: () => SponsorDialog.show(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             SettingsSection(
               title: 'Account',
               titleColor: colorScheme.primary,

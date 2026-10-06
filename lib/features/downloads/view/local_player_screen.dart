@@ -1,16 +1,30 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:ani_dash/helpers/ui.dart';
+import 'package:path/path.dart' as p;
+import 'package:ani_dash/core/models/aniskip/aniskip_result.dart';
+import 'package:ani_dash/core/models/anime/episode_model.dart';
+import 'package:ani_dash/core/models/anime/source_model.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
+import 'package:ani_dash/core/services/audio_focus_service.dart';
 import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
 import 'package:ani_dash/features/downloads/model/download_item.dart';
 import 'package:ani_dash/features/downloads/model/download_status.dart';
 import 'package:ani_dash/features/downloads/view_model/downloads_notifier.dart';
+import 'package:ani_dash/features/watch/view/widgets/episodes_panel.dart';
 import 'package:ani_dash/features/watch/view/widgets/player/shonenx_video_player.dart';
+import 'package:ani_dash/features/watch/view_model/aniskip_notifier.dart';
+import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
+import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart';
+import 'package:ani_dash/features/watch/view_model/next_episode_prompt_provider.dart';
+import 'package:ani_dash/features/watch/view_model/player/pip_controller.dart';
 import 'package:ani_dash/features/watch/view_model/player/player_provider.dart';
-import 'package:ani_dash/core/services/audio_focus_service.dart';
+import 'package:ani_dash/helpers/ui.dart';
+import 'package:ani_dash/shared/providers/settings/player_notifier.dart';
 
 class LocalPlayerScreen extends ConsumerStatefulWidget {
   final DownloadItem item;
@@ -26,24 +40,233 @@ class LocalPlayerScreen extends ConsumerStatefulWidget {
   ConsumerState<LocalPlayerScreen> createState() => _LocalPlayerScreenState();
 }
 
-class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen> {
+class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen>
+    with SingleTickerProviderStateMixin {
+  late DownloadItem _currentItem;
   late Duration _startAt;
   int _lastSavedSecond = -1;
+  late final AnimationController _panelController;
+  late final CurvedAnimation _panelAnimation;
+  bool _hasAutoSkippedIntro = false;
+  bool _hasAutoSkippedOutro = false;
+  bool _nextPromptTriggered = false;
 
   @override
   void initState() {
     super.initState();
+    _currentItem = widget.item;
     final entry = _matchingEntry();
-    final saved = entry?.episodesProgress[widget.item.episodeNumber];
+    final saved = entry?.episodesProgress[_currentItem.episodeNumber];
     _startAt =
         widget.initialPosition ??
         Duration(seconds: saved?.progressInSeconds ?? 0);
+
+    _panelController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _panelAnimation = CurvedAnimation(
+      parent: _panelController,
+      curve: Curves.easeOutCubic,
+    );
+
     UIHelper.enableImmersiveMode();
     UIHelper.forceLandscape();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _initEpisodeState();
+      }
+    });
+  }
+
+  void _togglePanel() {
+    if (_panelController.isCompleted) {
+      _panelController.reverse();
+    } else {
+      _panelController.forward();
+    }
+  }
+
+  Future<void> _initEpisodeState() async {
+    _hasAutoSkippedIntro = false;
+    _hasAutoSkippedOutro = false;
+    _nextPromptTriggered = false;
+    ref.read(nextEpisodePromptProvider.notifier).dismissForEpisodeTransition();
+
+    // 1. Set current episode
+    ref
+        .read(episodeDataProvider.notifier)
+        .changeEpisode(_currentItem.episodeNumber);
+
+    // 2. Populate episodes for panel
+    final title = _currentItem.animeTitle.trim().toLowerCase();
+    final downloadedItems =
+        ref
+            .read(downloadsProvider)
+            .downloads
+            .where(
+              (item) =>
+                  item.state == DownloadStatus.downloaded &&
+                  item.animeTitle.trim().toLowerCase() == title,
+            )
+            .sortedBy<num>((item) => item.episodeNumber)
+            .toList();
+
+    final epModels =
+        downloadedItems
+            .map(
+              (item) => EpisodeDataModel(
+                number: item.episodeNumber,
+                title: item.episodeTitle,
+                thumbnail: item.thumbnail,
+                id: '${item.animeId ?? item.animeTitle}_${item.episodeNumber}',
+              ),
+            )
+            .toList();
+
+    ref
+        .read(episodeListProvider.notifier)
+        .setLocalEpisodes(
+          episodes: epModels,
+          mediaId: _currentItem.animeId,
+          animeId: _currentItem.animeId,
+          animeTitle: _currentItem.animeTitle,
+        );
+
+    // 3. Load intro & outro from sidecar metadata or fetch
+    try {
+      final metaFile = File(
+        '${p.withoutExtension(_currentItem.filePath)}.meta.json',
+      );
+      if (await metaFile.exists()) {
+        final content = await metaFile.readAsString();
+        final map = jsonDecode(content) as Map<String, dynamic>;
+        Intro? intro;
+        Intro? outro;
+        if (map['intro'] is Map) {
+          intro = Intro.fromJson(Map<String, dynamic>.from(map['intro'] as Map));
+        }
+        if (map['outro'] is Map) {
+          outro = Intro.fromJson(Map<String, dynamic>.from(map['outro'] as Map));
+        }
+        if (intro != null || outro != null) {
+          ref
+              .read(aniSkipProvider.notifier)
+              .setFallbackFromSource(intro: intro, outro: outro);
+        }
+      }
+    } catch (_) {}
+
+    // Fetch skip times from API if available to ensure complete coverage
+    unawaited(
+      ref
+          .read(aniSkipProvider.notifier)
+          .fetchSkipTimes(
+            mediaId: _currentItem.animeId ?? '',
+            animeTitle: _currentItem.animeTitle,
+            episodeNumber: _currentItem.episodeNumber,
+            episodeLength: _currentItem.durationSeconds ?? 0,
+          ),
+    );
+  }
+
+  void _checkSkipAndNextPrompt(Duration pos, Duration dur) {
+    if (dur <= Duration.zero) return;
+    final posSec = pos.inSeconds;
+    final durSec = dur.inSeconds;
+    final remainingSec = durSec - posSec;
+    final settings = ref.read(playerSettingsProvider);
+
+    // 1. Auto Skip Intro / Outro
+    if (settings.enableAutoSkip) {
+      final skips = ref.read(aniSkipProvider);
+      for (final skip in skips) {
+        if (skip.interval != null) {
+          final start = skip.interval!.startTime.toInt();
+          final end = skip.interval!.endTime.toInt();
+          if (posSec >= start && posSec < end) {
+            if (skip.skipType == SkipType.op && !_hasAutoSkippedIntro) {
+              _hasAutoSkippedIntro = true;
+              ref
+                  .read(playerStateProvider.notifier)
+                  .seek(Duration(seconds: end));
+            } else if (skip.skipType == SkipType.ed && !_hasAutoSkippedOutro) {
+              _hasAutoSkippedOutro = true;
+              ref
+                  .read(playerStateProvider.notifier)
+                  .seek(Duration(seconds: end));
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Next Episode Prompt
+    if (settings.showNextEpisodePrompt &&
+        !_nextPromptTriggered &&
+        !settings.stopAfterCurrentEpisode) {
+      final skips = ref.read(aniSkipProvider);
+      final hasDetectedOutro = skips.any(
+        (s) =>
+            s.interval != null &&
+            (s.skipType == SkipType.ed ||
+                (s.skipType == SkipType.mixed && s.interval!.startTime >= 700)),
+      );
+      final isInDetectedOutro = skips.any(
+        (s) =>
+            s.interval != null &&
+            (s.skipType == SkipType.ed ||
+                (s.skipType == SkipType.mixed && s.interval!.startTime >= 700)) &&
+            posSec >= s.interval!.startTime.toInt() &&
+            posSec <= s.interval!.endTime.toInt(),
+      );
+
+      final shouldTrigger =
+          hasDetectedOutro
+              ? isInDetectedOutro
+              : (remainingSec <= 90 && remainingSec > 0 && durSec > 90);
+
+      if (shouldTrigger) {
+        final nextEpNum = _currentItem.episodeNumber + 1;
+        final hasNext = ref
+            .read(downloadsProvider)
+            .downloads
+            .any(
+              (d) =>
+                  d.animeTitle.trim().toLowerCase() ==
+                      _currentItem.animeTitle.trim().toLowerCase() &&
+                  d.state == DownloadStatus.downloaded &&
+                  d.episodeNumber == nextEpNum,
+            );
+        if (hasNext) {
+          _nextPromptTriggered = true;
+          ref.read(nextEpisodePromptProvider.notifier).show();
+        }
+      }
+    }
+  }
+
+  Future<void> _playEpisode(DownloadItem nextItem) async {
+    final playerState = ref.read(playerStateProvider);
+    await _saveProgress(
+      playerState.position,
+      playerState.duration,
+      force: true,
+    );
+    setState(() {
+      _currentItem = nextItem;
+      _lastSavedSecond = -1;
+      _startAt = Duration.zero;
+    });
+    await _initEpisodeState();
+    await ref
+        .read(playerStateProvider.notifier)
+        .open(nextItem.filePath, Duration.zero);
   }
 
   AnimeWatchProgressEntry? _matchingEntry() {
-    final stableId = widget.item.animeId;
+    final stableId = _currentItem.animeId;
     if (stableId != null && stableId.isNotEmpty) {
       final byId =
           ref
@@ -53,7 +276,7 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen> {
               .firstOrNull;
       if (byId != null) return byId;
     }
-    final title = widget.item.animeTitle.trim().toLowerCase();
+    final title = _currentItem.animeTitle.trim().toLowerCase();
     final matches =
         ref
             .read(watchProgressRepositoryProvider)
@@ -88,25 +311,25 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen> {
         .where(
           (item) =>
               item.animeTitle.trim().toLowerCase() ==
-              widget.item.animeTitle.trim().toLowerCase(),
+              _currentItem.animeTitle.trim().toLowerCase(),
         )
         .fold<int>(
-          widget.item.episodeNumber,
+          _currentItem.episodeNumber,
           (maximum, item) =>
               item.episodeNumber > maximum ? item.episodeNumber : maximum,
         );
     final mediaId =
         existing?.animeId ??
-        widget.item.animeId ??
-        'offline:${widget.item.animeTitle.trim().toLowerCase()}';
+        _currentItem.animeId ??
+        'offline:${_currentItem.animeTitle.trim().toLowerCase()}';
     final knownTotal =
-        widget.item.totalEpisodes ??
+        _currentItem.totalEpisodes ??
         existing?.totalEpisodes ??
         downloadedEpisodeCount;
     final episode = EpisodeProgress(
-      episodeNumber: widget.item.episodeNumber,
-      episodeTitle: widget.item.episodeTitle,
-      episodeThumbnail: widget.item.thumbnail,
+      episodeNumber: _currentItem.episodeNumber,
+      episodeTitle: _currentItem.episodeTitle,
+      episodeThumbnail: _currentItem.thumbnail,
       progressInSeconds: position.inSeconds,
       durationInSeconds: duration.inSeconds,
       isCompleted: position.inSeconds / duration.inSeconds >= 0.90,
@@ -114,19 +337,19 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen> {
     );
     final episodes = Map<int, EpisodeProgress>.from(
       existing?.episodesProgress ?? const {},
-    )..[widget.item.episodeNumber] = episode;
+    )..[_currentItem.episodeNumber] = episode;
     await repository.saveProgress(
       (existing ??
               AnimeWatchProgressEntry(
                 animeId: mediaId,
-                animeTitle: widget.item.animeTitle,
-                animeCover: widget.item.thumbnail,
+                animeTitle: _currentItem.animeTitle,
+                animeCover: _currentItem.thumbnail,
                 totalEpisodes: knownTotal,
-                isAdult: widget.item.isAdult,
+                isAdult: _currentItem.isAdult,
               ))
           .copyWith(
             episodesProgress: episodes,
-            currentEpisode: widget.item.episodeNumber,
+            currentEpisode: _currentItem.episodeNumber,
             totalEpisodes: knownTotal,
             lastUpdated: DateTime.now(),
             lastPlayedAt: DateTime.now(),
@@ -134,54 +357,9 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen> {
     );
   }
 
-  Future<void> _showDownloadedEpisodes() async {
-    final title = widget.item.animeTitle.trim().toLowerCase();
-    final episodes =
-        ref
-            .read(downloadsProvider)
-            .downloads
-            .where(
-              (item) =>
-                  item.state == DownloadStatus.downloaded &&
-                  item.animeTitle.trim().toLowerCase() == title,
-            )
-            .toList()
-          ..sort((a, b) => a.episodeNumber.compareTo(b.episodeNumber));
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      builder:
-          (sheetContext) => SafeArea(
-            child: ListView.builder(
-              itemCount: episodes.length,
-              itemBuilder: (_, index) {
-                final episode = episodes[index];
-                return ListTile(
-                  selected: episode.filePath == widget.item.filePath,
-                  leading: CircleAvatar(
-                    child: Text('${episode.episodeNumber}'),
-                  ),
-                  title: Text(episode.episodeTitle),
-                  subtitle: Text(episode.audioLanguage),
-                  trailing: const Icon(Icons.play_arrow_rounded),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    if (episode.filePath == widget.item.filePath) return;
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (_) => LocalPlayerScreen(item: episode),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-    );
-  }
-
   @override
   void dispose() {
+    _panelController.dispose();
     final state = ref.read(playerStateProvider);
     unawaited(
       _saveProgress(
@@ -200,11 +378,41 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen> {
   Widget build(BuildContext context) {
     ref.listen(playerStateProvider, (previous, next) {
       unawaited(_saveProgress(next.position, next.duration));
+      _checkSkipAndNextPrompt(next.position, next.duration);
     });
+
+    ref.listen(episodeDataProvider.select((s) => s.selectedEpisode), (
+      prev,
+      next,
+    ) {
+      if (next == null || next == _currentItem.episodeNumber) return;
+      final nextItem = ref
+          .read(downloadsProvider)
+          .downloads
+          .firstWhereOrNull(
+            (d) =>
+                d.animeTitle.trim().toLowerCase() ==
+                    _currentItem.animeTitle.trim().toLowerCase() &&
+                d.state == DownloadStatus.downloaded &&
+                d.episodeNumber == next,
+          );
+      if (nextItem != null) {
+        _playEpisode(nextItem);
+      }
+    });
+
+    final mediaId =
+        _currentItem.animeId ??
+        'offline:${_currentItem.animeTitle.trim().toLowerCase()}';
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        if (_panelController.isCompleted || _panelController.value > 0) {
+          _panelController.reverse();
+          return;
+        }
         final playerState = ref.read(playerStateProvider);
         await _saveProgress(
           playerState.position,
@@ -219,11 +427,43 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: AniDashVideoPlayer(
-          onEpisodesPressed: _showDownloadedEpisodes,
-          localFilePath: widget.item.filePath,
-          localTitle: '${widget.item.animeTitle} - ${widget.item.episodeTitle}',
-          localStartAt: _startAt,
+        body: OrientationBuilder(
+          builder: (_, orientation) {
+            final isPiP = ref.watch(pipProvider);
+            if (isPiP && _panelController.value > 0) {
+              _panelController.reset();
+            }
+
+            final player = AniDashVideoPlayer(
+              onEpisodesPressed: _togglePanel,
+              onPanelCloseRequest: () => _panelController.reverse(),
+              localFilePath: _currentItem.filePath,
+              localTitle:
+                  '${_currentItem.animeTitle} - ${_currentItem.episodeTitle}',
+              localStartAt: _startAt,
+            );
+
+            if (orientation == Orientation.landscape && !isPiP) {
+              return Row(
+                children: [
+                  Expanded(child: player),
+                  SizeTransition(
+                    sizeFactor: _panelAnimation,
+                    axis: Axis.horizontal,
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width * 0.35,
+                      child: EpisodesPanel(
+                        panelAnimation: _panelController,
+                        mediaId: mediaId,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return SizedBox.expand(child: player);
+          },
         ),
       ),
     );

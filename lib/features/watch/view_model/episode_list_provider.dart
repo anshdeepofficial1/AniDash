@@ -344,6 +344,25 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     state = const EpisodeListState();
   }
 
+  void setLocalEpisodes({
+    required List<EpisodeDataModel> episodes,
+    String? mediaId,
+    String? animeId,
+    String? animeTitle,
+    int? malId,
+  }) {
+    _requestGeneration++;
+    state = state.copyWith(
+      episodes: episodes,
+      mediaId: mediaId,
+      animeId: animeId,
+      animeTitle: animeTitle,
+      malId: malId,
+      isLoading: false,
+      error: null,
+    );
+  }
+
   List<EpisodeDataModel> _normalizeEpisodeTitles(
     List<EpisodeDataModel> episodes, {
     required String animeTitle,
@@ -1339,9 +1358,9 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
                     caseSensitive: false,
                   ).hasMatch(currentEpTitle.trim());
 
-              // Jikan is keyed by the real episode number and becomes the
-              // authoritative display title after the MAL series is matched.
-              if (isGeneric || currentEpTitle != syncedTitle) {
+              // Only enrich if the existing title is generic (e.g. 'Episode 235').
+              // Never replace a real title already provided by the official stream/source with a catalogue translation!
+              if (isGeneric) {
                 updated[i] = updated[i].copyWith(
                   title: syncedTitle,
                 );
@@ -1395,8 +1414,11 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       if (catalogue.filler && episode.isFiller != true) {
         next = next.copyWith(isFiller: true);
       }
-      if (catalogue.title.trim().isNotEmpty &&
-          episode.title?.trim() != catalogue.title.trim()) {
+      final currentEpTitle = episode.title?.trim() ?? '';
+      final isGeneric = currentEpTitle.isEmpty ||
+          RegExp(r'^(episode|ep\.?)\s*\d+$', caseSensitive: false)
+              .hasMatch(currentEpTitle);
+      if (isGeneric && catalogue.title.trim().isNotEmpty) {
         next = next.copyWith(
           title: catalogue.title.trim(),
         );

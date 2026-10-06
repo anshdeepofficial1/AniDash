@@ -105,7 +105,7 @@ class _UpdateDialogState extends State<UpdateDialog>
           ),
         );
       }
-    } else if (Platform.isWindows) {
+    } else if (Platform.isWindows || Platform.isMacOS) {
       final url = _effectiveApkUrl;
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     }

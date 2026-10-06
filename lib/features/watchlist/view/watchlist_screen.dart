@@ -18,6 +18,7 @@ import 'package:ani_dash/shared/providers/mal_service_provider.dart';
 import 'package:ani_dash/shared/providers/continue_watching_dismissed_provider.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/core/repositories/local_media_repository.dart';
+import 'package:ani_dash/core/models/universal/universal_media_list_entry.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
 import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
 
@@ -578,7 +579,27 @@ class _WatchlistTabView extends ConsumerWidget {
     final selectedIds = ref.watch(watchlistSelectionProvider);
     final isSelectionMode = selectedIds.isNotEmpty;
 
-    final entries = status == 'favorites' ? null : state.listFor(status);
+    final rawEntries = status == 'favorites' ? null : state.listFor(status);
+    final progressRepo = ref.watch(watchProgressRepositoryProvider);
+    final sortedEntries =
+        rawEntries == null
+            ? null
+            : (List<UniversalMediaListEntry>.from(rawEntries)
+              ..sort((a, b) {
+                final progA = progressRepo.getProgress(a.media.id.toString());
+                final progB = progressRepo.getProgress(b.media.id.toString());
+                final timeA =
+                    progA?.lastPlayedAt ??
+                    progA?.lastUpdated ??
+                    DateTime.fromMillisecondsSinceEpoch(0);
+                final timeB =
+                    progB?.lastPlayedAt ??
+                    progB?.lastUpdated ??
+                    DateTime.fromMillisecondsSinceEpoch(0);
+                return timeB.compareTo(timeA);
+              }));
+
+    final entries = sortedEntries;
     final media =
         status == 'favorites'
             ? state.favorites

@@ -502,6 +502,13 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           ref.read(episodeDataProvider.notifier).prefetchNextEpisode();
         }
 
+        final hasDetectedOutro = ref.read(aniSkipProvider).any((skip) {
+          final interval = skip.interval;
+          if (interval == null) return false;
+          return skip.skipType == SkipType.ed ||
+              (skip.skipType == SkipType.mixed && interval.startTime >= 700);
+        });
+
         final isInDetectedOutro = ref.read(aniSkipProvider).any((skip) {
           final interval = skip.interval;
           if (interval == null) return false;
@@ -513,13 +520,18 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
               _pos < interval.endTime.ceil();
         });
 
-        // Show at the beginning of a verified outro. The 90% fallback keeps
-        // the prompt reliable for episodes whose provider has no ED marker.
+        // User requirement: Prompt appears immediately when outro begins.
+        // If there is NO outro detected, only appear exactly 90 seconds before the episode ends.
+        final remainingSeconds = _dur - _pos;
+        final shouldTriggerNextPrompt = hasDetectedOutro
+            ? isInDetectedOutro
+            : (remainingSeconds <= 90 && remainingSeconds > 0 && _dur > 90);
+
         final hasNextEpisode =
             (_epNum ?? 0) > 0 && (_totalEps <= 0 || (_epNum ?? 0) < _totalEps);
         if (!_nextPromptTriggered &&
             hasNextEpisode &&
-            (isInDetectedOutro || progressRatio >= 0.90)) {
+            shouldTriggerNextPrompt) {
           _nextPromptTriggered = true;
           final settings = ref.read(playerSettingsProvider);
           if (settings.showNextEpisodePrompt) {

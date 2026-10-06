@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/features/downloads/model/download_item.dart';
 import 'package:ani_dash/features/downloads/model/download_status.dart';
@@ -18,6 +19,8 @@ import 'package:ani_dash/core/models/settings/download_settings_model.dart';
 import 'package:ani_dash/shared/providers/permissions_provider.dart';
 import 'package:ani_dash/shared/providers/settings/download_settings_notifier.dart';
 import 'package:ani_dash/core/services/notification_service.dart';
+import 'package:ani_dash/core/services/aniskip_service.dart';
+import 'package:ani_dash/core/models/aniskip/aniskip_result.dart';
 import 'package:ani_dash/storage_provider.dart';
 
 class DownloadService {
@@ -77,6 +80,64 @@ class DownloadService {
     });
   }
 
+  Future<String?> _resolveWritableBasePath(String? requestedPath) async {
+    bool isWritable(String dirPath) {
+      try {
+        final d = Directory(dirPath);
+        if (!d.existsSync()) d.createSync(recursive: true);
+        final test = File(
+          p.join(
+            d.path,
+            '.anidash_test_${DateTime.now().microsecondsSinceEpoch}',
+          ),
+        );
+        test.writeAsStringSync('ok');
+        test.deleteSync();
+        return true;
+      } catch (e) {
+        AppLogger.w('Path $dirPath not writable: $e');
+        return false;
+      }
+    }
+
+    if (requestedPath != null && requestedPath.trim().isNotEmpty) {
+      if (isWritable(requestedPath)) return requestedPath;
+
+      // If requestedPath was on removable SD Card (e.g. contains /storage/XXXX-XXXX)
+      if (Platform.isAndroid) {
+        try {
+          final extDirs = await getExternalStorageDirectories();
+          if (extDirs != null && extDirs.isNotEmpty) {
+            final match = RegExp(
+              r'/storage/([A-Fa-f0-9]{4}-[A-Fa-f0-9]{4})',
+            ).firstMatch(requestedPath);
+            if (match != null) {
+              final sdId = match.group(1)!;
+              final sdDir =
+                  extDirs.where((d) => d.path.contains(sdId)).firstOrNull;
+              if (sdDir != null) {
+                final appSdTarget = p.join(sdDir.path, 'AniDash');
+                if (isWritable(appSdTarget)) return appSdTarget;
+              }
+            }
+            for (final d in extDirs) {
+              final appTarget = p.join(d.path, 'AniDash');
+              if (isWritable(appTarget)) return appTarget;
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    // Default internal fallback
+    try {
+      final def = await StorageProvider.getDefaultDirectory();
+      if (def != null && isWritable(def.path)) return def.path;
+    } catch (_) {}
+
+    return null;
+  }
+
   Future<void> startDownload(DownloadItem item) async {
     List<ConnectivityResult>? connectivity;
     try {
@@ -120,25 +181,13 @@ class DownloadService {
       return _fail(item, 'Storage permission denied');
     }
 
-    String basePath;
-    if (_settings.useCustomPath && _settings.customDownloadPath != null) {
-      final customDir = Directory(_settings.customDownloadPath!);
-      if (!customDir.existsSync()) {
-        try {
-          customDir.createSync(recursive: true);
-        } catch (_) {}
-      }
-      final fallback = await StorageProvider.getDefaultDirectory();
-      if (!customDir.existsSync() && fallback == null) {
-        return _fail(item, 'No writable download directory is available');
-      }
-      basePath = customDir.existsSync() ? customDir.path : fallback!.path;
-    } else {
-      final directory = await StorageProvider.getDefaultDirectory();
-      if (directory == null) {
-        return _fail(item, 'No writable download directory is available');
-      }
-      basePath = directory.path;
+    final requestedCustom =
+        (_settings.useCustomPath && _settings.customDownloadPath != null)
+            ? _settings.customDownloadPath!
+            : null;
+    final basePath = await _resolveWritableBasePath(requestedCustom);
+    if (basePath == null) {
+      return _fail(item, 'No writable download directory is available');
     }
 
     final itemPath = item.filePath;
@@ -243,6 +292,7 @@ class DownloadService {
               animeTitle: msg.animeTitle,
               episodeNumber: msg.episodeNumber,
             );
+            unawaited(_saveSidecarMetadata(msg));
             _cleanup(item.id);
           } else if (msg.state == DownloadStatus.downloading) {
             final now = DateTime.now();
@@ -280,6 +330,62 @@ class DownloadService {
     _lastProgressNotification.remove(id);
     _lastNotifiedPercent.remove(id);
     _processQueue();
+  }
+
+  Future<void> _saveSidecarMetadata(DownloadItem item) async {
+    try {
+      final metaFile = File('${p.withoutExtension(item.filePath)}.meta.json');
+      if (await metaFile.exists()) return;
+
+      final data = <String, dynamic>{
+        'animeTitle': item.animeTitle,
+        'animeId': item.animeId,
+        'episodeNumber': item.episodeNumber,
+        'episodeTitle': item.episodeTitle,
+        'thumbnail': item.thumbnail,
+        'quality': item.quality,
+        'audioLanguage': item.audioLanguage,
+      };
+
+      // Try fetching skip times from AniSkip to store offline
+      try {
+        final skipService = AniSkipService();
+        final malId = int.tryParse(item.animeId ?? '');
+        if (malId != null && malId > 0) {
+          final skips = await skipService.getSkipTimes(
+            malId,
+            item.episodeNumber,
+            item.durationSeconds ?? 1440,
+          );
+          if (skips.isNotEmpty) {
+            for (final s in skips) {
+              if (s.interval != null) {
+                if (s.skipType == SkipType.op ||
+                    (s.skipType == SkipType.mixed && s.interval!.startTime < 700)) {
+                  data['intro'] = {
+                    'start': s.interval!.startTime.toInt(),
+                    'end': s.interval!.endTime.toInt(),
+                  };
+                } else if (s.skipType == SkipType.ed ||
+                    (s.skipType == SkipType.mixed && s.interval!.startTime >= 700)) {
+                  data['outro'] = {
+                    'start': s.interval!.startTime.toInt(),
+                    'end': s.interval!.endTime.toInt(),
+                  };
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        AppLogger.d('Could not pre-fetch skip times for download metadata: $e');
+      }
+
+      await metaFile.writeAsString(jsonEncode(data), flush: true);
+      AppLogger.i('Saved offline sidecar metadata for ${item.animeTitle} Ep ${item.episodeNumber}');
+    } catch (e) {
+      AppLogger.w('Failed to save download sidecar metadata: $e');
+    }
   }
 
   void dispose() {
@@ -328,9 +434,9 @@ Future<void> _downloadWorker(_TaskConfig task) async {
 
   final ioClient =
       HttpClient()
-        ..maxConnectionsPerHost = 12
-        ..connectionTimeout = const Duration(seconds: 15)
-        ..idleTimeout = const Duration(seconds: 30);
+        ..maxConnectionsPerHost = 16
+        ..connectionTimeout = const Duration(seconds: 10)
+        ..idleTimeout = const Duration(seconds: 45);
   final client = IOClient(ioClient);
   final item = task.item;
   final isM3U8 = item.isM3U8;
@@ -542,16 +648,13 @@ Future<DownloadItem> _processM3U8(
           seg.key != null
               ? _decrypt(bytes, seg.key!, seg.iv, seg.index)
               : bytes;
-      await file.writeAsBytes(data);
+      await file.writeAsBytes(data, flush: false);
       completed++;
       downloadedBytesTotal += data.length;
       await throttler.throttle(data.length);
 
-      if (DateTime.now().difference(lastLog).inMilliseconds > 300) {
-        // Do not invent a total before there is a useful sample. Once enough
-        // segments are present, expose a clearly approximate total; completion
-        // replaces it with the exact merged-file size.
-        final sampleThreshold = (segments.length * 0.1).ceil().clamp(5, 12);
+      if (DateTime.now().difference(lastLog).inMilliseconds > 600) {
+        final sampleThreshold = (segments.length * 0.05).ceil().clamp(3, 8);
         if (completed >= sampleThreshold) {
           estimatedTotalBytes =
               (downloadedBytesTotal / completed * segments.length).round();
@@ -573,7 +676,6 @@ Future<DownloadItem> _processM3U8(
   if (isCancelled()) throw Exception("Cancelled");
 
   // Never mark a partial HLS file as completed. Retry any failed segments
-  // with exponential backoff to handle temporary network disconnections/travel drops.
   for (int attempt = 0; attempt < 3; attempt++) {
     final missingSegments = <_Segment>[];
     for (final segment in segments) {
@@ -588,7 +690,7 @@ Future<DownloadItem> _processM3U8(
       task.port.send(
         'log:Retrying ${missingSegments.length} missing segments (attempt $attempt)...',
       );
-      await Future.delayed(Duration(seconds: 1 << attempt));
+      await Future.delayed(Duration(milliseconds: 300 * (attempt + 1)));
     }
 
     for (final segment in missingSegments) {
@@ -601,7 +703,7 @@ Future<DownloadItem> _processM3U8(
             segment.key != null
                 ? _decrypt(bytes, segment.key!, segment.iv, segment.index)
                 : bytes;
-        await file.writeAsBytes(data, flush: true);
+        await file.writeAsBytes(data, flush: false);
         completed++;
         downloadedBytesTotal += data.length;
       }

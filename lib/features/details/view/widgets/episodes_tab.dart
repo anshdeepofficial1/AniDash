@@ -137,9 +137,19 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         _namedGroups.isEmpty) {
       return;
     }
-    final progress = ref
+    var progress = ref
         .read(watchProgressRepositoryProvider)
         .getProgress(widget.mediaId);
+    if (progress == null) {
+      final title = (widget.mediaTitle.english ?? widget.mediaTitle.romaji ?? widget.mediaTitle.userPreferred).trim().toLowerCase();
+      if (title.isNotEmpty) {
+        progress = ref
+            .read(watchProgressRepositoryProvider)
+            .getAllProgress()
+            .where((p) => p.animeTitle.trim().toLowerCase() == title)
+            .firstOrNull;
+      }
+    }
     final currentEpisode = progress?.currentEpisode ?? 1;
     final matching = _namedGroups.cast<NamedEpisodeGroup?>().firstWhere(
       (group) => group?.contains(currentEpisode) ?? false,

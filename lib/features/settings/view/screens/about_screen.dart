@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ani_dash/shared/ui/brand_logo.dart';
+import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -135,6 +136,55 @@ class AboutScreen extends StatelessWidget {
                   title: 'Developer',
                   content: 'Anshdeep Singh',
                   subtitle: 'Developer · github.com/anshdeepofficial1',
+                ),
+
+                const SizedBox(height: 16),
+
+                // Sponsor Card
+                Material(
+                  color: Colors.pinkAccent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => SponsorDialog.show(context),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.pinkAccent.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.favorite_rounded, color: Colors.pinkAccent, size: 24),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Sponsor AniDash 💖',
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Help keep this project 100% free and ad-free',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 16),

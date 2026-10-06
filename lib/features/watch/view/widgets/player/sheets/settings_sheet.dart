@@ -11,6 +11,7 @@ import 'package:ani_dash/shared/providers/settings/player_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/player/pip_controller.dart';
 import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 import 'package:ani_dash/core/services/share_link_service.dart';
+import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 
 class SettingsSheetContent extends ConsumerWidget {
   final VoidCallback onDismiss;
@@ -441,6 +442,17 @@ class SettingsSheetContent extends ConsumerWidget {
                             ],
                           ),
                     );
+                  },
+                ),
+                const Divider(),
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.favorite_rounded, color: Colors.pinkAccent),
+                  title: const Text('Sponsor AniDash 💖'),
+                  subtitle: const Text('Keep AniDash 100% free & ad-free'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    SponsorDialog.show(context);
                   },
                 ),
               ],

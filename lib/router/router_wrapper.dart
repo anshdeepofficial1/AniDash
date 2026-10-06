@@ -24,6 +24,8 @@ import 'package:ani_dash/shared/providers/settings/ui_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/update_settings_notifier.dart';
 import 'package:ani_dash/shared/providers/permissions_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ani_dash/router/desktop/mac_desktop_sidebar.dart';
+import 'package:ani_dash/router/desktop/mac_desktop_top_bar.dart';
 
 class NavItem {
   final int branchIndex;

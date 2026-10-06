@@ -7,7 +7,7 @@ description: >
 
 publish_to: "none"
 
-version: 1.18.1+115
+version: 1.18.2+116
 
 environment:
   sdk: ">=3.7.0 <4.0.0"
@@ -130,6 +130,9 @@ flutter_launcher_icons:
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icons/anidash_logo_light.png"
   windows:
+    generate: true
+    image_path: "assets/icons/anidash_logo.png"
+  macos:
     generate: true
     image_path: "assets/icons/anidash_logo.png"
 

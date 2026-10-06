@@ -82,16 +82,20 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
     final token = '${widget.mediaId}:${animeTitle ?? ''}';
     if (!_useNamedGroups || _groupsLoadedFor == token) return;
     _groupsLoadedFor = token;
+    final malId = ref.read(episodeListProvider).malId?.toString();
     final groups = await const VerifiedEpisodeGroupingRepository()
-        .getNamedGroups(animeId: widget.mediaId, title: animeTitle);
+        .getNamedGroups(
+          animeId: widget.mediaId,
+          malId: malId,
+          title: animeTitle,
+        );
     if (!mounted) return;
     final selectedEp = ref.read(episodeDataProvider).selectedEpisode ?? 1;
     setState(() {
       _namedGroups = groups;
       _selectedNamedGroup = groups.firstWhereOrNull(
         (group) => group.contains(selectedEp),
-      );
-      _selectedNamedGroup ??= groups.firstOrNull;
+      ) ?? groups.firstOrNull;
       if (groups.isEmpty) _useNamedGroups = false;
       _lastScrolledEp = null;
     });
@@ -212,6 +216,14 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
         _lastSelectedEp = selectedEp;
         _initializedForEp = true;
         _currentStart = ((selectedEp - 1) ~/ _rangeSize) * _rangeSize + 1;
+        if (_useNamedGroups && _namedGroups.isNotEmpty) {
+          final matchingGroup = _namedGroups.firstWhereOrNull(
+            (g) => g.contains(selectedEp),
+          );
+          if (matchingGroup != null) {
+            _selectedNamedGroup = matchingGroup;
+          }
+        }
       }
     }
 
