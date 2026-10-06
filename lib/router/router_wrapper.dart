@@ -24,6 +24,7 @@ import 'package:ani_dash/shared/providers/settings/ui_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/update_settings_notifier.dart';
 import 'package:ani_dash/shared/providers/permissions_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/router/desktop/mac_desktop_sidebar.dart';
 import 'package:ani_dash/router/desktop/mac_desktop_top_bar.dart';
 
@@ -98,6 +99,7 @@ class AppRouterScreen extends ConsumerStatefulWidget {
 class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
     with WidgetsBindingObserver {
   late final PageController _pageController;
+  bool _sidebarCollapsed = false;
   bool _updateCheckInProgress = false;
   bool _updateSheetVisible = false;
   DateTime? _lastForegroundUpdateCheck;
@@ -451,6 +453,122 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
           _pageController.jumpToPage(currentTargetPage);
         }
       });
+    }
+
+    if (isWide) {
+      final currentBranch = widget.navigationShell.currentIndex;
+      final currentItem = visibleNavItems.firstWhere(
+        (it) => it.branchIndex == currentBranch,
+        orElse: () => visibleNavItems.first,
+      );
+
+      final globalShortcuts = <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.digit1, meta: true):
+            () => _onNavTap(0, visibleNavItems),
+        const SingleActivator(LogicalKeyboardKey.digit1, control: true):
+            () => _onNavTap(0, visibleNavItems),
+        const SingleActivator(LogicalKeyboardKey.digit2, meta: true):
+            () => _onNavTap(1, visibleNavItems),
+        const SingleActivator(LogicalKeyboardKey.digit2, control: true):
+            () => _onNavTap(1, visibleNavItems),
+        const SingleActivator(LogicalKeyboardKey.digit3, meta: true):
+            () => _onNavTap(2, visibleNavItems),
+        const SingleActivator(LogicalKeyboardKey.digit3, control: true):
+            () => _onNavTap(2, visibleNavItems),
+        const SingleActivator(LogicalKeyboardKey.digit4, meta: true):
+            () => _onNavTap(3, visibleNavItems),
+        const SingleActivator(LogicalKeyboardKey.digit4, control: true):
+            () => _onNavTap(3, visibleNavItems),
+        const SingleActivator(LogicalKeyboardKey.digit5, meta: true):
+            () => _onNavTap(4, visibleNavItems),
+        const SingleActivator(LogicalKeyboardKey.digit5, control: true):
+            () => _onNavTap(4, visibleNavItems),
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            () => context.push('/ai'),
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            () => context.push('/ai'),
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
+            () => context.push('/browse'),
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            () => context.push('/browse'),
+        const SingleActivator(LogicalKeyboardKey.comma, meta: true):
+            () => context.push('/settings'),
+        const SingleActivator(LogicalKeyboardKey.comma, control: true):
+            () => context.push('/settings'),
+        const SingleActivator(LogicalKeyboardKey.keyH, meta: true):
+            () => context.push('/watch-history'),
+        const SingleActivator(LogicalKeyboardKey.keyH, control: true):
+            () => context.push('/watch-history'),
+        const SingleActivator(LogicalKeyboardKey.keyN, meta: true):
+            () => context.push('/news'),
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true):
+            () => context.push('/news'),
+        const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
+            () => context.push('/extensions'),
+        const SingleActivator(LogicalKeyboardKey.keyE, control: true):
+            () => context.push('/extensions'),
+        const SingleActivator(LogicalKeyboardKey.f11):
+            () => UIHelper.handleToggleFullscreen(),
+      };
+
+      return CallbackShortcuts(
+        bindings: globalShortcuts,
+        child: Focus(
+          autofocus: true,
+          child: PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (didPop) return;
+              if (widget.navigationShell.currentIndex != 0) {
+                _onNavTap(0, visibleNavItems);
+              } else {
+                showExitConfirmationDialog(context, isSystemExit: true);
+              }
+            },
+            child: Scaffold(
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              body: Row(
+                children: [
+                  MacDesktopSidebar(
+                    shell: widget.navigationShell,
+                    items: visibleNavItems,
+                    isCollapsed: _sidebarCollapsed,
+                    onToggleCollapse: () {
+                      setState(() {
+                        _sidebarCollapsed = !_sidebarCollapsed;
+                      });
+                    },
+                    onTabSelected: (branch) => _onNavTap(branch, visibleNavItems),
+                  ),
+                  Expanded(
+                    child: Container(
+                      color: Theme.of(context).colorScheme.surface,
+                      child: Column(
+                        children: [
+                          MacDesktopTopBar(
+                            title: currentItem.label,
+                            icon: currentItem.icon,
+                          ),
+                          Expanded(
+                            child: PageView(
+                              controller: _pageController,
+                              physics: const NeverScrollableScrollPhysics(),
+                              children: visibleNavItems.map((item) {
+                                final child = widget.children[item.branchIndex];
+                                return _KeepAliveWrapper(child: child);
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
     return PopScope(

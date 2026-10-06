@@ -45,7 +45,16 @@ class AniDashGridView extends StatelessWidget {
                   childAspectRatio: childAspectRatio,
                 )
               : SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount ?? 2,
+                  crossAxisCount: crossAxisCount ??
+                      (constraints.maxWidth > 1400
+                          ? 6
+                          : constraints.maxWidth > 1100
+                              ? 5
+                              : constraints.maxWidth > 800
+                                  ? 4
+                                  : constraints.maxWidth > 550
+                                      ? 3
+                                      : 2),
                   mainAxisSpacing: mainAxisSpacing,
                   crossAxisSpacing: crossAxisSpacing,
                   childAspectRatio: childAspectRatio,

@@ -136,6 +136,16 @@ class AniSkipNotifier extends _$AniSkipNotifier {
       // 4. Query AniList by Title Search if ID was not numeric or had no MAL ID
       if (malId == null && animeTitle.isNotEmpty) {
         try {
+          final cleanTitle = animeTitle
+              .replaceAll(
+                RegExp(
+                  r'\s*\((?:sub|dub|uncensored|tv)\)',
+                  caseSensitive: false,
+                ),
+                '',
+              )
+              .replaceAll(RegExp(r'\[.*?\]'), '')
+              .trim();
           final res = await UniversalHttpClient.instance.post(
             Uri.parse('https://graphql.anilist.co'),
             headers: {
@@ -144,8 +154,10 @@ class AniSkipNotifier extends _$AniSkipNotifier {
             },
             body: jsonEncode({
               'query':
-                  'query (\$search: String) { Media(search: \$search, type: ANIME) { idMal } }',
-              'variables': {'search': animeTitle},
+                  'query (\$search: String) { Media(search: \$search, type: ANIME, sort: [POPULARITY_DESC]) { idMal } }',
+              'variables': {
+                'search': cleanTitle.isNotEmpty ? cleanTitle : animeTitle,
+              },
             }),
             cacheConfig: CacheConfig.veryLong,
           );
@@ -186,10 +198,14 @@ class AniSkipNotifier extends _$AniSkipNotifier {
           effectiveLength,
         );
         if (requestGeneration != _requestGeneration) return;
-        // Merge AniSkip results: Stream source intro/outro always takes absolute priority!
-        state = _mergeWithSourcePriority(results);
+        _aniSkipSkips = results;
+        // Merge AniSkip results: Original AniSkip crowd timestamps ALWAYS take primary priority!
+        state = _mergeSkips(
+          aniSkipSkips: _aniSkipSkips,
+          sourceSkips: _sourceSkips,
+        );
         AppLogger.d(
-          'AniSkip: ${state.length} skip intervals active for ep $episodeNumber',
+          'AniSkip: ${state.length} skip intervals active for ep $episodeNumber (AniSkip: ${_aniSkipSkips.length}, Source Fallback: ${_sourceSkips.length})',
         );
       } else {
         AppLogger.w('Could not resolve MAL ID for $animeTitle ($mediaId)');
@@ -199,22 +215,42 @@ class AniSkipNotifier extends _$AniSkipNotifier {
     }
   }
 
+  List<AniSkipResultItem> _aniSkipSkips = [];
   List<AniSkipResultItem> _sourceSkips = [];
 
-  List<AniSkipResultItem> _mergeWithSourcePriority(
-    List<AniSkipResultItem> communitySkips,
-  ) {
-    // Start with sourceSkips as the ground truth
-    final list = List<AniSkipResultItem>.from(_sourceSkips);
-    for (final comm in communitySkips) {
-      final hasType = list.any(
-        (s) =>
-            s.skipType == comm.skipType ||
-            (s.skipType == SkipType.op && comm.skipType == SkipType.mixed) ||
-            (s.skipType == SkipType.mixed && comm.skipType == SkipType.op),
-      );
-      if (!hasType) {
-        list.add(comm);
+  List<AniSkipResultItem> _mergeSkips({
+    required List<AniSkipResultItem> aniSkipSkips,
+    required List<AniSkipResultItem> sourceSkips,
+  }) {
+    // 1. Original AniSkip community intervals are authoritative ground truth
+    final list = List<AniSkipResultItem>.from(aniSkipSkips);
+
+    final hasOp = list.any(
+      (s) =>
+          s.skipType == SkipType.op ||
+          (s.skipType == SkipType.mixed && (s.interval?.startTime ?? 0) <= 300),
+    );
+    final hasEd = list.any(
+      (s) =>
+          s.skipType == SkipType.ed ||
+          (s.skipType == SkipType.mixed && (s.interval?.startTime ?? 0) > 300),
+    );
+
+    // 2. Only use validated stream source intervals if AniSkip has no data for that type
+    for (final src in sourceSkips) {
+      final isSrcOp =
+          src.skipType == SkipType.op ||
+          (src.skipType == SkipType.mixed &&
+              (src.interval?.startTime ?? 0) <= 300);
+      final isSrcEd =
+          src.skipType == SkipType.ed ||
+          (src.skipType == SkipType.mixed &&
+              (src.interval?.startTime ?? 0) > 300);
+
+      if (isSrcOp && !hasOp) {
+        list.add(src);
+      } else if (isSrcEd && !hasEd) {
+        list.add(src);
       }
     }
     return list;
@@ -227,51 +263,77 @@ class AniSkipNotifier extends _$AniSkipNotifier {
         intro.start != null &&
         intro.end != null &&
         intro.end! > intro.start!) {
-      newSourceItems.add(
-        AniSkipResultItem(
-          interval: AniSkipInterval(
-            startTime: intro.start!.toDouble(),
-            endTime: intro.end!.toDouble(),
+      final start = intro.start!.toDouble();
+      final end = intro.end!.toDouble();
+      final duration = end - start;
+
+      // Strict validation for Intro:
+      // An anime OP MUST start in the first 5 minutes (<= 300s) and last 15s to 180s.
+      // Anything starting after 300s (e.g. at 10-15 minutes) is a chapter marker/ad break, not an intro!
+      if (start >= 0 && start <= 300 && duration >= 15 && duration <= 180) {
+        newSourceItems.add(
+          AniSkipResultItem(
+            interval: AniSkipInterval(
+              startTime: start,
+              endTime: end,
+            ),
+            skipType: SkipType.op,
+            action: 'skip',
+            episodeLength: 0,
+            skipId: 'source-intro',
           ),
-          skipType: SkipType.op,
-          action: 'skip',
-          episodeLength: 0,
-          skipId: 'source-intro',
-        ),
-      );
+        );
+      } else {
+        AppLogger.w(
+          'AniSkip: Rejected invalid source intro ($start -> $end). An anime intro must start within first 5 minutes!',
+        );
+      }
     }
+
     if (outro != null &&
         outro.start != null &&
         outro.end != null &&
         outro.end! > outro.start!) {
-      newSourceItems.add(
-        AniSkipResultItem(
-          interval: AniSkipInterval(
-            startTime: outro.start!.toDouble(),
-            endTime: outro.end!.toDouble(),
+      final start = outro.start!.toDouble();
+      final end = outro.end!.toDouble();
+      final duration = end - start;
+
+      // Strict validation for Outro:
+      // An anime ED MUST start after 300s and last 15s to 180s.
+      if (start >= 300 && duration >= 15 && duration <= 180) {
+        newSourceItems.add(
+          AniSkipResultItem(
+            interval: AniSkipInterval(
+              startTime: start,
+              endTime: end,
+            ),
+            skipType: SkipType.ed,
+            action: 'skip',
+            episodeLength: 0,
+            skipId: 'source-outro',
           ),
-          skipType: SkipType.ed,
-          action: 'skip',
-          episodeLength: 0,
-          skipId: 'source-outro',
-        ),
-      );
+        );
+      } else {
+        AppLogger.w(
+          'AniSkip: Rejected invalid source outro ($start -> $end). An anime outro must start after 300s!',
+        );
+      }
     }
 
-    if (newSourceItems.isNotEmpty) {
-      _sourceSkips = newSourceItems;
-      // Overwrite/merge existing state so source intro/outro takes immediate precedence
-      state = _mergeWithSourcePriority(state);
-      AppLogger.d(
-        'AniSkip: Applied ${newSourceItems.length} authoritative intro/outro from stream source (total: ${state.length})',
-      );
-    }
+    _sourceSkips = newSourceItems;
+    // Overwrite state while strictly keeping any original AniSkip intervals as primary priority!
+    state = _mergeSkips(
+      aniSkipSkips: _aniSkipSkips,
+      sourceSkips: _sourceSkips,
+    );
+    AppLogger.d(
+      'AniSkip: Applied ${newSourceItems.length} validated fallback intro/outro from source (Active total: ${state.length})',
+    );
   }
 
   void clear() {
-    // Invalidate any lookup still running for the previous episode so its
-    // result cannot overwrite the next episode's intro/outro ranges.
     _requestGeneration++;
+    _aniSkipSkips = [];
     _sourceSkips = [];
     state = [];
   }

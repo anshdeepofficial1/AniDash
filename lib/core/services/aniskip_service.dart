@@ -69,7 +69,7 @@ class AniSkipService {
             final interval = item.interval;
             if (interval == null) return false;
             final length = interval.endTime - interval.startTime;
-            if (length < 10 || length > 180) return false;
+            if (length < 15 || length > 180) return false;
 
             final isOpening =
                 item.skipType == SkipType.op || item.skipType == SkipType.mixed;
@@ -81,7 +81,12 @@ class AniSkipService {
                   interval.endTime > interval.startTime;
             }
             if (isEnding) {
-              return interval.startTime >= 180 &&
+              return interval.startTime >= 300 &&
+                  interval.endTime > interval.startTime;
+            }
+            if (item.skipType == SkipType.recap) {
+              return interval.startTime >= 0 &&
+                  interval.startTime <= 360 &&
                   interval.endTime > interval.startTime;
             }
             return false;
@@ -98,16 +103,21 @@ class AniSkipService {
           if (start < 0 || end <= start || end > episodeLength + 3) {
             return false;
           }
-          if (length > 300 || length > episodeLength * 0.25) return false;
+          if (length < 15 || length > 180) return false;
 
           switch (item.skipType) {
             case SkipType.op:
-              return start < episodeLength * 0.45;
+              // An anime opening MUST start within the first 5 minutes (<= 300 seconds).
+              // It can NEVER start at 10-15 minutes into an episode!
+              return start <= 300;
             case SkipType.ed:
-              return start > episodeLength * 0.50;
+              // An anime ending must start in the second half (>= 50%) and after 300 seconds.
+              return start >= 300 && start >= episodeLength * 0.50;
             case SkipType.mixed:
-              return start < episodeLength * 0.45 ||
-                  start > episodeLength * 0.50;
+              return (start <= 300) ||
+                  (start >= 300 && start >= episodeLength * 0.50);
+            case SkipType.recap:
+              return start <= 360;
             default:
               return false;
           }

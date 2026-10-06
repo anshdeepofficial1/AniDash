@@ -211,13 +211,13 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen>
         (s) =>
             s.interval != null &&
             (s.skipType == SkipType.ed ||
-                (s.skipType == SkipType.mixed && s.interval!.startTime >= 700)),
+                (s.skipType == SkipType.mixed && s.interval!.startTime > 300)),
       );
       final isInDetectedOutro = skips.any(
         (s) =>
             s.interval != null &&
             (s.skipType == SkipType.ed ||
-                (s.skipType == SkipType.mixed && s.interval!.startTime >= 700)) &&
+                (s.skipType == SkipType.mixed && s.interval!.startTime > 300)) &&
             posSec >= s.interval!.startTime.toInt() &&
             posSec <= s.interval!.endTime.toInt(),
       );

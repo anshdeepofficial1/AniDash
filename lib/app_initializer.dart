@@ -216,10 +216,13 @@ class AppInitializer {
 
         await windowManager.waitUntilReadyToShow(
           const WindowOptions(
+            size: Size(1280, 800),
+            minimumSize: Size(960, 600),
             center: true,
-            backgroundColor: Colors.black,
+            backgroundColor: Colors.transparent,
             skipTaskbar: false,
             title: 'AniDash',
+            titleBarStyle: TitleBarStyle.hidden,
           ),
           () async {
             await windowManager.show();

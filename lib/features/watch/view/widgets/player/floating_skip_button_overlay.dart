@@ -113,29 +113,26 @@ class _FloatingSkipButtonOverlayState
       final isOp =
           currentSkip.skipType == SkipType.op ||
           (currentSkip.skipType == SkipType.mixed &&
-              currentSkip.interval!.startTime < 700);
+              currentSkip.interval!.startTime <= 300);
       final isEd =
           currentSkip.skipType == SkipType.ed ||
           (currentSkip.skipType == SkipType.mixed &&
-              currentSkip.interval!.startTime >= 700);
+              currentSkip.interval!.startTime > 300);
       final isSourceVerified =
           currentSkip.skipId?.startsWith('source-') ?? false;
       final durationMatches =
           currentSkip.episodeLength > 0 &&
           (currentSkip.episodeLength - dur.inSeconds).abs() <= 90;
-      // AniSkip IDs are already tied to the selected MAL episode. Some valid
-      // providers report rounded episode lengths, so a strict 90-second
-      // duration match hid real intro/outro buttons. Placement checks below
-      // still prevent unrelated ranges from appearing.
       final verified =
           isSourceVerified ||
           currentSkip.skipId?.isNotEmpty == true ||
           durationMatches;
       final plausiblePlacement =
-          (isOp && currentSkip.interval!.startTime <= 180) ||
+          (isOp && currentSkip.interval!.startTime <= 300) ||
           (isEd &&
               dur.inSeconds > 0 &&
-              currentSkip.interval!.startTime >= dur.inSeconds * .55);
+              currentSkip.interval!.startTime >= dur.inSeconds * .55 &&
+              currentSkip.interval!.startTime >= 300);
 
       if (!verified || !plausiblePlacement) {
         return const SizedBox.shrink();

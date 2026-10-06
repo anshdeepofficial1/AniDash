@@ -51,6 +51,10 @@ class MainActivity : FlutterFragmentActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent == null || intent.action != ACTION_PIP_CONTROL) return
             val control = intent.getStringExtra(EXTRA_CONTROL_TYPE) ?: return
+            if (control == "play_pause") {
+                pipIsPlaying = !pipIsPlaying
+                updatePiPActions(pipIsPlaying)
+            }
             runOnUiThread {
                 pipChannel?.invokeMethod("onPiPAction", control)
             }
@@ -182,7 +186,10 @@ class MainActivity : FlutterFragmentActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null
         val prevIntent = PendingIntent.getBroadcast(
             this, 101,
-            Intent(ACTION_PIP_CONTROL).putExtra(EXTRA_CONTROL_TYPE, "prev"),
+            Intent(ACTION_PIP_CONTROL).apply {
+                `package` = packageName
+                putExtra(EXTRA_CONTROL_TYPE, "prev")
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val prevAction = RemoteAction(
@@ -196,7 +203,10 @@ class MainActivity : FlutterFragmentActivity() {
         val playPauseTitle = if (isPlaying) "Pause" else "Play"
         val playPauseIntent = PendingIntent.getBroadcast(
             this, 102,
-            Intent(ACTION_PIP_CONTROL).putExtra(EXTRA_CONTROL_TYPE, "play_pause"),
+            Intent(ACTION_PIP_CONTROL).apply {
+                `package` = packageName
+                putExtra(EXTRA_CONTROL_TYPE, "play_pause")
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val playPauseAction = RemoteAction(
@@ -208,7 +218,10 @@ class MainActivity : FlutterFragmentActivity() {
 
         val nextIntent = PendingIntent.getBroadcast(
             this, 103,
-            Intent(ACTION_PIP_CONTROL).putExtra(EXTRA_CONTROL_TYPE, "next"),
+            Intent(ACTION_PIP_CONTROL).apply {
+                `package` = packageName
+                putExtra(EXTRA_CONTROL_TYPE, "next")
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val nextAction = RemoteAction(
@@ -244,7 +257,7 @@ class MainActivity : FlutterFragmentActivity() {
 
         val pipFilter = IntentFilter(ACTION_PIP_CONTROL)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(pipReceiver, pipFilter, Context.RECEIVER_NOT_EXPORTED)
+            registerReceiver(pipReceiver, pipFilter, Context.RECEIVER_EXPORTED)
         } else {
             registerReceiver(pipReceiver, pipFilter)
         }
