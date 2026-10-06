@@ -1162,7 +1162,6 @@ $('#clearHistoryFromPage').onclick=()=>{
     localStorage.removeItem('anidash-progress');
     renderHistoryPage();
     renderContinue();
-    renderHistoryPage();
   }
 };
 
