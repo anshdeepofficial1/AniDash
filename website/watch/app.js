@@ -866,7 +866,8 @@ function syncMacChrome(pageId,label,icon){
   const iconUse=$('#macPageIcon use');
   if(titleNode) titleNode.textContent=title;
   if(iconUse) iconUse.setAttribute('href','#'+iconId);
-  $$('.mac-nav-item[data-page]').forEach(button=>{
+  $('.mac-nav-item').forEach(button=>button.classList.remove('active'));
+  $('.mac-nav-item[data-page]').forEach(button=>{
     button.classList.toggle('active',button.dataset.page===pageId);
   });
 }
@@ -1049,6 +1050,8 @@ async function checkSourceHealth(){
 
 function openSettingsFocus(query='',label='Settings',icon='i-settings'){
   openPage('settingsPage',{label,icon});
+  const selected=$('.mac-settings-link').find(button=>(button.dataset.settingsFocus||'')===query);
+  if(selected) selected.classList.add('active');
   const input=$('#settingsSearchInput');
   const wrap=$('#settingsSearchWrap');
   if(input&&wrap){
@@ -1387,12 +1390,23 @@ document.documentElement.classList.toggle('standalone',standalone);
 const initialTab=new URLSearchParams(location.search).get('tab');
 const initialPage={browse:'browsePage',manga:'mangaPage',downloads:'downloadsPage',watchlist:'watchlistPage'}[initialTab]||'homePage';
 
+document.body.classList.toggle(
+  'mac-sidebar-collapsed',
+  localStorage.getItem('anidash-mac-sidebar-collapsed')==='1'
+);
 applyWebSettings();
 syncSettingsControls();
 renderHistory();
+renderHistoryPage();
 renderLibrary();
 loadHome();
 if(initialPage!=='homePage') openPage(initialPage);
+else syncMacChrome('homePage');
+
+desktopShellQuery.addEventListener?.('change',()=>{
+  const active=$('.page.active')?.id||'homePage';
+  syncMacChrome(active);
+});
 
 if('serviceWorker' in navigator){
   const nested=location.pathname==='/watch'||location.pathname.startsWith('/watch/');
