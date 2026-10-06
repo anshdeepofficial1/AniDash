@@ -8,6 +8,20 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/watch", "destination": "/watch/index.html" }
+    {
+      "source": "/watch",
+      "destination": "/watch/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/watch/sw.js",
+      "headers": [
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/watch"
+        }
+      ]
+    }
   ]
 }

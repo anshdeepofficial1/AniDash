@@ -3,54 +3,169 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#f7faf7">
+  <meta name="theme-color" content="#f8faf7">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="AniDash">
-  <link rel="apple-touch-icon" href="https://anidashweb.vercel.app/assets/anidash_logo.png">
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/styles.css">
+  <meta name="application-name" content="AniDash">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="icon" href="/assets/anidash_logo.png">
+  <link rel="apple-touch-icon" href="/assets/anidash_logo.png">
+  <link rel="manifest" href="/watch/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/watch/styles.css">
   <title>AniDash</title>
 </head>
 <body>
-  <aside class="desktop-sidebar">
-    <div class="desktop-brand"><span>AD</span><strong>AniDash</strong><small>ANIME · MANGA · ALWAYS WITH YOU</small></div>
-    <button data-desktop-page="homePage" class="active">⌂ <span>Home</span></button><button data-desktop-page="searchPage">◉ <span>Discover</span></button><button data-desktop-page="mangaPage">▱ <span>Manga</span></button><button data-desktop-page="downloadsPage">⇩ <span>Downloads</span></button><button data-desktop-page="libraryPage">♡ <span>Library</span></button>
-    <hr><small>QUICK ACCESS</small><button data-desktop-page="searchPage">◷ <span>Recently Added</span></button><button data-desktop-page="searchPage">☆ <span>Top Rated</span></button><button data-desktop-page="homePage">⌁ <span>Trending</span></button><button data-desktop-page="searchPage">▦ <span>Genres</span></button>
-    <div class="desktop-quote"><b>Good Anime<br>Brighter Days</b><i></i></div>
-  </aside>
-  <main id="app">
-    <section id="homePage" class="page active">
-      <div class="desktop-top"><div><small id="desktopGreeting">Good evening,</small><strong>AniDash</strong></div><label><span>⌕</span><input id="desktopSearch" placeholder="Search anime, manga, or anything..."><kbd>Ctrl K</kbd></label><button>♧</button><span class="desktop-avatar">AD</span></div>
-      <header class="app-header">
-        <button class="profile-button" id="profileButton"><span class="avatar">AD</span><span><small id="greeting">Good morning</small><strong>Guest</strong></span></button>
-        <div class="header-actions"><button aria-label="News">▤</button><button aria-label="Notifications">♧</button><button aria-label="Settings">⚙</button></div>
-      </header>
-      <button class="trending-pill">★ <b>Trending 25</b></button>
-      <section id="spotlight" class="spotlight skeleton"></section>
-      <section id="continueSection" class="home-block" hidden><div class="section-title"><h2>Continue Watching</h2><button data-open="continue">›</button></div><div id="continueRail" class="rail continue-rail"></div></section>
-      <div id="homeSections"></div>
-    </section>
+  <svg class="svg-defs" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8v9.4a.8.8 0 0 1-.8.8h-5.6v-6.2H9.4V21H3.8a.8.8 0 0 1-.8-.8z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4.5c3.2-.7 5.9.1 8 2.1v13c-2.1-2-4.8-2.8-8-2.1zM20 4.5c-3.2-.7-5.9.1-8 2.1v13c2.1-2 4.8-2.8 8-2.1z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 19.5h14"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3.5h12v17l-6-3.7-6 3.7z"/></symbol>
+    <symbol id="i-news" viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 10a5.5 5.5 0 0 1 11 0v4l2 2H4.5l2-2zM10 19h4"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 1.5 5.3L19 9l-5.5 1.7L12 16l-1.5-5.3L5 9l5.5-1.7zM19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c.7-4.2 3.1-6.3 7.5-6.3s6.8 2.1 7.5 6.3"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 2.8 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.1M4 12h.1M4 18h.1"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19"/></symbol>
+  </svg>
 
-    <section id="searchPage" class="page"><div class="page-head"><h1>Search</h1></div><div class="search-bar"><span>⌕</span><input id="searchInput" type="search" placeholder="Search anime" autocomplete="off"><button id="clearSearch" hidden>×</button></div><div id="searchHistory"></div><div id="searchStatus" class="subtle"></div><div id="searchGrid" class="poster-grid"></div></section>
-    <section id="libraryPage" class="page"><div class="page-head"><h1>Your Library</h1></div><div class="chips" id="libraryFilters"><button class="active">Watching</button><button>Plan to Watch</button><button>Completed</button><button>On Hold</button><button>Repeating</button><button>Dropped</button><button>Favorites</button></div><div class="empty-state"><span>▱</span><h2>Your library is empty</h2><p>Sign in or add anime from its details page.</p><button class="primary" id="libraryExplore">Explore Anime</button></div></section>
-    <section id="downloadsPage" class="page"><div class="page-head"><h1>Downloads</h1></div><div class="segmented"><button class="active">All</button><button>Downloading</button><button>Completed</button></div><div class="empty-state"><span>⇩</span><h2>No downloads yet</h2><p>Downloaded episodes will appear here and work offline.</p></div></section>
-    <section id="mangaPage" class="page"><div class="page-head"><h1>Manga</h1></div><div class="search-bar"><span>⌕</span><input id="mangaSearch" type="search" placeholder="Search manga"><button hidden>×</button></div><div id="mangaGrid" class="poster-grid"></div></section>
+  <aside class="side-nav" aria-label="Main navigation">
+    <button data-page="homePage" class="active" aria-label="Home"><svg class="icon"><use href="#i-home"/></svg></button>
+    <button data-page="browsePage" aria-label="Browse"><svg class="icon"><use href="#i-search"/></svg></button>
+    <button data-page="mangaPage" aria-label="Manga"><svg class="icon"><use href="#i-book"/></svg></button>
+    <button data-page="downloadsPage" aria-label="Downloads"><svg class="icon"><use href="#i-download"/></svg></button>
+    <button data-page="watchlistPage" aria-label="Watchlist"><svg class="icon"><use href="#i-bookmark"/></svg></button>
+  </aside>
+
+  <main id="app-shell">
+    <div id="app">
+      <section id="homePage" class="page active">
+        <header class="app-header">
+          <button class="profile-button" id="profileButton">
+            <span class="avatar"><svg class="icon"><use href="#i-user"/></svg></span>
+            <span class="profile-copy"><small id="greeting">Good morning</small><strong>Guest</strong></span>
+          </button>
+          <div class="header-actions">
+            <button id="niaButton" aria-label="AniDash AI"><svg class="icon"><use href="#i-spark"/></svg></button>
+            <button id="newsButton" aria-label="News"><svg class="icon"><use href="#i-news"/></svg></button>
+            <button id="notificationButton" aria-label="Notifications"><svg class="icon"><use href="#i-bell"/></svg></button>
+            <button id="settingsButton" aria-label="Settings"><svg class="icon"><use href="#i-settings"/></svg></button>
+          </div>
+        </header>
+
+        <div class="trending-row"><span class="trending-pill"><svg class="icon"><use href="#i-star"/></svg><b>Trending 25</b></span></div>
+        <div id="spotlightRail" class="spotlight-rail skeleton" aria-label="Trending anime"></div>
+
+        <section id="continueSection" class="home-block" hidden>
+          <div class="section-title"><h2>Continue Watching</h2><button aria-label="Continue Watching"><span>›</span></button></div>
+          <div id="continueRail" class="rail continue-rail"></div>
+        </section>
+        <div id="homeSections"></div>
+      </section>
+
+      <section id="browsePage" class="page">
+        <div class="page-head"><h1>Browse</h1></div>
+        <div class="search-bar"><svg class="icon"><use href="#i-search"/></svg><input id="searchInput" type="search" placeholder="Search anime" autocomplete="off" autocapitalize="none"><button id="clearSearch" aria-label="Clear search" hidden>×</button></div>
+        <div class="chips browse-chips" id="browseFilters"><button class="active" data-filter="all">All</button><button data-filter="airing">Airing</button><button data-filter="movie">Movies</button><button data-filter="popular">Popular</button></div>
+        <div id="searchHistory"></div>
+        <div id="searchStatus" class="subtle"></div>
+        <div id="searchGrid" class="poster-grid"></div>
+      </section>
+
+      <section id="mangaPage" class="page">
+        <div class="page-head"><h1>Manga</h1></div>
+        <div class="search-bar"><svg class="icon"><use href="#i-search"/></svg><input id="mangaSearch" type="search" placeholder="Search manga" autocomplete="off"><button id="clearManga" aria-label="Clear search" hidden>×</button></div>
+        <div id="mangaStatus" class="subtle"></div>
+        <div id="mangaGrid" class="poster-grid"></div>
+      </section>
+
+      <section id="downloadsPage" class="page">
+        <div class="page-head"><h1>Downloads</h1></div>
+        <div class="segmented"><button class="active">All</button><button>Downloading</button><button>Completed</button></div>
+        <div class="empty-state">
+          <span class="empty-icon"><svg class="icon"><use href="#i-download"/></svg></span>
+          <h2>No downloads yet</h2>
+          <p>Episodes you save for offline viewing will appear here.</p>
+          <button class="primary" id="downloadsExplore">Find anime to download</button>
+          <div class="info-card">
+            <div><b>Organized automatically</b><small>Episodes stay grouped by anime.</small></div>
+            <div><b>Same AniDash player</b><small>Playback keeps the familiar controls.</small></div>
+            <div><b>Audio and subtitles</b><small>Choose the available version before playing.</small></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="watchlistPage" class="page">
+        <div class="page-head library-head"><h1>Your Library</h1><button id="libraryTune" aria-label="Customize Library"><svg class="icon"><use href="#i-settings"/></svg></button></div>
+        <div class="chips library-tabs" id="libraryFilters">
+          <button class="active" data-status="watching">Watching</button>
+          <button data-status="completed">Completed</button>
+          <button data-status="on_hold">On Hold</button>
+          <button data-status="dropped">Dropped</button>
+          <button data-status="planning">Plan to Watch</button>
+          <button data-status="favorites">Favorites</button>
+        </div>
+        <div id="libraryGrid" class="poster-grid"></div>
+        <div id="libraryEmpty" class="empty-state">
+          <span class="empty-icon"><svg class="icon"><use href="#i-bookmark"/></svg></span>
+          <h2>Your library is empty</h2>
+          <p>Add anime from its details page to keep it here.</p>
+          <button class="primary" id="libraryExplore">Explore Anime</button>
+        </div>
+      </section>
+    </div>
   </main>
-  <aside class="desktop-right"><section><div class="section-title"><h2>Your List</h2><button>View All →</button></div><div id="desktopContinue"></div></section><section><div class="section-title"><h2>Discover Genres</h2><button>View All →</button></div><div class="genre-grid"><button>Action</button><button>Romance</button><button>Fantasy</button><button>Slice of Life</button><button>Mystery</button><button>Drama</button></div></section></aside>
 
   <nav class="bottom-nav" aria-label="Main navigation">
-    <button data-page="homePage" class="active" aria-label="Home"><span class="nav-icon">⌂</span></button>
-    <button data-page="searchPage" aria-label="Search"><span class="nav-icon">⌕</span></button>
-    <button data-page="libraryPage" aria-label="Library"><span class="nav-icon">▤</span></button>
-    <button data-page="downloadsPage" aria-label="Downloads"><span class="nav-icon">⇩</span></button>
-    <button data-page="mangaPage" aria-label="Manga"><span class="nav-icon">▱</span></button>
+    <button data-page="homePage" class="active" aria-label="Home"><svg class="icon"><use href="#i-home"/></svg></button>
+    <button data-page="browsePage" aria-label="Browse"><svg class="icon"><use href="#i-search"/></svg></button>
+    <button data-page="mangaPage" aria-label="Manga"><svg class="icon"><use href="#i-book"/></svg></button>
+    <button data-page="downloadsPage" aria-label="Downloads"><svg class="icon"><use href="#i-download"/></svg></button>
+    <button data-page="watchlistPage" aria-label="Watchlist"><svg class="icon"><use href="#i-bookmark"/></svg></button>
   </nav>
 
-  <dialog id="detailsDialog" class="details-dialog"><button class="back details-back" aria-label="Back">‹</button><div id="detailsContent"></div></dialog>
-  <dialog id="playerDialog" class="player-dialog"><div class="player-top"><button class="player-back">‹</button><div><small>JUSTANIME</small><strong id="playerTitle">Episode</strong></div><button class="player-list">☷</button></div><video id="video" controls playsinline webkit-playsinline></video><div id="playerLoading" class="player-loading" hidden><span></span><b>Starting video…</b></div><div class="player-options"><select id="audio"><option value="sub">SUB</option><option value="dub">DUB</option></select><span id="playerStatus"></span></div></dialog>
-  <dialog id="accountDialog" class="sheet"><button class="sheet-close">×</button><div class="sheet-icon">AD</div><h2>Welcome to AniDash</h2><p>Sign in to sync your library, progress and favourites across devices.</p><button class="primary">Sign in with AniList</button><button class="secondary">Sign in with MyAnimeList</button></dialog>
+  <dialog id="detailsDialog" class="details-dialog">
+    <button class="back details-back" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button>
+    <div id="detailsContent"></div>
+  </dialog>
 
-  <script src="/api/hls"></script><script src="/app.js"></script>
+  <dialog id="playerDialog" class="player-dialog">
+    <div class="player-top">
+      <button class="player-back" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button>
+      <div><small>ANIDASH PLAYER</small><strong id="playerTitle">Episode</strong></div>
+      <button class="player-list" aria-label="Episodes"><svg class="icon"><use href="#i-list"/></svg></button>
+    </div>
+    <video id="video" controls playsinline webkit-playsinline preload="metadata"></video>
+    <div id="playerLoading" class="player-loading" hidden><span></span><b>Starting video…</b></div>
+    <div class="player-options"><select id="audio"><option value="sub">SUB</option><option value="dub">DUB</option></select><span id="playerStatus"></span></div>
+  </dialog>
+
+  <dialog id="accountDialog" class="sheet">
+    <button class="sheet-close" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
+    <div class="sheet-icon"><img src="/assets/anidash_logo.png" alt=""></div>
+    <h2>Welcome to AniDash</h2>
+    <p>Your web app keeps local Continue Watching and Library data on this device. Account sync remains optional.</p>
+    <button class="primary" id="accountBrowse">Explore AniDash</button>
+    <button class="secondary sheet-close-action">Close</button>
+  </dialog>
+
+  <dialog id="utilityDialog" class="sheet">
+    <button class="utility-close" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
+    <div class="sheet-icon utility-icon"><svg class="icon"><use href="#i-spark"/></svg></div>
+    <h2 id="utilityTitle">AniDash</h2>
+    <p id="utilityBody"></p>
+    <button class="primary utility-close-action">Done</button>
+  </dialog>
+
+  <script src="/api/hls"></script>
+  <script src="/watch/app.js"></script>
 </body>
 </html>

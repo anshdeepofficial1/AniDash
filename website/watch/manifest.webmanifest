@@ -1,15 +1,22 @@
 {
-  "id": "/",
-  "name": "AniDash Streaming",
+  "id": "/watch",
+  "name": "AniDash",
   "short_name": "AniDash",
-  "description": "Discover and stream anime from your Home Screen.",
-  "start_url": "/",
-  "scope": "/",
+  "description": "AniDash for iPhone and iPad — discover, track, and watch anime from your Home Screen.",
+  "start_url": "/watch",
+  "scope": "/watch",
   "display": "standalone",
+  "display_override": ["standalone"],
   "orientation": "any",
-  "background_color": "#090b0a",
-  "theme_color": "#0b1210",
+  "background_color": "#f8faf7",
+  "theme_color": "#f8faf7",
+  "categories": ["entertainment"],
   "icons": [
-    {"src":"https://anidashweb.vercel.app/assets/anidash_logo.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+    {
+      "src": "/assets/anidash_logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
