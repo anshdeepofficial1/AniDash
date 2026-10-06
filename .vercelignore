@@ -2,7 +2,7 @@ build/
 .dart_tool/
 .git/
 android/
-assets/
+/assets/
 coverage/
 dist/
 docs/
@@ -12,7 +12,7 @@ lib/
 linux/
 macos/
 packages/
-screenshots/
+/screenshots/
 scripts/
 test/
 web/
@@ -20,3 +20,7 @@ windows/
 *.apk
 *.aab
 !api/chat.js
+
+# Website static media must be included in Vercel deployments.
+!website/assets/
+!website/assets/**
