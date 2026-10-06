@@ -27,9 +27,22 @@ async function fetchJson(path, timeout = 12000) {
   }
 }
 
-function selectedPayload(data, audio) {
+function selectedPayload(data, audio, server) {
   if (!data || typeof data !== 'object') return null;
-  if (Array.isArray(data.sources)) return data;
+
+  if (Array.isArray(data.sources)) {
+    if (server === 'Neko HD' || server === 'Neko' || audio === 'sub') return data;
+    const hint = String(
+      data.audio || data.language || data.category ||
+      data.type || ''
+    ).toLowerCase();
+    const sourceSaysDub = data.sources.some(source =>
+      source?.isDub === true ||
+      /\bdub\b/i.test(String(source?.audio || source?.language || source?.type || ''))
+    );
+    return hint.includes('dub') || sourceSaysDub ? data : null;
+  }
+
   if (audio === 'dub') {
     if (Array.isArray(data.dub?.sources) && data.dub.sources.length) return data.dub;
     return null;
@@ -79,7 +92,7 @@ async function resolveStreamingSources(id, episode, audio) {
   const settled = await Promise.all(
     candidates.map(async candidate => {
       const data = await fetchJson(candidate.path, 10000);
-      const selected = selectedPayload(data, audio);
+      const selected = selectedPayload(data, audio, candidate.server);
       if (!selected) return null;
       const sources = normalizeSources(selected, candidate.server);
       if (!sources.length) return null;
