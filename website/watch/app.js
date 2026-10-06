@@ -1402,8 +1402,14 @@ loadHome();
 if(initialPage!=='homePage') openPage(initialPage);
 else syncMacChrome('homePage');
 
-desktopShellQuery.addEventListener?.('change',()=>{
+desktopShellQuery.addEventListener?.('change',event=>{
   const active=$('.page.active')?.id||'homePage';
+  const desktopOnly=new Set(['historyPage','aiPage','newsPage','notificationsPage','extensionsPage']);
+  if(!event.matches&&desktopOnly.has(active)){
+    state.pageHistory=[];
+    openPage('homePage',{fromBack:true});
+    return;
+  }
   syncMacChrome(active);
 });
 
