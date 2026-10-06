@@ -258,16 +258,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final layout = ref.watch(homeLayoutProvider);
     final sections = layout.where((s) => s.enabled).toList();
 
+    final isDesktop = MediaQuery.sizeOf(context).width > 800;
+
     if (state.isLoading && state.homePage == null) {
       return Scaffold(
         body: ListView(
           padding: const EdgeInsets.only(top: 10, bottom: 100),
-          children: const [
+          children: [
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10),
-              child: HeaderSection(isDesktop: false),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: HeaderSection(isDesktop: isDesktop),
             ),
-            _HomeLoadingSkeleton(),
+            const _HomeLoadingSkeleton(),
           ],
         ),
       );
@@ -288,9 +290,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               itemCount: sections.length + 2,
               itemBuilder: (context, index) {
                 if (index == 0)
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    child: HeaderSection(isDesktop: false),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: HeaderSection(isDesktop: isDesktop),
                   );
 
                 // bottom spacer so the nav bar doesn't choke the content

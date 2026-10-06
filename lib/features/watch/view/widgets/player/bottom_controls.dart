@@ -355,11 +355,18 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
 
       final isOp =
           skip.skipType == SkipType.op ||
-          (skip.skipType == SkipType.mixed && clampedStart < total * 0.5);
+          (skip.skipType == SkipType.mixed && clampedStart <= 300000);
       final isEd =
           skip.skipType == SkipType.ed ||
-          (skip.skipType == SkipType.mixed && clampedStart >= total * 0.5) ||
+          (skip.skipType == SkipType.mixed && clampedStart > 300000) ||
           (!isOp && clampedStart >= total * 0.6);
+
+      // Intro must start within first 5 minutes (300,000 ms)
+      if (isOp && clampedStart > 300000) continue;
+      // Outro must start after at least 5 minutes and in the latter half
+      if (isEd && (clampedStart < 300000 || clampedStart < total * 0.5)) {
+        continue;
+      }
 
       highlightSegments.add((
         start: clampedStart,

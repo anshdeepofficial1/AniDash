@@ -1,13 +1,12 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:ani_dash/features/home/view_model/watch_history_notifier.dart';
 import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
-import 'package:ani_dash/shared/providers/settings/theme_notifier.dart';
 import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 import 'package:ani_dash/router/router_wrapper.dart';
 
@@ -32,8 +31,6 @@ class MacDesktopSidebar extends ConsumerStatefulWidget {
 }
 
 class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
-  String? _hoveredItem;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -42,161 +39,221 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
     final auth = ref.watch(authProvider);
     final isCollapsed = widget.isCollapsed;
     final user = auth.anilistUser ?? auth.malUser;
-
     final currentRoute = GoRouterState.of(context).matchedLocation;
+    final isMac = Platform.isMacOS;
+    final mod = isMac ? '⌘' : 'Ctrl+';
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
-      width: isCollapsed ? 76 : 260,
-      decoration: BoxDecoration(
-        color: isDark
-            ? colorScheme.surfaceContainerLowest.withValues(alpha: 0.95)
-            : colorScheme.surfaceContainerLow,
-        border: Border(
-          right: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. macOS Header with Window Controls Inset & Brand
-          _buildHeader(context, colorScheme, isCollapsed),
-
-          const SizedBox(height: 6),
-
-          // 2. Quick Action CTA (Antigravity's "New Conversation" / "+ Action")
-          _buildHeroActionButton(context, colorScheme, isCollapsed),
-
-          const SizedBox(height: 12),
-
-          // 3. Scrollable Navigation & Sections
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.symmetric(
-                horizontal: isCollapsed ? 8 : 12,
-                vertical: 4,
+      width: isCollapsed ? 76 : 264,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF14161C).withValues(alpha: 0.82)
+                  : const Color(0xFFF8F9FB).withValues(alpha: 0.88),
+              border: Border(
+                right: BorderSide(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.10)
+                      : Colors.black.withValues(alpha: 0.08),
+                  width: 1,
+                ),
               ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // SECTION: DISCOVER / CORE
-                if (!isCollapsed) _buildSectionHeader('DISCOVER', colorScheme),
-                ...widget.items.map((item) {
-                  final isSelected =
-                      widget.shell.currentIndex == item.branchIndex &&
-                      (currentRoute == '/' ||
-                          currentRoute == '/browse' ||
-                          currentRoute == '/manga' ||
-                          currentRoute == '/downloads' ||
-                          currentRoute == '/watchlist');
+                // 1. Desktop Header with Window Controls Inset & Brand
+                _buildHeader(context, colorScheme, isCollapsed, isDark),
 
-                  return _SidebarTile(
-                    icon: item.icon,
-                    label: item.label,
-                    isSelected: isSelected,
-                    isCollapsed: isCollapsed,
-                    onTap: () => widget.onTabSelected(item.branchIndex),
-                  );
-                }),
+                const SizedBox(height: 6),
 
-                const SizedBox(height: 14),
+                // 2. Liquid Glass Hero Action Button ("Ask AniAI" / "New Conversation")
+                _buildHeroActionButton(context, colorScheme, isCollapsed, isDark, mod),
 
-                // SECTION: ACTIVITY & LIBRARY (Like AGY Conversation History)
-                if (!isCollapsed)
-                  _buildSectionHeader('LIBRARY & ACTIVITY', colorScheme),
-                _SidebarTile(
-                  icon: Iconsax.clock,
-                  label: 'Watch History',
-                  isSelected: currentRoute == '/watch-history',
-                  isCollapsed: isCollapsed,
-                  badgeText: _getRecentHistoryCountBadge(),
-                  onTap: () => context.push('/watch-history'),
-                ),
-                _SidebarTile(
-                  icon: Iconsax.messages_3,
-                  label: 'AniAI Assistant',
-                  isSelected: currentRoute == '/ai',
-                  isCollapsed: isCollapsed,
-                  isAiSparkle: true,
-                  onTap: () => context.push('/ai'),
-                ),
-                _SidebarTile(
-                  icon: Iconsax.document_text,
-                  label: 'Anime News',
-                  isSelected: currentRoute == '/news',
-                  isCollapsed: isCollapsed,
-                  onTap: () => context.push('/news'),
-                ),
-                _SidebarTile(
-                  icon: Iconsax.notification,
-                  label: 'Notifications',
-                  isSelected: currentRoute == '/notifications',
-                  isCollapsed: isCollapsed,
-                  onTap: () => context.push('/notifications'),
+                const SizedBox(height: 10),
+
+                // 3. Scrollable Navigation Sections
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCollapsed ? 8 : 12,
+                      vertical: 2,
+                    ),
+                    children: [
+                      // SECTION: DISCOVER
+                      if (!isCollapsed)
+                        _buildSectionHeader('DISCOVER', isDark),
+                      ...widget.items.map((item) {
+                        final isSelected =
+                            widget.shell.currentIndex == item.branchIndex &&
+                            (currentRoute == '/' ||
+                                currentRoute == '/browse' ||
+                                currentRoute == '/manga' ||
+                                currentRoute == '/downloads' ||
+                                currentRoute == '/watchlist');
+
+                        final shortcutKey = switch (item.branchIndex) {
+                          0 => '${mod}1',
+                          1 => '${mod}2',
+                          2 => '${mod}3',
+                          3 => '${mod}4',
+                          4 => '${mod}5',
+                          _ => null,
+                        };
+
+                        return _SidebarTile(
+                          icon: item.icon,
+                          label: item.label,
+                          shortcutHint: shortcutKey,
+                          isSelected: isSelected,
+                          isCollapsed: isCollapsed,
+                          isDark: isDark,
+                          onTap: () => widget.onTabSelected(item.branchIndex),
+                        );
+                      }),
+
+                      const SizedBox(height: 14),
+
+                      // SECTION: LIBRARY & ACTIVITY
+                      if (!isCollapsed)
+                        _buildSectionHeader('LIBRARY & ACTIVITY', isDark),
+                      _SidebarTile(
+                        icon: Iconsax.clock,
+                        label: 'Watch History',
+                        shortcutHint: '${mod}H',
+                        isSelected: currentRoute == '/watch-history',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        badgeText: _getRecentHistoryCountBadge(),
+                        onTap: () => context.push('/watch-history'),
+                      ),
+                      _SidebarTile(
+                        icon: Iconsax.magicpen,
+                        label: 'AniAI Assistant',
+                        shortcutHint: '${mod}K',
+                        isSelected: currentRoute == '/ai',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        isAiSparkle: true,
+                        onTap: () => context.push('/ai'),
+                      ),
+                      _SidebarTile(
+                        icon: Iconsax.document_text,
+                        label: 'Anime News',
+                        shortcutHint: '${mod}N',
+                        isSelected: currentRoute == '/news',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        onTap: () => context.push('/news'),
+                      ),
+                      _SidebarTile(
+                        icon: Iconsax.notification,
+                        label: 'Notifications',
+                        isSelected: currentRoute == '/notifications',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        onTap: () => context.push('/notifications'),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // SECTION: EXTENSIONS & SOURCES
+                      if (!isCollapsed)
+                        _buildSectionHeader('EXTENSIONS & SOURCES', isDark),
+                      _SidebarTile(
+                        icon: Icons.extension_outlined,
+                        label: 'Extensions',
+                        shortcutHint: '${mod}E',
+                        isSelected: currentRoute == '/extensions',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        onTap: () => context.push('/extensions'),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // SECTION: PREFERENCES (Complete Settings ported directly from Android)
+                      if (!isCollapsed)
+                        _buildSectionHeader('PREFERENCES', isDark),
+                      _SidebarTile(
+                        icon: Iconsax.setting_2,
+                        label: 'All Settings',
+                        shortcutHint: '$mod,',
+                        isSelected: currentRoute == '/settings',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        onTap: () => context.push('/settings'),
+                      ),
+                      _SidebarTile(
+                        icon: Iconsax.colorfilter,
+                        label: 'Appearance & Themes',
+                        isSelected: currentRoute == '/settings/theme',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        onTap: () => context.push('/settings/theme'),
+                      ),
+                      _SidebarTile(
+                        icon: Iconsax.video_play,
+                        label: 'Video Player',
+                        isSelected: currentRoute == '/settings/player',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        onTap: () => context.push('/settings/player'),
+                      ),
+                      _SidebarTile(
+                        icon: Iconsax.user_tag,
+                        label: 'Account & Tracking',
+                        isSelected: currentRoute == '/settings/account',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        onTap: () => context.push('/settings/account'),
+                      ),
+                      _SidebarTile(
+                        icon: Iconsax.document_download,
+                        label: 'Download Settings',
+                        isSelected: currentRoute == '/settings/downloads',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        onTap: () => context.push('/settings/downloads'),
+                      ),
+                      _SidebarTile(
+                        icon: Icons.data_object,
+                        label: 'Data & Storage',
+                        isSelected: currentRoute == '/settings/data',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        onTap: () => context.push('/settings/data'),
+                      ),
+                      _SidebarTile(
+                        icon: Iconsax.info_circle,
+                        label: 'About AniDash',
+                        isSelected: currentRoute == '/settings/about',
+                        isCollapsed: isCollapsed,
+                        isDark: isDark,
+                        onTap: () => context.push('/settings/about'),
+                      ),
+                    ],
+                  ),
                 ),
 
-                const SizedBox(height: 14),
-
-                // SECTION: EXTENSIONS (Like AGY Projects)
-                if (!isCollapsed)
-                  _buildSectionHeader('EXTENSIONS & SOURCES', colorScheme),
-                _SidebarTile(
-                  icon: Icons.extension_outlined,
-                  label: 'Extensions',
-                  isSelected: currentRoute == '/extensions',
-                  isCollapsed: isCollapsed,
-                  onTap: () => context.push('/extensions'),
-                ),
-
-                const SizedBox(height: 14),
-
-                // SECTION: PREFERENCES (Full direct Android settings access)
-                if (!isCollapsed)
-                  _buildSectionHeader('PREFERENCES', colorScheme),
-                _SidebarTile(
-                  icon: Iconsax.setting_2,
-                  label: 'All Settings',
-                  isSelected: currentRoute == '/settings',
-                  isCollapsed: isCollapsed,
-                  onTap: () => context.push('/settings'),
-                ),
-                _SidebarTile(
-                  icon: Iconsax.colorfilter,
-                  label: 'Appearance & Themes',
-                  isSelected: currentRoute == '/settings/theme',
-                  isCollapsed: isCollapsed,
-                  onTap: () => context.push('/settings/theme'),
-                ),
-                _SidebarTile(
-                  icon: Iconsax.video_play,
-                  label: 'Player Settings',
-                  isSelected: currentRoute == '/settings/player',
-                  isCollapsed: isCollapsed,
-                  onTap: () => context.push('/settings/player'),
-                ),
-                _SidebarTile(
-                  icon: Iconsax.user_tag,
-                  label: 'Account & Tracking',
-                  isSelected: currentRoute == '/settings/account',
-                  isCollapsed: isCollapsed,
-                  onTap: () => context.push('/settings/account'),
-                ),
+                // 4. Bottom Footer: User Profile & Quick Actions
+                _buildFooter(context, colorScheme, user, isCollapsed, isDark),
               ],
             ),
           ),
-
-          // 4. Bottom Footer: User Profile & Quick Actions
-          _buildFooter(context, colorScheme, user, isCollapsed),
-        ],
+        ),
       ),
     );
   }
 
   String? _getRecentHistoryCountBadge() {
     try {
-      final historyState = ref.watch(watchHistoryNotifierProvider);
+      final historyState = ref.watch(watchHistoryProvider);
       if (historyState.history.isNotEmpty) {
         return historyState.history.length > 99
             ? '99+'
@@ -210,12 +267,13 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
     BuildContext context,
     ColorScheme colorScheme,
     bool isCollapsed,
+    bool isDark,
   ) {
-    // macOS traffic lights sit on top left: provide clean breathing room
+    // macOS traffic lights sit on top left: leave proper top space
     final topInset = Platform.isMacOS ? 38.0 : 16.0;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(isCollapsed ? 10 : 16, topInset, 12, 10),
+      padding: EdgeInsets.fromLTRB(isCollapsed ? 12 : 16, topInset, 12, 10),
       child: Row(
         mainAxisAlignment:
             isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
@@ -231,8 +289,8 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                       borderRadius: BorderRadius.circular(9),
                       boxShadow: [
                         BoxShadow(
-                          color: colorScheme.primary.withValues(alpha: 0.25),
-                          blurRadius: 8,
+                          color: colorScheme.primary.withValues(alpha: 0.28),
+                          blurRadius: 10,
                           offset: const Offset(0, 2),
                         ),
                       ],
@@ -251,10 +309,10 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                       Text(
                         'AniDash',
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.3,
-                          color: colorScheme.onSurface,
+                          color: isDark ? Colors.white : Colors.black87,
                         ),
                       ),
                       Row(
@@ -265,11 +323,19 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                               vertical: 1.5,
                             ),
                             decoration: BoxDecoration(
-                              color: colorScheme.primary.withValues(alpha: 0.15),
+                              color: colorScheme.primary.withValues(alpha: 0.16),
                               borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: colorScheme.primary.withValues(alpha: 0.3),
+                                width: 0.5,
+                              ),
                             ),
                             child: Text(
-                              'macOS Desktop',
+                                Platform.isMacOS
+                                    ? 'macOS Edition'
+                                    : (Platform.isWindows
+                                        ? 'Windows Edition'
+                                        : 'Desktop Edition'),
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
@@ -307,7 +373,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
             ),
             icon: Icon(
               isCollapsed ? Iconsax.sidebar_right : Iconsax.sidebar_left,
-              color: colorScheme.onSurfaceVariant,
+              color: isDark ? Colors.white60 : Colors.black54,
             ),
             onPressed: widget.onToggleCollapse,
           ),
@@ -320,12 +386,14 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
     BuildContext context,
     ColorScheme colorScheme,
     bool isCollapsed,
+    bool isDark,
+    String mod,
   ) {
     if (isCollapsed) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14),
         child: Tooltip(
-          message: 'Ask AniAI Assistant',
+          message: 'Ask AniAI (${mod}K)',
           child: InkWell(
             onTap: () => context.push('/ai'),
             borderRadius: BorderRadius.circular(10),
@@ -339,6 +407,13 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                   ],
                 ),
                 borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.primary.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: const Icon(
                 Iconsax.magicpen,
@@ -357,19 +432,28 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
         onTap: () => context.push('/ai'),
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                colorScheme.primary.withValues(alpha: 0.16),
-                colorScheme.tertiary.withValues(alpha: 0.12),
+                colorScheme.primary.withValues(alpha: isDark ? 0.22 : 0.16),
+                colorScheme.tertiary.withValues(alpha: isDark ? 0.16 : 0.10),
               ],
             ),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: colorScheme.primary.withValues(alpha: 0.35),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.18)
+                  : colorScheme.primary.withValues(alpha: 0.35),
               width: 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.primary.withValues(alpha: 0.12),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             children: [
@@ -377,7 +461,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: colorScheme.primary,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(7),
                 ),
                 child: const Icon(
                   Iconsax.magicpen,
@@ -395,14 +479,14 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
+                        color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
                     Text(
                       'Recommend & Explore',
                       style: TextStyle(
                         fontSize: 10.5,
-                        color: colorScheme.onSurfaceVariant,
+                        color: isDark ? Colors.white60 : Colors.black54,
                       ),
                     ),
                   ],
@@ -411,15 +495,17 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(5),
                 ),
                 child: Text(
-                  'AI',
+                  '${mod}K',
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.bold,
-                    color: colorScheme.primary,
+                    color: isDark ? Colors.white70 : colorScheme.primary,
                   ),
                 ),
               ),
@@ -430,16 +516,16 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
     );
   }
 
-  Widget _buildSectionHeader(String title, ColorScheme colorScheme) {
+  Widget _buildSectionHeader(String title, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.only(left: 10, top: 10, bottom: 6),
+      padding: const EdgeInsets.only(left: 10, top: 8, bottom: 5),
       child: Text(
         title,
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
-          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+          letterSpacing: 0.9,
+          color: isDark ? Colors.white38 : Colors.black38,
         ),
       ),
     );
@@ -450,6 +536,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
     ColorScheme colorScheme,
     dynamic user,
     bool isCollapsed,
+    bool isDark,
   ) {
     return Container(
       padding: EdgeInsets.symmetric(
@@ -459,7 +546,9 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.06),
             width: 1,
           ),
         ),
@@ -496,7 +585,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurface,
+                              color: isDark ? Colors.white : Colors.black87,
                             ),
                           ),
                           Row(
@@ -516,7 +605,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                                 user != null ? 'Synced' : 'Not logged in',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: colorScheme.onSurfaceVariant,
+                                  color: isDark ? Colors.white54 : Colors.black54,
                                 ),
                               ),
                             ],
@@ -553,8 +642,10 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
 class _SidebarTile extends StatefulWidget {
   final IconData icon;
   final String label;
+  final String? shortcutHint;
   final bool isSelected;
   final bool isCollapsed;
+  final bool isDark;
   final String? badgeText;
   final bool isAiSparkle;
   final VoidCallback onTap;
@@ -562,8 +653,10 @@ class _SidebarTile extends StatefulWidget {
   const _SidebarTile({
     required this.icon,
     required this.label,
+    this.shortcutHint,
     required this.isSelected,
     required this.isCollapsed,
+    required this.isDark,
     this.badgeText,
     this.isAiSparkle = false,
     required this.onTap,
@@ -582,6 +675,7 @@ class _SidebarTileState extends State<_SidebarTile> {
     final colorScheme = theme.colorScheme;
     final isSelected = widget.isSelected;
     final isCollapsed = widget.isCollapsed;
+    final isDark = widget.isDark;
 
     final content = MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -590,22 +684,26 @@ class _SidebarTileState extends State<_SidebarTile> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          margin: const EdgeInsets.symmetric(vertical: 2),
+          duration: const Duration(milliseconds: 140),
+          margin: const EdgeInsets.symmetric(vertical: 1.5),
           padding: EdgeInsets.symmetric(
             horizontal: isCollapsed ? 0 : 10,
-            vertical: 8,
+            vertical: 7.5,
           ),
           decoration: BoxDecoration(
             color: isSelected
-                ? colorScheme.primary.withValues(alpha: 0.16)
+                ? colorScheme.primary.withValues(alpha: isDark ? 0.22 : 0.16)
                 : (_isHovered
-                    ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                    ? (isDark
+                        ? Colors.white.withValues(alpha: 0.07)
+                        : Colors.black.withValues(alpha: 0.05))
                     : Colors.transparent),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected
-                  ? colorScheme.primary.withValues(alpha: 0.3)
+                  ? (isDark
+                      ? Colors.white.withValues(alpha: 0.14)
+                      : colorScheme.primary.withValues(alpha: 0.3))
                   : Colors.transparent,
               width: 1,
             ),
@@ -617,15 +715,15 @@ class _SidebarTileState extends State<_SidebarTile> {
             children: [
               Icon(
                 widget.icon,
-                size: 19,
+                size: 18,
                 color: isSelected
                     ? colorScheme.primary
                     : (_isHovered
-                        ? colorScheme.onSurface
-                        : colorScheme.onSurfaceVariant),
+                        ? (isDark ? Colors.white : Colors.black87)
+                        : (isDark ? Colors.white70 : Colors.black54)),
               ),
               if (!isCollapsed) ...[
-                const SizedBox(width: 11),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     widget.label,
@@ -638,8 +736,8 @@ class _SidebarTileState extends State<_SidebarTile> {
                       color: isSelected
                           ? colorScheme.primary
                           : (_isHovered
-                              ? colorScheme.onSurface
-                              : colorScheme.onSurfaceVariant),
+                              ? (isDark ? Colors.white : Colors.black87)
+                              : (isDark ? Colors.white70 : Colors.black54)),
                     ),
                   ),
                 ),
@@ -652,7 +750,9 @@ class _SidebarTileState extends State<_SidebarTile> {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? colorScheme.primary
-                          : colorScheme.surfaceContainerHighest,
+                          : (isDark
+                              ? Colors.white.withValues(alpha: 0.15)
+                              : Colors.black.withValues(alpha: 0.08)),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
@@ -662,8 +762,16 @@ class _SidebarTileState extends State<_SidebarTile> {
                         fontWeight: FontWeight.bold,
                         color: isSelected
                             ? colorScheme.onPrimary
-                            : colorScheme.onSurfaceVariant,
+                            : (isDark ? Colors.white70 : Colors.black87),
                       ),
+                    ),
+                  ),
+                ] else if (widget.shortcutHint != null && _isHovered) ...[
+                  Text(
+                    widget.shortcutHint!,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isDark ? Colors.white38 : Colors.black38,
                     ),
                   ),
                 ],
@@ -676,7 +784,7 @@ class _SidebarTileState extends State<_SidebarTile> {
 
     if (isCollapsed) {
       return Tooltip(
-        message: widget.label,
+        message: '${widget.label} ${widget.shortcutHint ?? ""}',
         waitDuration: const Duration(milliseconds: 300),
         child: content,
       );

@@ -361,13 +361,15 @@ class DownloadService {
             for (final s in skips) {
               if (s.interval != null) {
                 if (s.skipType == SkipType.op ||
-                    (s.skipType == SkipType.mixed && s.interval!.startTime < 700)) {
+                    (s.skipType == SkipType.mixed &&
+                        s.interval!.startTime <= 300)) {
                   data['intro'] = {
                     'start': s.interval!.startTime.toInt(),
                     'end': s.interval!.endTime.toInt(),
                   };
                 } else if (s.skipType == SkipType.ed ||
-                    (s.skipType == SkipType.mixed && s.interval!.startTime >= 700)) {
+                    (s.skipType == SkipType.mixed &&
+                        s.interval!.startTime > 300)) {
                   data['outro'] = {
                     'start': s.interval!.startTime.toInt(),
                     'end': s.interval!.endTime.toInt(),

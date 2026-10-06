@@ -261,6 +261,7 @@ class ContinueSection extends ConsumerWidget {
                             ref: ref,
                             animeMedia: UniversalMedia(
                               id: entry.animeId,
+                              idMal: entry.animeId,
                               title: UniversalTitle(
                                 romaji: entry.animeTitle,
                                 english: entry.animeTitle,

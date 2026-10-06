@@ -18,6 +18,11 @@ on:
         required: false
         default: true
         type: boolean
+      build_macos:
+        description: "Build macOS DMG"
+        required: false
+        default: true
+        type: boolean
   push:
     branches: [main]
     paths:
@@ -286,8 +291,42 @@ jobs:
             build/windows/x64/installer/*.exe
             AniDash-Windows-Portable.zip
 
+  build-macos:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_macos == 'true'
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.7"
+      - name: Install DMG Packaging Tools
+        run: brew install create-dmg || true
+      - name: Configure Env
+        run: |
+          cat <<EOF > keys.json
+          {
+            "ANILIST_CLIENT_ID": "${{ secrets.ANILIST_CLIENT_ID }}",
+            "ANILIST_CLIENT_SECRET": "${{ secrets.ANILIST_CLIENT_SECRET }}",
+            "MAL_CLIENT_ID": "${{ secrets.MAL_CLIENT_ID || 'dafce95c66734efefa19650c84178416' }}",
+            "MAL_CLIENT_SECRET": "${{ secrets.MAL_CLIENT_SECRET }}",
+            "API_URL": "${{ secrets.API_URL }}",
+            "COMMENTUM_API_URL": "${{ secrets.COMMENTUM_API_URL }}"
+          }
+          EOF
+      - run: flutter pub get
+      - name: Build macOS App
+        run: flutter build macos --release --no-tree-shake-icons --dart-define-from-file=keys.json
+      - name: Create DMG Installer
+        run: |
+          chmod +x scripts/build_macos_dmg.sh
+          ./scripts/build_macos_dmg.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: build/macos/installer/*.dmg
+
   publish-release:
-    needs: [build-android, build-linux, build-windows]
+    needs: [build-android, build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
     if: >
       always() &&
@@ -324,4 +363,5 @@ jobs:
             artifacts/**/*.apk
             artifacts/**/*.zip
             artifacts/**/*.exe
+            artifacts/**/*.dmg
           token: ${{ secrets.GITHUB_TOKEN }}

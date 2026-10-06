@@ -46,6 +46,7 @@ Future<BaseAnimeModel?> providerAnimeMatchSearch({
           episodes: const [],
           currentEpisode: startAt ?? 1,
           startAtPosition: startAtPosition,
+          malId: int.tryParse(animeMedia.idMal ?? ''),
           fromHentaiHub: fromHentaiHub || animeMedia.isAdult,
         );
       }
@@ -81,6 +82,7 @@ Future<BaseAnimeModel?> providerAnimeMatchSearch({
           episodes: const [],
           currentEpisode: startAt ?? 1,
           startAtPosition: startAtPosition,
+          malId: int.tryParse(animeMedia.idMal ?? ''),
           fromHentaiHub: fromHentaiHub || animeMedia.isAdult,
         );
       }

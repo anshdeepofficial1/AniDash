@@ -1,0 +1,68 @@
+name: macOS DMG Release Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos-dmg:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.7"
+          cache: true
+
+      - name: Install DMG Packaging Tools
+        run: |
+          brew install create-dmg || true
+
+      - name: Configure App API Keys
+        run: |
+          cat <<EOF > keys.json
+          {
+            "ANILIST_CLIENT_ID": "${{ secrets.ANILIST_CLIENT_ID }}",
+            "ANILIST_CLIENT_SECRET": "${{ secrets.ANILIST_CLIENT_SECRET }}",
+            "MAL_CLIENT_ID": "${{ secrets.MAL_CLIENT_ID || 'dafce95c66734efefa19650c84178416' }}",
+            "MAL_CLIENT_SECRET": "${{ secrets.MAL_CLIENT_SECRET }}",
+            "API_URL": "${{ secrets.API_URL }}",
+            "COMMENTUM_API_URL": "${{ secrets.COMMENTUM_API_URL }}",
+            "ONESIGNAL_APP_ID": "${{ secrets.ONESIGNAL_APP_ID }}",
+            "ADMIN_ANILIST_ID": "8013267",
+            "ANIDASH_ADMIN_API_URL": "${{ secrets.ANIDASH_ADMIN_API_URL }}"
+          }
+          EOF
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build macOS App
+        run: |
+          flutter build macos --release --no-tree-shake-icons --dart-define-from-file=keys.json
+
+      - name: Build macOS DMG
+        run: |
+          chmod +x scripts/build_macos_dmg.sh
+          ./scripts/build_macos_dmg.sh
+
+      - name: Upload DMG Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniDash-macOS-DMG
+          path: build/macos/installer/*.dmg
+
+      - name: Release to GitHub (if Tagged)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/macos/installer/*.dmg
+          token: ${{ secrets.GITHUB_TOKEN }}

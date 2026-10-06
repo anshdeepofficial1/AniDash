@@ -20,6 +20,7 @@ import 'package:ani_dash/features/watch/view_model/watch_sync_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/player_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/sync_settings_notifier.dart';
 import 'package:ani_dash/shared/providers/continue_watching_dismissed_provider.dart';
+import 'package:ani_dash/features/watch/view_model/player/pip_controller.dart';
 import 'package:ani_dash/features/watch/view_model/next_episode_prompt_provider.dart';
 
 part 'watch_controller.g.dart';
@@ -102,6 +103,10 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden) {
+      if (ref.read(pipProvider)) {
+        // App is playing in Picture-in-Picture! Do not pause.
+        return;
+      }
       _isAppInBackground = true;
       _savedPosBeforeLock = _pos;
       final isPlaying = ref.read(playerStateProvider).isPlaying;
@@ -506,7 +511,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           final interval = skip.interval;
           if (interval == null) return false;
           return skip.skipType == SkipType.ed ||
-              (skip.skipType == SkipType.mixed && interval.startTime >= 700);
+              (skip.skipType == SkipType.mixed && interval.startTime > 300);
         });
 
         final isInDetectedOutro = ref.read(aniSkipProvider).any((skip) {
@@ -514,7 +519,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           if (interval == null) return false;
           final isOutro =
               skip.skipType == SkipType.ed ||
-              (skip.skipType == SkipType.mixed && interval.startTime >= 700);
+              (skip.skipType == SkipType.mixed && interval.startTime > 300);
           return isOutro &&
               _pos >= interval.startTime.floor() &&
               _pos < interval.endTime.ceil();
@@ -698,10 +703,10 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       if (skip.interval == null) continue;
       final isIntro =
           skip.skipType == SkipType.op ||
-          (skip.skipType == SkipType.mixed && skip.interval!.startTime < 700);
+          (skip.skipType == SkipType.mixed && skip.interval!.startTime <= 300);
       final isOutro =
           skip.skipType == SkipType.ed ||
-          (skip.skipType == SkipType.mixed && skip.interval!.startTime >= 700);
+          (skip.skipType == SkipType.mixed && skip.interval!.startTime > 300);
 
       if (isIntro && _hasAutoSkippedIntro) continue;
       if (isOutro && _hasAutoSkippedOutro) continue;
@@ -722,8 +727,10 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           skip.skipId?.isNotEmpty == true ||
           durationMatches;
       final plausiblePlacement =
-          (isIntro && start <= const Duration(minutes: 3)) ||
-          (isOutro && start.inSeconds >= (_dur * .55));
+          (isIntro && start <= const Duration(minutes: 5)) ||
+          (isOutro &&
+              start.inSeconds >= (_dur * .50) &&
+              start >= const Duration(minutes: 5));
       final validTiming =
           start >= Duration.zero &&
           end > start &&

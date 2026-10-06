@@ -35,11 +35,25 @@ class PiPNotifier extends Notifier<bool> {
       final bool inPiP = call.arguments as bool? ?? false;
       AppLogger.i('PiP state changed: $inPiP');
       state = inPiP;
+      if (inPiP) {
+        // When entering PiP, ensure video continues playing smoothly
+        final isPlaying = ref.read(playerStateProvider).isPlaying;
+        if (!isPlaying) {
+          await ref.read(playerStateProvider.notifier).play();
+        }
+      }
     } else if (call.method == 'onPiPAction') {
       final String action = call.arguments?.toString() ?? '';
       AppLogger.i('PiP action received: $action');
       if (action == 'play_pause') {
-        ref.read(playerStateProvider.notifier).videoController.player.playOrPause();
+        final playerNotifier = ref.read(playerStateProvider.notifier);
+        final isPlaying = ref.read(playerStateProvider).isPlaying;
+        if (isPlaying) {
+          await playerNotifier.pause();
+        } else {
+          await playerNotifier.play();
+        }
+        await updatePlaybackState(!isPlaying);
       } else if (action == 'prev') {
         ref.read(episodeDataProvider.notifier).changeEpisode(null, by: -1);
       } else if (action == 'next') {
@@ -51,10 +65,15 @@ class PiPNotifier extends Notifier<bool> {
   Future<bool> enterPiP({bool? isPlaying}) async {
     if (!Platform.isAndroid) return false;
     try {
+      state = true;
       final playing = isPlaying ?? ref.read(playerStateProvider).isPlaying;
       final res = await _channel.invokeMethod<bool>('enterPiP', {'isPlaying': playing});
+      if (res != true) {
+        state = false;
+      }
       return res ?? false;
     } catch (e) {
+      state = false;
       AppLogger.e('Failed to enter PiP: $e');
       return false;
     }
