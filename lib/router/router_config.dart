@@ -260,6 +260,10 @@ final routerConfig = GoRouter(
           ),
     ),
     AnimatedGoRoute(
+      path: '/watch-history',
+      contentBuilder: (_, _) => const WatchHistoryScreen(),
+    ),
+    AnimatedGoRoute(
       path: '/settings',
       contentBuilder: (_, _) => const SettingsScreen(),
       routes: [

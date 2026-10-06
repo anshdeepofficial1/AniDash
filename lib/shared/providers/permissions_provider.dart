@@ -86,56 +86,73 @@ class Permissions extends _$Permissions {
   }
 
   Future<bool> requestNotificationPermission() async {
-    if (state.notification) return true;
     if (Platform.isAndroid) {
+      if (state.notification) return true;
       final granted = await _request(Permission.notification);
       if (granted) await RemotePushService.requestPermission();
       state = state.copyWith(notification: granted);
       return granted;
     }
-    if (!Platform.isAndroid && !Platform.isIOS && !Platform.isMacOS) {
-      return true;
+    if (Platform.isMacOS || Platform.isIOS) {
+      final granted = await NotificationService().requestSystemPermission();
+      state = state.copyWith(notification: granted);
+      return granted;
     }
-    final granted = await NotificationService().requestSystemPermission();
-    state = state.copyWith(notification: granted);
-    return granted;
+    // Desktop (Windows/Linux)
+    final newState = !state.notification;
+    state = state.copyWith(notification: newState);
+    return newState;
+  }
+
+  void setNotificationAccess(bool enabled) {
+    state = state.copyWith(notification: enabled);
   }
 
   Future<bool> requestStoragePermission() async {
-    if (state.storage || !Platform.isAndroid) return true;
-    await _initSdkInt();
-    if (_usesAppOwnedStorage) {
-      if (!await _hasWritableDownloadStorage()) {
-        state = state.copyWith(storage: false);
-        return false;
+    if (Platform.isAndroid) {
+      if (state.storage) return true;
+      await _initSdkInt();
+      if (_usesAppOwnedStorage) {
+        if (!await _hasWritableDownloadStorage()) {
+          state = state.copyWith(storage: false);
+          return false;
+        }
+        await (await SharedPreferences.getInstance()).setBool(
+          _storageConsentKey,
+          true,
+        );
+        state = state.copyWith(storage: true);
+        return true;
       }
-      await (await SharedPreferences.getInstance()).setBool(
-        _storageConsentKey,
-        true,
-      );
-      state = state.copyWith(storage: true);
-      return true;
+      final granted = await _request(_storagePermission());
+      final writable = granted && await _hasWritableDownloadStorage();
+      if (writable) {
+        await (await SharedPreferences.getInstance()).setBool(
+          _storageConsentKey,
+          true,
+        );
+      }
+      state = state.copyWith(storage: writable);
+      return writable;
     }
-    final granted = await _request(_storagePermission());
-    final writable = granted && await _hasWritableDownloadStorage();
-    if (writable) {
-      await (await SharedPreferences.getInstance()).setBool(
-        _storageConsentKey,
-        true,
-      );
-    }
+
+    // Desktop / macOS / iOS: Writable check
+    final writable = await _hasWritableDownloadStorage();
+    await (await SharedPreferences.getInstance()).setBool(
+      _storageConsentKey,
+      true,
+    );
     state = state.copyWith(storage: writable);
     return writable;
   }
 
   Future<void> revokeStorageAccess() async {
-    if (Platform.isAndroid && _usesAppOwnedStorage) {
-      await (await SharedPreferences.getInstance()).setBool(
-        _storageConsentKey,
-        false,
-      );
-      state = state.copyWith(storage: false);
-    } else if (Platform.isAndroid) {
+    await (await SharedPreferences.getInstance()).setBool(
+      _storageConsentKey,
+      false,
+    );
+    state = state.copyWith(storage: false);
+    if (Platform.isAndroid && !_usesAppOwnedStorage) {
       await openAppSettings();
     }
   }
