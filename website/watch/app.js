@@ -499,33 +499,17 @@ function resetVideoElement(video){
 function orderedStreamCandidates(sources){
   const preferred=String(webSettings.preferredQuality||'Auto').toLowerCase();
   const wanted=preferred==='auto'?null:preferred.replace('p','');
-  const serverRank={'Neko HD':0,'Momo':1,'Zoko':2,'Gigi':3,'Neko':4};
+  const serverRank={'Momo':0,'Zoko':1,'Gigi':2,'Neko':3};
 
-  const sorted=[...(sources||[])]
-    .filter(source=>source?.url)
+  const seen=new Set();
+  return [...(sources||[])]
+    .filter(source=>source?.url&&!seen.has(source.url)&&(seen.add(source.url),true))
     .sort((a,b)=>{
       const aq=wanted&&String(a.quality||'').toLowerCase().replace('p','').includes(wanted)?0:1;
       const bq=wanted&&String(b.quality||'').toLowerCase().replace('p','').includes(wanted)?0:1;
       if(aq!==bq) return aq-bq;
       return (serverRank[a.server]??99)-(serverRank[b.server]??99);
     });
-
-  const expanded=[];
-  const seen=new Set();
-  for(const source of sorted){
-    const variants=[
-      {...source,transport:'AniDash proxy'},
-      ...(source.directProxyUrl&&source.directProxyUrl!==source.url
-        ? [{...source,url:source.directProxyUrl,transport:'Direct proxy'}]
-        : [])
-    ];
-    for(const variant of variants){
-      if(!variant.url||seen.has(variant.url)) continue;
-      seen.add(variant.url);
-      expanded.push(variant);
-    }
-  }
-  return expanded;
 }
 
 async function tryNativeStream(video,source){
@@ -558,6 +542,7 @@ async function tryHlsStream(video,source){
 
   return new Promise((resolve,reject)=>{
     let settled=false;
+    let mediaRecoveries=0;
     const hls=new Hls({
       maxBufferLength:90,
       maxMaxBufferLength:120,
@@ -566,6 +551,9 @@ async function tryHlsStream(video,source){
       manifestLoadingTimeOut:12000,
       levelLoadingTimeOut:12000,
       fragLoadingTimeOut:15000,
+      manifestLoadingMaxRetry:1,
+      levelLoadingMaxRetry:1,
+      fragLoadingMaxRetry:2,
     });
     state.hls=hls;
 
@@ -582,22 +570,78 @@ async function tryHlsStream(video,source){
         resolve();
       }
     };
+
     const videoFailed=()=>finish(Error('Browser rejected this video stream'));
-    const timer=setTimeout(()=>finish(Error('Video stream timed out')),18000);
+    const timer=setTimeout(()=>finish(Error('Video stream timed out')),20000);
 
     video.addEventListener('error',videoFailed,{once:true});
     hls.on(Hls.Events.ERROR,(_,data)=>{
-      if(data.fatal){
-        finish(Error(
-          data.type===Hls.ErrorTypes.NETWORK_ERROR
-            ? 'Stream network request failed'
-            : 'Stream format could not be decoded'
-        ));
+      if(!data.fatal) return;
+
+      if(
+        data.type===Hls.ErrorTypes.MEDIA_ERROR &&
+        mediaRecoveries<1
+      ){
+        mediaRecoveries++;
+        try{
+          hls.recoverMediaError();
+          return;
+        }catch(_){}
       }
+
+      finish(Error(
+        data.type===Hls.ErrorTypes.NETWORK_ERROR
+          ? 'Stream network request failed'
+          : 'Stream format could not be decoded'
+      ));
     });
     hls.on(Hls.Events.FRAG_BUFFERED,()=>finish());
     hls.loadSource(source.url);
     hls.attachMedia(video);
+  });
+}
+
+async function startAndConfirmPlayback(video){
+  const start=Number(video.currentTime||0);
+
+  try{
+    await video.play();
+  }catch(error){
+    if(error?.name==='NotAllowedError'){
+      return {needsTap:true};
+    }
+    throw error;
+  }
+
+  if(Number(video.currentTime||0)>start+0.05){
+    return {needsTap:false};
+  }
+
+  return new Promise((resolve,reject)=>{
+    let settled=false;
+
+    const finish=(error)=>{
+      if(settled) return;
+      settled=true;
+      clearTimeout(timer);
+      video.removeEventListener('timeupdate',advanced);
+      video.removeEventListener('playing',playing);
+      video.removeEventListener('error',failed);
+      error?reject(error):resolve({needsTap:false});
+    };
+
+    const advanced=()=>{
+      if(Number(video.currentTime||0)>start+0.05) finish();
+    };
+    const playing=()=>{
+      setTimeout(advanced,250);
+    };
+    const failed=()=>finish(Error('This stream could not be decoded'));
+    const timer=setTimeout(()=>finish(Error('Video started but no frame was decoded')),12000);
+
+    video.addEventListener('timeupdate',advanced);
+    video.addEventListener('playing',playing);
+    video.addEventListener('error',failed,{once:true});
   });
 }
 
@@ -616,7 +660,7 @@ async function playEpisode(ep){
       id:state.current.id,
       episode:ep.number,
       audio
-    },{timeout:18000});
+    },{timeout:22000});
 
     const candidates=orderedStreamCandidates(x.sources||[]);
     if(!candidates.length){
@@ -633,10 +677,7 @@ async function playEpisode(ep){
 
     for(let index=0;index<candidates.length;index++){
       const source=candidates[index];
-      const label=[source.server,source.quality,source.transport]
-        .filter(Boolean)
-        .join(' · ');
-
+      const label=[source.server,source.quality].filter(Boolean).join(' · ');
       $('#playerStatus').textContent=
         candidates.length>1
           ? `Trying ${label||'stream'} (${index+1}/${candidates.length})…`
@@ -645,28 +686,18 @@ async function playEpisode(ep){
       resetVideoElement(video);
 
       try{
-        const useNative=
-          source.isM3U8
-            ? !!video.canPlayType('application/vnd.apple.mpegurl')
-            : true;
-
-        if(source.isM3U8&& !useNative){
-          await tryHlsStream(video,source);
+        if(source.isM3U8){
+          if(video.canPlayType('application/vnd.apple.mpegurl')){
+            await tryNativeStream(video,source);
+          }else{
+            await tryHlsStream(video,source);
+          }
         }else{
           await tryNativeStream(video,source);
         }
 
-        try{
-          await video.play();
-          needsTap=false;
-        }catch(playError){
-          if(playError?.name==='NotAllowedError'){
-            needsTap=true;
-          }else{
-            throw playError;
-          }
-        }
-
+        const result=await startAndConfirmPlayback(video);
+        needsTap=result.needsTap;
         chosen=source;
         break;
       }catch(error){
@@ -676,7 +707,7 @@ async function playEpisode(ep){
     }
 
     if(!chosen){
-      throw lastError||Error('No working stream server was found.');
+      throw lastError||Error('No browser-compatible stream server was found.');
     }
 
     loading.hidden=true;
