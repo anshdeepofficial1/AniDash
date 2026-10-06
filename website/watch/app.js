@@ -505,10 +505,11 @@ function orderedStreamCandidates(sources){
   return [...(sources||[])]
     .filter(source=>source?.url&&!seen.has(source.url)&&(seen.add(source.url),true))
     .sort((a,b)=>{
+      const serverDiff=(serverRank[a.server]??99)-(serverRank[b.server]??99);
+      if(serverDiff!==0) return serverDiff;
       const aq=wanted&&String(a.quality||'').toLowerCase().replace('p','').includes(wanted)?0:1;
       const bq=wanted&&String(b.quality||'').toLowerCase().replace('p','').includes(wanted)?0:1;
-      if(aq!==bq) return aq-bq;
-      return (serverRank[a.server]??99)-(serverRank[b.server]??99);
+      return aq-bq;
     });
 }
 
