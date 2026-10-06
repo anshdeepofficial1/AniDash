@@ -21,6 +21,14 @@
       document.head.appendChild(link);
     })();
   </script>
+  <style>
+    /* Critical shell guard: prevents raw SVG/app markup if the full stylesheet is delayed. */
+    html,body{margin:0;min-height:100%;background:#f8faf7;color:#111512}
+    .svg-defs{position:absolute!important;width:0!important;height:0!important;overflow:hidden!important}
+    .icon{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8}
+    .page{display:none}.page.active{display:block}.side-nav{display:none}
+    @media(prefers-color-scheme:dark){html,body{background:#090d0a;color:#f2f6f2}}
+  </style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
