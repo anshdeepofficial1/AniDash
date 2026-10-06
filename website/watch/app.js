@@ -16,7 +16,9 @@ const state={
   lastMainPage:'homePage',
   pageHistory:[],
   aiConversation:[],
-  newsLoaded:false
+  newsLoaded:false,
+  playingEpisode:null,
+  lastProgressSave:0
 };
 
 const DEFAULT_WEB_SETTINGS={
@@ -75,6 +77,8 @@ function applyWebSettings(){
   const dark=webSettings.theme==='dark'||(webSettings.theme==='system'&&systemDark);
   const themeColor=dark?(webSettings.amoled?'#000000':'#090d0a'):'#f8faf7';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content',themeColor);
+  const themeUse=$('#macThemeButton use');
+  if(themeUse) themeUse.setAttribute('href',dark?'#i-moon':'#i-sun');
 }
 
 function saveWebSettings(){
@@ -151,7 +155,7 @@ const api=async(params,{timeout=20000}={})=>{
 const titleOf=x=>x?.title?.english||x?.title?.romaji||x?.title?.native||x?.name||x?.title||'Untitled';
 const imageOf=x=>x?.coverImage?.extraLarge||x?.coverImage?.large||x?.cover||x?.poster||'';
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-const mediaFields=`id title{english romaji native} synonyms coverImage{extraLarge large} bannerImage seasonYear episodes format averageScore status description(asHtml:false) genres isAdult nextAiringEpisode{episode timeUntilAiring}`;
+const mediaFields=`id title{english romaji native} synonyms coverImage{extraLarge large} bannerImage seasonYear episodes duration format averageScore status description(asHtml:false) genres isAdult nextAiringEpisode{episode timeUntilAiring}`;
 const mangaFields=`id title{english romaji native} synonyms coverImage{extraLarge large} bannerImage seasonYear chapters volumes format averageScore status description(asHtml:false) genres isAdult`;
 
 function seasonBadge(x){
@@ -173,6 +177,14 @@ function seasonBadge(x){
   return 'S1';
 }
 
+function formatWatchClock(seconds){
+  const safe=Math.max(0,Math.floor(Number(seconds)||0));
+  const minutes=Math.floor(safe/60);
+  const remainder=safe%60;
+  if(minutes===0) return `${remainder}s`;
+  return `${minutes}:${String(remainder).padStart(2,'0')}`;
+}
+
 function card(x,wide=false,type='anime'){
   const title=titleOf(x);
   const baseImage=imageOf(x);
@@ -181,18 +193,27 @@ function card(x,wide=false,type='anime'){
     ? (x.chapters?`${x.chapters} CHAPTERS`:(x.format||'MANGA'))
     : (x.format==='MOVIE'?'MOVIE':(x.episodes?`${x.episodes} EPS`:(x.nextAiringEpisode?.episode>1?`${x.nextAiringEpisode.episode-1}+ EPS`:'? EPS')));
   const badge=type==='manga'?(x.format==='NOVEL'?'LN':'M'):seasonBadge(x);
+  const watched=Number(x.progressSeconds)||0;
+  const duration=Number(x.durationSeconds)||0;
+  const progress=duration>0?Math.max(0,Math.min(1,watched/duration)):0;
+  const remaining=duration>watched?duration-watched:0;
+  const continueMeta=wide
+    ? `<small class="continue-episode">E${esc(x.episode||1)} · ${esc(x.episodeTitle||'Continue watching')}</small>`+
+      (duration>0?`<small class="continue-time">${esc(formatWatchClock(watched))} watched · ${esc(formatWatchClock(remaining))} left</small>`:'')
+    : `<small>${esc(meta)}</small>`;
+
   return `<button class="anime-card" data-id="${esc(x.id)}" data-title="${encodeURIComponent(title)}" data-image="${encodeURIComponent(baseImage)}" data-type="${type}">
     <div class="cover">
       <img src="${esc(image)}" loading="lazy" alt="">
       ${badge?`<span class="corner">${esc(badge)}</span>`:''}
       ${x.averageScore?`<span class="rating">★ ${(x.averageScore/10).toFixed(1)}</span>`:''}
-      ${wide?'<span class="play-fab">▶</span><span class="progress"><i></i></span>':''}
+      ${wide?'<span class="play-fab">▶</span>':''}
+      ${wide?`<span class="progress"><i style="width:${(progress*100).toFixed(1)}%"></i></span>`:''}
     </div>
     <strong>${esc(title)}</strong>
-    <small>${wide?`E${x.episode||1} · ${esc(x.episodeTitle||'Continue watching')}`:esc(meta)}</small>
+    ${continueMeta}
   </button>`;
 }
-
 function rail(title,items,homeKey,browseFilter='all'){
   return `<section class="home-block" data-home-section="${esc(homeKey)}">
     <div class="section-title"><h2>${esc(title)}</h2><button class="section-more" data-filter="${esc(browseFilter)}" aria-label="Open ${esc(title)}">›</button></div>
@@ -226,24 +247,30 @@ function renderSpotlight(items){
   const rail=$('#spotlightRail');
   const heroes=items.slice(0,Math.min(8,items.length));
   rail.classList.remove('skeleton');
-  rail.innerHTML=heroes.map(hero=>`
-    <button class="spotlight-slide" data-id="${hero.id}" data-title="${encodeURIComponent(titleOf(hero))}" data-image="${encodeURIComponent(imageOf(hero))}" style="background-image:url('${esc(hero.bannerImage||imageOf(hero))}')">
-      <span class="score">★ ${hero.averageScore?(hero.averageScore/10).toFixed(1):'—'}</span>
-      <div class="spotlight-content">
-        <div class="spotlight-meta">
-          <span class="badge">${esc(hero.status?.replaceAll('_',' ')||'ONGOING')}</span>
-          <span class="badge">${esc(hero.format||'TV')}</span>
-          <span class="badge">${hero.episodes||hero.nextAiringEpisode?.episode-1||'?'} EPISODES</span>
+  rail.innerHTML=heroes.map(hero=>{
+    const status=String(hero.status||'').toUpperCase()==='RELEASING'?'Ongoing':String(hero.status||'').replaceAll('_',' ');
+    const description=String(hero.description||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+    return `
+      <button class="spotlight-slide" data-id="${hero.id}" data-title="${encodeURIComponent(titleOf(hero))}" data-image="${encodeURIComponent(imageOf(hero))}" style="background-image:url('${esc(hero.bannerImage||imageOf(hero))}')">
+        ${hero.averageScore?`<span class="score">★ ${(hero.averageScore/10).toFixed(1)}</span>`:''}
+        <div class="spotlight-content">
+          <h1>${esc(titleOf(hero))}</h1>
+          ${description?`<p class="spotlight-description">${esc(description)}</p>`:''}
+          <div class="spotlight-meta">
+            ${status?`<span class="badge">${esc(status)}</span>`:''}
+            ${hero.format?`<span class="badge">${esc(hero.format)}</span>`:''}
+            ${hero.duration?`<span class="badge">${esc(hero.duration)} min</span>`:''}
+          </div>
         </div>
-        <h1>${esc(titleOf(hero))}</h1>
-      </div>
-    </button>
-  `).join('');
+      </button>`;
+  }).join('');
+
   rail.querySelectorAll('.spotlight-slide').forEach(b=>b.onclick=()=>openDetails({
     id:+b.dataset.id,
     title:decodeURIComponent(b.dataset.title),
     cover:decodeURIComponent(b.dataset.image)
   }));
+
   if(heroes.length>1&&webSettings.spotlightAutoPlay){
     state.spotlightTimer=setInterval(()=>{
       if(document.hidden) return;
@@ -253,7 +280,6 @@ function renderSpotlight(items){
     },5000);
   }
 }
-
 async function loadHome(){
   try{
     const q=`query{
@@ -295,7 +321,13 @@ async function loadHome(){
 }
 
 function renderContinue(){
-  const saved=JSON.parse(localStorage.getItem('anidash-progress')||'[]').sort((a,b)=>b.time-a.time);
+  const saved=JSON.parse(localStorage.getItem('anidash-progress')||'[]')
+    .filter(item=>{
+      const progress=Number(item.progressSeconds)||0;
+      const duration=Number(item.durationSeconds)||0;
+      return !(duration>0&&progress/duration>=0.92);
+    })
+    .sort((a,b)=>b.time-a.time);
   const section=$('#continueSection');
   if(!saved.length){section.hidden=true;return}
   section.hidden=false;
@@ -649,8 +681,76 @@ async function startAndConfirmPlayback(video){
   });
 }
 
+function savedProgressFor(ep){
+  try{
+    const list=JSON.parse(localStorage.getItem('anidash-progress')||'[]');
+    return list.find(item=>
+      String(item.id)===String(state.current?.id)&&
+      Number(item.episode)===Number(ep?.number)
+    )||null;
+  }catch(_){
+    return null;
+  }
+}
+
+async function restoreResumePosition(video,ep){
+  const saved=savedProgressFor(ep);
+  const position=Number(saved?.progressSeconds)||0;
+  if(position<=1) return;
+
+  if(video.readyState<1){
+    await Promise.race([
+      new Promise(resolve=>video.addEventListener('loadedmetadata',resolve,{once:true})),
+      new Promise(resolve=>setTimeout(resolve,3000))
+    ]);
+  }
+
+  const duration=Number(video.duration)||Number(saved?.durationSeconds)||0;
+  if(duration>0&&position>=duration*0.92) return;
+  try{video.currentTime=position}catch(_){}
+}
+
+function persistPlaybackProgress(ep,video,{force=false}={}){
+  if(webSettings.incognito||!ep||!state.current) return;
+  const now=Date.now();
+  if(!force&&now-state.lastProgressSave<4500) return;
+  state.lastProgressSave=now;
+
+  let list=[];
+  try{list=JSON.parse(localStorage.getItem('anidash-progress')||'[]')}catch(_){}
+  const previous=list.find(item=>String(item.id)===String(state.current.id));
+  list=list.filter(item=>String(item.id)!==String(state.current.id));
+
+  const progressSeconds=Math.max(0,Math.floor(Number(video?.currentTime)||Number(previous?.progressSeconds)||0));
+  const mediaDuration=Number(video?.duration);
+  const durationSeconds=Number.isFinite(mediaDuration)&&mediaDuration>0
+    ? Math.floor(mediaDuration)
+    : Math.max(0,Math.floor(Number(previous?.durationSeconds)||0));
+
+  list.unshift({
+    ...previous,
+    id:state.current.id,
+    title:state.current.title||titleOf(state.current),
+    cover:ep.image||state.current.bannerImage||state.current.cover||imageOf(state.current),
+    bannerImage:ep.image||state.current.bannerImage,
+    episode:+ep.number,
+    episodeTitle:ep.title||`Episode ${ep.number}`,
+    episodes:state.current.episodes,
+    format:state.current.format,
+    progressSeconds,
+    durationSeconds,
+    time:now
+  });
+
+  localStorage.setItem('anidash-progress',JSON.stringify(list.slice(0,30)));
+  renderContinue();
+  renderHistoryPage();
+}
+
 async function playEpisode(ep){
   const dlg=$('#playerDialog'),video=$('#video'),loading=$('#playerLoading');
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,video,{force:true});
+  state.playingEpisode=null;
   if(!dlg.open) dlg.showModal();
   $('#playerTitle').textContent=`E${ep.number} — ${ep.title||'Episode '+ep.number}`;
   $('#playerStatus').textContent='';
@@ -700,6 +800,7 @@ async function playEpisode(ep){
           await tryNativeStream(video,source);
         }
 
+        await restoreResumePosition(video,ep);
         const result=await startAndConfirmPlayback(video);
         needsTap=result.needsTap;
         chosen=source;
@@ -720,32 +821,14 @@ async function playEpisode(ep){
       needsTap
         ? (chosenLabel?chosenLabel+' · ':'')+'Tap play to start'
         : '';
-    saveProgress(ep);
+    state.playingEpisode=ep;
+    persistPlaybackProgress(ep,video,{force:true});
   }catch(error){
     loading.hidden=true;
     resetVideoElement(video);
     $('#playerStatus').textContent=
       error?.message||'Playback failed. Try another audio track.';
   }
-}
-
-function saveProgress(ep){
-  if(webSettings.incognito) return;
-  let list=JSON.parse(localStorage.getItem('anidash-progress')||'[]').filter(x=>String(x.id)!==String(state.current.id));
-  list.unshift({
-    id:state.current.id,
-    title:state.current.title||titleOf(state.current),
-    cover:ep.image||state.current.bannerImage||state.current.cover||imageOf(state.current),
-    bannerImage:ep.image||state.current.bannerImage,
-    episode:+ep.number,
-    episodeTitle:ep.title||`Episode ${ep.number}`,
-    episodes:state.current.episodes,
-    format:state.current.format,
-    time:Date.now()
-  });
-  localStorage.setItem('anidash-progress',JSON.stringify(list.slice(0,30)));
-  renderContinue();
-  renderHistoryPage();
 }
 
 function getLibrary(){
@@ -1130,6 +1213,17 @@ function showUtility(title,body){
 
 $$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
 
+function syncDesktopEdition(){
+  const badge=$('#macEditionBadge');
+  if(!badge) return;
+  const ua=navigator.userAgent||'';
+  badge.textContent=/Windows/i.test(ua)
+    ? 'Windows Edition'
+    : /(Macintosh|Mac OS X)/i.test(ua)
+      ? 'macOS Edition'
+      : 'Desktop Edition';
+}
+
 $('#macSidebarToggle').onclick=()=>{
   const collapsed=!document.body.classList.contains('mac-sidebar-collapsed');
   document.body.classList.toggle('mac-sidebar-collapsed',collapsed);
@@ -1274,6 +1368,8 @@ $('.utility-close-action').onclick=()=>$('#utilityDialog').close();
 $('.details-back').onclick=()=>$('#detailsDialog').close();
 $('.player-back').onclick=()=>{
   const v=$('#video');
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,v,{force:true});
+  state.playingEpisode=null;
   v.pause();
   if(state.hls){state.hls.destroy();state.hls=null}
   v.removeAttribute('src');
@@ -1398,6 +1494,7 @@ document.body.classList.toggle(
   'mac-sidebar-collapsed',
   localStorage.getItem('anidash-mac-sidebar-collapsed')==='1'
 );
+syncDesktopEdition();
 applyWebSettings();
 syncSettingsControls();
 renderHistory();
@@ -1416,6 +1513,20 @@ desktopShellQuery.addEventListener?.('change',event=>{
     return;
   }
   syncMacChrome(active);
+});
+
+const playerVideo=$('#video');
+playerVideo.addEventListener('timeupdate',()=>{
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,playerVideo);
+});
+playerVideo.addEventListener('pause',()=>{
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,playerVideo,{force:true});
+});
+playerVideo.addEventListener('ended',()=>{
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,playerVideo,{force:true});
+});
+window.addEventListener('pagehide',()=>{
+  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,playerVideo,{force:true});
 });
 
 if('serviceWorker' in navigator){

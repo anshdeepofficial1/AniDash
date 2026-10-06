@@ -64,6 +64,8 @@
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.1"/></symbol>
     <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 11 18-8-8 18-2-8zM11 13l10-10"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15.7A8.6 8.6 0 0 1 8.3 4a8.7 8.7 0 1 0 11.7 11.7z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.7"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></symbol>
   </svg>
 
   <aside class="side-nav" aria-label="Main navigation">
@@ -78,7 +80,7 @@
     <div class="mac-sidebar-head">
       <div class="mac-brand">
         <img src="https://anidashweb.vercel.app/assets/anidash_logo.png" alt="">
-        <span><b>AniDash</b><small>macOS Edition</small></span>
+        <span><b>AniDash</b><small id="macEditionBadge">Desktop Edition</small></span>
       </div>
       <button id="macSidebarToggle" class="mac-icon-button" aria-label="Collapse sidebar" title="Collapse Sidebar">
         <svg class="icon"><use href="#i-sidebar"/></svg>
@@ -120,7 +122,8 @@
         <button class="mac-nav-item mac-settings-link" data-settings-focus="appearance" data-mac-label="Appearance & Themes" data-mac-icon="i-palette"><svg class="icon"><use href="#i-palette"/></svg><span>Appearance &amp; Themes</span></button>
         <button class="mac-nav-item mac-settings-link" data-settings-focus="content playback video quality audio" data-mac-label="Video Player" data-mac-icon="i-video"><svg class="icon"><use href="#i-video"/></svg><span>Video Player</span></button>
         <button class="mac-nav-item mac-settings-link" data-settings-focus="account" data-mac-label="Account & Tracking" data-mac-icon="i-user"><svg class="icon"><use href="#i-user"/></svg><span>Account &amp; Tracking</span></button>
-        <button class="mac-nav-item mac-settings-link" data-settings-focus="data storage" data-mac-label="Data & Storage" data-mac-icon="i-download"><svg class="icon"><use href="#i-download"/></svg><span>Data &amp; Storage</span></button>
+        <button class="mac-nav-item mac-settings-link" data-settings-focus="download" data-mac-label="Download Settings" data-mac-icon="i-download"><svg class="icon"><use href="#i-download"/></svg><span>Download Settings</span></button>
+        <button class="mac-nav-item mac-settings-link" data-settings-focus="data storage" data-mac-label="Data & Storage" data-mac-icon="i-extension"><svg class="icon"><use href="#i-extension"/></svg><span>Data &amp; Storage</span></button>
         <button class="mac-nav-item" id="macAboutButton" data-mac-label="About AniDash" data-mac-icon="i-info"><svg class="icon"><use href="#i-info"/></svg><span>About AniDash</span></button>
       </section>
     </div>
@@ -146,7 +149,7 @@
     <div class="mac-topbar-actions">
       <button id="macAiButton" class="mac-icon-button accent" aria-label="Ask AniAI" title="Ask AniAI (⌘K)"><svg class="icon"><use href="#i-spark"/></svg></button>
       <button id="macNotificationsButton" class="mac-icon-button" aria-label="Notifications" title="Notifications"><svg class="icon"><use href="#i-bell"/></svg></button>
-      <button id="macThemeButton" class="mac-icon-button" aria-label="Cycle theme" title="Cycle Theme"><svg class="icon"><use href="#i-palette"/></svg></button>
+      <button id="macThemeButton" class="mac-icon-button" aria-label="Cycle theme" title="Cycle Theme"><svg class="icon"><use href="#i-moon"/></svg></button>
       <button id="macFullscreenButton" class="mac-icon-button" aria-label="Toggle fullscreen" title="Toggle Fullscreen"><svg class="icon"><use href="#i-maximize"/></svg></button>
     </div>
   </header>
