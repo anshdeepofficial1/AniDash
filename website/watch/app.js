@@ -745,6 +745,7 @@ function saveProgress(ep){
   });
   localStorage.setItem('anidash-progress',JSON.stringify(list.slice(0,30)));
   renderContinue();
+  renderHistoryPage();
 }
 
 function getLibrary(){
@@ -1119,7 +1120,111 @@ function showUtility(title,body){
   if(!dlg.open) dlg.showModal();
 }
 
-$$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
+$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
+
+$('#macSidebarToggle').onclick=()=>{
+  const collapsed=!document.body.classList.contains('mac-sidebar-collapsed');
+  document.body.classList.toggle('mac-sidebar-collapsed',collapsed);
+  localStorage.setItem('anidash-mac-sidebar-collapsed',collapsed?'1':'0');
+  $('#macSidebarToggle').setAttribute('aria-label',collapsed?'Expand sidebar':'Collapse sidebar');
+};
+$('#macAiHero').onclick=()=>openPage('aiPage');
+$('#macAiButton').onclick=()=>openPage('aiPage');
+$('#macNotificationsButton').onclick=()=>openPage('notificationsPage');
+$('#macThemeButton').onclick=cycleDesktopTheme;
+$('#macFullscreenButton').onclick=toggleFullscreen;
+$('#macBack').onclick=desktopBack;
+$('#macProfileFooter').onclick=()=>$('#accountDialog').showModal();
+$('#macAboutButton').onclick=()=>showUtility('About AniDash','AniDash PWA · Desktop Edition. The desktop shell mirrors the native macOS layout while keeping browser-safe playback, local library data, AniAI, news, notifications, settings, and PWA installation.');
+$('.mac-settings-link').forEach(button=>{
+  button.onclick=()=>openSettingsFocus(
+    button.dataset.settingsFocus||'',
+    button.dataset.macLabel||'Settings',
+    button.dataset.macIcon||'i-settings'
+  );
+});
+
+$('#macSearchForm').onsubmit=event=>{
+  event.preventDefault();
+  const query=$('#macSearchInput').value.trim();
+  if(!query) return;
+  openPage('browsePage');
+  $('#searchInput').value=query;
+  runSearch();
+};
+
+$('#historyExplore').onclick=()=>openPage('browsePage');
+$('#clearHistoryFromPage').onclick=()=>{
+  if(confirm('Clear all AniDash watch history on this device?')){
+    localStorage.removeItem('anidash-progress');
+    renderHistoryPage();
+    renderContinue();
+    renderHistoryPage();
+  }
+};
+
+$('#aiChatForm').onsubmit=event=>{
+  event.preventDefault();
+  const input=$('#aiChatInput');
+  const message=input.value.trim();
+  if(!message) return;
+  input.value='';
+  sendAiMessage(message);
+};
+$('#aiChatInput').onkeydown=event=>{
+  if(event.key==='Enter'&&!event.shiftKey){
+    event.preventDefault();
+    $('#aiChatForm').requestSubmit();
+  }
+};
+
+$('#refreshNewsButton').onclick=()=>loadDesktopNews(true);
+$('#desktopNotificationPermission').onclick=requestDesktopNotifications;
+$('#checkSourceButton').onclick=checkSourceHealth;
+
+document.addEventListener('keydown',event=>{
+  const mod=event.metaKey||event.ctrlKey;
+  if(event.key==='F11'){
+    event.preventDefault();
+    toggleFullscreen();
+    return;
+  }
+  if(!mod||!isDesktopShell()) return;
+
+  const key=event.key.toLowerCase();
+  const digitPages={
+    '1':'homePage','2':'browsePage','3':'mangaPage','4':'downloadsPage','5':'watchlistPage'
+  };
+  if(digitPages[key]){
+    event.preventDefault();
+    openPage(digitPages[key]);
+    return;
+  }
+  if(key==='f'){
+    event.preventDefault();
+    $('#macSearchInput').focus();
+    $('#macSearchInput').select();
+  }else if(key==='k'){
+    event.preventDefault();
+    openPage('aiPage');
+    setTimeout(()=>$('#aiChatInput')?.focus(),0);
+  }else if(key==='n'){
+    event.preventDefault();
+    openPage('newsPage');
+  }else if(key===','){
+    event.preventDefault();
+    openSettingsFocus('');
+  }else if(key==='h'){
+    event.preventDefault();
+    openPage('historyPage');
+  }else if(key==='e'){
+    event.preventDefault();
+    openPage('extensionsPage');
+  }else if(key==='['){
+    event.preventDefault();
+    desktopBack();
+  }
+});
 
 $('#searchInput').oninput=()=>{
   clearTimeout(state.searchTimer);
@@ -1151,9 +1256,9 @@ $('.sheet-close').onclick=()=>$('#accountDialog').close();
 $('.sheet-close-action').onclick=()=>$('#accountDialog').close();
 $('#accountBrowse').onclick=()=>{$('#accountDialog').close();openPage('browsePage')};
 
-$('#niaButton').onclick=()=>showUtility('AniDash AI','The native AniDash AI service is not exposed to the public web client yet. Anime discovery and playback remain fully separate from this unavailable native service.');
-$('#newsButton').onclick=()=>showUtility('AniDash News','News requires the native AniDash news service. This web build does not show a fake feed.');
-$('#notificationButton').onclick=()=>openPage('settingsPage');
+$('#niaButton').onclick=()=>isDesktopShell()?openPage('aiPage'):showUtility('AniDash AI','AniAI is available in the desktop PWA workspace. The phone layout keeps the compact AniDash mobile experience.');
+$('#newsButton').onclick=()=>isDesktopShell()?openPage('newsPage'):showUtility('AniDash News','Anime News is available in the desktop PWA workspace. The phone layout stays compact.');
+$('#notificationButton').onclick=()=>isDesktopShell()?openPage('notificationsPage'):openPage('settingsPage');
 $('#settingsButton').onclick=()=>openPage('settingsPage');
 $('#libraryTune').onclick=()=>showUtility('Customize Library','Tracked titles are stored locally on this device and organized with the same AniDash status tabs.');
 $('.utility-close').onclick=()=>$('#utilityDialog').close();
@@ -1176,7 +1281,7 @@ $('#audio').onchange=()=>{
   if(item) playEpisode(item);
 };
 
-$('#settingsBack').onclick=()=>openPage(state.lastMainPage||'homePage');
+$('#settingsBack').onclick=()=>isDesktopShell()?desktopBack():openPage(state.lastMainPage||'homePage');
 $('#settingsSearchButton').onclick=()=>{
   const wrap=$('#settingsSearchWrap');
   wrap.hidden=!wrap.hidden;
