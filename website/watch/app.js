@@ -13,7 +13,10 @@ const state={
   spotlightIndex:0,
   libraryStatus:'watching',
   browseFilter:'all',
-  lastMainPage:'homePage'
+  lastMainPage:'homePage',
+  pageHistory:[],
+  aiConversation:[],
+  newsLoaded:false
 };
 
 const DEFAULT_WEB_SETTINGS={
