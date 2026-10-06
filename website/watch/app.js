@@ -15,6 +15,107 @@ const state={
   browseFilter:'all'
 };
 
+const DEFAULT_WEB_SETTINGS={
+  theme:'system',
+  amoled:false,
+  compactCards:false,
+  spotlightAutoPlay:true,
+  showAdult:false,
+  incognito:false,
+  preferredAudio:'sub',
+  preferredQuality:'Auto',
+  nav:{browse:true,manga:true,downloads:true,watchlist:true}
+};
+
+function loadWebSettings(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('anidash-web-settings')||'{}');
+    return {
+      ...DEFAULT_WEB_SETTINGS,
+      ...saved,
+      nav:{...DEFAULT_WEB_SETTINGS.nav,...(saved.nav||{})}
+    };
+  }catch(_){
+    return JSON.parse(JSON.stringify(DEFAULT_WEB_SETTINGS));
+  }
+}
+
+let webSettings=loadWebSettings();
+
+function mediaVisible(item){
+  return webSettings.showAdult||item?.isAdult!==true;
+}
+
+function applyWebSettings(){
+  const root=document.documentElement;
+  if(webSettings.theme==='system') delete root.dataset.theme;
+  else root.dataset.theme=webSettings.theme;
+  root.dataset.amoled=webSettings.amoled?'true':'false';
+  root.classList.toggle('compact-cards',!!webSettings.compactCards);
+
+  const visibility={
+    browsePage:webSettings.nav.browse,
+    mangaPage:webSettings.nav.manga,
+    downloadsPage:webSettings.nav.downloads,
+    watchlistPage:webSettings.nav.watchlist
+  };
+  $('[data-page]').forEach(button=>{
+    if(button.dataset.page==='homePage') button.hidden=false;
+    else if(Object.hasOwn(visibility,button.dataset.page)) button.hidden=!visibility[button.dataset.page];
+  });
+
+  const audio=$('#audio');
+  if(audio) audio.value=webSettings.preferredAudio;
+
+  const systemDark=window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  const dark=webSettings.theme==='dark'||(webSettings.theme==='system'&&systemDark);
+  const themeColor=dark?(webSettings.amoled?'#000000':'#090d0a'):'#f8faf7';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',themeColor);
+}
+
+function saveWebSettings(){
+  localStorage.setItem('anidash-web-settings',JSON.stringify(webSettings));
+  applyWebSettings();
+  syncSettingsControls();
+}
+
+function syncSettingsControls(){
+  const values={
+    settingIncognito:webSettings.incognito,
+    settingAdult:webSettings.showAdult,
+    settingAmoled:webSettings.amoled,
+    settingCompact:webSettings.compactCards,
+    settingSpotlight:webSettings.spotlightAutoPlay,
+    settingNavBrowse:webSettings.nav.browse,
+    settingNavManga:webSettings.nav.manga,
+    settingNavDownloads:webSettings.nav.downloads,
+    settingNavWatchlist:webSettings.nav.watchlist
+  };
+  for(const [id,value] of Object.entries(values)){
+    const el=$('#'+id);
+    if(el) el.checked=!!value;
+  }
+  if($('#settingAudio')) $('#settingAudio').value=webSettings.preferredAudio;
+  if($('#settingQuality')) $('#settingQuality').value=webSettings.preferredQuality;
+  $('#themeSegments [data-theme-value]').forEach(button=>{
+    button.classList.toggle('active',button.dataset.themeValue===webSettings.theme);
+  });
+  updateNotificationPermissionStatus();
+  const installed=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+  if($('#installStatus')) $('#installStatus').textContent=installed?'Installed and running as an app':'Open in Safari and add AniDash to your Home Screen';
+}
+
+function updateNotificationPermissionStatus(){
+  const label=$('#notificationPermissionStatus');
+  if(!label) return;
+  if(!('Notification' in window)){
+    label.textContent='Not supported by this browser';
+    return;
+  }
+  const permission=Notification.permission;
+  label.textContent=permission==='granted'?'Allowed':permission==='denied'?'Blocked in browser settings':'Tap to request permission';
+}
+
 const anilist=async(query,variables={})=>{
   const r=await fetch('https://graphql.anilist.co',{
     method:'POST',
