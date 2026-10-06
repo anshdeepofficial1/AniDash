@@ -87,6 +87,9 @@ class _UpdateDialogState extends State<UpdateDialog>
     if (Platform.isWindows) {
       return 'https://github.com/anshdeepofficial1/AniDash/releases/download/$tag/AniDash-$tag-Setup.exe';
     }
+    if (Platform.isMacOS) {
+      return 'https://github.com/anshdeepofficial1/AniDash/releases/download/$tag/AniDash-$tag.dmg';
+    }
     final apkName =
         isBeta
             ? 'AniDash-Beta-$tag-Universal.apk'
@@ -95,7 +98,7 @@ class _UpdateDialogState extends State<UpdateDialog>
   }
 
   Future<void> _handleUpdateAction() async {
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || Platform.isWindows || Platform.isMacOS) {
       final url = _effectiveApkUrl;
       await _downloadAndInstall(url);
     } else if (Platform.isLinux) {
@@ -108,9 +111,6 @@ class _UpdateDialogState extends State<UpdateDialog>
           ),
         );
       }
-    } else if (Platform.isWindows || Platform.isMacOS) {
-      final url = _effectiveApkUrl;
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     }
   }
 

@@ -34,6 +34,16 @@ abstract class BaseOAuthService {
       AppLogger.i('Authentication callback received.');
       final callback = Uri.parse(result);
       final parameters = <String, String>{...callback.queryParameters};
+      // AniList callback may contain multiple 'code' params if redirect_uri had a dummy '1337'.
+      // Pick the actual authorization code.
+      if (callback.queryParametersAll.containsKey('code')) {
+        final codes = callback.queryParametersAll['code']!;
+        final realCode = codes.firstWhere(
+          (c) => c != '1337',
+          orElse: () => codes.last,
+        );
+        parameters['code'] = realCode;
+      }
       // OAuth implicit/public-client flows return tokens in the URL fragment.
       // FlutterWebAuth gives us the complete callback, so merge both forms.
       if (callback.fragment.isNotEmpty) {

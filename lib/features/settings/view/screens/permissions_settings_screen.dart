@@ -109,7 +109,13 @@ class PermissionsSettingsScreen extends ConsumerWidget {
                   value: permissionsState.notification,
                   onChanged: (val) async {
                     if (val == false) {
-                      _promptRevoke(context);
+                      if (Platform.isAndroid) {
+                        _promptRevoke(context);
+                      } else {
+                        ref
+                            .read(permissionsProvider.notifier)
+                            .setNotificationAccess(false);
+                      }
                       return;
                     }
                     await ref
