@@ -11,6 +11,7 @@ import 'package:commentum_client/commentum_client.dart';
 import 'package:ani_dash/core/commentum/commentum_client.dart';
 import 'package:ani_dash/core/models/auth/user.dart';
 import 'package:ani_dash/core/services/remote_push_service.dart';
+import 'package:ani_dash/core/utils/app_logger.dart';
 
 part 'auth_notifier.g.dart';
 
@@ -192,18 +193,31 @@ class Auth extends _$Auth {
     );
     try {
       final code = await _anilistAuthService.authenticate();
-      if (code == null) return;
+      if (code == null) {
+        AppLogger.w('[AniList] Authentication aborted or returned no code.');
+        return;
+      }
 
       final tokenData = await _anilistAuthService.getAccessToken(code);
-      if (tokenData == null) return;
+      if (tokenData == null) {
+        AppLogger.e('[AniList] Failed to obtain access token from AniList.');
+        return;
+      }
 
       final token = tokenData['access_token'] as String?;
-      if (token == null) return;
+      if (token == null || token.isEmpty) {
+        AppLogger.e('[AniList] Access token was empty in token response.');
+        return;
+      }
 
       await _secureStorage.write(key: 'anilist-token', value: token);
       final userData = await ref
           .read(anilistServiceProvider)
           .getUserProfile(token);
+      if (userData.isEmpty) {
+        AppLogger.e('[AniList] User profile query returned empty.');
+        return;
+      }
       await sharedPrefs.setString('anilist-user-cache', jsonEncode(userData));
 
       // Login to Commentum
@@ -219,6 +233,9 @@ class Auth extends _$Auth {
         activePlatform: AuthPlatform.anilist,
       );
       await RemotePushService.identifyAniListUser(state.anilistUser?.id);
+      AppLogger.success('[AniList] Successfully connected to AniList account.');
+    } catch (e, st) {
+      AppLogger.e('[AniList] Unexpected error during login flow', e, st);
     } finally {
       state = state.copyWith(anilistLoading: false);
     }

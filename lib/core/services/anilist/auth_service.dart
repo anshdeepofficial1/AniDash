@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'package:ani_dash/core/services/oauth/base_oauth_service.dart';
+import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/core/utils/env_loader.dart';
 
 class AniListAuthService extends BaseOAuthService {
@@ -38,27 +38,43 @@ class AniListAuthService extends BaseOAuthService {
     final loginUrl = buildAuthorizationUri().toString();
 
     final queryParams = await performWebAuth(loginUrl);
-    return queryParams?[isDesktop ? 'code' : 'access_token'];
+    if (queryParams == null) return null;
+    if (queryParams.containsKey('access_token') &&
+        queryParams['access_token']!.isNotEmpty) {
+      return queryParams['access_token'];
+    }
+    return queryParams['code'];
   }
 
   Future<Map<String, dynamic>?> getAccessToken(String tokenOrCode) async {
-    if (!isDesktop || tokenOrCode.length > 50) {
+    // On mobile, authenticate() returns access_token directly from implicit flow fragment.
+    if (!isDesktop) {
       return {'access_token': tokenOrCode, 'token_type': 'Bearer'};
     }
 
-    return await postTokenRequest(
+    AppLogger.i('Exchanging code for AniList access token...');
+    final body = <String, String>{
+      'grant_type': 'authorization_code',
+      'client_id': _clientId,
+      'client_secret': _clientSecret,
+      'redirect_uri': redirectUri,
+      'code': tokenOrCode,
+    };
+
+    final result = await postTokenRequest(
       _tokenUrl,
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json',
       },
-      body: jsonEncode({
-        'grant_type': 'authorization_code',
-        'client_id': _clientId,
-        'client_secret': _clientSecret,
-        'redirect_uri': redirectUri,
-        'code': tokenOrCode,
-      }),
+      body: body,
     );
+
+    if (result != null && result.containsKey('access_token')) {
+      AppLogger.i('Successfully received AniList access token.');
+    } else {
+      AppLogger.w('Failed to receive AniList access token: $result');
+    }
+    return result;
   }
 }
