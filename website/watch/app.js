@@ -571,7 +571,7 @@ function showUtility(title,body){
   if(!dlg.open) dlg.showModal();
 }
 
-$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
+$$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
 
 $('#searchInput').oninput=()=>{
   clearTimeout(state.searchTimer);
