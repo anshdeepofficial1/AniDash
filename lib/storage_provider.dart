@@ -42,6 +42,11 @@ class StorageProvider {
   }
 
   static Future<Isar> initDB(String? path, {bool? inspector = false}) async {
+    final existing = Isar.getInstance("AniDashDb");
+    if (existing != null && existing.isOpen) {
+      return existing;
+    }
+
     Directory? dir;
     if (path == null) {
       dir = await getDatabaseDirectory();
@@ -62,7 +67,7 @@ class StorageProvider {
       ],
       directory: dir!.path,
       name: "AniDashDb",
-      inspector: inspector!,
+      inspector: inspector ?? false,
     );
 
     return isar;

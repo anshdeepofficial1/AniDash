@@ -33,6 +33,14 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
   bool _lastPlayedLoaded = false;
   final Map<String, DateTime> _lastPlayedMap = {};
 
+  bool get _canUseIsar {
+    try {
+      return isar.isOpen;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void _ensureLastPlayedLoaded() {
     if (_lastPlayedLoaded) return;
     _lastPlayedLoaded = true;
@@ -80,6 +88,7 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
 
   @override
   Future<void> migrateFromHive() async {
+    if (!_canUseIsar) return;
     try {
       final isarCount = isar.isarAnimeWatchProgress.countSync();
       if (sharedPrefs.getBool('migrated_watch_progress_isar') == true &&
@@ -139,30 +148,36 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
     Iterable<AnimeWatchProgressEntry> entries,
   ) async {
     final restored = entries.toList(growable: false);
-    final isarEntries = restored
-        .map(
-          (entry) => IsarAnimeWatchProgress(
-            id: fastHash(entry.animeId),
-            animeId: entry.animeId,
-            animeTitle: entry.animeTitle,
-            animeFormat: entry.animeFormat,
-            animeCover: entry.animeCover,
-            totalEpisodes: entry.totalEpisodes,
-            lastUpdated: entry.lastUpdated,
-            currentEpisode: entry.currentEpisode,
-            status: entry.status,
-            episodesProgress:
-                entry.episodesProgress.values.map(_toIsarProgress).toList(),
-          ),
-        )
-        .toList(growable: false);
+    if (_canUseIsar) {
+      try {
+        final isarEntries = restored
+            .map(
+              (entry) => IsarAnimeWatchProgress(
+                id: fastHash(entry.animeId),
+                animeId: entry.animeId,
+                animeTitle: entry.animeTitle,
+                animeFormat: entry.animeFormat,
+                animeCover: entry.animeCover,
+                totalEpisodes: entry.totalEpisodes,
+                lastUpdated: entry.lastUpdated,
+                currentEpisode: entry.currentEpisode,
+                status: entry.status,
+                episodesProgress:
+                    entry.episodesProgress.values.map(_toIsarProgress).toList(),
+              ),
+            )
+            .toList(growable: false);
 
-    await isar.writeTxn(() async {
-      await isar.isarAnimeWatchProgress.clear();
-      if (isarEntries.isNotEmpty) {
-        await isar.isarAnimeWatchProgress.putAll(isarEntries);
+        await isar.writeTxn(() async {
+          await isar.isarAnimeWatchProgress.clear();
+          if (isarEntries.isNotEmpty) {
+            await isar.isarAnimeWatchProgress.putAll(isarEntries);
+          }
+        });
+      } catch (e, st) {
+        AppLogger.e('Error replacing Isar progress: $e', e, st);
       }
-    });
+    }
 
     final box =
         Hive.isBoxOpen('anime_watch_progress')
@@ -218,23 +233,29 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
       }
     } catch (_) {}
     try {
-      final isarEntry = IsarAnimeWatchProgress(
-        id: fastHash(entry.animeId),
-        animeId: entry.animeId,
-        animeTitle: entry.animeTitle,
-        animeFormat: entry.animeFormat,
-        animeCover: entry.animeCover,
-        totalEpisodes: entry.totalEpisodes,
-        lastUpdated: entry.lastUpdated,
-        currentEpisode: entry.currentEpisode,
-        status: entry.status,
-        episodesProgress:
-            entry.episodesProgress.values.map(_toIsarProgress).toList(),
-      );
+      if (_canUseIsar) {
+        try {
+          final isarEntry = IsarAnimeWatchProgress(
+            id: fastHash(entry.animeId),
+            animeId: entry.animeId,
+            animeTitle: entry.animeTitle,
+            animeFormat: entry.animeFormat,
+            animeCover: entry.animeCover,
+            totalEpisodes: entry.totalEpisodes,
+            lastUpdated: entry.lastUpdated,
+            currentEpisode: entry.currentEpisode,
+            status: entry.status,
+            episodesProgress:
+                entry.episodesProgress.values.map(_toIsarProgress).toList(),
+          );
 
-      await isar.writeTxn(() async {
-        await isar.isarAnimeWatchProgress.put(isarEntry);
-      });
+          await isar.writeTxn(() async {
+            await isar.isarAnimeWatchProgress.put(isarEntry);
+          });
+        } catch (e, st) {
+          AppLogger.e('Error putting watch progress to Isar: $e', e, st);
+        }
+      }
 
       // Dual-write to Hive to prevent data loss
       try {
@@ -256,10 +277,6 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
             currentTracked != null && currentTracked.isNotEmpty
                 ? (jsonDecode(currentTracked) as Map<String, dynamic>)
                 : <String, dynamic>{};
-        // Keep completed shows in the lightweight release cache as well. A
-        // future sequel/season uses another AniList ID, and the background
-        // worker needs the completed predecessor to discover that relation.
-        // Continue-watching reminders still exclude completed entries.
         map[entry.animeId] = <String, dynamic>{
           'title': entry.animeTitle,
           'currentEpisode': entry.currentEpisode,
@@ -287,26 +304,33 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
 
   @override
   AnimeWatchProgressEntry? getProgress(String animeId) {
-    final isarEntry = isar.isarAnimeWatchProgress.getSync(fastHash(animeId));
-    final isAdult = isAdultAnimeId(animeId);
-    final lastPlayed = _getLastPlayed(animeId);
-    if (isarEntry != null) {
-      return AnimeWatchProgressEntry(
-        animeId: isarEntry.animeId,
-        animeTitle: isarEntry.animeTitle,
-        animeFormat: isarEntry.animeFormat,
-        animeCover: isarEntry.animeCover,
-        totalEpisodes: isarEntry.totalEpisodes,
-        lastUpdated: isarEntry.lastUpdated,
-        lastPlayedAt: lastPlayed,
-        currentEpisode: isarEntry.currentEpisode,
-        status: isarEntry.status,
-        isAdult: isAdult,
-        episodesProgress: {
-          for (var ep in isarEntry.episodesProgress)
-            ep.episodeNumber: _fromIsarProgress(ep),
-        },
-      );
+    if (_canUseIsar) {
+      try {
+        final isarEntry =
+            isar.isarAnimeWatchProgress.getSync(fastHash(animeId));
+        final isAdult = isAdultAnimeId(animeId);
+        final lastPlayed = _getLastPlayed(animeId);
+        if (isarEntry != null) {
+          return AnimeWatchProgressEntry(
+            animeId: isarEntry.animeId,
+            animeTitle: isarEntry.animeTitle,
+            animeFormat: isarEntry.animeFormat,
+            animeCover: isarEntry.animeCover,
+            totalEpisodes: isarEntry.totalEpisodes,
+            lastUpdated: isarEntry.lastUpdated,
+            lastPlayedAt: lastPlayed,
+            currentEpisode: isarEntry.currentEpisode,
+            status: isarEntry.status,
+            isAdult: isAdult,
+            episodesProgress: {
+              for (var ep in isarEntry.episodesProgress)
+                ep.episodeNumber: _fromIsarProgress(ep),
+            },
+          );
+        }
+      } catch (e) {
+        AppLogger.w('Isar getProgress error: $e');
+      }
     }
 
     try {
@@ -314,6 +338,8 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
         final box = Hive.box<AnimeWatchProgressEntry>('anime_watch_progress');
         final entry = box.get(animeId);
         if (entry != null) {
+          final isAdult = isAdultAnimeId(animeId);
+          final lastPlayed = _getLastPlayed(animeId);
           final effectiveEntry = entry.copyWith(
             lastPlayedAt: lastPlayed ?? entry.lastPlayedAt,
             isAdult: isAdult || entry.isAdult,
@@ -327,45 +353,55 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
 
   @override
   List<AnimeWatchProgressEntry> getAllProgress() {
-    final isarEntries = isar.isarAnimeWatchProgress.where().findAllSync();
-    if (isarEntries.isEmpty) {
+    if (_canUseIsar) {
       try {
-        final box =
-            Hive.isBoxOpen('anime_watch_progress')
-                ? Hive.box<AnimeWatchProgressEntry>('anime_watch_progress')
-                : null;
-        if (box != null && box.isNotEmpty) {
-          final hiveList =
-              box.values.map((e) {
-                final lastPlayed = _getLastPlayed(e.animeId) ?? e.lastPlayedAt;
-                return e.copyWith(lastPlayedAt: lastPlayed);
-              }).toList();
-          migrateFromHive();
-          return hiveList;
+        final isarEntries = isar.isarAnimeWatchProgress.where().findAllSync();
+        if (isarEntries.isNotEmpty) {
+          return isarEntries.map((isarEntry) {
+            final isAdult = isAdultAnimeId(isarEntry.animeId);
+            final lastPlayed = _getLastPlayed(isarEntry.animeId);
+            return AnimeWatchProgressEntry(
+              animeId: isarEntry.animeId,
+              animeTitle: isarEntry.animeTitle,
+              animeFormat: isarEntry.animeFormat,
+              animeCover: isarEntry.animeCover,
+              totalEpisodes: isarEntry.totalEpisodes,
+              lastUpdated: isarEntry.lastUpdated,
+              lastPlayedAt: lastPlayed,
+              currentEpisode: isarEntry.currentEpisode,
+              status: isarEntry.status,
+              isAdult: isAdult,
+              episodesProgress: {
+                for (var ep in isarEntry.episodesProgress)
+                  ep.episodeNumber: _fromIsarProgress(ep),
+              },
+            );
+          }).toList();
         }
-      } catch (_) {}
+      } catch (e, st) {
+        AppLogger.e('Isar getAllProgress error: $e', e, st);
+      }
     }
 
-    return isarEntries.map((isarEntry) {
-      final isAdult = isAdultAnimeId(isarEntry.animeId);
-      final lastPlayed = _getLastPlayed(isarEntry.animeId);
-      return AnimeWatchProgressEntry(
-        animeId: isarEntry.animeId,
-        animeTitle: isarEntry.animeTitle,
-        animeFormat: isarEntry.animeFormat,
-        animeCover: isarEntry.animeCover,
-        totalEpisodes: isarEntry.totalEpisodes,
-        lastUpdated: isarEntry.lastUpdated,
-        lastPlayedAt: lastPlayed,
-        currentEpisode: isarEntry.currentEpisode,
-        status: isarEntry.status,
-        isAdult: isAdult,
-        episodesProgress: {
-          for (var ep in isarEntry.episodesProgress)
-            ep.episodeNumber: _fromIsarProgress(ep),
-        },
-      );
-    }).toList();
+    try {
+      final box =
+          Hive.isBoxOpen('anime_watch_progress')
+              ? Hive.box<AnimeWatchProgressEntry>('anime_watch_progress')
+              : null;
+      if (box != null && box.isNotEmpty) {
+        final hiveList =
+            box.values.map((e) {
+              final lastPlayed = _getLastPlayed(e.animeId) ?? e.lastPlayedAt;
+              return e.copyWith(lastPlayedAt: lastPlayed);
+            }).toList();
+        if (_canUseIsar) {
+          migrateFromHive();
+        }
+        return hiveList;
+      }
+    } catch (_) {}
+
+    return [];
   }
 
   // --- Update Operations ---
@@ -538,9 +574,15 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
   @override
   Future<void> deleteProgress(String animeId) async {
     await _setLastPlayed(animeId, null);
-    await isar.writeTxn(() async {
-      await isar.isarAnimeWatchProgress.delete(fastHash(animeId));
-    });
+    if (_canUseIsar) {
+      try {
+        await isar.writeTxn(() async {
+          await isar.isarAnimeWatchProgress.delete(fastHash(animeId));
+        });
+      } catch (e, st) {
+        AppLogger.e('Error deleting watch progress from Isar: $e', e, st);
+      }
+    }
     try {
       if (Hive.isBoxOpen('anime_watch_progress')) {
         final box = Hive.box<AnimeWatchProgressEntry>('anime_watch_progress');
@@ -603,11 +645,17 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
         ),
       );
     } catch (_) {}
-    await isar.writeTxn(() async {
-      await isar.isarAnimeWatchProgress.deleteAll(
-        animeIds.map(fastHash).toList(),
-      );
-    });
+    if (_canUseIsar) {
+      try {
+        await isar.writeTxn(() async {
+          await isar.isarAnimeWatchProgress.deleteAll(
+            animeIds.map(fastHash).toList(),
+          );
+        });
+      } catch (e, st) {
+        AppLogger.e('Error bulk deleting from Isar: $e', e, st);
+      }
+    }
     try {
       if (Hive.isBoxOpen('anime_watch_progress')) {
         final box = Hive.box<AnimeWatchProgressEntry>('anime_watch_progress');
@@ -627,20 +675,32 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
   @override
   Stream<List<AnimeWatchProgressEntry>> watchAllProgress() async* {
     yield getAllProgress();
-    await for (final _ in isar.isarAnimeWatchProgress.where().watch()) {
-      yield getAllProgress();
+    if (_canUseIsar) {
+      try {
+        await for (final _ in isar.isarAnimeWatchProgress.where().watch()) {
+          yield getAllProgress();
+        }
+      } catch (e) {
+        AppLogger.w('watchAllProgress stream error: $e');
+      }
     }
   }
 
   @override
   Stream<AnimeWatchProgressEntry?> watchProgress(String animeId) async* {
     yield getProgress(animeId);
-    await for (final _
-        in isar.isarAnimeWatchProgress
-            .filter()
-            .idEqualTo(fastHash(animeId))
-            .watch()) {
-      yield getProgress(animeId);
+    if (_canUseIsar) {
+      try {
+        await for (final _
+            in isar.isarAnimeWatchProgress
+                .filter()
+                .idEqualTo(fastHash(animeId))
+                .watch()) {
+          yield getProgress(animeId);
+        }
+      } catch (e) {
+        AppLogger.w('watchProgress stream error: $e');
+      }
     }
   }
 

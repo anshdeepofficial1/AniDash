@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/shared/providers/settings/theme_notifier.dart';
 import 'package:ani_dash/features/notifications/view/notification_inbox_screen.dart';
 

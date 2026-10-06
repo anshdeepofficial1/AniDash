@@ -496,9 +496,9 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
         const SingleActivator(LogicalKeyboardKey.comma, control: true):
             () => context.push('/settings'),
         const SingleActivator(LogicalKeyboardKey.keyH, meta: true):
-            () => context.push('/settings/watch-history'),
+            () => context.push('/watch-history'),
         const SingleActivator(LogicalKeyboardKey.keyH, control: true):
-            () => context.push('/settings/watch-history'),
+            () => context.push('/watch-history'),
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true):
             () => context.push('/news'),
         const SingleActivator(LogicalKeyboardKey.keyN, control: true):
