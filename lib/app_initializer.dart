@@ -36,6 +36,10 @@ import 'package:ani_dash/background_handler.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:ani_dash/core/services/update_scheduler.dart';
 import 'package:ani_dash/core/models/settings/update_settings_model.dart';
+import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart'
+    hide isar;
+import 'package:ani_dash/storage_provider.dart';
+import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
 import 'main.dart';
 
 class AppInitializer {
@@ -56,6 +60,7 @@ class AppInitializer {
 
     await _initializeHive();
     await _initializeSharedPrefs();
+    await _initializeIsar();
     await _initializeWindowManager();
     await _initializeMediaKit();
     try {
@@ -256,6 +261,29 @@ class AppInitializer {
         AppLogger.fail('Mobile system UI configuration failed');
         AppLogger.e('Mobile System UI Error', e, st);
       }
+    }
+  }
+
+  static Future<void> _initializeIsar() async {
+    AppLogger.section('Isar Database');
+    try {
+      isar = await StorageProvider.initDB(null, inspector: kDebugMode);
+      AppLogger.success('Isar database initialized');
+      try {
+        await WatchProgressRepository().migrateFromHive();
+      } catch (e, st) {
+        AppLogger.e('Error migrating watch progress from Hive', e, st);
+      }
+      try {
+        final bridge = DartotsuExtensionBridge();
+        await bridge.init(isar, 'AniDash');
+        AppLogger.success('Extension bridge initialized with Isar');
+      } catch (e, st) {
+        AppLogger.e('Error initializing extension bridge', e, st);
+      }
+    } catch (e, st) {
+      AppLogger.fail('Isar database initialization failed: $e');
+      AppLogger.e('Isar Error', e, st);
     }
   }
 }

@@ -13,6 +13,14 @@ import 'package:ani_dash/core/repositories/interfaces/local_media_repository_int
 
 /// Centralized repository for all local Isar operations on Track and Media.
 class LocalMediaRepository implements LocalMediaRepositoryInterface {
+  bool get _canUseIsar {
+    try {
+      return isar.isOpen;
+    } catch (_) {
+      return false;
+    }
+  }
+
   int _parseIntId(String idString) =>
       int.tryParse(idString) ?? (idString.isNotEmpty ? idString.hashCode : 0);
 
@@ -20,11 +28,16 @@ class LocalMediaRepository implements LocalMediaRepositoryInterface {
 
   @override
   Future<List<TrackerBinding>> getBindings(String mediaId) async {
-    final track = await isar.tracks
-        .filter()
-        .mediaIdEqualTo(mediaId)
-        .findFirst();
-    return track?.bindings?.toList() ?? [];
+    if (!_canUseIsar) return [];
+    try {
+      final track = await isar.tracks
+          .filter()
+          .mediaIdEqualTo(mediaId)
+          .findFirst();
+      return track?.bindings?.toList() ?? [];
+    } catch (_) {
+      return [];
+    }
   }
 
   @override

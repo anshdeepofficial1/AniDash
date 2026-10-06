@@ -41,12 +41,20 @@ class WatchHistoryNotifier extends _$WatchHistoryNotifier {
     });
 
     ref.listen(continueWatchingDismissedProvider, (prev, next) {
-      final history =
-          ref.read(watchProgressRepositoryProvider).getAllProgress();
-      state = state.copyWith(history: _processHistory(history));
+      try {
+        final history =
+            ref.read(watchProgressRepositoryProvider).getAllProgress();
+        state = state.copyWith(history: _processHistory(history));
+      } catch (_) {}
     });
 
-    final history = ref.read(watchProgressRepositoryProvider).getAllProgress();
+    final history = () {
+      try {
+        return ref.read(watchProgressRepositoryProvider).getAllProgress();
+      } catch (_) {
+        return <AnimeWatchProgressEntry>[];
+      }
+    }();
     return WatchHistoryState(history: _processHistory(history));
   }
 
@@ -138,9 +146,13 @@ class AnimeHistoryDetailNotifier extends _$AnimeHistoryDetailNotifier {
       }
     });
 
-    final entry = ref
-        .read(watchProgressRepositoryProvider)
-        .getProgress(animeId);
+    final entry = () {
+      try {
+        return ref.read(watchProgressRepositoryProvider).getProgress(animeId);
+      } catch (_) {
+        return null;
+      }
+    }();
     return AnimeHistoryDetailState(entry: entry);
   }
 

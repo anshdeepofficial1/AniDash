@@ -127,11 +127,12 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                         icon: Iconsax.clock,
                         label: 'Watch History',
                         shortcutHint: '${mod}H',
-                        isSelected: currentRoute == '/settings/watch-history',
+                        isSelected: currentRoute == '/watch-history' ||
+                            currentRoute == '/settings/watch-history',
                         isCollapsed: isCollapsed,
                         isDark: isDark,
                         badgeText: _getRecentHistoryCountBadge(),
-                        onTap: () => context.push('/settings/watch-history'),
+                        onTap: () => context.push('/watch-history'),
                       ),
                       _SidebarTile(
                         icon: Iconsax.magicpen,

@@ -95,7 +95,20 @@ class AnimeHistoryDetailScreen extends ConsumerWidget {
     final notifier = ref.read(animeHistoryDetailProvider(animeId).notifier);
 
     final entry = state.entry;
-    if (entry == null) return const Scaffold();
+    if (entry == null) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Iconsax.arrow_left_2),
+            onPressed: () => context.pop(),
+          ),
+          title: const Text('Watch History'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     final filtered = state.filteredEpisodes;
 
