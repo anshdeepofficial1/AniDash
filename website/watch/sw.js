@@ -1,11 +1,13 @@
-const CACHE='anidash-stream-v9';
+const CACHE='anidash-stream-v10';
+const scopePath=new URL(self.registration.scope).pathname.replace(/\/$/,'');
+const BASE=scopePath==='/'?'':scopePath;
+const pathFor=file=>BASE+`/${file}`;
 const SHELL=[
-  '/watch',
-  '/watch/index.html',
-  '/watch/styles.css',
-  '/watch/app.js',
-  '/watch/manifest.webmanifest',
-  '/assets/anidash_logo.png'
+  BASE||'/',
+  pathFor('index.html'),
+  pathFor('styles.css'),
+  pathFor('app.js'),
+  pathFor('manifest.webmanifest')
 ];
 
 self.addEventListener('install',event=>{
@@ -35,18 +37,20 @@ self.addEventListener('fetch',event=>{
     event.respondWith(
       fetch(request)
         .then(response=>{
-          const copy=response.clone();
-          caches.open(CACHE).then(cache=>cache.put('/watch/index.html',copy));
+          if(response.ok){
+            const copy=response.clone();
+            caches.open(CACHE).then(cache=>cache.put(pathFor('index.html'),copy));
+          }
           return response;
         })
-        .catch(()=>caches.match('/watch/index.html'))
+        .catch(()=>caches.match(pathFor('index.html')))
     );
     return;
   }
 
   if(url.origin!==self.location.origin) return;
-  const isAppAsset=url.pathname.startsWith('/watch/')||url.pathname==='/assets/anidash_logo.png';
-  if(!isAppAsset) return;
+  const insideScope=BASE?url.pathname.startsWith(BASE+'/'):true;
+  if(!insideScope) return;
 
   event.respondWith(
     caches.match(request).then(cached=>{
