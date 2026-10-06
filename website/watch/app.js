@@ -180,9 +180,9 @@ function card(x,wide=false,type='anime'){
   </button>`;
 }
 
-function rail(title,items,key){
-  return `<section class="home-block">
-    <div class="section-title"><h2>${esc(title)}</h2><button class="section-more" data-filter="${esc(key)}" aria-label="Open ${esc(title)}">›</button></div>
+function rail(title,items,homeKey,browseFilter='all'){
+  return `<section class="home-block" data-home-section="${esc(homeKey)}">
+    <div class="section-title"><h2>${esc(title)}</h2><button class="section-more" data-filter="${esc(browseFilter)}" aria-label="Open ${esc(title)}">›</button></div>
     <div class="rail">${items.map(x=>card(x)).join('')}</div>
   </section>`;
 }
@@ -231,7 +231,7 @@ function renderSpotlight(items){
     title:decodeURIComponent(b.dataset.title),
     cover:decodeURIComponent(b.dataset.image)
   }));
-  if(heroes.length>1){
+  if(heroes.length>1&&webSettings.spotlightAutoPlay){
     state.spotlightTimer=setInterval(()=>{
       if(document.hidden) return;
       state.spotlightIndex=(state.spotlightIndex+1)%heroes.length;
@@ -251,15 +251,22 @@ async function loadHome(){
       upcoming:Page(page:1,perPage:20){media(type:ANIME,sort:START_DATE,status:NOT_YET_RELEASED){${mediaFields}}}
     }`;
     const d=await anilist(q);
-    state.homeData=d;
-    state.home=d.trending.media;
+    const clean={
+      trending:{...d.trending,media:d.trending.media.filter(mediaVisible)},
+      popular:{...d.popular,media:d.popular.media.filter(mediaVisible)},
+      favorite:{...d.favorite,media:d.favorite.media.filter(mediaVisible)},
+      updated:{...d.updated,media:d.updated.media.filter(mediaVisible)},
+      upcoming:{...d.upcoming,media:d.upcoming.media.filter(mediaVisible)}
+    };
+    state.homeData=clean;
+    state.home=clean.trending.media;
     renderSpotlight(state.home);
     $('#homeSections').innerHTML=
-      rail('Trending Anime',d.trending.media,'all')+
-      rail('Popular Anime',d.popular.media,'popular')+
-      rail('Most Favorite',d.favorite.media,'popular')+
-      rail('Recently Updated',d.updated.media,'airing')+
-      rail('Upcoming Anime',d.upcoming.media,'all');
+      rail('Trending Anime',clean.trending.media,'trending','all')+
+      rail('Popular Anime',clean.popular.media,'popular','popular')+
+      rail('Most Favorite',clean.favorite.media,'favorite','popular')+
+      rail('Recently Updated',clean.updated.media,'updated','airing')+
+      rail('Upcoming Anime',clean.upcoming.media,'upcoming','all');
     renderContinue();
     bindCards($('#homePage'));
     $$('.section-more').forEach(b=>b.onclick=()=>{
