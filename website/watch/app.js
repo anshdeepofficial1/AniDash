@@ -63,7 +63,7 @@ function applyWebSettings(){
     downloadsPage:webSettings.nav.downloads,
     watchlistPage:webSettings.nav.watchlist
   };
-  $$('[data-page]').forEach(button=>{
+  $$$('[data-page]').forEach(button=>{
     if(button.dataset.page==='homePage') button.hidden=false;
     else if(Object.prototype.hasOwnProperty.call(visibility,button.dataset.page)) button.hidden=!visibility[button.dataset.page];
   });
@@ -866,8 +866,8 @@ function syncMacChrome(pageId,label,icon){
   const iconUse=$('#macPageIcon use');
   if(titleNode) titleNode.textContent=title;
   if(iconUse) iconUse.setAttribute('href','#'+iconId);
-  $('.mac-nav-item').forEach(button=>button.classList.remove('active'));
-  $('.mac-nav-item[data-page]').forEach(button=>{
+  $$('.mac-nav-item').forEach(button=>button.classList.remove('active'));
+  $$('.mac-nav-item[data-page]').forEach(button=>{
     button.classList.toggle('active',button.dataset.page===pageId);
   });
 }
@@ -1100,7 +1100,7 @@ function openPage(pageId,options={}){
   const isSubpage=pageId==='settingsPage';
   document.body.classList.toggle('subpage-open',isSubpage);
   $$('.page').forEach(p=>p.classList.toggle('active',p.id===pageId));
-  $$('[data-page]').forEach(b=>b.classList.toggle('active',!isSubpage&&b.dataset.page===pageId));
+  $$$('[data-page]').forEach(b=>b.classList.toggle('active',!isSubpage&&b.dataset.page===pageId));
   syncMacChrome(pageId,options.label,options.icon);
 
   if(pageId==='browsePage'){
@@ -1123,7 +1123,7 @@ function showUtility(title,body){
   if(!dlg.open) dlg.showModal();
 }
 
-$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
+$$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
 
 $('#macSidebarToggle').onclick=()=>{
   const collapsed=!document.body.classList.contains('mac-sidebar-collapsed');
@@ -1139,7 +1139,7 @@ $('#macFullscreenButton').onclick=toggleFullscreen;
 $('#macBack').onclick=desktopBack;
 $('#macProfileFooter').onclick=()=>$('#accountDialog').showModal();
 $('#macAboutButton').onclick=()=>showUtility('About AniDash','AniDash PWA · Desktop Edition. The desktop shell mirrors the native macOS layout while keeping browser-safe playback, local library data, AniAI, news, notifications, settings, and PWA installation.');
-$('.mac-settings-link').forEach(button=>{
+$$('.mac-settings-link').forEach(button=>{
   button.onclick=()=>openSettingsFocus(
     button.dataset.settingsFocus||'',
     button.dataset.macLabel||'Settings',
