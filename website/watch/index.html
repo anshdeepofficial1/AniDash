@@ -119,6 +119,131 @@
         </div>
       </section>
 
+      <section id="settingsPage" class="page settings-page">
+        <div class="settings-appbar">
+          <button id="settingsBack" class="tonal-icon" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button>
+          <h1>Settings</h1>
+          <button id="settingsSearchButton" class="plain-icon" aria-label="Search settings"><svg class="icon"><use href="#i-search"/></svg></button>
+        </div>
+        <div id="settingsSearchWrap" class="settings-search" hidden>
+          <svg class="icon"><use href="#i-search"/></svg>
+          <input id="settingsSearchInput" type="search" placeholder="Search settings" autocomplete="off">
+          <button id="settingsSearchClear" aria-label="Clear">×</button>
+        </div>
+
+        <div id="settingsList" class="settings-list">
+          <section class="settings-section" data-setting-text="account profile privacy incognito">
+            <h2>Account</h2>
+            <div class="settings-card">
+              <button class="settings-row settings-action" id="webProfileSettings">
+                <span class="setting-leading"><svg class="icon"><use href="#i-user"/></svg></span>
+                <span class="setting-copy"><b>Profile Settings</b><small>Local web profile and device data</small></span>
+                <span class="setting-chevron">›</span>
+              </button>
+              <label class="settings-row" data-setting-text="incognito privacy history">
+                <span class="setting-leading"><svg class="icon"><use href="#i-user"/></svg></span>
+                <span class="setting-copy"><b>Incognito Mode</b><small>Do not save new playback progress while enabled</small></span>
+                <span class="switch"><input id="settingIncognito" type="checkbox"><i></i></span>
+              </label>
+            </div>
+          </section>
+
+          <section class="settings-section" data-setting-text="content playback video quality audio adult anime">
+            <h2>Content & Playback</h2>
+            <div class="settings-card">
+              <label class="settings-row" data-setting-text="adult content mature">
+                <span class="setting-leading"><svg class="icon"><use href="#i-book"/></svg></span>
+                <span class="setting-copy"><b>Adult Content</b><small>Include mature titles in browsing results</small></span>
+                <span class="switch"><input id="settingAdult" type="checkbox"><i></i></span>
+              </label>
+              <label class="settings-row" data-setting-text="preferred audio sub dub japanese english">
+                <span class="setting-leading"><svg class="icon"><use href="#i-list"/></svg></span>
+                <span class="setting-copy"><b>Preferred Audio Track</b><small>Default language when starting an episode</small></span>
+                <select id="settingAudio" class="setting-select"><option value="sub">Japanese (SUB)</option><option value="dub">English (DUB)</option></select>
+              </label>
+              <label class="settings-row" data-setting-text="video quality auto 1080 720 480">
+                <span class="setting-leading"><svg class="icon"><use href="#i-settings"/></svg></span>
+                <span class="setting-copy"><b>Video Quality</b><small>Preferred stream quality when available</small></span>
+                <select id="settingQuality" class="setting-select"><option>Auto</option><option>1080p</option><option>720p</option><option>480p</option><option>360p</option></select>
+              </label>
+            </div>
+          </section>
+
+          <section class="settings-section" data-setting-text="appearance theme dark light amoled ui cards navigation">
+            <h2>Appearance</h2>
+            <div class="settings-card">
+              <div class="settings-row setting-stack" data-setting-text="theme mode system light dark">
+                <span class="setting-leading"><svg class="icon"><use href="#i-settings"/></svg></span>
+                <span class="setting-copy"><b>Theme Mode</b><small>Choose your preferred appearance</small></span>
+                <div class="setting-segments" id="themeSegments">
+                  <button data-theme-value="system" class="active">System</button>
+                  <button data-theme-value="light">Light</button>
+                  <button data-theme-value="dark">Dark</button>
+                </div>
+              </div>
+              <label class="settings-row" data-setting-text="amoled pure black oled">
+                <span class="setting-leading"><svg class="icon"><use href="#i-spark"/></svg></span>
+                <span class="setting-copy"><b>AMOLED Pure Black</b><small>Use pitch black surfaces in dark mode</small></span>
+                <span class="switch"><input id="settingAmoled" type="checkbox"><i></i></span>
+              </label>
+              <label class="settings-row" data-setting-text="compact cards density ui">
+                <span class="setting-leading"><svg class="icon"><use href="#i-home"/></svg></span>
+                <span class="setting-copy"><b>Compact Cards</b><small>Show slightly more titles on screen</small></span>
+                <span class="switch"><input id="settingCompact" type="checkbox"><i></i></span>
+              </label>
+              <label class="settings-row" data-setting-text="spotlight autoplay carousel">
+                <span class="setting-leading"><svg class="icon"><use href="#i-star"/></svg></span>
+                <span class="setting-copy"><b>Spotlight Auto Play</b><small>Automatically rotate trending banners</small></span>
+                <span class="switch"><input id="settingSpotlight" type="checkbox"><i></i></span>
+              </label>
+            </div>
+          </section>
+
+          <section class="settings-section" data-setting-text="navigation tabs browse manga downloads watchlist">
+            <h2>Navigation</h2>
+            <div class="settings-card">
+              <label class="settings-row"><span class="setting-leading"><svg class="icon"><use href="#i-search"/></svg></span><span class="setting-copy"><b>Browse Tab</b><small>Show Browse in app navigation</small></span><span class="switch"><input id="settingNavBrowse" type="checkbox"><i></i></span></label>
+              <label class="settings-row"><span class="setting-leading"><svg class="icon"><use href="#i-book"/></svg></span><span class="setting-copy"><b>Manga Tab</b><small>Show Manga in app navigation</small></span><span class="switch"><input id="settingNavManga" type="checkbox"><i></i></span></label>
+              <label class="settings-row"><span class="setting-leading"><svg class="icon"><use href="#i-download"/></svg></span><span class="setting-copy"><b>Downloads Tab</b><small>Show Downloads in app navigation</small></span><span class="switch"><input id="settingNavDownloads" type="checkbox"><i></i></span></label>
+              <label class="settings-row"><span class="setting-leading"><svg class="icon"><use href="#i-bookmark"/></svg></span><span class="setting-copy"><b>Watchlist Tab</b><small>Show Watchlist in app navigation</small></span><span class="switch"><input id="settingNavWatchlist" type="checkbox"><i></i></span></label>
+            </div>
+          </section>
+
+          <section class="settings-section" data-setting-text="notifications permission alerts">
+            <h2>Notifications</h2>
+            <div class="settings-card">
+              <button class="settings-row settings-action" id="notificationPermissionButton">
+                <span class="setting-leading"><svg class="icon"><use href="#i-bell"/></svg></span>
+                <span class="setting-copy"><b>Notification Permission</b><small id="notificationPermissionStatus">Check browser permission</small></span>
+                <span class="setting-chevron">›</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="settings-section" data-setting-text="data storage clear cache history library reset">
+            <h2>Data & Storage</h2>
+            <div class="settings-card">
+              <button class="settings-row settings-action" id="clearProgressButton"><span class="setting-leading"><svg class="icon"><use href="#i-download"/></svg></span><span class="setting-copy"><b>Clear Continue Watching</b><small>Remove local playback progress from this device</small></span><span class="setting-chevron">›</span></button>
+              <button class="settings-row settings-action" id="clearLibraryButton"><span class="setting-leading"><svg class="icon"><use href="#i-bookmark"/></svg></span><span class="setting-copy"><b>Clear Library</b><small>Remove locally tracked titles</small></span><span class="setting-chevron">›</span></button>
+              <button class="settings-row settings-action" id="clearSearchesButton"><span class="setting-leading"><svg class="icon"><use href="#i-search"/></svg></span><span class="setting-copy"><b>Clear Search History</b><small>Delete recent searches on this device</small></span><span class="setting-chevron">›</span></button>
+              <button class="settings-row settings-action danger-row" id="resetWebSettingsButton"><span class="setting-leading"><svg class="icon"><use href="#i-settings"/></svg></span><span class="setting-copy"><b>Reset Web Settings</b><small>Restore AniDash web preferences to defaults</small></span><span class="setting-chevron">›</span></button>
+            </div>
+          </section>
+
+          <section class="settings-section" data-setting-text="install home screen iphone ipad pwa">
+            <h2>App</h2>
+            <div class="settings-card">
+              <div class="settings-row">
+                <span class="setting-leading"><svg class="icon"><use href="#i-home"/></svg></span>
+                <span class="setting-copy"><b>Home Screen App</b><small id="installStatus">Checking install mode…</small></span>
+              </div>
+              <button class="settings-row settings-action" id="installHelpButton"><span class="setting-leading"><svg class="icon"><use href="#i-spark"/></svg></span><span class="setting-copy"><b>Install on iPhone / iPad</b><small>Safari → Share → Add to Home Screen</small></span><span class="setting-chevron">›</span></button>
+            </div>
+          </section>
+        </div>
+        <div id="settingsNoResults" class="empty-state compact-empty" hidden><h2>No settings found</h2><p>Try a different search.</p></div>
+      </section>
+
       <section id="watchlistPage" class="page">
         <div class="page-head library-head"><h1>Your Library</h1><button id="libraryTune" aria-label="Customize Library"><svg class="icon"><use href="#i-settings"/></svg></button></div>
         <div class="chips library-tabs" id="libraryFilters">
