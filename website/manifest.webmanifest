@@ -1,7 +1,7 @@
 {
   "name": "AniDash",
   "short_name": "AniDash",
-  "description": "Discover, watch, download and track anime.",
+  "description": "Discover, watch, download and track anime with AniDash on Android, Windows and macOS.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#140f10",
