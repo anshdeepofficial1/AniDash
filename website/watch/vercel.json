@@ -1,7 +1,59 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "functions": {
+    "api/*.js": {
+      "maxDuration": 60
+    }
+  },
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
+    },
+    {
+      "source": "/watch/sw.js",
+      "headers": [
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/watch"
+        }
+      ]
+    }
+  ],
   "rewrites": [
-    { "source": "/", "destination": "/index.html" }
+    {
+      "source": "/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/watch",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/watch/index.html",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/watch/styles.css",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/watch/app.js",
+      "destination": "/app.js"
+    },
+    {
+      "source": "/watch/manifest.webmanifest",
+      "destination": "/manifest.webmanifest"
+    },
+    {
+      "source": "/watch/sw.js",
+      "destination": "/sw.js"
+    }
   ]
 }

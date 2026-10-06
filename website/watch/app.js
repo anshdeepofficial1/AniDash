@@ -12,8 +12,110 @@ const state={
   spotlightTimer:null,
   spotlightIndex:0,
   libraryStatus:'watching',
-  browseFilter:'all'
+  browseFilter:'all',
+  lastMainPage:'homePage'
 };
+
+const DEFAULT_WEB_SETTINGS={
+  theme:'system',
+  amoled:false,
+  compactCards:false,
+  spotlightAutoPlay:true,
+  showAdult:false,
+  incognito:false,
+  preferredAudio:'sub',
+  preferredQuality:'Auto',
+  nav:{browse:true,manga:true,downloads:true,watchlist:true}
+};
+
+function loadWebSettings(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('anidash-web-settings')||'{}');
+    return {
+      ...DEFAULT_WEB_SETTINGS,
+      ...saved,
+      nav:{...DEFAULT_WEB_SETTINGS.nav,...(saved.nav||{})}
+    };
+  }catch(_){
+    return JSON.parse(JSON.stringify(DEFAULT_WEB_SETTINGS));
+  }
+}
+
+let webSettings=loadWebSettings();
+
+function mediaVisible(item){
+  return webSettings.showAdult||item?.isAdult!==true;
+}
+
+function applyWebSettings(){
+  const root=document.documentElement;
+  if(webSettings.theme==='system') delete root.dataset.theme;
+  else root.dataset.theme=webSettings.theme;
+  root.dataset.amoled=webSettings.amoled?'true':'false';
+  root.classList.toggle('compact-cards',!!webSettings.compactCards);
+
+  const visibility={
+    browsePage:webSettings.nav.browse,
+    mangaPage:webSettings.nav.manga,
+    downloadsPage:webSettings.nav.downloads,
+    watchlistPage:webSettings.nav.watchlist
+  };
+  $$('[data-page]').forEach(button=>{
+    if(button.dataset.page==='homePage') button.hidden=false;
+    else if(Object.prototype.hasOwnProperty.call(visibility,button.dataset.page)) button.hidden=!visibility[button.dataset.page];
+  });
+
+  const audio=$('#audio');
+  if(audio) audio.value=webSettings.preferredAudio;
+
+  const systemDark=window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  const dark=webSettings.theme==='dark'||(webSettings.theme==='system'&&systemDark);
+  const themeColor=dark?(webSettings.amoled?'#000000':'#090d0a'):'#f8faf7';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',themeColor);
+}
+
+function saveWebSettings(){
+  localStorage.setItem('anidash-web-settings',JSON.stringify(webSettings));
+  applyWebSettings();
+  syncSettingsControls();
+}
+
+function syncSettingsControls(){
+  const values={
+    settingIncognito:webSettings.incognito,
+    settingAdult:webSettings.showAdult,
+    settingAmoled:webSettings.amoled,
+    settingCompact:webSettings.compactCards,
+    settingSpotlight:webSettings.spotlightAutoPlay,
+    settingNavBrowse:webSettings.nav.browse,
+    settingNavManga:webSettings.nav.manga,
+    settingNavDownloads:webSettings.nav.downloads,
+    settingNavWatchlist:webSettings.nav.watchlist
+  };
+  for(const [id,value] of Object.entries(values)){
+    const el=$('#'+id);
+    if(el) el.checked=!!value;
+  }
+  if($('#settingAudio')) $('#settingAudio').value=webSettings.preferredAudio;
+  if($('#settingQuality')) $('#settingQuality').value=webSettings.preferredQuality;
+  $$('#themeSegments [data-theme-value]').forEach(button=>{
+    button.classList.toggle('active',button.dataset.themeValue===webSettings.theme);
+  });
+  updateNotificationPermissionStatus();
+  const installed=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+  if($('#installStatus')) $('#installStatus').textContent=installed?'Installed and running as an app':'Open in Safari and add AniDash to your Home Screen';
+}
+
+function updateNotificationPermissionStatus(){
+  const label=$('#notificationPermissionStatus');
+  if(!label) return;
+  if(!('Notification' in window)){
+    label.textContent='Not supported by this browser';
+    return;
+  }
+  const permission=Notification.permission;
+  label.textContent=permission==='granted'?'Allowed':permission==='denied'?'Blocked in browser settings':'Tap to request permission';
+}
 
 const anilist=async(query,variables={})=>{
   const r=await fetch('https://graphql.anilist.co',{
@@ -79,9 +181,9 @@ function card(x,wide=false,type='anime'){
   </button>`;
 }
 
-function rail(title,items,key){
-  return `<section class="home-block">
-    <div class="section-title"><h2>${esc(title)}</h2><button class="section-more" data-filter="${esc(key)}" aria-label="Open ${esc(title)}">›</button></div>
+function rail(title,items,homeKey,browseFilter='all'){
+  return `<section class="home-block" data-home-section="${esc(homeKey)}">
+    <div class="section-title"><h2>${esc(title)}</h2><button class="section-more" data-filter="${esc(browseFilter)}" aria-label="Open ${esc(title)}">›</button></div>
     <div class="rail">${items.map(x=>card(x)).join('')}</div>
   </section>`;
 }
@@ -130,7 +232,7 @@ function renderSpotlight(items){
     title:decodeURIComponent(b.dataset.title),
     cover:decodeURIComponent(b.dataset.image)
   }));
-  if(heroes.length>1){
+  if(heroes.length>1&&webSettings.spotlightAutoPlay){
     state.spotlightTimer=setInterval(()=>{
       if(document.hidden) return;
       state.spotlightIndex=(state.spotlightIndex+1)%heroes.length;
@@ -150,15 +252,22 @@ async function loadHome(){
       upcoming:Page(page:1,perPage:20){media(type:ANIME,sort:START_DATE,status:NOT_YET_RELEASED){${mediaFields}}}
     }`;
     const d=await anilist(q);
-    state.homeData=d;
-    state.home=d.trending.media;
+    const clean={
+      trending:{...d.trending,media:d.trending.media.filter(mediaVisible)},
+      popular:{...d.popular,media:d.popular.media.filter(mediaVisible)},
+      favorite:{...d.favorite,media:d.favorite.media.filter(mediaVisible)},
+      updated:{...d.updated,media:d.updated.media.filter(mediaVisible)},
+      upcoming:{...d.upcoming,media:d.upcoming.media.filter(mediaVisible)}
+    };
+    state.homeData=clean;
+    state.home=clean.trending.media;
     renderSpotlight(state.home);
     $('#homeSections').innerHTML=
-      rail('Trending Anime',d.trending.media,'all')+
-      rail('Popular Anime',d.popular.media,'popular')+
-      rail('Most Favorite',d.favorite.media,'popular')+
-      rail('Recently Updated',d.updated.media,'airing')+
-      rail('Upcoming Anime',d.upcoming.media,'all');
+      rail('Trending Anime',clean.trending.media,'trending','all')+
+      rail('Popular Anime',clean.popular.media,'popular','popular')+
+      rail('Most Favorite',clean.favorite.media,'favorite','popular')+
+      rail('Recently Updated',clean.updated.media,'updated','airing')+
+      rail('Upcoming Anime',clean.upcoming.media,'upcoming','all');
     renderContinue();
     bindCards($('#homePage'));
     $$('.section-more').forEach(b=>b.onclick=()=>{
@@ -286,7 +395,13 @@ async function playEpisode(ep){
   video.load();
   try{
     const x=await api({action:'source',id:state.current.id,episode:ep.number,audio:$('#audio').value});
-    const src=x.sources?.[0]?.url;
+    const sources=x.sources||[];
+    const preferred=String(webSettings.preferredQuality||'Auto').toLowerCase();
+    const wanted=preferred==='auto'?null:preferred.replace('p','');
+    const selected=wanted
+      ? sources.find(source=>String(source.quality||'').toLowerCase().replace('p','').includes(wanted))
+      : null;
+    const src=(selected||sources[0])?.url;
     if(!src) throw Error($('#audio').value==='dub'?'English dub is not available. Try SUB.':'No playable source was found.');
 
     // Safari/iPhone/iPad have excellent native HLS support. Prefer it so an
@@ -322,6 +437,7 @@ async function playEpisode(ep){
 }
 
 function saveProgress(ep){
+  if(webSettings.incognito) return;
   let list=JSON.parse(localStorage.getItem('anidash-progress')||'[]').filter(x=>String(x.id)!==String(state.current.id));
   list.unshift({
     id:state.current.id,
@@ -370,7 +486,7 @@ async function runSearch(){
   $('#searchStatus').textContent='Searching…';
   try{
     const d=await anilist(`query($q:String){Page(page:1,perPage:40){media(type:ANIME,search:$q,sort:SEARCH_MATCH){${mediaFields}}}}`,{q});
-    const items=d.Page.media;
+    const items=d.Page.media.filter(mediaVisible);
     $('#searchGrid').innerHTML=items.map(x=>card(x)).join('');
     bindCards($('#searchGrid'));
     $('#searchStatus').textContent=`${items.length} results`;
@@ -401,6 +517,7 @@ async function renderBrowseLanding(filter='all'){
       const d=await anilist(`query{Page(page:1,perPage:36){media(type:ANIME,${args}){${mediaFields}}}}`);
       items=d.Page.media;
     }
+    items=items.filter(mediaVisible);
     $('#searchGrid').innerHTML=items.map(x=>card(x)).join('');
     bindCards($('#searchGrid'));
     $('#searchStatus').textContent=filter==='all'?'Trending now':filter==='airing'?'Currently airing':filter==='movie'?'Popular movies':'Popular anime';
@@ -420,7 +537,7 @@ async function loadManga(query=''){
     const d=query
       ? await anilist(`query($q:String){Page(page:1,perPage:36){media(type:MANGA,search:$q,sort:SEARCH_MATCH){${mangaFields}}}}`,{q:query})
       : await anilist(`query{Page(page:1,perPage:36){media(type:MANGA,sort:TRENDING_DESC){${mangaFields}}}}`);
-    const items=d.Page.media;
+    const items=d.Page.media.filter(mediaVisible);
     $('#mangaGrid').innerHTML=items.map(x=>card(x,false,'manga')).join('');
     bindMangaCards($('#mangaGrid'));
     $('#mangaStatus').textContent=query?`${items.length} results`:'Trending manga';
@@ -431,14 +548,19 @@ async function loadManga(query=''){
 }
 
 function openPage(pageId){
+  const current=$('.page.active')?.id;
+  if(pageId==='settingsPage'&&current&&current!=='settingsPage') state.lastMainPage=current;
+  const isSubpage=pageId==='settingsPage';
+  document.body.classList.toggle('subpage-open',isSubpage);
   $$('.page').forEach(p=>p.classList.toggle('active',p.id===pageId));
-  $$('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===pageId));
+  $$('[data-page]').forEach(b=>b.classList.toggle('active',!isSubpage&&b.dataset.page===pageId));
   if(pageId==='browsePage'){
     renderHistory();
     if(!$('#searchInput').value.trim()) renderBrowseLanding(state.browseFilter);
   }
   if(pageId==='mangaPage'&&!$('#mangaGrid').children.length) loadManga();
   if(pageId==='watchlistPage') renderLibrary();
+  if(pageId==='settingsPage') syncSettingsControls();
   window.scrollTo({top:0,behavior:'auto'});
 }
 
@@ -449,7 +571,7 @@ function showUtility(title,body){
   if(!dlg.open) dlg.showModal();
 }
 
-$$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
+$$$('[data-page]').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
 
 $('#searchInput').oninput=()=>{
   clearTimeout(state.searchTimer);
@@ -481,11 +603,11 @@ $('.sheet-close').onclick=()=>$('#accountDialog').close();
 $('.sheet-close-action').onclick=()=>$('#accountDialog').close();
 $('#accountBrowse').onclick=()=>{$('#accountDialog').close();openPage('browsePage')};
 
-$('#niaButton').onclick=()=>showUtility('AniDash AI','The native AniDash AI experience is not exposed to the public web client yet. The PWA keeps the same app shell while web-safe features stay available.');
-$('#newsButton').onclick=()=>showUtility('AniDash News','News is part of the AniDash interface. Web news sync will appear here when its app service is exposed to the PWA.');
-$('#notificationButton').onclick=()=>showUtility('Notifications','Home Screen notifications depend on Safari notification permission and the web push service. Your local Continue Watching data is already preserved.');
-$('#settingsButton').onclick=()=>showUtility('Settings','AniDash follows your iPhone or iPad light/dark appearance automatically. More app settings will be added as their web equivalents become available.');
-$('#libraryTune').onclick=()=>showUtility('Customize Library','The web library currently keeps your tracked titles locally on this device and uses the same AniDash status tabs.');
+$('#niaButton').onclick=()=>showUtility('AniDash AI','The native AniDash AI service is not exposed to the public web client yet. Anime discovery and playback remain fully separate from this unavailable native service.');
+$('#newsButton').onclick=()=>showUtility('AniDash News','News requires the native AniDash news service. This web build does not show a fake feed.');
+$('#notificationButton').onclick=()=>openPage('settingsPage');
+$('#settingsButton').onclick=()=>openPage('settingsPage');
+$('#libraryTune').onclick=()=>showUtility('Customize Library','Tracked titles are stored locally on this device and organized with the same AniDash status tabs.');
 $('.utility-close').onclick=()=>$('#utilityDialog').close();
 $('.utility-close-action').onclick=()=>$('#utilityDialog').close();
 
@@ -499,10 +621,108 @@ $('.player-back').onclick=()=>{
   $('#playerDialog').close();
 };
 $('#audio').onchange=()=>{
+  webSettings.preferredAudio=$('#audio').value;
+  saveWebSettings();
   const ep=$('#playerTitle').textContent.match(/^E([\d.]+)/)?.[1];
   const item=state.episodes.find(x=>String(x.number)===ep);
   if(item) playEpisode(item);
 };
+
+$('#settingsBack').onclick=()=>openPage(state.lastMainPage||'homePage');
+$('#settingsSearchButton').onclick=()=>{
+  const wrap=$('#settingsSearchWrap');
+  wrap.hidden=!wrap.hidden;
+  if(!wrap.hidden) $('#settingsSearchInput').focus();
+};
+$('#settingsSearchClear').onclick=()=>{
+  $('#settingsSearchInput').value='';
+  $('#settingsSearchInput').dispatchEvent(new Event('input'));
+};
+$('#settingsSearchInput').oninput=()=>{
+  const q=$('#settingsSearchInput').value.trim().toLowerCase();
+  let shown=0;
+  $$('#settingsList .settings-section').forEach(section=>{
+    const match=!q||section.textContent.toLowerCase().includes(q)||String(section.dataset.settingText||'').includes(q);
+    section.hidden=!match;
+    if(match) shown++;
+  });
+  $('#settingsNoResults').hidden=shown>0;
+};
+
+$('#webProfileSettings').onclick=()=>$('#accountDialog').showModal();
+$('#installHelpButton').onclick=()=>showUtility('Install AniDash','On iPhone or iPad, open AniDash in Safari, tap Share, choose Add to Home Screen, then tap Add. Launch AniDash from the new Home Screen icon for the app-style experience.');
+
+function bindToggle(id,onChange){
+  const el=$('#'+id);
+  if(el) el.onchange=()=>onChange(el.checked);
+}
+bindToggle('settingIncognito',v=>{webSettings.incognito=v;saveWebSettings()});
+bindToggle('settingAdult',v=>{webSettings.showAdult=v;saveWebSettings();loadHome();if($('#searchInput').value.trim())runSearch();if($('#mangaGrid').children.length)loadManga($('#mangaSearch').value.trim())});
+bindToggle('settingAmoled',v=>{webSettings.amoled=v;saveWebSettings()});
+bindToggle('settingCompact',v=>{webSettings.compactCards=v;saveWebSettings()});
+bindToggle('settingSpotlight',v=>{webSettings.spotlightAutoPlay=v;saveWebSettings();if(state.home.length)renderSpotlight(state.home)});
+bindToggle('settingNavBrowse',v=>{webSettings.nav.browse=v;saveWebSettings()});
+bindToggle('settingNavManga',v=>{webSettings.nav.manga=v;saveWebSettings()});
+bindToggle('settingNavDownloads',v=>{webSettings.nav.downloads=v;saveWebSettings()});
+bindToggle('settingNavWatchlist',v=>{webSettings.nav.watchlist=v;saveWebSettings()});
+
+$('#settingAudio').onchange=()=>{webSettings.preferredAudio=$('#settingAudio').value;saveWebSettings()};
+$('#settingQuality').onchange=()=>{webSettings.preferredQuality=$('#settingQuality').value;saveWebSettings()};
+$$('#themeSegments [data-theme-value]').forEach(button=>{
+  button.onclick=()=>{
+    webSettings.theme=button.dataset.themeValue;
+    saveWebSettings();
+  };
+});
+
+$('#notificationPermissionButton').onclick=async()=>{
+  if(!('Notification' in window)){
+    showUtility('Notifications','This browser does not expose web notification permission.');
+    return;
+  }
+  if(Notification.permission==='default'){
+    try{await Notification.requestPermission()}catch(_){}
+  }
+  updateNotificationPermissionStatus();
+  if(Notification.permission==='granted'){
+    try{
+      const registration=await navigator.serviceWorker.ready;
+      await registration.showNotification('AniDash',{body:'Notifications are allowed on this device.',icon:'https://anidashweb.vercel.app/assets/anidash_logo.png'});
+    }catch(_){}
+  }else if(Notification.permission==='denied'){
+    showUtility('Notifications','Notification permission is blocked. Enable it from Safari or system website notification settings.');
+  }
+};
+
+$('#clearProgressButton').onclick=()=>{
+  if(confirm('Clear all Continue Watching progress on this device?')){
+    localStorage.removeItem('anidash-progress');
+    renderContinue();
+  }
+};
+$('#clearLibraryButton').onclick=()=>{
+  if(confirm('Clear the local AniDash library on this device?')){
+    localStorage.removeItem('anidash-library');
+    renderLibrary();
+  }
+};
+$('#clearSearchesButton').onclick=()=>{
+  localStorage.removeItem('anidash-searches');
+  renderHistory();
+};
+$('#resetWebSettingsButton').onclick=()=>{
+  if(confirm('Reset all AniDash web settings to defaults?')){
+    webSettings=JSON.parse(JSON.stringify(DEFAULT_WEB_SETTINGS));
+    localStorage.removeItem('anidash-web-settings');
+    applyWebSettings();
+    syncSettingsControls();
+    loadHome();
+  }
+};
+
+window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{
+  if(webSettings.theme==='system') applyWebSettings();
+});
 
 const hour=new Date().getHours();
 const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
@@ -514,11 +734,16 @@ document.documentElement.classList.toggle('standalone',standalone);
 const initialTab=new URLSearchParams(location.search).get('tab');
 const initialPage={browse:'browsePage',manga:'mangaPage',downloads:'downloadsPage',watchlist:'watchlistPage'}[initialTab]||'homePage';
 
+applyWebSettings();
+syncSettingsControls();
 renderHistory();
 renderLibrary();
 loadHome();
 if(initialPage!=='homePage') openPage(initialPage);
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/watch/sw.js',{scope:'/watch'}).catch(()=>{});
+  const nested=location.pathname==='/watch'||location.pathname.startsWith('/watch/');
+  const swUrl=nested?'/watch/sw.js':'/sw.js';
+  const swScope=nested?'/watch':'/';
+  navigator.serviceWorker.register(swUrl,{scope:swScope}).catch(()=>{});
 }
