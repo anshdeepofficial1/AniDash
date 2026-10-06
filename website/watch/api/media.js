@@ -64,9 +64,9 @@ export default async function handler(req, res) {
 
     const type = upstream.headers.get('content-type') || '';
     const looksLikeHls =
+      req.query.hls === '1' ||
       type.toLowerCase().includes('mpegurl') ||
-      target.pathname.toLowerCase().endsWith('.m3u8') ||
-      target.pathname.includes('m3u8-proxy');
+      target.pathname.toLowerCase().endsWith('.m3u8');
 
     if (looksLikeHls) {
       const playlist = await upstream.text();
