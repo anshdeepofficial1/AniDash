@@ -63,7 +63,7 @@ function applyWebSettings(){
     downloadsPage:webSettings.nav.downloads,
     watchlistPage:webSettings.nav.watchlist
   };
-  $('[data-page]').forEach(button=>{
+  $$('[data-page]').forEach(button=>{
     if(button.dataset.page==='homePage') button.hidden=false;
     else if(Object.prototype.hasOwnProperty.call(visibility,button.dataset.page)) button.hidden=!visibility[button.dataset.page];
   });
@@ -1100,7 +1100,7 @@ function openPage(pageId,options={}){
   const isSubpage=pageId==='settingsPage';
   document.body.classList.toggle('subpage-open',isSubpage);
   $$('.page').forEach(p=>p.classList.toggle('active',p.id===pageId));
-  $('[data-page]').forEach(b=>b.classList.toggle('active',!isSubpage&&b.dataset.page===pageId));
+  $$('[data-page]').forEach(b=>b.classList.toggle('active',!isSubpage&&b.dataset.page===pageId));
   syncMacChrome(pageId,options.label,options.icon);
 
   if(pageId==='browsePage'){
