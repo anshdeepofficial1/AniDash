@@ -15,10 +15,15 @@
   <script>
     (() => {
       const nested = location.pathname === '/watch' || location.pathname.startsWith('/watch/');
-      const link = document.createElement('link');
-      link.rel = 'manifest';
-      link.href = nested ? '/watch/manifest.webmanifest' : '/manifest.webmanifest';
-      document.head.appendChild(link);
+      window.__ANIDASH_BASE__ = nested ? '/watch' : '';
+      const manifest = document.createElement('link');
+      manifest.rel = 'manifest';
+      manifest.href = window.__ANIDASH_BASE__ + '/manifest.webmanifest';
+      document.head.appendChild(manifest);
+      const stylesheet = document.createElement('link');
+      stylesheet.rel = 'stylesheet';
+      stylesheet.href = window.__ANIDASH_BASE__ + '/styles.css';
+      document.head.appendChild(stylesheet);
     })();
   </script>
   <style>
@@ -32,7 +37,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/watch/styles.css">
   <title>AniDash</title>
 </head>
 <body>
@@ -307,6 +311,12 @@
   </dialog>
 
   <script src="/api/hls"></script>
-  <script src="/watch/app.js"></script>
+  <script>
+    (() => {
+      const script = document.createElement('script');
+      script.src = (window.__ANIDASH_BASE__ || '') + '/app.js';
+      document.body.appendChild(script);
+    })();
+  </script>
 </body>
 </html>
