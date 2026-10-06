@@ -52,7 +52,7 @@ function selectedPayload(data, audio, server) {
   return null;
 }
 
-function proxyStream(url) {
+function proxyStream(url, isM3U8) {
   const headers = JSON.stringify({
     'User-Agent': UA,
     Referer: 'https://justanime.to/',
@@ -60,7 +60,11 @@ function proxyStream(url) {
   });
   const upstreamProxy =
     STREAM_PROXY + '?url=' + encodeURIComponent(url) + '&headers=' + encodeURIComponent(headers);
-  return '/api/media?url=' + encodeURIComponent(upstreamProxy);
+  return {
+    sameOrigin:
+      '/api/media?url=' + encodeURIComponent(upstreamProxy) + (isM3U8 ? '&hls=1' : ''),
+    direct: upstreamProxy,
+  };
 }
 
 function normalizeSources(payload, server) {
@@ -70,11 +74,18 @@ function normalizeSources(payload, server) {
       if (!url || !/^https:\/\//i.test(url)) return null;
       let originalHost = '';
       try { originalHost = new URL(url).hostname; } catch (_) {}
+      const isM3U8 =
+        source?.isM3U8 === true ||
+        /\.m3u8(?:$|\?)/i.test(url) ||
+        /mpegurl/i.test(String(source?.type || ''));
+      const proxied = proxyStream(url, isM3U8);
       return {
         ...source,
         server,
         originalHost,
-        url: proxyStream(url),
+        isM3U8,
+        url: proxied.sameOrigin,
+        directProxyUrl: proxied.direct,
       };
     })
     .filter(Boolean);
