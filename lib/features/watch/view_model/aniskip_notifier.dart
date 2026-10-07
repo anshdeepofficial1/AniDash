@@ -23,6 +23,38 @@ class AniSkipNotifier extends _$AniSkipNotifier {
     return const [];
   }
 
+  static const Map<String, int> _knownTopAnimeMalIds = {
+    'one piece': 21,
+    'naruto': 20,
+    'naruto shippuden': 1735,
+    'naruto: shippuuden': 1735,
+    'bleach': 269,
+    'bleach: thousand-year blood war': 41467,
+    'death note': 1535,
+    'attack on titan': 16498,
+    'shingeki no kyojin': 16498,
+    'jujutsu kaisen': 40748,
+    'demon slayer': 38000,
+    'kimetsu no yaiba': 38000,
+    'hunter x hunter': 11061,
+    'hunter x hunter (2011)': 11061,
+    'my hero academia': 31964,
+    'boku no hero academia': 31964,
+    'dragon ball z': 813,
+    'dragon ball': 223,
+    'dragon ball super': 30694,
+    'fullmetal alchemist: brotherhood': 5114,
+    'fullmetal alchemist brotherhood': 5114,
+    'chainsaw man': 44511,
+    'solo leveling': 52299,
+    'black clover': 34572,
+    'sword art online': 11757,
+    'tokyo ghoul': 22319,
+    'one punch man': 30276,
+    'spy x family': 50273,
+    'vinland saga': 37521,
+  };
+
   Future<void> fetchSkipTimes({
     required String mediaId,
     required String animeTitle,
@@ -34,14 +66,22 @@ class AniSkipNotifier extends _$AniSkipNotifier {
     try {
       final cacheKey = animeTitle.trim().toLowerCase();
 
-      // 1. Direct MAL ID parameter if provided
+      // 1. Direct MAL ID parameter if provided or from known top anime mapping
       if (malId == null || malId <= 0) {
         if (_malIdCache.containsKey(mediaId)) {
           malId = _malIdCache[mediaId];
         } else if (_malIdCache.containsKey(cacheKey)) {
           malId = _malIdCache[cacheKey];
+        } else if (_knownTopAnimeMalIds.containsKey(cacheKey)) {
+          malId = _knownTopAnimeMalIds[cacheKey];
         } else {
-          malId = ref.read(episodeListProvider).malId;
+          for (final entry in _knownTopAnimeMalIds.entries) {
+            if (cacheKey.startsWith(entry.key) || cacheKey.contains(entry.key)) {
+              malId = entry.value;
+              break;
+            }
+          }
+          malId ??= ref.read(episodeListProvider).malId;
         }
       }
 

@@ -26,6 +26,13 @@ class AnimeNewsNetworkService {
       document.querySelectorAll('.herald.box.news.t-news').forEach((element) {
         final src = element.querySelector('.thumbnail')?.attributes['data-src'];
         var image = src != null ? _cdnUrl + src : null;
+        if (image != null) {
+          // Upgrade ANN crop/fit small thumbnails (e.g. crop120x120) to full HD max1200x1200
+          image = image.replaceAll(
+            RegExp(r'/thumbnails/(crop|fit|max)\d+x\d+/'),
+            '/thumbnails/max1200x1200/',
+          );
+        }
 
         final wrapDiv = element.querySelector('.wrap > div');
         final titleElement = wrapDiv?.querySelector('h3')?.children.firstOrNull;

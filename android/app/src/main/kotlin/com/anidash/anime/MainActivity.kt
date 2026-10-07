@@ -51,10 +51,6 @@ class MainActivity : FlutterFragmentActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent == null || intent.action != ACTION_PIP_CONTROL) return
             val control = intent.getStringExtra(EXTRA_CONTROL_TYPE) ?: return
-            if (control == "play_pause") {
-                pipIsPlaying = !pipIsPlaying
-                updatePiPActions(pipIsPlaying)
-            }
             runOnUiThread {
                 pipChannel?.invokeMethod("onPiPAction", control)
             }
@@ -237,6 +233,10 @@ class MainActivity : FlutterFragmentActivity() {
         try {
             builder.setAspectRatio(Rational(16, 9))
         } catch (_: Exception) {}
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setAutoEnterEnabled(shouldInterceptVolumeKeys)
+            builder.setSeamlessResizeEnabled(true)
+        }
         return builder.build()
     }
 
@@ -338,11 +338,13 @@ class MainActivity : FlutterFragmentActivity() {
                         "enableIntercept" -> {
                             shouldInterceptVolumeKeys = true
                             interceptVolumeKeys = true
+                            updatePiPActions(pipIsPlaying)
                             result.success(null)
                         }
                         "disableIntercept" -> {
                             shouldInterceptVolumeKeys = false
                             interceptVolumeKeys = false
+                            updatePiPActions(pipIsPlaying)
                             result.success(null)
                         }
                         else -> result.notImplemented()
@@ -507,12 +509,16 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         pipChannel?.invokeMethod("onPiPChanged", isInPictureInPictureMode)
+        if (isInPictureInPictureMode) {
+            updatePiPActions(pipIsPlaying)
+        }
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (interceptVolumeKeys && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (shouldInterceptVolumeKeys && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
+                pipChannel?.invokeMethod("onPiPChanged", true)
                 val params = buildPiPParams(pipIsPlaying) ?: PictureInPictureParams.Builder().build()
                 enterPictureInPictureMode(params)
             } catch (_: Exception) {}

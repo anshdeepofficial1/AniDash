@@ -1,6 +1,7 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
+#include <timeapi.h>
 
 #include "flutter_window.h"
 #include "utils.h"
@@ -17,6 +18,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
+  // Prioritize AniDash process and UI/video threads above background applications
+  // to ensure butter-smooth 60fps playback even during heavy system RAM/CPU consumption.
+  ::SetPriorityClass(::GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
+
+  // Set Windows multimedia timer resolution to 1ms to eliminate playback stutter & jitter
+  ::timeBeginPeriod(1);
+
   flutter::DartProject project(L"data");
 
   std::vector<std::string> command_line_arguments =
@@ -29,6 +37,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
   if (!window.Create(L"AniDash", origin, size)) {
+    ::timeEndPeriod(1);
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
@@ -39,6 +48,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::DispatchMessage(&msg);
   }
 
+  ::timeEndPeriod(1);
   ::CoUninitialize();
   return EXIT_SUCCESS;
 }

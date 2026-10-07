@@ -20,9 +20,7 @@ class PolaroidSpotlight extends StatelessWidget {
   Widget build(BuildContext context) {
     if (anime == null) return const SizedBox.shrink();
 
-    final imageUrl = anime!.bannerImage?.isNotEmpty == true
-        ? anime!.bannerImage!
-        : (anime!.coverImage.large ?? anime!.coverImage.medium ?? '');
+    final imageUrl = anime!.highResCoverImage;
 
     return GestureDetector(
       onTap: () => onTap?.call(anime!),

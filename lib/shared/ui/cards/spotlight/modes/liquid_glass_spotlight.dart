@@ -27,9 +27,7 @@ class LiquidGlassSpotlight extends StatelessWidget {
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
 
-    final imageUrl = anime!.bannerImage?.isNotEmpty == true
-        ? anime!.bannerImage!
-        : (anime!.coverImage.large ?? anime!.coverImage.medium ?? '');
+    final imageUrl = anime!.highResSpotlightImage;
 
     final textShadow = Shadow(
       color: Colors.black.withValues(alpha: 0.3),

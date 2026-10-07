@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ani_dash/core/models/universal/universal_news.dart';
 import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
-import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 
 import 'package:ani_dash/main.dart';
@@ -49,7 +48,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _setAppOpenStatus(true);
     _setupAuthListener();
     _setupNewsListener();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showWhatsNew());
     Future.microtask(() {
       if (!mounted) return;
       ref.read(homepageProvider.notifier).initialize();
@@ -58,15 +56,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         _syncAccountWatchProgress();
       }
     });
-  }
-
-  Future<void> _showWhatsNew() async {
-    const dialogKey = 'support_dev_seen_v1182';
-    if (!mounted || sharedPrefs.getBool(dialogKey) == true) return;
-    await sharedPrefs.setBool(dialogKey, true);
-    if (!mounted) return;
-
-    await SponsorDialog.show(context);
   }
 
   void _setupAuthListener() {

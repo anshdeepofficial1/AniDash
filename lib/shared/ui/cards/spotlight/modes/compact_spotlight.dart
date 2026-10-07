@@ -21,10 +21,7 @@ class CompactSpotlight extends StatelessWidget {
     if (anime == null) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
-    final imageUrl =
-        anime!.bannerImage?.isNotEmpty == true
-            ? anime!.bannerImage!
-            : (anime!.coverImage.large ?? anime!.coverImage.medium ?? '');
+    final imageUrl = anime!.highResSpotlightImage;
 
     return GestureDetector(
       onTap: () => onTap?.call(anime!),
