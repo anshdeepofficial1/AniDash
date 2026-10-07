@@ -27,7 +27,7 @@ Future<void> checkForUpdates(
             ? 'anshdeepofficial1/Anidash-test-releases'
             : 'anshdeepofficial1/AniDash';
 
-    final pageSize = (includeBeta || includeAlpha) ? 5 : 1;
+    final pageSize = (includeBeta || includeAlpha) ? 10 : 5;
     final url = Uri.parse(
       'https://api.github.com/repos/$repo/releases?per_page=$pageSize',
     );
@@ -53,6 +53,10 @@ Future<void> checkForUpdates(
     final latestRelease = releases.firstWhere((rel) {
       final tag = (rel['tag_name'] as String).toLowerCase();
       final isPrerelease = rel['prerelease'] as bool;
+      final assets = rel['assets'] as List<dynamic>? ?? [];
+
+      // Must have an installable asset for current platform
+      if (_getPlatformSpecificAsset(assets) == null) return false;
 
       if (!isPrerelease) return true;
       if (tag.contains('hotfix')) return true;
@@ -148,23 +152,21 @@ Future<void> checkForUpdates(
         return value(a);
       }
     }
-    // 2. Fallback to any windows asset
+    // 2. Fallback only to any executable .exe
     for (final a in assets) {
       final name = (a['name'] as String).toLowerCase();
-      if (name.endsWith('.exe') || name.endsWith('.zip')) {
+      if (name.endsWith('.exe')) {
         return value(a);
       }
     }
+    // If no .exe exists, return null so Windows users are NOT prompted to update
+    return null;
   }
 
   for (final a in assets) {
     final name = (a['name'] as String).toLowerCase();
     if (Platform.isLinux && name.contains('linux.zip')) return value(a);
-    if (Platform.isMacOS &&
-        (name.endsWith('.dmg') ||
-            name.contains('macos.zip') ||
-            name.contains('darwin.zip') ||
-            name.endsWith('.zip'))) {
+    if (Platform.isMacOS && name.endsWith('.dmg')) {
       return value(a);
     }
   }
