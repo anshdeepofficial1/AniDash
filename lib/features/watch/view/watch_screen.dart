@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:screen_brightness/screen_brightness.dart';
@@ -9,6 +11,8 @@ import 'package:ani_dash/core/models/anime/episode_model.dart';
 import 'package:ani_dash/core/models/anime/server_model.dart';
 import 'package:ani_dash/features/watch/view/widgets/episodes_panel.dart';
 import 'package:ani_dash/features/watch/view/widgets/player/shonenx_video_player.dart';
+import 'package:ani_dash/features/watch/view/widgets/portrait_player_details.dart';
+import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart';
 import 'package:ani_dash/features/watch/view_model/watch_controller.dart';
 import 'package:ani_dash/helpers/ui.dart';
@@ -55,6 +59,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   late final AnimationController _panelController;
   late final CurvedAnimation _panelAnimation;
   final ScreenshotController _screenshotController = ScreenshotController();
+  bool _isLandscapeFullscreen = false;
 
   @override
   void initState() {
@@ -100,13 +105,74 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         : _panelController.forward();
   }
 
+  void _openEpisodesSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF141416),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: EpisodesPanel(
+                  panelAnimation: _panelController,
+                  mediaId: widget.mediaId,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _setupSystemUI() async {
     UIHelper.setWatchInitialLockMode();
     UIHelper.enableVolumeInterception();
-    await Future.wait([
-      UIHelper.enableImmersiveMode(),
-      UIHelper.forceLandscape(),
-    ]);
+    await UIHelper.forcePortrait();
+  }
+
+  Future<void> _toggleFullscreen() async {
+    final isDesktop = !Platform.isAndroid && !Platform.isIOS;
+    final target = !_isLandscapeFullscreen;
+    setState(() {
+      _isLandscapeFullscreen = target;
+    });
+
+    if (isDesktop) {
+      if (UIHelper.isFullscreen != target) {
+        await UIHelper.handleToggleFullscreen();
+      }
+    } else {
+      if (target) {
+        await Future.wait([
+          UIHelper.enableImmersiveMode(),
+          UIHelper.forceLandscape(),
+        ]);
+      } else {
+        await Future.wait([
+          UIHelper.exitImmersiveMode(),
+          UIHelper.forcePortrait(),
+        ]);
+      }
+    }
   }
 
   bool _isExiting = false;
@@ -119,6 +185,15 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
       return;
     }
 
+    if (_isLandscapeFullscreen) {
+      // 1. First Back while in Landscape Fullscreen:
+      // Return to portrait mode without stopping video playback!
+      await _toggleFullscreen();
+      return;
+    }
+
+    // 2. Second Back (or Back while in Portrait):
+      // Cleanly stop playback and pop back to previous screen.
     _isExiting = true;
     await ref.read(watchControllerProvider.notifier).cleanup();
     await ref.read(playerStateProvider.notifier).stop();
@@ -167,6 +242,24 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     // Keep controller alive to ensure listeners work
     ref.watch(watchControllerProvider);
 
+    final selectedEp = ref.watch(
+      episodeDataProvider.select((s) => s.selectedEpisode),
+    ) ?? widget.episode;
+
+    final allEpisodes = ref.watch(
+      episodeListProvider.select((s) => s.episodes),
+    );
+    final effectiveEpisodes = allEpisodes.isNotEmpty
+        ? allEpisodes
+        : (widget.episodes ?? <EpisodeDataModel>[]);
+
+    final currentEpModel = effectiveEpisodes.firstWhereOrNull(
+      (e) => e.number == selectedEp,
+    );
+    final currentEpTitle = currentEpModel?.title;
+    final currentEpThumb = currentEpModel?.thumbnail;
+    final currentEpDesc = currentEpModel?.description;
+
     // Listen for episode changes — if askBeforeSync is on, show confirmation dialog
     ref.listen(episodeDataProvider.select((s) => s.selectedEpisode), (
       prev,
@@ -191,22 +284,22 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         context: context,
         barrierDismissible: false,
         builder:
-            (context) => AlertDialog(
-              title: const Text('Update Progress?'),
-              content: Text(
-                'Do you want to update your list progress to Episode $episodeNum?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('No'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Yes'),
-                ),
-              ],
+          (context) => AlertDialog(
+            title: const Text('Update Progress?'),
+            content: Text(
+              'Do you want to update your list progress to Episode $episodeNum?',
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('No'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Yes'),
+              ),
+            ],
+          ),
       );
 
       if (confirmed == true && context.mounted) {
@@ -256,13 +349,81 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
               _panelController.reset();
             }
 
+            final isLandscape = orientation == Orientation.landscape || _isLandscapeFullscreen;
+
             final player = AniDashVideoPlayer(
-              onEpisodesPressed: _togglePanel,
+              onEpisodesPressed: isLandscape ? _togglePanel : _openEpisodesSheet,
               onPanelCloseRequest: () => _panelController.reverse(),
               screenshotController: _screenshotController,
+              onFullScreenPressed: _toggleFullscreen,
             );
 
-            if (orientation == Orientation.landscape && !isPiP) {
+            final isDesktop = !Platform.isAndroid && !Platform.isIOS;
+            final screenWidth = MediaQuery.of(context).size.width;
+
+            // Desktop Crunchyroll/YouTube Theater View (when not in full-screen)
+            if (isDesktop && !_isLandscapeFullscreen && !isPiP && screenWidth > 900) {
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Top Area: Video Player + Right-Side Episodes Carousel/Panel
+                    Container(
+                      color: Colors.black,
+                      height: (screenWidth * 0.52).clamp(380.0, 560.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 7,
+                            child: player,
+                          ),
+                          Container(
+                            width: 380,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF141416),
+                              border: Border(
+                                left: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                            child: EpisodesPanel(
+                              panelAnimation: _panelController,
+                              mediaId: widget.mediaId,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Bottom Area: Anime Info, Synopsis, Advisory, Comments & World Chat
+                    Container(
+                      color: Colors.black,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1200),
+                        child: PortraitPlayerDetails(
+                          animeTitle: widget.animeName,
+                          animeFormat: widget.animeFormat,
+                          animeCover: widget.animeCover,
+                          episodeNumber: selectedEp,
+                          episodeTitle: currentEpTitle,
+                          episodeThumbnail: currentEpThumb,
+                          episodeDescription: currentEpDesc,
+                          episodes: effectiveEpisodes,
+                          mediaId: widget.mediaId,
+                          onAllEpisodesPressed: _openEpisodesSheet,
+                          onMoreOptionsPressed: _openEpisodesSheet,
+                          onToggleFullscreen: _toggleFullscreen,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            if (isLandscape && !isPiP) {
               return Row(
                 children: [
                   Expanded(child: player),
@@ -281,9 +442,35 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
               );
             }
 
-            // Never expose a separate portrait player layout while Android is
-            // completing its landscape transition.
-            return SizedBox.expand(child: player);
+            // Mobile / Portrait Mode:
+            // 16:9 Player pinned on top, rich interactive details below
+            return Column(
+              children: [
+                SafeArea(
+                  bottom: false,
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: player,
+                  ),
+                ),
+                Expanded(
+                  child: PortraitPlayerDetails(
+                    animeTitle: widget.animeName,
+                    animeFormat: widget.animeFormat,
+                    animeCover: widget.animeCover,
+                    episodeNumber: selectedEp,
+                    episodeTitle: currentEpTitle,
+                    episodeThumbnail: currentEpThumb,
+                    episodeDescription: currentEpDesc,
+                    episodes: effectiveEpisodes,
+                    mediaId: widget.mediaId,
+                    onAllEpisodesPressed: _openEpisodesSheet,
+                    onMoreOptionsPressed: _openEpisodesSheet,
+                    onToggleFullscreen: _toggleFullscreen,
+                  ),
+                ),
+              ],
+            );
           },
         ),
       ),

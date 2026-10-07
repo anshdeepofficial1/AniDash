@@ -5,6 +5,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:isar_community/isar.dart';
@@ -141,15 +142,35 @@ class MyApp extends ConsumerWidget {
           builder: (context, child) {
             final mediaQuery = MediaQuery.of(context);
             final scaledSize = mediaQuery.size / scale;
-            return MediaQuery(
-              data: mediaQuery.copyWith(
-                textScaler: TextScaler.linear(scale),
-                size: scaledSize,
-              ),
-              child: Semantics(
-                container: true,
-                label: 'AniDash application',
-                child: SecurityGate(child: child!),
+            return CallbackShortcuts(
+              bindings: {
+                const SingleActivator(LogicalKeyboardKey.escape): () {
+                  final nav = rootNavigatorKey.currentState;
+                  if (nav != null && nav.canPop()) {
+                    nav.pop();
+                  } else {
+                    final ctx = rootNavigatorKey.currentContext;
+                    if (ctx != null) {
+                      final currentLoc = GoRouterState.of(ctx).matchedLocation;
+                      if (currentLoc.startsWith('/settings/')) {
+                        ctx.go('/settings');
+                      } else if (currentLoc != '/') {
+                        ctx.go('/');
+                      }
+                    }
+                  }
+                },
+              },
+              child: MediaQuery(
+                data: mediaQuery.copyWith(
+                  textScaler: TextScaler.linear(scale),
+                  size: scaledSize,
+                ),
+                child: Semantics(
+                  container: true,
+                  label: 'AniDash application',
+                  child: SecurityGate(child: child!),
+                ),
               ),
             );
           },
