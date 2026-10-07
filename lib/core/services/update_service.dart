@@ -32,73 +32,89 @@ class UpdateService {
     try {
       final response = await _httpClient.get(
         Uri.parse(
-          'https://api.github.com/repos/anshdeepofficial1/AniDash/releases/latest',
+          'https://api.github.com/repos/anshdeepofficial1/AniDash/releases?per_page=10',
         ),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final tagName = data['tag_name'] as String;
-        final releaseNotes = data['body'] as String;
-        final publishedAt = DateTime.parse(data['published_at']);
+        final dynamic decoded = json.decode(response.body);
+        if (decoded is! List || decoded.isEmpty) return null;
 
-        final assets = data['assets'] as List;
-        if (assets.isEmpty) return null;
-
-        dynamic matchedAsset;
-        if (Platform.isAndroid) {
-          matchedAsset = assets.firstWhere(
-            (asset) => asset['name'].toString().toLowerCase().endsWith('.apk'),
-            orElse: () => null,
-          );
-        } else if (Platform.isWindows) {
-          matchedAsset = assets.firstWhere(
-            (asset) {
-              final name = asset['name'].toString().toLowerCase();
-              return name.endsWith('.exe') ||
-                  name.contains('windows-portable.zip') ||
-                  name.endsWith('.zip');
-            },
-            orElse: () => null,
-          );
-        } else if (Platform.isMacOS) {
-          matchedAsset = assets.firstWhere(
-            (asset) {
-              final name = asset['name'].toString().toLowerCase();
-              return name.endsWith('.dmg') ||
-                  name.contains('macos.zip') ||
-                  name.endsWith('.zip');
-            },
-            orElse: () => null,
-          );
-        } else if (Platform.isLinux) {
-          matchedAsset = assets.firstWhere(
-            (asset) =>
-                asset['name'].toString().toLowerCase().contains('linux.zip'),
-            orElse: () => null,
-          );
-        }
-
-        if (matchedAsset == null) return null;
-        final downloadUrl = matchedAsset['browser_download_url'] as String;
-        final digest = matchedAsset['digest']?.toString();
-
+        final List<dynamic> releases = decoded;
         final packageInfo = await PackageInfo.fromPlatform();
         final currentVersion = packageInfo.version;
 
-        final cleanTagName = tagName.replaceAll('v', '');
+        for (final data in releases) {
+          if (data is! Map<String, dynamic>) continue;
+          final tagName = data['tag_name'] as String? ?? '';
+          final releaseNotes = data['body'] as String? ?? '';
+          final publishedAtStr = data['published_at'] as String?;
+          final publishedAt = publishedAtStr != null
+              ? DateTime.parse(publishedAtStr)
+              : DateTime.now();
 
-        if (_isNewerVersion(currentVersion, cleanTagName)) {
-          return UpdateInfo(
-            version: cleanTagName,
-            downloadUrl: downloadUrl,
-            releaseNotes: releaseNotes,
-            publishedAt: publishedAt,
-            sha256:
-                digest?.startsWith('sha256:') == true
-                    ? digest!.substring('sha256:'.length).toLowerCase()
-                    : null,
-          );
+          final assets = data['assets'] as List? ?? [];
+          if (assets.isEmpty) continue;
+
+          dynamic matchedAsset;
+          if (Platform.isAndroid) {
+            // Android strictly requires a valid .apk file
+            matchedAsset = assets.firstWhere(
+              (asset) {
+                final name = asset['name'].toString().toLowerCase();
+                return name.endsWith('.apk');
+              },
+              orElse: () => null,
+            );
+          } else if (Platform.isWindows) {
+            // Strictly require .exe installer
+            matchedAsset = assets.firstWhere(
+              (asset) {
+                final name = asset['name'].toString().toLowerCase();
+                return name.endsWith('.exe');
+              },
+              orElse: () => null,
+            );
+          } else if (Platform.isMacOS) {
+            // Strictly require .dmg installer so macOS users are only notified
+            // when a valid DMG is present on the release.
+            matchedAsset = assets.firstWhere(
+              (asset) {
+                final name = asset['name'].toString().toLowerCase();
+                return name.endsWith('.dmg');
+              },
+              orElse: () => null,
+            );
+          } else if (Platform.isLinux) {
+            matchedAsset = assets.firstWhere(
+              (asset) =>
+                  asset['name'].toString().toLowerCase().contains('linux.zip'),
+              orElse: () => null,
+            );
+          }
+
+          // If this release has no installable asset for this platform, skip to next release!
+          if (matchedAsset == null) continue;
+
+          final downloadUrl = matchedAsset['browser_download_url'] as String;
+          final digest = matchedAsset['digest']?.toString();
+          final cleanTagName = tagName.replaceAll('v', '');
+
+          if (_isNewerVersion(currentVersion, cleanTagName)) {
+            return UpdateInfo(
+              version: cleanTagName,
+              downloadUrl: downloadUrl,
+              releaseNotes: releaseNotes,
+              publishedAt: publishedAt,
+              sha256:
+                  digest?.startsWith('sha256:') == true
+                      ? digest!.substring('sha256:'.length).toLowerCase()
+                      : null,
+            );
+          } else {
+            // Found the latest release containing this platform's asset, and it's not newer
+            return null;
+          }
         }
       }
     } catch (e) {
