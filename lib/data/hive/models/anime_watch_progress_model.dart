@@ -148,6 +148,25 @@ class AnimeWatchProgressEntry {
     return false;
   }
 
+  bool get isOnHoldOrPaused {
+    final s = status.toLowerCase().trim();
+    return s == 'on_hold' ||
+        s == 'on-hold' ||
+        s == 'onhold' ||
+        s == 'paused' ||
+        s == 'hold';
+  }
+
+  bool get isDropped {
+    final s = status.toLowerCase().trim();
+    return s == 'dropped';
+  }
+
+  bool get isPlanning {
+    final s = status.toLowerCase().trim();
+    return s == 'planning' || s == 'plan_to_watch' || s == 'plantowatch';
+  }
+
   AnimeWatchProgressEntry copyWith({
     String? animeId,
     String? animeTitle,

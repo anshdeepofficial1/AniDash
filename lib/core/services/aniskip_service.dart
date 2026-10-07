@@ -72,8 +72,11 @@ class AniSkipService {
             if (length < 15 || length > 180) return false;
 
             final isOpening =
-                item.skipType == SkipType.op || item.skipType == SkipType.mixed;
-            final isEnding = item.skipType == SkipType.ed;
+                item.skipType == SkipType.op ||
+                (item.skipType == SkipType.mixed && interval.startTime <= 300);
+            final isEnding =
+                item.skipType == SkipType.ed ||
+                (item.skipType == SkipType.mixed && interval.startTime >= 480);
 
             if (isOpening) {
               return interval.startTime >= 0 &&
@@ -81,7 +84,7 @@ class AniSkipService {
                   interval.endTime > interval.startTime;
             }
             if (isEnding) {
-              return interval.startTime >= 300 &&
+              return interval.startTime >= 480 &&
                   interval.endTime > interval.startTime;
             }
             if (item.skipType == SkipType.recap) {
@@ -109,15 +112,15 @@ class AniSkipService {
             case SkipType.op:
               // An anime opening MUST start within the first 5 minutes (<= 300 seconds).
               // It can NEVER start at 10-15 minutes into an episode!
-              return start <= 300;
+              return start >= 0 && start <= 300;
             case SkipType.ed:
-              // An anime ending must start in the second half (>= 50%) and after 300 seconds.
-              return start >= 300 && start >= episodeLength * 0.50;
+              // An anime ending must start in the second half (>= 60%) and after 480 seconds (8 mins).
+              return start >= 480 && start >= episodeLength * 0.60;
             case SkipType.mixed:
-              return (start <= 300) ||
-                  (start >= 300 && start >= episodeLength * 0.50);
+              return (start >= 0 && start <= 300) ||
+                  (start >= 480 && start >= episodeLength * 0.60);
             case SkipType.recap:
-              return start <= 360;
+              return start >= 0 && start <= 360;
             default:
               return false;
           }

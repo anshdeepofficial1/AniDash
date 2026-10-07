@@ -43,6 +43,7 @@ class ContinueSection extends ConsumerWidget {
             if (!entry.hasAnyWatchProgress) return false;
             if (dismissedIds.contains(entry.animeId)) return false;
             if (entry.isCompletedOrFinished) return false;
+            if (entry.isOnHoldOrPaused || entry.isDropped) return false;
             return true;
           }).toList()
           ..sort(AnimeWatchProgressEntry.compareByRecency);

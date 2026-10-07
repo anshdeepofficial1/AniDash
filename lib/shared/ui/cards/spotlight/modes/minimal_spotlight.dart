@@ -20,9 +20,7 @@ class MinimalSpotlight extends StatelessWidget {
 
     final isSmallScreen = MediaQuery.of(context).size.width < 600;
     final theme = Theme.of(context);
-    final imageUrl = anime!.bannerImage?.isNotEmpty == true
-        ? anime!.bannerImage!
-        : (anime!.coverImage.large ?? anime!.coverImage.medium ?? '');
+    final imageUrl = anime!.highResSpotlightImage;
 
     return GestureDetector(
       onTap: () => onTap?.call(anime!),

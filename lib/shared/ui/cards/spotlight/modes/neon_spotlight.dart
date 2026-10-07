@@ -26,9 +26,7 @@ class NeonSpotlight extends StatelessWidget {
     final theme = Theme.of(context);
     final neonColor = theme.colorScheme.primary;
     final isMobile = Platform.isAndroid || Platform.isIOS;
-    final imageUrl = anime!.bannerImage?.isNotEmpty == true
-        ? anime!.bannerImage!
-        : (anime!.coverImage.large ?? anime!.coverImage.medium ?? '');
+    final imageUrl = anime!.highResSpotlightImage;
 
     return GestureDetector(
       onTap: () => onTap?.call(anime!),

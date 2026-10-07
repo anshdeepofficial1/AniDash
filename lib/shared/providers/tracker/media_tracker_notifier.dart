@@ -299,6 +299,14 @@ class MediaTracker extends _$MediaTracker {
         }
       }
 
+      if (status != null) {
+        final repo = ref.read(watchProgressRepositoryProvider);
+        final local = repo.getProgress(mediaId);
+        if (local != null) {
+          await repo.saveProgress(local.copyWith(status: status.toLowerCase()));
+        }
+      }
+
       state = currentState.copyWith(isLoading: false, entries: updatedEntries);
     } catch (e) {
       state = currentState.copyWith(isLoading: false);
@@ -402,6 +410,8 @@ class MediaTracker extends _$MediaTracker {
         }
       }
 
+      final statusLower = entry.status.toLowerCase();
+
       final updated = (local ??
               AnimeWatchProgressEntry(
                 animeId: mediaId,
@@ -418,7 +428,7 @@ class MediaTracker extends _$MediaTracker {
                     DateTime.fromMillisecondsSinceEpoch(0),
                 lastPlayedAt: local?.lastPlayedAt,
                 currentEpisode: targetProgress,
-                status: isCompleted ? 'completed' : 'watching',
+                status: statusLower,
               ))
           .copyWith(
             episodesProgress: episodesMap,
@@ -426,7 +436,7 @@ class MediaTracker extends _$MediaTracker {
                 ? targetProgress
                 : local?.currentEpisode,
             lastPlayedAt: local?.lastPlayedAt,
-            status: isCompleted ? 'completed' : null,
+            status: statusLower,
           );
 
       await repo.saveProgress(updated);

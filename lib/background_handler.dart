@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/widgets.dart';
@@ -78,7 +79,7 @@ Future<bool> _checkForAppUpdate(Map<String, dynamic>? inputData) async {
     final response = await http
         .get(
           Uri.parse(
-            'https://api.github.com/repos/anshdeepofficial1/AniDash/releases/latest',
+            'https://api.github.com/repos/anshdeepofficial1/AniDash/releases?per_page=10',
           ),
           headers: const {
             'Accept': 'application/vnd.github.v3+json',
@@ -88,9 +89,41 @@ Future<bool> _checkForAppUpdate(Map<String, dynamic>? inputData) async {
         .timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) return false;
 
-    final release = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List || decoded.isEmpty) return true;
+
+    Map<String, dynamic>? targetRelease;
+    for (final rel in decoded) {
+      if (rel is! Map<String, dynamic>) continue;
+      final assets = rel['assets'] as List<dynamic>? ?? [];
+      bool hasAsset = false;
+      if (Platform.isAndroid) {
+        hasAsset = assets.any(
+          (a) => (a['name'] as String? ?? '').toLowerCase().endsWith('.apk'),
+        );
+      } else if (Platform.isWindows) {
+        hasAsset = assets.any((a) {
+          final n = (a['name'] as String? ?? '').toLowerCase();
+          return n.endsWith('.exe') || n.endsWith('.zip');
+        });
+      } else if (Platform.isMacOS) {
+        hasAsset = assets.any((a) {
+          final n = (a['name'] as String? ?? '').toLowerCase();
+          return n.endsWith('.dmg') || n.endsWith('.zip');
+        });
+      } else {
+        hasAsset = true;
+      }
+      if (hasAsset) {
+        targetRelease = rel;
+        break;
+      }
+    }
+
+    if (targetRelease == null) return true;
+
     final latest =
-        (release['tag_name'] as String? ?? '').replaceFirst('v', '').trim();
+        (targetRelease['tag_name'] as String? ?? '').replaceFirst('v', '').trim();
     if (latest.isEmpty) return true;
 
     String current;

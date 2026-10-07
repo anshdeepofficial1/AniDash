@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ani_dash/core/services/audio_focus_service.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/features/watch/view_model/player/player_provider.dart';
 import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart';
@@ -36,11 +37,13 @@ class PiPNotifier extends Notifier<bool> {
       AppLogger.i('PiP state changed: $inPiP');
       state = inPiP;
       if (inPiP) {
-        // When entering PiP, ensure video continues playing smoothly
+        // When entering PiP, ensure audio focus is held and video continues playing smoothly
+        await AudioFocusService().requestAudioFocus();
         final isPlaying = ref.read(playerStateProvider).isPlaying;
         if (!isPlaying) {
           await ref.read(playerStateProvider.notifier).play();
         }
+        await updatePlaybackState(true);
       }
     } else if (call.method == 'onPiPAction') {
       final String action = call.arguments?.toString() ?? '';
@@ -50,10 +53,12 @@ class PiPNotifier extends Notifier<bool> {
         final isPlaying = ref.read(playerStateProvider).isPlaying;
         if (isPlaying) {
           await playerNotifier.pause();
+          await updatePlaybackState(false);
         } else {
+          await AudioFocusService().requestAudioFocus();
           await playerNotifier.play();
+          await updatePlaybackState(true);
         }
-        await updatePlaybackState(!isPlaying);
       } else if (action == 'prev') {
         ref.read(episodeDataProvider.notifier).changeEpisode(null, by: -1);
       } else if (action == 'next') {

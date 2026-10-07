@@ -33,12 +33,7 @@ class _DefaultSpotlightState extends State<DefaultSpotlight> {
     final colorScheme = theme.colorScheme;
     final borderRadius = BorderRadius.circular(28.0);
 
-    final imageUrl =
-        widget.anime!.bannerImage?.isNotEmpty == true
-            ? widget.anime!.bannerImage!
-            : (widget.anime!.coverImage.large ??
-                widget.anime!.coverImage.medium ??
-                '');
+    final imageUrl = widget.anime!.highResSpotlightImage;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),

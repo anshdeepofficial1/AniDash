@@ -105,6 +105,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         state == AppLifecycleState.hidden) {
       if (ref.read(pipProvider)) {
         // App is playing in Picture-in-Picture! Do not pause.
+        _isAppInBackground = false;
         return;
       }
       _isAppInBackground = true;
@@ -423,6 +424,13 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       AppLogger.i('Auto-advancing to episode $target');
       ref.read(episodeDataProvider.notifier).changeEpisode(target);
     }
+
+    ref.listen(pipProvider, (prev, inPiP) {
+      if (inPiP) {
+        _isAppInBackground = false;
+        _wasPlayingBeforeLock = false;
+      }
+    });
 
     _completedSubscription?.cancel();
     _completedSubscription = ref

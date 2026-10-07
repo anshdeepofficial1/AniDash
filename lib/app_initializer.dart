@@ -58,6 +58,10 @@ class AppInitializer {
     WidgetsFlutterBinding.ensureInitialized();
     AppLogger.success('Flutter bindings initialized');
 
+    // Tune Flutter image cache to conserve RAM under heavy system usage
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 64 * 1024 * 1024; // 64 MB
+    PaintingBinding.instance.imageCache.maximumSize = 300;
+
     await _initializeHive();
     await _initializeSharedPrefs();
     await _initializeIsar();

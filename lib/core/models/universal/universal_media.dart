@@ -63,6 +63,25 @@ class UniversalMedia {
     this.siteUrl,
   });
 
+  /// Guaranteed crystal clear poster/cover art using extraLarge priority
+  String get highResCoverImage {
+    if (coverImage.extraLarge != null && coverImage.extraLarge!.trim().isNotEmpty) {
+      return coverImage.extraLarge!.trim();
+    }
+    if (coverImage.large != null && coverImage.large!.trim().isNotEmpty) {
+      return coverImage.large!.trim();
+    }
+    return coverImage.medium?.trim() ?? '';
+  }
+
+  /// High quality spotlight and banner image selector
+  String get highResSpotlightImage {
+    if (bannerImage != null && bannerImage!.trim().isNotEmpty) {
+      return bannerImage!.trim();
+    }
+    return highResCoverImage;
+  }
+
   bool get isMature {
     if (isAdult) return true;
     final lowerGenres = genres.map((e) => e.toLowerCase()).toSet();

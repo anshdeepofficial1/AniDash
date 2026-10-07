@@ -12,6 +12,7 @@ import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
 import 'package:ani_dash/features/watch/view/widgets/player/dialogs/jump_to_time_dialog.dart';
 import 'package:ani_dash/features/watch/view_model/watch_sync_notifier.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ani_dash/main.dart';
 
 class WatchHistoryScreen extends ConsumerWidget {
   const WatchHistoryScreen({super.key});
@@ -20,6 +21,15 @@ class WatchHistoryScreen extends ConsumerWidget {
     final state = ref.watch(watchHistoryProvider);
     final notifier = ref.read(watchHistoryProvider.notifier);
     final filtered = state.filteredHistory;
+
+    // Mark watch history as viewed so any notification badge on the sidebar is cleared
+    try {
+      sharedPrefs.setInt('watch_history_seen_count', state.history.length);
+      sharedPrefs.setInt(
+        'watch_history_last_seen_time',
+        DateTime.now().millisecondsSinceEpoch,
+      );
+    } catch (_) {}
 
     return Scaffold(
       appBar: AppBar(

@@ -451,7 +451,10 @@ class EpisodeReleaseTask {
       if (enableContinueWatching) {
         for (final entry in relevantEntries) {
           if (entry.isCompletedOrFinished ||
-              entry.status.toLowerCase() == 'completed') {
+              entry.status.toLowerCase() == 'completed' ||
+              entry.isOnHoldOrPaused ||
+              entry.isDropped ||
+              entry.isPlanning) {
             continue;
           }
           final currentEpProgress =
