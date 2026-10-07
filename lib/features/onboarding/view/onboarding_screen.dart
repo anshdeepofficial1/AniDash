@@ -478,6 +478,52 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               height: 1.5,
             ),
           ),
+          if (!Platform.isAndroid && !Platform.isIOS) ...[
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Iconsax.keyboard, size: 16, color: scheme.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Pro Desktop Shortcuts',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: scheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 6,
+                    children: const [
+                      Text('• Esc : Step back', style: TextStyle(fontSize: 11.5)),
+                      Text('• F / Double-Click : Fullscreen', style: TextStyle(fontSize: 11.5)),
+                      Text('• Space : Play / Pause', style: TextStyle(fontSize: 11.5)),
+                      Text('• ← / → : Seek 10s', style: TextStyle(fontSize: 11.5)),
+                      Text('• Ctrl/⌘+F : Search', style: TextStyle(fontSize: 11.5)),
+                      Text('• Ctrl/⌘+H : Watch History', style: TextStyle(fontSize: 11.5)),
+                      Text('• Ctrl/⌘+, : Settings', style: TextStyle(fontSize: 11.5)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

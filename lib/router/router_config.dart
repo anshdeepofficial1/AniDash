@@ -101,7 +101,10 @@ bool _isUserOnboarded() {
   return false;
 }
 
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final routerConfig = GoRouter(
+  navigatorKey: rootNavigatorKey,
   errorBuilder: (context, state) => ErrorScreen(error: state.error),
   initialLocation: '/',
   redirect: (context, state) {

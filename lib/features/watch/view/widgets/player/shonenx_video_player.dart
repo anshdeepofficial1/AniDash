@@ -42,6 +42,7 @@ class AniDashVideoPlayer extends ConsumerStatefulWidget {
   final String? localFilePath;
   final String? localTitle;
   final Duration localStartAt;
+  final VoidCallback? onFullScreenPressed;
 
   const AniDashVideoPlayer({
     super.key,
@@ -51,6 +52,7 @@ class AniDashVideoPlayer extends ConsumerStatefulWidget {
     this.localFilePath,
     this.localTitle,
     this.localStartAt = Duration.zero,
+    this.onFullScreenPressed,
   });
 
   @override
@@ -631,14 +633,16 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                   EpisodeStreamState.QUALITY_LOADING,
                 )));
 
-    Widget videoView = Video(
-      controller: notifier.videoController,
-      fit: state.fit,
-      wakelock: true,
-      filterQuality: kDebugMode ? FilterQuality.none : FilterQuality.low,
-      controls: NoVideoControls,
-      subtitleViewConfiguration: const SubtitleViewConfiguration(
-        visible: false,
+    Widget videoView = RepaintBoundary(
+      child: Video(
+        controller: notifier.videoController,
+        fit: state.fit,
+        wakelock: true,
+        filterQuality: kDebugMode ? FilterQuality.none : FilterQuality.low,
+        controls: NoVideoControls,
+        subtitleViewConfiguration: const SubtitleViewConfiguration(
+          visible: false,
+        ),
       ),
     );
 
@@ -676,12 +680,28 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
           const SingleActivator(LogicalKeyboardKey.arrowRight):
               () => notifier.forward(10),
           const SingleActivator(LogicalKeyboardKey.keyM): notifier.toggleMute,
-          const SingleActivator(LogicalKeyboardKey.f11): _cycleVideoFit,
-          const SingleActivator(LogicalKeyboardKey.keyF): _cycleVideoFit,
-          // Smart Escape: if in fullscreen exit fullscreen, else close panel / exit
+          const SingleActivator(LogicalKeyboardKey.f11): () {
+            if (widget.onFullScreenPressed != null) {
+              widget.onFullScreenPressed!();
+            } else {
+              UIHelper.handleToggleFullscreen();
+            }
+          },
+          const SingleActivator(LogicalKeyboardKey.keyF): () {
+            if (widget.onFullScreenPressed != null) {
+              widget.onFullScreenPressed!();
+            } else {
+              UIHelper.handleToggleFullscreen();
+            }
+          },
+          // Smart Escape: if in fullscreen exit fullscreen, else close panel or back
           const SingleActivator(LogicalKeyboardKey.escape): () {
             if (UIHelper.isFullscreen) {
-              UIHelper.handleToggleFullscreen();
+              if (widget.onFullScreenPressed != null) {
+                widget.onFullScreenPressed!();
+              } else {
+                UIHelper.handleToggleFullscreen();
+              }
             } else {
               widget.onPanelCloseRequest?.call();
             }
@@ -736,7 +756,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                   onServerPressed: _openServer,
                   onAudioPressed: _openAudio,
                   onSubtitlePressed: _openSubtitle,
-                  onFullScreenPressed: _cycleVideoFit,
+                  onFullScreenPressed: widget.onFullScreenPressed ?? _cycleVideoFit,
                   localTitle: widget.localTitle,
                   isLocal: widget.localFilePath != null,
                 ),

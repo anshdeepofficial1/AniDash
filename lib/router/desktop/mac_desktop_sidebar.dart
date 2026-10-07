@@ -191,7 +191,11 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
       final historyState = ref.read(watchHistoryProvider);
       final count = historyState.history.length;
       sharedPrefs.setInt('watch_history_seen_count', count);
-      setState(() {});
+      sharedPrefs.setInt(
+        'watch_history_last_seen_time',
+        DateTime.now().millisecondsSinceEpoch,
+      );
+      if (mounted) setState(() {});
     } catch (_) {}
   }
 
@@ -200,6 +204,19 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
       final historyState = ref.watch(watchHistoryProvider);
       final total = historyState.history.length;
       final seenCount = sharedPrefs.getInt('watch_history_seen_count') ?? 0;
+      final lastSeenTime =
+          sharedPrefs.getInt('watch_history_last_seen_time') ?? 0;
+
+      // If user has already opened Watch History, only show count if new items were watched after
+      if (lastSeenTime > 0) {
+        final newItems = historyState.history.where((e) {
+          final t = e.effectiveLastPlayedTime.millisecondsSinceEpoch;
+          return t > lastSeenTime;
+        }).length;
+        if (newItems == 0) return null;
+        return newItems > 99 ? '99+' : '$newItems';
+      }
+
       final unseen = total - seenCount;
       if (unseen > 0) {
         return unseen > 99 ? '99+' : '$unseen';
