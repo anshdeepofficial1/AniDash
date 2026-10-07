@@ -10,6 +10,7 @@ import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
 import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 import 'package:ani_dash/shared/ui/brand_logo.dart';
 import 'package:ani_dash/router/router_wrapper.dart';
+import 'package:ani_dash/main.dart';
 
 class MacDesktopSidebar extends ConsumerStatefulWidget {
   final StatefulNavigationShell shell;
@@ -132,7 +133,10 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                         isCollapsed: isCollapsed,
                         isDark: isDark,
                         badgeText: _getRecentHistoryCountBadge(),
-                        onTap: () => context.push('/watch-history'),
+                        onTap: () {
+                          _markHistoryBadgeAsSeen();
+                          context.push('/watch-history');
+                        },
                       ),
                       _SidebarTile(
                         icon: Iconsax.magicpen,
@@ -182,13 +186,23 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
     );
   }
 
+  void _markHistoryBadgeAsSeen() {
+    try {
+      final historyState = ref.read(watchHistoryProvider);
+      final count = historyState.history.length;
+      sharedPrefs.setInt('watch_history_seen_count', count);
+      setState(() {});
+    } catch (_) {}
+  }
+
   String? _getRecentHistoryCountBadge() {
     try {
       final historyState = ref.watch(watchHistoryProvider);
-      if (historyState.history.isNotEmpty) {
-        return historyState.history.length > 99
-            ? '99+'
-            : '${historyState.history.length}';
+      final total = historyState.history.length;
+      final seenCount = sharedPrefs.getInt('watch_history_seen_count') ?? 0;
+      final unseen = total - seenCount;
+      if (unseen > 0) {
+        return unseen > 99 ? '99+' : '$unseen';
       }
     } catch (_) {}
     return null;
