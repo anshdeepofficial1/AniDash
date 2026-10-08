@@ -199,9 +199,6 @@ class GlobalDesktopNavigationScope extends StatefulWidget {
 
 class _GlobalDesktopNavigationScopeState
     extends State<GlobalDesktopNavigationScope> {
-  double _panDeltaX = 0;
-  bool _panTriggered = false;
-
   void _triggerStepBack() {
     final nav = rootNavigatorKey.currentState;
     if (nav != null && nav.canPop()) {
@@ -212,9 +209,7 @@ class _GlobalDesktopNavigationScopeState
     if (ctx != null) {
       try {
         final currentLoc = GoRouterState.of(ctx).matchedLocation;
-        if (currentLoc.startsWith('/settings/') && currentLoc != '/settings') {
-          ctx.go('/settings/ui');
-        } else if (currentLoc != '/') {
+        if (currentLoc != '/') {
           ctx.go('/');
         }
       } catch (_) {}
@@ -232,18 +227,6 @@ class _GlobalDesktopNavigationScopeState
             _triggerStepBack,
       },
       child: Listener(
-        onPointerPanZoomUpdate: (event) {
-          // Trackpad two-finger swipe right: pan.dx is positive
-          _panDeltaX += event.pan.dx;
-          if (_panDeltaX > 80 && !_panTriggered) {
-            _panTriggered = true;
-            _triggerStepBack();
-          }
-        },
-        onPointerPanZoomEnd: (_) {
-          _panDeltaX = 0;
-          _panTriggered = false;
-        },
         onPointerDown: (event) {
           // Mouse side back button (kBackMouseButton is 8)
           if (event.buttons & kBackMouseButton != 0) {

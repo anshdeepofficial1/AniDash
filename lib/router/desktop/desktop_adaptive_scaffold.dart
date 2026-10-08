@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -161,8 +160,9 @@ class DesktopGestureAndShortcutsWrapper extends StatefulWidget {
 
 class _DesktopGestureAndShortcutsWrapperState
     extends State<DesktopGestureAndShortcutsWrapper> {
-  double _accumulatedPanX = 0;
   DateTime? _lastGestureTime;
+  double _accumulatedPanX = 0;
+  bool _isVerticalScroll = false;
 
   void _handleBack(BuildContext context) {
     final now = DateTime.now();
@@ -189,10 +189,14 @@ class _DesktopGestureAndShortcutsWrapperState
 
     // 3. Smart step-back logic
     final route = GoRouterState.of(context).matchedLocation;
-    if (route.startsWith('/settings/') &&
-        route != '/settings/ui' &&
-        route != '/settings') {
-      context.go('/settings/ui');
+    if (route.startsWith('/settings/player/') && route != '/settings/player') {
+      context.go('/settings/player');
+    } else if (route.startsWith('/settings/account/') &&
+        route != '/settings/account') {
+      context.go('/settings/account');
+    } else if (route.startsWith('/settings/extensions/') &&
+        route != '/settings/extensions') {
+      context.go('/settings/extensions');
     } else if (route != '/') {
       context.go('/');
     }
@@ -206,23 +210,26 @@ class _DesktopGestureAndShortcutsWrapperState
 
     return Listener(
       behavior: HitTestBehavior.translucent,
-      onPointerPanZoomUpdate: (event) {
-        _accumulatedPanX += event.pan.dx;
+      onPointerPanZoomStart: (_) {
+        _accumulatedPanX = 0;
+        _isVerticalScroll = false;
       },
-      onPointerPanZoomEnd: (event) {
-        if (_accumulatedPanX > 45) {
-          // Trackpad 2-finger swipe left-to-right -> BACK
+      onPointerPanZoomUpdate: (event) {
+        // If there's any vertical motion, this is content scrolling, NOT a back swipe
+        if (event.pan.dy.abs() > 8) {
+          _isVerticalScroll = true;
+        }
+        if (!_isVerticalScroll && event.pan.dx.abs() > 3 * event.pan.dy.abs()) {
+          _accumulatedPanX += event.pan.dx;
+        }
+      },
+      onPointerPanZoomEnd: (_) {
+        // Only trigger back if strictly horizontal and deliberate swipe
+        if (!_isVerticalScroll && _accumulatedPanX > 150) {
           _handleBack(context);
         }
         _accumulatedPanX = 0;
-      },
-      onPointerSignal: (pointerSignal) {
-        if (pointerSignal is PointerScrollEvent) {
-          // Horizontal scroll gesture on trackpad
-          if (pointerSignal.scrollDelta.dx < -110) {
-            _handleBack(context);
-          }
-        }
+        _isVerticalScroll = false;
       },
       onPointerDown: (event) {
         // Mouse Back button is 8 (kBackMouseButton)
