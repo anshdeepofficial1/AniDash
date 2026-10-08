@@ -101,7 +101,13 @@ class HeaderSection extends ConsumerWidget {
                 const SizedBox(width: 8),
                 _ActionButton(
                   icon: Icons.settings_outlined,
-                  onTap: () => context.push('/settings'),
+                  onTap: () {
+                    if (isDesktop) {
+                      context.go('/settings/ui');
+                    } else {
+                      context.push('/settings');
+                    }
+                  },
                 ),
               ],
             ),
