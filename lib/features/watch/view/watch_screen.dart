@@ -460,6 +460,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                     // Bottom Area: Anime Info, Synopsis, Advisory, Comments & World Chat
                     Container(
                       color: Theme.of(context).scaffoldBackgroundColor,
+                      alignment: Alignment.topCenter,
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1200),
                         child: PortraitPlayerDetails(
@@ -472,6 +473,8 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                           episodeDescription: currentEpDesc,
                           episodes: effectiveEpisodes,
                           mediaId: widget.mediaId,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
                           onAllEpisodesPressed: _openEpisodesSheet,
                           onMoreOptionsPressed: _openSettingsSheet,
                           onToggleFullscreen: _toggleFullscreen,

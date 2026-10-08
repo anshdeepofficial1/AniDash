@@ -30,6 +30,8 @@ class PortraitPlayerDetails extends ConsumerStatefulWidget {
   final VoidCallback onAllEpisodesPressed;
   final VoidCallback onMoreOptionsPressed;
   final VoidCallback onToggleFullscreen;
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
 
   const PortraitPlayerDetails({
     super.key,
@@ -45,6 +47,8 @@ class PortraitPlayerDetails extends ConsumerStatefulWidget {
     required this.onAllEpisodesPressed,
     required this.onMoreOptionsPressed,
     required this.onToggleFullscreen,
+    this.shrinkWrap = false,
+    this.physics,
   });
 
   @override
@@ -308,6 +312,8 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
     return Container(
       color: theme.scaffoldBackgroundColor,
       child: ListView(
+        shrinkWrap: widget.shrinkWrap,
+        physics: widget.physics,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           // 1. Clickable Anime Title (Navigates to Full Anime Details Screen)
