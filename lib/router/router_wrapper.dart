@@ -484,29 +484,29 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
         const SingleActivator(LogicalKeyboardKey.digit5, control: true):
             () => _onNavTap(4, visibleNavItems),
         const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-            () => context.push('/ai'),
+            () => context.go('/ai'),
         const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-            () => context.push('/ai'),
+            () => context.go('/ai'),
         const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
-            () => context.push('/browse'),
+            () => context.go('/browse'),
         const SingleActivator(LogicalKeyboardKey.keyF, control: true):
-            () => context.push('/browse'),
+            () => context.go('/browse'),
         const SingleActivator(LogicalKeyboardKey.comma, meta: true):
-            () => context.push('/settings'),
+            () => context.go('/settings/ui'),
         const SingleActivator(LogicalKeyboardKey.comma, control: true):
-            () => context.push('/settings'),
+            () => context.go('/settings/ui'),
         const SingleActivator(LogicalKeyboardKey.keyH, meta: true):
-            () => context.push('/watch-history'),
+            () => context.go('/watch-history'),
         const SingleActivator(LogicalKeyboardKey.keyH, control: true):
-            () => context.push('/watch-history'),
+            () => context.go('/watch-history'),
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true):
-            () => context.push('/news'),
+            () => context.go('/news'),
         const SingleActivator(LogicalKeyboardKey.keyN, control: true):
-            () => context.push('/news'),
+            () => context.go('/news'),
         const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
-            () => context.push('/extensions'),
+            () => context.go('/extensions'),
         const SingleActivator(LogicalKeyboardKey.keyE, control: true):
-            () => context.push('/extensions'),
+            () => context.go('/extensions'),
         const SingleActivator(LogicalKeyboardKey.f11):
             () => UIHelper.handleToggleFullscreen(),
         // Smart Escape: step back 1 level, or go to Home

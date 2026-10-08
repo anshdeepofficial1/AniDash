@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart';
@@ -570,7 +571,15 @@ class _MangaScreenState extends ConsumerState<MangaScreen> {
                 color: colorScheme.secondaryContainer.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(12),
                 child: InkWell(
-                  onTap: () => context.push('/settings'),
+                  onTap: () {
+                    if (Platform.isWindows ||
+                        Platform.isMacOS ||
+                        Platform.isLinux) {
+                      context.go('/settings/ui');
+                    } else {
+                      context.push('/settings');
+                    }
+                  },
                   borderRadius: BorderRadius.circular(12),
                   child: Padding(
                     padding: const EdgeInsets.all(10),
