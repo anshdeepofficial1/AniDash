@@ -3,6 +3,7 @@ import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -142,25 +143,7 @@ class MyApp extends ConsumerWidget {
           builder: (context, child) {
             final mediaQuery = MediaQuery.of(context);
             final scaledSize = mediaQuery.size / scale;
-            return CallbackShortcuts(
-              bindings: {
-                const SingleActivator(LogicalKeyboardKey.escape): () {
-                  final nav = rootNavigatorKey.currentState;
-                  if (nav != null && nav.canPop()) {
-                    nav.pop();
-                  } else {
-                    final ctx = rootNavigatorKey.currentContext;
-                    if (ctx != null) {
-                      final currentLoc = GoRouterState.of(ctx).matchedLocation;
-                      if (currentLoc.startsWith('/settings/')) {
-                        ctx.go('/settings');
-                      } else if (currentLoc != '/') {
-                        ctx.go('/');
-                      }
-                    }
-                  }
-                },
-              },
+            return GlobalDesktopNavigationScope(
               child: MediaQuery(
                 data: mediaQuery.copyWith(
                   textScaler: TextScaler.linear(scale),
@@ -203,3 +186,73 @@ void showAppSnackBar(String title, String message, {ContentType? type}) {
       );
   }
 }
+
+class GlobalDesktopNavigationScope extends StatefulWidget {
+  final Widget child;
+
+  const GlobalDesktopNavigationScope({super.key, required this.child});
+
+  @override
+  State<GlobalDesktopNavigationScope> createState() =>
+      _GlobalDesktopNavigationScopeState();
+}
+
+class _GlobalDesktopNavigationScopeState
+    extends State<GlobalDesktopNavigationScope> {
+  double _panDeltaX = 0;
+  bool _panTriggered = false;
+
+  void _triggerStepBack() {
+    final nav = rootNavigatorKey.currentState;
+    if (nav != null && nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx != null) {
+      try {
+        final currentLoc = GoRouterState.of(ctx).matchedLocation;
+        if (currentLoc.startsWith('/settings/') && currentLoc != '/settings') {
+          ctx.go('/settings/ui');
+        } else if (currentLoc != '/') {
+          ctx.go('/');
+        }
+      } catch (_) {}
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): _triggerStepBack,
+        const SingleActivator(LogicalKeyboardKey.arrowLeft, alt: true):
+            _triggerStepBack,
+        const SingleActivator(LogicalKeyboardKey.bracketLeft, meta: true):
+            _triggerStepBack,
+      },
+      child: Listener(
+        onPointerPanZoomUpdate: (event) {
+          // Trackpad two-finger swipe right: pan.dx is positive
+          _panDeltaX += event.pan.dx;
+          if (_panDeltaX > 80 && !_panTriggered) {
+            _panTriggered = true;
+            _triggerStepBack();
+          }
+        },
+        onPointerPanZoomEnd: (_) {
+          _panDeltaX = 0;
+          _panTriggered = false;
+        },
+        onPointerDown: (event) {
+          // Mouse side back button (kBackMouseButton is 8)
+          if (event.buttons & kBackMouseButton != 0) {
+            _triggerStepBack();
+          }
+        },
+        child: widget.child,
+      ),
+    );
+  }
+}
+

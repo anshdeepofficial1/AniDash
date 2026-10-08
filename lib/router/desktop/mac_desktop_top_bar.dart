@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:ani_dash/core/jikan/jikan_service.dart';
+import 'package:ani_dash/main.dart';
 import 'package:ani_dash/shared/providers/settings/theme_notifier.dart';
 import 'package:ani_dash/features/notifications/view/notification_inbox_screen.dart';
 
@@ -27,6 +31,11 @@ class MacDesktopTopBar extends ConsumerStatefulWidget {
 class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
     with WindowListener {
   final TextEditingController _searchCtrl = TextEditingController();
+  final LayerLink _searchLayerLink = LayerLink();
+  final FocusNode _searchFocusNode = FocusNode();
+  OverlayEntry? _suggestionsOverlay;
+  Timer? _searchDebounce;
+  List<String> _suggestions = [];
   bool _isMaximized = false;
 
   @override
@@ -36,6 +45,13 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
       windowManager.addListener(this);
       _checkMaximized();
     }
+    _searchFocusNode.addListener(() {
+      if (_searchFocusNode.hasFocus) {
+        _fetchSuggestions(_searchCtrl.text);
+      } else {
+        _hideSuggestions();
+      }
+    });
   }
 
   Future<void> _checkMaximized() async {
@@ -60,8 +76,207 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
     if (!Platform.isAndroid && !Platform.isIOS) {
       windowManager.removeListener(this);
     }
+    _hideSuggestions();
+    _searchDebounce?.cancel();
+    _searchFocusNode.dispose();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _hideSuggestions() {
+    _suggestionsOverlay?.remove();
+    _suggestionsOverlay = null;
+  }
+
+  void _performSearch(String query) {
+    final clean = query.trim();
+    if (clean.isEmpty) return;
+    _hideSuggestions();
+    _searchFocusNode.unfocus();
+    _searchCtrl.clear();
+
+    final history = sharedPrefs.getStringList('anime_search_history') ?? [];
+    history.remove(clean);
+    history.insert(0, clean);
+    if (history.length > 20) history.removeLast();
+    sharedPrefs.setStringList('anime_search_history', history);
+
+    context.push('/browse?keyword=${Uri.encodeComponent(clean)}');
+  }
+
+  void _fetchSuggestions(String rawQuery) {
+    final query = rawQuery.trim().toLowerCase();
+    final history = sharedPrefs.getStringList('anime_search_history') ?? [];
+
+    if (query.isEmpty) {
+      if (history.isNotEmpty) {
+        _suggestions = history.take(6).toList();
+        _showSuggestionsOverlay(isHistory: true);
+      } else {
+        _hideSuggestions();
+      }
+      return;
+    }
+
+    final matchedHistory = history.where((h) => h.toLowerCase().contains(query)).take(4).toList();
+    _suggestions = matchedHistory;
+    _showSuggestionsOverlay(isHistory: false);
+
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
+      if (!mounted || !_searchFocusNode.hasFocus) return;
+      try {
+        final jikanResults = await JikanService().getSearch(title: rawQuery, limit: 5);
+        if (!mounted || !_searchFocusNode.hasFocus) return;
+        final remote = jikanResults.map((j) => j.title).where((t) => t.isNotEmpty).take(5).toList();
+        final combined = <String>{...matchedHistory, ...remote}.toList();
+        if (combined.isNotEmpty) {
+          _suggestions = combined;
+          _showSuggestionsOverlay(isHistory: false);
+        }
+      } catch (_) {}
+    });
+  }
+
+  void _showSuggestionsOverlay({required bool isHistory}) {
+    _hideSuggestions();
+    if (!mounted || !_searchFocusNode.hasFocus || _suggestions.isEmpty) return;
+
+    final overlay = Overlay.of(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    _suggestionsOverlay = OverlayEntry(
+      builder: (ctx) {
+        return Stack(
+          children: [
+            // Tap outside dismisser
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () {
+                  _hideSuggestions();
+                  _searchFocusNode.unfocus();
+                },
+              ),
+            ),
+            CompositedTransformFollower(
+              link: _searchLayerLink,
+              showWhenUnlinked: false,
+              offset: const Offset(0, 36),
+              child: Material(
+                color: Colors.transparent,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      width: 420,
+                      constraints: const BoxConstraints(maxHeight: 260),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF1E212B).withValues(alpha: 0.94)
+                            : Colors.white.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.black.withValues(alpha: 0.10),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  isHistory ? 'RECENT SEARCHES' : 'SUGGESTIONS',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.8,
+                                    color: isDark ? Colors.white38 : Colors.black38,
+                                  ),
+                                ),
+                                if (isHistory)
+                                  GestureDetector(
+                                    onTap: () {
+                                      sharedPrefs.setStringList('anime_search_history', []);
+                                      _hideSuggestions();
+                                    },
+                                    child: Text(
+                                      'Clear All',
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              itemCount: _suggestions.length,
+                              separatorBuilder: (_, _) => Divider(
+                                height: 1,
+                                thickness: 0.5,
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.06)
+                                    : Colors.black.withValues(alpha: 0.05),
+                              ),
+                              itemBuilder: (context, idx) {
+                                final text = _suggestions[idx];
+                                return ListTile(
+                                  dense: true,
+                                  visualDensity: VisualDensity.compact,
+                                  leading: Icon(
+                                    isHistory ? Iconsax.clock : Iconsax.search_normal_1,
+                                    size: 14,
+                                    color: isDark ? Colors.white54 : Colors.black54,
+                                  ),
+                                  title: Text(
+                                    text,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: isDark ? Colors.white : Colors.black87,
+                                    ),
+                                  ),
+                                  onTap: () => _performSearch(text),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    overlay.insert(_suggestionsOverlay!);
   }
 
   void _cycleTheme() {
@@ -86,6 +301,9 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final canPop = Navigator.of(context).canPop();
+    final currentRoute = GoRouterState.of(context).matchedLocation;
+    final isAtRoot = currentRoute == '/';
+    final isBackEnabled = canPop || !isAtRoot;
     final isMac = Platform.isMacOS;
     final mod = isMac ? '⌘' : 'Ctrl+';
 
@@ -133,10 +351,18 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
                 _MacIconButton(
                   tooltip: 'Go Back (${isMac ? '⌘[' : 'Alt+←'})',
                   icon: Iconsax.arrow_left_2,
-                  enabled: canPop,
+                  enabled: isBackEnabled,
                   isDark: isDark,
                   onPressed: () {
-                    if (canPop) Navigator.of(context).pop();
+                    if (canPop) {
+                      Navigator.of(context).pop();
+                    } else if (currentRoute.startsWith('/settings/') &&
+                        currentRoute != '/settings/ui' &&
+                        currentRoute != '/settings') {
+                      context.go('/settings/ui');
+                    } else {
+                      context.go('/');
+                    }
                   },
                 ),
                 const SizedBox(width: 10),
@@ -162,55 +388,76 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 420),
-                        child: Container(
-                          height: 30,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.08)
-                                : Colors.black.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
+                        child: CompositedTransformTarget(
+                          link: _searchLayerLink,
+                          child: Container(
+                            height: 30,
+                            decoration: BoxDecoration(
                               color: isDark
-                                  ? Colors.white.withValues(alpha: 0.12)
-                                  : Colors.black.withValues(alpha: 0.08),
-                              width: 1,
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : Colors.black.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.12)
+                                    : Colors.black.withValues(alpha: 0.08),
+                                width: 1,
+                              ),
                             ),
-                          ),
-                          child: TextField(
-                            controller: _searchCtrl,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: isDark ? Colors.white : Colors.black87,
+                            child: CallbackShortcuts(
+                              bindings: {
+                                const SingleActivator(LogicalKeyboardKey.escape): () {
+                                  _hideSuggestions();
+                                  _searchFocusNode.unfocus();
+                                  _searchCtrl.clear();
+                                },
+                              },
+                              child: TextField(
+                                controller: _searchCtrl,
+                                focusNode: _searchFocusNode,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6.5,
+                                  ),
+                                  hintText: 'Search anime, manga, genres... (${mod}F)',
+                                  hintStyle: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.white38 : Colors.black38,
+                                  ),
+                                  prefixIcon: Icon(
+                                    Iconsax.search_normal_1,
+                                    size: 13,
+                                    color: isDark ? Colors.white54 : Colors.black45,
+                                  ),
+                                  prefixIconConstraints: const BoxConstraints(
+                                    minWidth: 28,
+                                    minHeight: 28,
+                                  ),
+                                  suffixIcon: _searchCtrl.text.isNotEmpty
+                                      ? GestureDetector(
+                                          onTap: () {
+                                            _searchCtrl.clear();
+                                            _hideSuggestions();
+                                          },
+                                          child: Icon(
+                                            Icons.close_rounded,
+                                            size: 14,
+                                            color: isDark ? Colors.white54 : Colors.black45,
+                                          ),
+                                        )
+                                      : null,
+                                  border: InputBorder.none,
+                                ),
+                                onChanged: _fetchSuggestions,
+                                onSubmitted: _performSearch,
+                              ),
                             ),
-                            decoration: InputDecoration(
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6.5,
-                              ),
-                              hintText: 'Search anime, manga, genres... (${mod}F)',
-                              hintStyle: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? Colors.white38 : Colors.black38,
-                              ),
-                              prefixIcon: Icon(
-                                Iconsax.search_normal_1,
-                                size: 13,
-                                color: isDark ? Colors.white54 : Colors.black45,
-                              ),
-                              prefixIconConstraints: const BoxConstraints(
-                                minWidth: 28,
-                                minHeight: 28,
-                              ),
-                              border: InputBorder.none,
-                            ),
-                            onSubmitted: (query) {
-                              if (query.trim().isNotEmpty) {
-                                context.push(
-                                  '/browse?keyword=${Uri.encodeComponent(query.trim())}',
-                                );
-                              }
-                            },
                           ),
                         ),
                       ),

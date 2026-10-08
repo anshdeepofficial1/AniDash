@@ -557,9 +557,31 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body: Column(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_isSearchSubmitted ||
+            _searchController.text.isNotEmpty ||
+            !_currentFilter.isEmpty) {
+          setState(() {
+            _searchController.clear();
+            _currentFilter = const SearchFilter();
+            _isSearchSubmitted = false;
+            _results.clear();
+          });
+          _fetchExploreData();
+        } else {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            context.go('/');
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: Column(
         children: [
           _Header(
             controller: _searchController,
@@ -634,8 +656,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _SearchSuggestions extends StatelessWidget {
