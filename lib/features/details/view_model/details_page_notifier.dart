@@ -89,9 +89,9 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
       // enrichment. Starting both together prevents the Episodes tab from
       // briefly looking empty (and removes the need for a manual refresh).
       final episodesFuture = _fetchEpisodes(media.title);
-      await fetchDetails();
+      final detailsFuture = fetchDetails();
+      await Future.wait([detailsFuture, episodesFuture]);
       if (!ref.mounted) return;
-      await episodesFuture;
 
       // If the initial title could not be matched, retry once with the
       // enriched title returned by AniList/Jikan.

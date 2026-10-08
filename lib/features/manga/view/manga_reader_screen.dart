@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart';
@@ -8,6 +9,7 @@ import 'package:ani_dash/core/repositories/manga_reading_progress_repository.dar
 import 'package:ani_dash/features/manga/utils/manga_helpers.dart';
 import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/main.dart';
+import 'package:ani_dash/router/desktop/windows_caption_buttons.dart';
 
 enum _ReaderMode { vertical, book }
 
@@ -625,6 +627,10 @@ class _MangaReaderScreenState extends ConsumerState<MangaReaderScreen> {
                               ),
                         ),
                   ),
+                  if (!Platform.isAndroid && !Platform.isIOS) ...[
+                    const SizedBox(width: 8),
+                    const WindowsCaptionButtons(height: 38, isDark: true),
+                  ],
                 ],
               ),
             ),

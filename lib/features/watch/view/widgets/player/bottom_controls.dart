@@ -101,7 +101,18 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildTimeDisplay(),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildPlayPauseButton(scheme),
+                        if (!widget.isLocal) ...[
+                          const SizedBox(width: 2),
+                          _buildNextEpisodeButton(),
+                        ],
+                        const SizedBox(width: 6),
+                        _buildTimeDisplay(),
+                      ],
+                    ),
 
                     Expanded(
                       child: SingleChildScrollView(
@@ -179,6 +190,19 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                                 },
                               ),
                             ],
+                            _ToolbarIcon(
+                              icon: Icons.subtitles_rounded,
+                              onTap: widget.onSubtitlePressed,
+                            ),
+                            _ToolbarIcon(
+                              icon: Icons.high_quality_rounded,
+                              onTap: widget.onSourcePressed,
+                            ),
+                            if (widget.onEpisodePressed != null)
+                              _ToolbarIcon(
+                                icon: Icons.video_library_rounded,
+                                onTap: widget.onEpisodePressed,
+                              ),
                             _ToolbarIcon(
                               icon: Icons.fullscreen_rounded,
                               onTap: widget.onFullScreenPressed,
@@ -450,24 +474,48 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
     }).toList();
   }
 
-  // Widget _buildPlayPauseButton(ColorScheme scheme) {
-  //   final isPlaying = ref.watch(playerStateProvider.select((p) => p.isPlaying));
-  //   return Material(
-  //     color: Colors.transparent,
-  //     child: InkWell(
-  //       onTap: _wrap(ref.read(playerStateProvider.notifier).togglePlay),
-  //       borderRadius: BorderRadius.circular(30),
-  //       child: Padding(
-  //         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-  //         child: Icon(
-  //           isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-  //           color: Colors.white,
-  //           size: 36,
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
+  Widget _buildPlayPauseButton(ColorScheme scheme) {
+    final isPlaying = ref.watch(playerStateProvider.select((p) => p.isPlaying));
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          widget.onInteraction();
+          ref.read(playerStateProvider.notifier).togglePlay();
+        },
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: Icon(
+            isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            color: Colors.white,
+            size: 26,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNextEpisodeButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          widget.onInteraction();
+          ref.read(episodeDataProvider.notifier).changeEpisode(null, by: 1);
+        },
+        customBorder: const CircleBorder(),
+        child: const Padding(
+          padding: EdgeInsets.all(4.0),
+          child: Icon(
+            Icons.skip_next_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildTimeDisplay() {
     final (pos, dur) = ref.watch(

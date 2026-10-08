@@ -60,21 +60,37 @@ class CenterControls extends ConsumerWidget {
                   child: FadeTransition(opacity: animation, child: child),
                 );
               },
-              child:
-                  isBusy
-                      ? const SizedBox.shrink()
+              child: isPlaying
+                  ? _ShadowIconButton(
+                      key: const ValueKey('pause'),
+                      icon: Icons.pause_rounded,
+                      size: 80,
+                      onTap: () {
+                        onInteraction();
+                        playerNotifier.togglePlay();
+                      },
+                    )
+                  : isBusy
+                      ? const Center(
+                          key: ValueKey('loading'),
+                          child: SizedBox(
+                            width: 50,
+                            height: 50,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3.5,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
                       : _ShadowIconButton(
-                        key: ValueKey(isPlaying ? 'pause' : 'play'),
-                        icon:
-                            isPlaying
-                                ? Icons.pause_rounded
-                                : Icons.play_arrow_rounded,
-                        size: 80,
-                        onTap: () {
-                          onInteraction();
-                          playerNotifier.togglePlay();
-                        },
-                      ),
+                          key: const ValueKey('play'),
+                          icon: Icons.play_arrow_rounded,
+                          size: 80,
+                          onTap: () {
+                            onInteraction();
+                            playerNotifier.togglePlay();
+                          },
+                        ),
             ),
           ),
 

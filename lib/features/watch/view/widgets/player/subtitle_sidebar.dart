@@ -83,6 +83,22 @@ class SubtitleSettingsSidebar extends ConsumerWidget {
                     ),
                   ),
 
+                  _buildColorPickerRow(
+                    title: 'Text Color',
+                    selectedColor: subtitleStyle.textColor,
+                    colors: const [
+                      0xFFFFFFFF, // White
+                      0xFFFFEB3B, // Yellow
+                      0xFF00E5FF, // Cyan
+                      0xFF76FF03, // Green
+                      0xFFFF80AB, // Pink
+                      0xFFFF9100, // Orange
+                    ],
+                    onSelected: (col) => notifier.updateSettings(
+                      (p) => p.copyWith(textColor: col),
+                    ),
+                  ),
+
                   SwitchListTile(
                     title: const Text('Bold Text'),
                     value: subtitleStyle.boldText,
@@ -93,6 +109,20 @@ class SubtitleSettingsSidebar extends ConsumerWidget {
 
                   const Divider(),
                   _buildSectionHeader(context, 'Background & Border'),
+
+                  _buildColorPickerRow(
+                    title: 'Background Color',
+                    selectedColor: subtitleStyle.backgroundColor,
+                    colors: const [
+                      0xFF000000, // Black
+                      0xFF212121, // Charcoal
+                      0xFF0D1B2A, // Navy
+                      0xFF2B0000, // Crimson
+                    ],
+                    onSelected: (col) => notifier.updateSettings(
+                      (p) => p.copyWith(backgroundColor: col),
+                    ),
+                  ),
 
                   _buildSliderTile(
                     title: 'Background Opacity',
@@ -207,6 +237,63 @@ class SubtitleSettingsSidebar extends ConsumerWidget {
             max: max,
             divisions: divisions,
             onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColorPickerRow({
+    required String title,
+    required int selectedColor,
+    required List<int> colors,
+    required ValueChanged<int> onSelected,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 10),
+          Row(
+            children: colors.map((c) {
+              final isSelected = c == selectedColor;
+              return GestureDetector(
+                onTap: () => onSelected(c),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 12),
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Color(c),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? Colors.white : Colors.white24,
+                      width: isSelected ? 2.5 : 1.0,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: Color(c).withValues(alpha: 0.6),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: isSelected
+                      ? Icon(
+                          Icons.check,
+                          size: 16,
+                          color: (c == 0xFFFFFFFF || c == 0xFFFFEB3B || c == 0xFF76FF03)
+                              ? Colors.black
+                              : Colors.white,
+                        )
+                      : null,
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),

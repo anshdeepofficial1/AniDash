@@ -161,27 +161,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         final media = entry.media;
         final mediaId = media.id;
         final watchedCount = entry.progress > 0 ? entry.progress : 0;
-        final nextEpisode = watchedCount > 0 ? watchedCount + 1 : 1;
+        final totalEpisodes = media.episodes ?? 0;
+        final nextEpisode = (totalEpisodes > 0 && watchedCount >= totalEpisodes)
+            ? totalEpisodes
+            : (watchedCount > 0 ? watchedCount + 1 : 1);
 
         final local = progressRepo.getProgress(mediaId);
 
-        final localEpisode =
-            local == null ? null : local.episodesProgress[local.currentEpisode];
-        final localDuration = localEpisode?.durationInSeconds ?? 0;
-        final localPosition = localEpisode?.progressInSeconds ?? 0;
-        final hasUnfinishedLocalEpisode =
-            localEpisode != null &&
-            localPosition > 0 &&
-            !localEpisode.isCompleted &&
-            (localDuration <= 0 || localPosition / localDuration < 0.90);
-        if (hasUnfinishedLocalEpisode) {
-          // A remote tracker stores episode counts, not exact playback time.
-          // Never let it skip a locally unfinished episode.
+        // If local progress is already ahead of remote tracker, keep local
+        if (local != null && local.currentEpisode > nextEpisode) {
           continue;
         }
 
-        if (local != null && local.currentEpisode > nextEpisode) {
-          continue;
+        // Only protect an unfinished local session if the user is currently
+        // on or ahead of nextEpisode. If watchedCount >= local.currentEpisode,
+        // the user watched ahead on another device (e.g. mobile), so local must advance!
+        if (local != null && local.currentEpisode >= nextEpisode) {
+          final localEpisode =
+              local.episodesProgress[local.currentEpisode];
+          final localDuration = localEpisode?.durationInSeconds ?? 0;
+          final localPosition = localEpisode?.progressInSeconds ?? 0;
+          final hasUnfinishedLocalEpisode =
+              localEpisode != null &&
+              localPosition > 0 &&
+              !localEpisode.isCompleted &&
+              (localDuration <= 0 || localPosition / localDuration < 0.90);
+          if (hasUnfinishedLocalEpisode) {
+            continue;
+          }
         }
 
         final episodesMap = Map<int, EpisodeProgress>.from(
@@ -198,8 +205,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               progressInSeconds: existing?.durationInSeconds ?? 1440,
               durationInSeconds: existing?.durationInSeconds ?? 1440,
               isCompleted: true,
-              watchedAt:
-                  existing?.watchedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+              watchedAt: existing?.watchedAt ?? DateTime.now(),
             );
           }
         }
@@ -213,6 +219,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ? media.highResCoverImage
             : (media.coverImage.large ?? media.coverImage.medium ?? '');
 
+        final isRemoteAhead =
+            local == null || watchedCount >= local.currentEpisode;
+        final effectiveLastPlayedAt =
+            isRemoteAhead ? DateTime.now() : (local.lastPlayedAt ?? DateTime.now());
+        final isCompleted = (totalEpisodes > 0 && watchedCount >= totalEpisodes) ||
+            entry.status.toLowerCase() == 'completed';
+
         final updated = (local ??
                 AnimeWatchProgressEntry(
                   animeId: mediaId,
@@ -221,18 +234,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   animeCover: cover,
                   totalEpisodes: media.episodes ?? 0,
                   episodesProgress: episodesMap,
-                  lastUpdated:
-                      local?.lastUpdated ??
-                      DateTime.fromMillisecondsSinceEpoch(0),
-                  lastPlayedAt: local?.lastPlayedAt,
+                  lastUpdated: DateTime.now(),
+                  lastPlayedAt: effectiveLastPlayedAt,
                   currentEpisode: nextEpisode,
-                  status: 'watching',
+                  status: isCompleted ? 'completed' : 'watching',
                 ))
             .copyWith(
               episodesProgress: episodesMap,
               currentEpisode: nextEpisode,
-              lastPlayedAt: local?.lastPlayedAt,
-              status: 'watching',
+              lastPlayedAt: effectiveLastPlayedAt,
+              lastUpdated: DateTime.now(),
+              status: isCompleted ? 'completed' : 'watching',
               animeTitle: title.isNotEmpty ? title : null,
               animeCover: cover.isNotEmpty ? cover : null,
             );

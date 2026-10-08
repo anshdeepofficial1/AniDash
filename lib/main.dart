@@ -200,12 +200,26 @@ class GlobalDesktopNavigationScope extends StatefulWidget {
 class _GlobalDesktopNavigationScopeState
     extends State<GlobalDesktopNavigationScope> {
   void _triggerStepBack() {
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx != null) {
+      try {
+        final currentLoc = GoRouterState.of(ctx).matchedLocation;
+        if (currentLoc.startsWith('/watch')) {
+          // WatchScreen has its own dedicated Escape handler and PopScope.
+          // Do not force-navigate to '/' while watching an episode.
+          final nav = rootNavigatorKey.currentState;
+          if (nav != null && nav.canPop()) {
+            nav.pop();
+          }
+          return;
+        }
+      } catch (_) {}
+    }
     final nav = rootNavigatorKey.currentState;
     if (nav != null && nav.canPop()) {
       nav.pop();
       return;
     }
-    final ctx = rootNavigatorKey.currentContext;
     if (ctx != null) {
       try {
         final currentLoc = GoRouterState.of(ctx).matchedLocation;

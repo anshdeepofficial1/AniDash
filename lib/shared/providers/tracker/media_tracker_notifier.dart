@@ -411,6 +411,17 @@ class MediaTracker extends _$MediaTracker {
       }
 
       final statusLower = entry.status.toLowerCase();
+      final totalEps = media.episodes ?? 0;
+      final nextUpEpisode = (totalEps > 0 && targetProgress >= totalEps)
+          ? totalEps
+          : (targetProgress + 1);
+      final isRemoteAhead =
+          local == null || targetProgress >= local.currentEpisode;
+      final resolvedCurrentEpisode = isRemoteAhead
+          ? nextUpEpisode
+          : local.currentEpisode;
+      final effectiveLastPlayedAt =
+          isRemoteAhead ? DateTime.now() : (local.lastPlayedAt ?? DateTime.now());
 
       final updated = (local ??
               AnimeWatchProgressEntry(
@@ -422,21 +433,19 @@ class MediaTracker extends _$MediaTracker {
                 animeFormat: media.format,
                 animeCover:
                     media.coverImage.large ?? media.coverImage.medium ?? '',
-                totalEpisodes: media.episodes ?? 0,
+                totalEpisodes: totalEps,
                 episodesProgress: episodesMap,
-                lastUpdated: local?.lastUpdated ??
-                    DateTime.fromMillisecondsSinceEpoch(0),
-                lastPlayedAt: local?.lastPlayedAt,
-                currentEpisode: targetProgress,
-                status: statusLower,
+                lastUpdated: DateTime.now(),
+                lastPlayedAt: effectiveLastPlayedAt,
+                currentEpisode: resolvedCurrentEpisode,
+                status: isCompleted ? 'completed' : statusLower,
               ))
           .copyWith(
             episodesProgress: episodesMap,
-            currentEpisode: targetProgress > (local?.currentEpisode ?? 0)
-                ? targetProgress
-                : local?.currentEpisode,
-            lastPlayedAt: local?.lastPlayedAt,
-            status: statusLower,
+            currentEpisode: resolvedCurrentEpisode,
+            lastPlayedAt: effectiveLastPlayedAt,
+            lastUpdated: DateTime.now(),
+            status: isCompleted ? 'completed' : statusLower,
           );
 
       await repo.saveProgress(updated);
