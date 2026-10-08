@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart'
 import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/shared/providers/incognito_provider.dart';
 import 'package:ani_dash/features/watch/view_model/player/orientation_lock_provider.dart';
+import 'package:ani_dash/router/desktop/windows_caption_buttons.dart';
 
 class TopControls extends ConsumerWidget {
   final VoidCallback onInteraction;
@@ -208,43 +210,49 @@ class TopControls extends ConsumerWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final lockMode = ref.watch(orientationLockProvider);
-                        IconData lockIcon = Icons.screen_rotation_rounded;
-                        Color iconColor = Colors.white;
-                        String tooltipText =
-                            'Auto-Rotate Landscape (Tap to lock)';
+                    if (Platform.isAndroid || Platform.isIOS)
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final lockMode = ref.watch(orientationLockProvider);
+                          IconData lockIcon = Icons.screen_rotation_rounded;
+                          Color iconColor = Colors.white;
+                          String tooltipText =
+                              'Auto-Rotate Landscape (Tap to lock)';
 
-                        if (lockMode == OrientationLockMode.lockedLandscape) {
-                          lockIcon = Icons.screen_lock_landscape_rounded;
-                          iconColor = Theme.of(context).colorScheme.primary;
-                          tooltipText = 'Landscape Locked (Tap to unlock)';
-                        }
+                          if (lockMode == OrientationLockMode.lockedLandscape) {
+                            lockIcon = Icons.screen_lock_landscape_rounded;
+                            iconColor = Theme.of(context).colorScheme.primary;
+                            tooltipText = 'Landscape Locked (Tap to unlock)';
+                          }
 
-                        return _TopIconButton(
-                          icon: lockIcon,
-                          color: iconColor,
-                          tooltip: tooltipText,
-                          onTap: () async {
-                            await ref
-                                .read(orientationLockProvider.notifier)
-                                .toggle();
-                            onInteraction();
-                          },
-                          onLongPress: () {
-                            _showRotationSheet(context, ref);
-                            onInteraction();
-                          },
-                        );
-                      },
-                    ),
+                          return _TopIconButton(
+                            icon: lockIcon,
+                            color: iconColor,
+                            tooltip: tooltipText,
+                            onTap: () async {
+                              await ref
+                                  .read(orientationLockProvider.notifier)
+                                  .toggle();
+                              onInteraction();
+                            },
+                            onLongPress: () {
+                              _showRotationSheet(context, ref);
+                              onInteraction();
+                            },
+                          );
+                        },
+                      ),
 
                     if (!isMovie)
                       _TopIconButton(
                         icon: Icons.view_list_rounded,
                         onTap: _wrap(onEpisodesPressed),
                       ),
+
+                    if (!Platform.isAndroid && !Platform.isIOS) ...[
+                      const SizedBox(width: 8),
+                      const WindowsCaptionButtons(height: 36, isDark: true),
+                    ],
                   ],
                 ),
               ],

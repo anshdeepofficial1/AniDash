@@ -12,6 +12,7 @@ import 'package:ani_dash/features/watch/view_model/player/pip_controller.dart';
 import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 import 'package:ani_dash/core/services/share_link_service.dart';
 import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
+import 'package:ani_dash/helpers/show_subtitle_sidebar.dart';
 
 class SettingsSheetContent extends ConsumerWidget {
   final VoidCallback onDismiss;
@@ -74,6 +75,14 @@ class SettingsSheetContent extends ConsumerWidget {
                       Future<void>.delayed(Duration.zero, onSubtitlesPressed);
                     },
                   ),
+                ListTile(
+                  leading: const Icon(Iconsax.textalign_justifycenter),
+                  title: const Text('Subtitle appearance & size'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    showSubtitleSettings(context);
+                  },
+                ),
                 ListTile(
                   leading: const Icon(Icons.high_quality_rounded),
                   title: const Text("Quality"),

@@ -213,19 +213,19 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       'demuxer-readahead-secs': '30',
       'demuxer-hysteresis-secs': '0',
 
-      // ── Instant playback + underrun protection ────────────────────────────
+      // ── Smooth playback + underrun protection ────────────────────────────
       'cache-pause': 'yes', // Pause gracefully on underrun
-      'cache-pause-wait': '1',
-      'cache-pause-initial': 'no',
+      'cache-pause-wait': '3', // Buffer 3 seconds before resuming after underrun, avoids 1s loop stutter
+      'cache-pause-initial': 'yes', // Let initial buffer fill smoothly so stream doesn't choke on frame 0
 
       // ── Network & Reconnect ───────────────────────────────────────────────
       'network-timeout': '15',
-      'stream-lavf-o': 'reconnect_streamed=1,reconnect_delay_max=5',
+      'stream-lavf-o': 'reconnect=1,reconnect_streamed=1,reconnect_delay_max=5',
 
-      // ── FFmpeg demuxer / HLS probe (tuned for ultra-fast startup) ────────
-      'demuxer-lavf-probesize': '1048576',
-      'demuxer-lavf-buffersize': '1048576',
-      'demuxer-lavf-analyzeduration': '1.0',
+      // ── FFmpeg demuxer / HLS probe (tuned for smooth playback) ────────────
+      'demuxer-lavf-probesize': '2097152',
+      'demuxer-lavf-buffersize': '2097152',
+      'demuxer-lavf-analyzeduration': '2.0',
 
       // ── Seeking & sync ────────────────────────────────────────────────────
       'force-seekable': 'yes',
@@ -534,7 +534,13 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   }
 
   Future<void> togglePlay() async {
-    _player.state.playing ? await _player.pause() : await _player.play();
+    final playing = _player.state.playing;
+    state = state.copyWith(isPlaying: !playing);
+    if (playing) {
+      await _player.pause();
+    } else {
+      await _player.play();
+    }
   }
 
   Future<void> play() => _player.play();

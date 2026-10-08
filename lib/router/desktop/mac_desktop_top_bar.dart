@@ -328,9 +328,9 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
           filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
           child: Container(
             height: 52,
-            padding: EdgeInsets.only(
+            padding: const EdgeInsets.only(
               left: 16,
-              right: isMac ? 16 : 0,
+              right: 0,
             ),
             decoration: BoxDecoration(
               color: isDark
@@ -513,9 +513,9 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
                   onPressed: _cycleTheme,
                 ),
 
-                // 5. Native Windows Window Caption Buttons (Minimize, Maximize/Restore, Close)
-                if (!isMac && !Platform.isAndroid && !Platform.isIOS) ...[
-                  const SizedBox(width: 10),
+                // 5. Window Caption Buttons (Minimize, Maximize/Restore, Close)
+                if (!Platform.isAndroid && !Platform.isIOS) ...[
+                  const SizedBox(width: 8),
                   _WindowsCaptionButtons(
                     isDark: isDark,
                     isMaximized: _isMaximized,

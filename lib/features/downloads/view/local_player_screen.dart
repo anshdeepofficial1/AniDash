@@ -23,6 +23,7 @@ import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart'
 import 'package:ani_dash/features/watch/view_model/next_episode_prompt_provider.dart';
 import 'package:ani_dash/features/watch/view_model/player/pip_controller.dart';
 import 'package:ani_dash/features/watch/view_model/player/player_provider.dart';
+import 'package:ani_dash/router/desktop/windows_caption_buttons.dart';
 import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/shared/providers/settings/player_notifier.dart';
 
@@ -442,6 +443,83 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen>
                   '${_currentItem.animeTitle} - ${_currentItem.episodeTitle}',
               localStartAt: _startAt,
             );
+
+            final isDesktop = !Platform.isAndroid && !Platform.isIOS;
+            if (isDesktop && !isPiP) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141416),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          tooltip: 'Go Back (Esc)',
+                          icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                          color: Colors.white70,
+                          onPressed: () async {
+                            final playerState = ref.read(playerStateProvider);
+                            await _saveProgress(
+                              playerState.position,
+                              playerState.duration,
+                              force: true,
+                            );
+                            await ref.read(playerStateProvider.notifier).stop();
+                            if (context.mounted) Navigator.pop(context);
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(height: 16, width: 1, color: Colors.white24),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${_currentItem.animeTitle} - ${_currentItem.episodeTitle}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        const WindowsCaptionButtons(height: 42, isDark: true),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(child: player),
+                        SizeTransition(
+                          sizeFactor: _panelAnimation,
+                          axis: Axis.horizontal,
+                          child: SizedBox(
+                            width: MediaQuery.of(context).size.width * 0.35,
+                            child: EpisodesPanel(
+                              panelAnimation: _panelController,
+                              mediaId: mediaId,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
 
             if (orientation == Orientation.landscape && !isPiP) {
               return Row(

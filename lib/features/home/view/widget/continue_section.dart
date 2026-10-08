@@ -91,13 +91,13 @@ class ContinueSection extends ConsumerWidget {
               final entry = validEntries[index];
               final currentEp = entry.episodesProgress[entry.currentEpisode];
 
-              // Keep resuming the current episode unless it has truly reached the end (within last 45s or >= 92% watched)
+              // Keep resuming the current episode unless it is completed or reached the end (within last 45s or >= 90% watched)
               final dur = currentEp?.durationInSeconds ?? 0;
               final prog = currentEp?.progressInSeconds ?? 0;
               final isCurrentCompleted =
-                  (currentEp?.isCompleted == true &&
-                      (dur == 0 || prog >= dur - 45 || (prog / dur) >= 0.92)) ||
-                  (dur > 0 && (prog / dur) >= 0.92);
+                  (currentEp?.isCompleted == true) ||
+                  (dur > 0 && (prog / dur) >= 0.90) ||
+                  (dur > 45 && prog >= dur - 45);
 
               final baseEp =
                   entry.currentEpisode > 0 ? entry.currentEpisode : 1;

@@ -126,6 +126,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
   }
 
   Future<void> _activatePlayerVolumeControls() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     // Configure both layers in a deterministic order. Some Android devices
     // otherwise process the first key press before the native interceptor is
     // active and briefly show the system volume panel.
@@ -179,7 +180,9 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
   void _handleHardwareVolumeKey(bool isUp) {
     if (!mounted) return;
 
-    FlutterVolumeController.updateShowSystemUI(false);
+    if (Platform.isAndroid || Platform.isIOS) {
+      FlutterVolumeController.updateShowSystemUI(false);
+    }
 
     final state = ref.read(playerUIControllerProvider);
 
@@ -204,12 +207,20 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
 
     controller.setVolume(newV);
 
-    if (updateSystemVolume) FlutterVolumeController.setVolume(newV);
-    ref
-        .read(playerStateProvider.notifier)
-        .videoController
-        .player
-        .setVolume(100.0);
+    if (Platform.isAndroid || Platform.isIOS) {
+      if (updateSystemVolume) FlutterVolumeController.setVolume(newV);
+      ref
+          .read(playerStateProvider.notifier)
+          .videoController
+          .player
+          .setVolume(100.0);
+    } else {
+      ref
+          .read(playerStateProvider.notifier)
+          .videoController
+          .player
+          .setVolume(newV * 100.0);
+    }
 
     _volumeOverlayTimer?.cancel();
     _volumeOverlayTimer = Timer(const Duration(milliseconds: 1500), () {
@@ -222,6 +233,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
   }
 
   void _onVerticalDragStart(DragStartDetails details) {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     if (ref.read(playerUIControllerProvider).isLocked) return;
     final w = MediaQuery.of(context).size.width;
     _isDragLeft = details.globalPosition.dx < w / 2;
@@ -255,11 +267,20 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
       // Update system/player volume
       controller.setVolume(newV);
 
-      ref
-          .read(playerStateProvider.notifier)
-          .videoController
-          .player
-          .setVolume(100.0);
+      if (Platform.isAndroid || Platform.isIOS) {
+        FlutterVolumeController.setVolume(newV);
+        ref
+            .read(playerStateProvider.notifier)
+            .videoController
+            .player
+            .setVolume(100.0);
+      } else {
+        ref
+            .read(playerStateProvider.notifier)
+            .videoController
+            .player
+            .setVolume(newV * 100.0);
+      }
     }
   }
 
@@ -271,6 +292,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
   }
 
   void _onHorizontalDragStart(DragStartDetails details) {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     if (ref.read(playerUIControllerProvider).isLocked) return;
     final playerState = ref.read(playerStateProvider);
     _dragStartPos = playerState.position;
@@ -478,6 +500,15 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
 
   void _onDoubleTap(TapDownDetails details) {
     if (ref.read(playerUIControllerProvider).isLocked) return;
+    final isDesktop = !Platform.isAndroid && !Platform.isIOS;
+    if (isDesktop) {
+      if (widget.onFullScreenPressed != null) {
+        widget.onFullScreenPressed!();
+      } else {
+        UIHelper.handleToggleFullscreen();
+      }
+      return;
+    }
     final player = ref.read(playerStateProvider);
     final isForward =
         details.globalPosition.dx >= MediaQuery.sizeOf(context).width / 2;
@@ -569,8 +600,39 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     });
   }
 
+  void _seekRelative(bool isForward, {int seconds = 10}) {
+    if (ref.read(playerUIControllerProvider).isLocked) return;
+    final player = ref.read(playerStateProvider);
+    final signed = isForward ? seconds : -seconds;
+    final maxMs =
+        player.duration.inMilliseconds > 0
+            ? player.duration.inMilliseconds
+            : 24 * 60 * 60 * 1000;
+    final currentMs = player.position.inMilliseconds;
+    final targetMs = (currentMs + signed * 1000).clamp(0, maxMs);
+    _dragTargetPos = Duration(milliseconds: targetMs);
+    _dragDiff = Duration(seconds: signed);
+    _isDragSeekForward = isForward;
+    setState(() => _isDraggingSeek = true);
+
+    unawaited(ref.read(playerStateProvider.notifier).seek(_dragTargetPos));
+    _doubleTapTimer?.cancel();
+    _doubleTapTimer = Timer(const Duration(milliseconds: 650), () {
+      if (!mounted) return;
+      setState(() {
+        _isDraggingSeek = false;
+        _doubleTapPairCount = 0;
+      });
+    });
+  }
+
   void _openSubtitle() {
-    _sheet(SubtitleSelectionSheet(onLocalFilePressed: _pickLocalSubtitle));
+    _sheet(
+      SizedBox(
+        height: (MediaQuery.sizeOf(context).height * 0.78).clamp(480.0, 700.0),
+        child: SubtitleSelectionSheet(onLocalFilePressed: _pickLocalSubtitle),
+      ),
+    );
   }
 
   Future<void> _pickLocalSubtitle() async {
@@ -598,7 +660,27 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
   @override
   Widget build(BuildContext context) {
     final notifier = ref.read(playerStateProvider.notifier);
-    final state = ref.watch(playerStateProvider);
+    final (
+      fit,
+      fitMode,
+      isPlaying,
+      isBuffering,
+      isSeeking,
+      isOpening,
+      playbackError,
+    ) = ref.watch(
+      playerStateProvider.select(
+        (p) => (
+          p.fit,
+          p.fitMode,
+          p.isPlaying,
+          p.isBuffering,
+          p.isSeeking,
+          p.isOpening,
+          p.playbackError,
+        ),
+      ),
+    );
     final uiState = ref.watch(playerUIControllerProvider);
     final uiController = ref.watch(playerUIControllerProvider.notifier);
     final isPiP = ref.watch(pipProvider);
@@ -619,16 +701,10 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     // already playing. Only a real underrun, seek, or initial open owns the
     // central loading indicator.
     final isBusy =
-        // MPV may keep `buffering` true while it is filling the configured
-        // forward cache even though frames and audio are already advancing.
-        // Covering healthy playback with a spinner made a working stream look
-        // permanently stuck. Initial startup and genuine paused underruns are
-        // still represented by the conditions below.
-        (state.isBuffering &&
-            (!state.isPlaying || state.position == Duration.zero)) ||
-        state.isSeeking ||
-        (!state.isPlaying &&
-            (state.isOpening ||
+        (isBuffering && !isPlaying) ||
+        isSeeking ||
+        (!isPlaying &&
+            (isOpening ||
                 episodesLoading ||
                 episodeStreamState.contains(
                   EpisodeStreamState.SOURCE_LOADING,
@@ -643,7 +719,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     Widget videoView = RepaintBoundary(
       child: Video(
         controller: notifier.videoController,
-        fit: state.fit,
+        fit: fit,
         wakelock: true,
         filterQuality: kDebugMode ? FilterQuality.none : FilterQuality.low,
         controls: NoVideoControls,
@@ -653,11 +729,11 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
       ),
     );
 
-    if (state.fitMode == VideoFitMode.ratio16x9 ||
-        state.fitMode == VideoFitMode.ratio4x3) {
+    if (fitMode == VideoFitMode.ratio16x9 ||
+        fitMode == VideoFitMode.ratio4x3) {
       videoView = Center(
         child: AspectRatio(
-          aspectRatio: state.fitMode == VideoFitMode.ratio16x9 ? 16 / 9 : 4 / 3,
+          aspectRatio: fitMode == VideoFitMode.ratio16x9 ? 16 / 9 : 4 / 3,
           child: videoView,
         ),
       );
@@ -675,17 +751,28 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
           !uiState.isVisible
               ? SystemMouseCursors.none
               : SystemMouseCursors.click,
-      onHover: (_) => uiController.toggleVisibility(override: true),
+      onHover: (_) {
+        if (!_focusNode.hasFocus) {
+          _focusNode.requestFocus();
+        }
+        uiController.toggleVisibility(override: true);
+      },
       child: CallbackShortcuts(
         bindings: {
           const SingleActivator(LogicalKeyboardKey.space): notifier.togglePlay,
           const SingleActivator(LogicalKeyboardKey.keyK): notifier.togglePlay,
+          const SingleActivator(LogicalKeyboardKey.keyJ):
+              () => _seekRelative(false),
           const SingleActivator(LogicalKeyboardKey.keyL):
-              uiController.toggleLock,
+              () => _seekRelative(true),
           const SingleActivator(LogicalKeyboardKey.arrowLeft):
-              () => notifier.rewind(10),
+              () => _seekRelative(false),
           const SingleActivator(LogicalKeyboardKey.arrowRight):
-              () => notifier.forward(10),
+              () => _seekRelative(true),
+          const SingleActivator(LogicalKeyboardKey.arrowUp):
+              () => _handleHardwareVolumeKey(true),
+          const SingleActivator(LogicalKeyboardKey.arrowDown):
+              () => _handleHardwareVolumeKey(false),
           const SingleActivator(LogicalKeyboardKey.keyM): notifier.toggleMute,
           const SingleActivator(LogicalKeyboardKey.f11): () {
             if (widget.onFullScreenPressed != null) {
@@ -729,11 +816,32 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                 // Gesture Layer (Background)
                 Positioned.fill(
                   child: PlayerGestureHandler(
-                    onDoubleTapDown: _onDoubleTap,
+                    onDoubleTapDown: (details) {
+                      final isDesktop = !Platform.isAndroid && !Platform.isIOS;
+                      if (isDesktop) {
+                        if (widget.onFullScreenPressed != null) {
+                          widget.onFullScreenPressed!();
+                        } else {
+                          UIHelper.handleToggleFullscreen();
+                        }
+                      } else {
+                        _onDoubleTap(details);
+                      }
+                    },
                     onTap: () {
+                      if (!_focusNode.hasFocus) {
+                        _focusNode.requestFocus();
+                      }
                       if (_isDraggingSeek) return;
                       widget.onPanelCloseRequest?.call();
-                      uiController.toggleVisibility();
+                      final isDesktop = !Platform.isAndroid && !Platform.isIOS;
+                      if (isDesktop) {
+                        ref.read(playerStateProvider.notifier).togglePlay();
+                        uiController.toggleVisibility(override: true);
+                        uiController.restartHideTimer();
+                      } else {
+                        uiController.toggleVisibility();
+                      }
                     },
 
                     onLongPressStart: _onLongPressStart,
@@ -776,7 +884,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                   isLocal: widget.localFilePath != null,
                 ),
 
-                if (state.playbackError != null)
+                if (playbackError != null)
                   Center(
                     child: Container(
                       padding: const EdgeInsets.all(20),
@@ -794,7 +902,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            state.playbackError!,
+                            playbackError,
                             style: const TextStyle(color: Colors.white),
                             textAlign: TextAlign.center,
                           ),
@@ -815,7 +923,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const FetchingProgressBadge(isEpisode: false),
-                          if (state.isOpening) ...[
+                          if (isOpening) ...[
                             const SizedBox(height: 8),
                             const Text(
                               'Starting video…',
