@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:go_router/go_router.dart';
@@ -109,40 +110,129 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
         Platform.isMacOS ||
         Platform.isLinux;
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        leading: IconButton.filledTonal(
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/');
-            }
-          },
-          icon: const Icon(Iconsax.arrow_left_2),
-        ),
-        title: const Text('Check for Updates'),
-        forceMaterialTransparency: true,
-      ),
+      appBar: isDesktop
+          ? null
+          : AppBar(
+              leading: IconButton.filledTonal(
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/');
+                  }
+                },
+                icon: const Icon(Iconsax.arrow_left_2),
+              ),
+              title: const Text('Check for Updates'),
+              forceMaterialTransparency: true,
+            ),
       body: Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: isDesktop ? 860 : 600),
+          constraints: BoxConstraints(maxWidth: isDesktop ? 960 : 600),
           child: ListView(
             padding: EdgeInsets.symmetric(
-              horizontal: isDesktop ? 20 : 12,
-              vertical: 8,
+              horizontal: isDesktop ? 28 : 12,
+              vertical: isDesktop ? 20 : 8,
             ),
             children: [
+              if (isDesktop) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Software Update',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: colorScheme.primary.withValues(alpha: 0.25),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  'DESKTOP CLIENT',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Manage system updates, background checks, and hardware acceleration updates.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      FilledButton.icon(
+                        onPressed: _isChecking ? null : _checkForUpdate,
+                        icon: _isChecking
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Iconsax.refresh, size: 16),
+                        label: Text(
+                          _isChecking ? 'Checking...' : 'Check for Updates',
+                        ),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               // 1. Desktop-grade Hero Card
               _buildDesktopHeroCard(context, colorScheme, isDesktop),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
 
               // 2. Available Update Card (if one was discovered)
               if (_availableUpdate != null) ...[
                 _buildAvailableUpdateCard(context, colorScheme),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
               ],
 
               // Mobile-only Android permission banner
@@ -191,94 +281,370 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
               ],
 
               // 3. Automation and Schedule Section
-              SettingsSection(
-                title: 'Background Update Automation',
-                titleColor: colorScheme.primary,
-                children: [
-                  ToggleableSettingsItem(
-                    icon: Icon(Iconsax.refresh_2, color: colorScheme.primary),
-                    accent: colorScheme.primary,
-                    title: 'Auto-Check for Updates',
-                    description: isDesktop
-                        ? 'Silently check GitHub releases in the background while running'
-                        : 'Periodically check GitHub releases for new updates',
-                    value: settings.autoCheckEnabled,
-                    onChanged: (value) async {
-                      if (value && Platform.isAndroid && !permissionsState.notification) {
-                        await permissionsNotifier.requestNotificationPermission();
-                      }
-                      notifier.updateSettings(
-                        (state) => state.copyWith(autoCheckEnabled: value),
-                      );
-                    },
-                  ),
-                  if (settings.autoCheckEnabled) ...[
+              if (isDesktop)
+                _buildDesktopPreferences(
+                  context,
+                  colorScheme,
+                  isDark,
+                  settings,
+                  notifier,
+                )
+              else
+                SettingsSection(
+                  title: 'Background Update Automation',
+                  titleColor: colorScheme.primary,
+                  children: [
                     ToggleableSettingsItem(
-                      icon: Icon(Iconsax.clock, color: colorScheme.primary),
+                      icon: Icon(Iconsax.refresh_2, color: colorScheme.primary),
                       accent: colorScheme.primary,
-                      title: 'Run 24 Hours',
-                      description: settings.fullDay
-                          ? 'Checking continuously throughout the day (Custom window disabled)'
-                          : 'Continuously check for updates round the clock',
-                      value: settings.fullDay,
-                      onChanged: (value) {
+                      title: 'Auto-Check for Updates',
+                      description: 'Periodically check GitHub releases for new updates',
+                      value: settings.autoCheckEnabled,
+                      onChanged: (value) async {
+                        if (value && Platform.isAndroid && !permissionsState.notification) {
+                          await permissionsNotifier.requestNotificationPermission();
+                        }
                         notifier.updateSettings(
-                          (state) => state.copyWith(
-                            fullDay: value,
-                            startHour:
-                                state.startHour == state.endHour
-                                    ? 20
-                                    : state.startHour,
-                            endHour:
-                                state.startHour == state.endHour
-                                    ? 6
-                                    : state.endHour,
-                          ),
+                          (state) => state.copyWith(autoCheckEnabled: value),
                         );
                       },
                     ),
-                    SliderSettingsItem(
-                      icon: Icon(Iconsax.timer_1, color: colorScheme.primary),
-                      accent: colorScheme.primary,
-                      title: 'Check Interval',
-                      description:
-                          'Checks approximately every ${settings.checkIntervalMinutes} minutes',
-                      value: settings.checkIntervalMinutes.toDouble(),
-                      min: 5,
-                      max: 60,
-                      divisions: 11,
-                      onChanged: (value) {
-                        notifier.updateSettings(
-                          (state) =>
-                              state.copyWith(checkIntervalMinutes: value.toInt()),
-                        );
-                      },
-                    ),
-                    _buildCustomTimeItem(
-                      context: context,
-                      colorScheme: colorScheme,
-                      title: 'Custom Window: Start Hour',
-                      hour: settings.startHour,
-                      is24HourMode: settings.fullDay,
-                      onTap: () => _pickStartHour(context, settings, notifier),
-                    ),
-                    _buildCustomTimeItem(
-                      context: context,
-                      colorScheme: colorScheme,
-                      title: 'Custom Window: End Hour',
-                      hour: settings.endHour,
-                      is24HourMode: settings.fullDay,
-                      onTap: () => _pickEndHour(context, settings, notifier),
-                    ),
+                    if (settings.autoCheckEnabled) ...[
+                      ToggleableSettingsItem(
+                        icon: Icon(Iconsax.clock, color: colorScheme.primary),
+                        accent: colorScheme.primary,
+                        title: 'Run 24 Hours',
+                        description: settings.fullDay
+                            ? 'Checking continuously throughout the day (Custom window disabled)'
+                            : 'Continuously check for updates round the clock',
+                        value: settings.fullDay,
+                        onChanged: (value) {
+                          notifier.updateSettings(
+                            (state) => state.copyWith(
+                              fullDay: value,
+                              startHour:
+                                  state.startHour == state.endHour
+                                      ? 20
+                                      : state.startHour,
+                              endHour:
+                                  state.startHour == state.endHour
+                                      ? 6
+                                      : state.endHour,
+                            ),
+                          );
+                        },
+                      ),
+                      SliderSettingsItem(
+                        icon: Icon(Iconsax.timer_1, color: colorScheme.primary),
+                        accent: colorScheme.primary,
+                        title: 'Check Interval',
+                        description:
+                            'Checks approximately every ${settings.checkIntervalMinutes} minutes',
+                        value: settings.checkIntervalMinutes.toDouble(),
+                        min: 5,
+                        max: 60,
+                        divisions: 11,
+                        onChanged: (value) {
+                          notifier.updateSettings(
+                            (state) =>
+                                state.copyWith(checkIntervalMinutes: value.toInt()),
+                          );
+                        },
+                      ),
+                      _buildCustomTimeItem(
+                        context: context,
+                        colorScheme: colorScheme,
+                        title: 'Custom Window: Start Hour',
+                        hour: settings.startHour,
+                        is24HourMode: settings.fullDay,
+                        onTap: () => _pickStartHour(context, settings, notifier),
+                      ),
+                      _buildCustomTimeItem(
+                        context: context,
+                        colorScheme: colorScheme,
+                        title: 'Custom Window: End Hour',
+                        hour: settings.endHour,
+                        is24HourMode: settings.fullDay,
+                        onTap: () => _pickEndHour(context, settings, notifier),
+                      ),
+                    ],
                   ],
-                ],
-              ),
+                ),
 
               const SizedBox(height: 40),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDesktopPreferences(
+    BuildContext context,
+    ColorScheme colorScheme,
+    bool isDark,
+    UpdateSettingsModel settings,
+    UpdateSettingsNotifier notifier,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Left Column: Automation & Background Checking
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.5)
+                  : colorScheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Iconsax.refresh_square_2,
+                      size: 20,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Background Automation',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Automate version checking in the background while running on your laptop.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Auto-Check for Updates',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                  ),
+                  subtitle: const Text(
+                    'Query GitHub releases silently in the background',
+                    style: TextStyle(fontSize: 11.5),
+                  ),
+                  value: settings.autoCheckEnabled,
+                  onChanged: (val) {
+                    notifier.updateSettings(
+                      (s) => s.copyWith(autoCheckEnabled: val),
+                    );
+                  },
+                ),
+                const Divider(height: 20),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    '24-Hour Continuous Checking',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                  ),
+                  subtitle: const Text(
+                    'Checks stay active round the clock without quiet hours',
+                    style: TextStyle(fontSize: 11.5),
+                  ),
+                  value: settings.fullDay,
+                  onChanged: (val) {
+                    notifier.updateSettings((s) => s.copyWith(fullDay: val));
+                  },
+                ),
+                const Divider(height: 20),
+                Text(
+                  'Check Frequency',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('15 Min'),
+                      selected: settings.checkIntervalMinutes == 15,
+                      onSelected: (_) => notifier.updateSettings(
+                        (s) => s.copyWith(checkIntervalMinutes: 15),
+                      ),
+                    ),
+                    ChoiceChip(
+                      label: const Text('1 Hour'),
+                      selected: settings.checkIntervalMinutes == 60,
+                      onSelected: (_) => notifier.updateSettings(
+                        (s) => s.copyWith(checkIntervalMinutes: 60),
+                      ),
+                    ),
+                    ChoiceChip(
+                      label: const Text('6 Hours'),
+                      selected: settings.checkIntervalMinutes == 360,
+                      onSelected: (_) => notifier.updateSettings(
+                        (s) => s.copyWith(checkIntervalMinutes: 360),
+                      ),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Daily'),
+                      selected: settings.checkIntervalMinutes == 1440,
+                      onSelected: (_) => notifier.updateSettings(
+                        (s) => s.copyWith(checkIntervalMinutes: 1440),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 18),
+        // Right Column: System Diagnostics & Release Channel
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.5)
+                  : colorScheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Iconsax.cpu_setting,
+                      size: 20,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'System & Diagnostics',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Verified laptop environment parameters and hardware decoding status.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _buildDiagnosticItem(
+                  'Platform',
+                  '${_getPlatformName()} (${Platform.operatingSystemVersion.split(' ').first})',
+                  colorScheme,
+                ),
+                const SizedBox(height: 8),
+                _buildDiagnosticItem(
+                  'Architecture',
+                  Platform.isMacOS
+                      ? 'Universal (Apple Silicon / Intel)'
+                      : (Platform.isWindows ? 'x86_64 Native' : 'Linux x64'),
+                  colorScheme,
+                ),
+                const SizedBox(height: 8),
+                _buildDiagnosticItem(
+                  'Release Channel',
+                  'Official GitHub Releases (Stable)',
+                  colorScheme,
+                ),
+                const SizedBox(height: 8),
+                _buildDiagnosticItem(
+                  'Video Engine',
+                  'MPV Multi-Threaded HW Decoding',
+                  colorScheme,
+                ),
+                const Divider(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      final diag =
+                          'AniDash Desktop Edition v$_currentVersion\n'
+                          'OS: ${Platform.operatingSystem} (${Platform.operatingSystemVersion})\n'
+                          'Platform: ${_getPlatformName()}\n'
+                          'Video Engine: MPV Hardware Decoding (High Performance)\n'
+                          'Release Channel: Stable';
+                      Clipboard.setData(ClipboardData(text: diag));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('System diagnostics copied to clipboard!'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Iconsax.copy, size: 16),
+                    label: const Text('Copy Diagnostics'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiagnosticItem(
+    String label,
+    String value,
+    ColorScheme colorScheme,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
