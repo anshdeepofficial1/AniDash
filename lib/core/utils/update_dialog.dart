@@ -356,92 +356,171 @@ class _UpdateDialogState extends State<UpdateDialog>
               ),
             ),
 
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isLinux
-                          ? Icons.terminal_rounded
-                          : Icons.rocket_launch_rounded,
-                      size: 40,
-                      color: statusColor,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    isLinux ? 'Update via Terminal' : 'Update Available',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _VersionBadge(
-                    current: widget.currentVersion,
-                    latest: widget.latestVersion,
-                    type: widget.type,
-                    color: statusColor,
-                  ),
-                ],
-              ),
-            ),
-
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            if (isDesktop) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    if (isLinux) ...[
-                      Text(
-                        "Run this command:",
-                        style: theme.textTheme.labelLarge,
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colorScheme.outlineVariant),
-                        ),
-                        child: Text(
-                          _linuxCmd,
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: statusColor.withValues(alpha: 0.3),
+                          width: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 24),
-                    ],
-                    Text(
-                      "What's New",
-                      style: theme.textTheme.titleSmall?.copyWith(
+                      child: Icon(
+                        isLinux
+                            ? Icons.terminal_rounded
+                            : (Platform.isMacOS
+                                ? Icons.apple_rounded
+                                : Icons.desktop_windows_rounded),
+                        size: 30,
                         color: statusColor,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    MarkdownBody(
-                      data:
-                          widget.releaseNotes ?? "No release notes available.",
-                      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                        p: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurface,
-                        ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Software Update Available',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              _VersionBadge(
+                                current: widget.currentVersion,
+                                latest: widget.latestVersion,
+                                type: widget.type,
+                                color: statusColor,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            Platform.isMacOS
+                                ? 'A new native macOS DMG build is ready to install.'
+                                : (Platform.isWindows
+                                    ? 'A new Windows Setup installer is ready to update your app.'
+                                    : 'A new official release is ready on GitHub.'),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isLinux
+                            ? Icons.terminal_rounded
+                            : Icons.rocket_launch_rounded,
+                        size: 40,
+                        color: statusColor,
                       ),
                     ),
                     const SizedBox(height: 16),
+                    Text(
+                      isLinux ? 'Update via Terminal' : 'Update Available',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _VersionBadge(
+                      current: widget.currentVersion,
+                      latest: widget.latestVersion,
+                      type: widget.type,
+                      color: statusColor,
+                    ),
                   ],
+                ),
+              ),
+            ],
+
+            Flexible(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isLinux) ...[
+                        Text(
+                          "Run this command:",
+                          style: theme.textTheme.labelLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: colorScheme.outlineVariant),
+                          ),
+                          child: Text(
+                            _linuxCmd,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      Text(
+                        "Release Notes & Changes",
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      MarkdownBody(
+                        data:
+                            widget.releaseNotes ?? "No release notes available.",
+                        styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+                          p: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurface,
+                            height: 1.45,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -479,106 +558,184 @@ class _UpdateDialogState extends State<UpdateDialog>
                         borderRadius: BorderRadius.circular(8),
                         minHeight: 8,
                       ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                   ],
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      icon: Icon(
-                        isLinux
-                            ? Icons.content_copy_rounded
-                            : Icons.download_rounded,
-                      ),
-                      label: Text(
-                        isLinux
-                            ? 'Copy Command'
-                            : (_downloading
-                                ? 'Downloading...'
-                                : (_downloadedApkPath != null
-                                    ? 'Install Update'
-                                    : (Platform.isWindows
-                                        ? 'Download & Install Windows .exe'
-                                        : (Platform.isMacOS
-                                            ? 'Download macOS .dmg'
-                                            : 'Update Now')))),
-                      ),
-                      onPressed:
-                          _downloading
-                              ? null
-                              : (_downloadedApkPath != null &&
-                                      Platform.isAndroid
-                                  ? () => _launchInstaller(_downloadedApkPath!)
-                                  : _handleUpdateAction),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: statusColor,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (!_downloading && _downloadedApkPath == null) ...[
-                    const SizedBox(height: 10),
+                  if (isDesktop) ...[
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.snooze_rounded, size: 16),
-                            label: const Text('Remind in 1h'),
-                            onPressed: () async {
-                              final prefs =
-                                  await SharedPreferences.getInstance();
-                              await prefs.setInt(
-                                'remind_update_after',
-                                DateTime.now()
-                                    .add(const Duration(hours: 1))
-                                    .millisecondsSinceEpoch,
-                              );
-                              await prefs.setString(
-                                'remind_update_version',
-                                widget.latestVersion.replaceAll('v', '').trim(),
-                              );
-                              if (context.mounted) Navigator.pop(context);
-                            },
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                        if (!_downloading && _downloadedApkPath == null)
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Remind Me Later'),
+                          )
+                        else
+                          const SizedBox.shrink(),
+                        Row(
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () => launchUrl(
+                                Uri.parse(
+                                  'https://github.com/anshdeepofficial1/AniDash/releases',
+                                ),
+                              ),
+                              icon: const Icon(Icons.code_rounded, size: 16),
+                              label: const Text('GitHub'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.today_rounded, size: 16),
-                            label: const Text('Skip for today'),
-                            onPressed: () async {
-                              final prefs =
-                                  await SharedPreferences.getInstance();
-                              await prefs.setInt(
-                                'remind_update_after',
-                                DateTime.now()
-                                    .add(const Duration(hours: 24))
-                                    .millisecondsSinceEpoch,
-                              );
-                              await prefs.setString(
-                                'remind_update_version',
-                                widget.latestVersion.replaceAll('v', '').trim(),
-                              );
-                              if (context.mounted) Navigator.pop(context);
-                            },
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                            const SizedBox(width: 10),
+                            FilledButton.icon(
+                              icon: Icon(
+                                isLinux
+                                    ? Icons.content_copy_rounded
+                                    : Icons.download_rounded,
+                                size: 16,
+                              ),
+                              label: Text(
+                                isLinux
+                                    ? 'Copy Command'
+                                    : (_downloading
+                                        ? 'Downloading...'
+                                        : (_downloadedApkPath != null
+                                            ? 'Install Update'
+                                            : (Platform.isWindows
+                                                ? 'Download & Install Windows .exe'
+                                                : (Platform.isMacOS
+                                                    ? 'Download & Install macOS DMG'
+                                                    : 'Update Now')))),
+                              ),
+                              onPressed:
+                                  _downloading
+                                      ? null
+                                      : (_downloadedApkPath != null &&
+                                              Platform.isAndroid
+                                          ? () => _launchInstaller(
+                                              _downloadedApkPath!,
+                                            )
+                                          : _handleUpdateAction),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: statusColor,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
+                  ] else ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        icon: Icon(
+                          isLinux
+                              ? Icons.content_copy_rounded
+                              : Icons.download_rounded,
+                        ),
+                        label: Text(
+                          isLinux
+                              ? 'Copy Command'
+                              : (_downloading
+                                  ? 'Downloading...'
+                                  : (_downloadedApkPath != null
+                                      ? 'Install Update'
+                                      : (Platform.isWindows
+                                          ? 'Download & Install Windows .exe'
+                                          : (Platform.isMacOS
+                                              ? 'Download macOS .dmg'
+                                              : 'Update Now')))),
+                        ),
+                        onPressed:
+                            _downloading
+                                ? null
+                                : (_downloadedApkPath != null &&
+                                        Platform.isAndroid
+                                    ? () => _launchInstaller(_downloadedApkPath!)
+                                    : _handleUpdateAction),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: statusColor,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (!_downloading && _downloadedApkPath == null) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.snooze_rounded, size: 16),
+                              label: const Text('Remind in 1h'),
+                              onPressed: () async {
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                await prefs.setInt(
+                                  'remind_update_after',
+                                  DateTime.now()
+                                      .add(const Duration(hours: 1))
+                                      .millisecondsSinceEpoch,
+                                );
+                                await prefs.setString(
+                                  'remind_update_version',
+                                  widget.latestVersion.replaceAll('v', '').trim(),
+                                );
+                                if (context.mounted) Navigator.pop(context);
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.today_rounded, size: 16),
+                              label: const Text('Skip for today'),
+                              onPressed: () async {
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                await prefs.setInt(
+                                  'remind_update_after',
+                                  DateTime.now()
+                                      .add(const Duration(hours: 24))
+                                      .millisecondsSinceEpoch,
+                                );
+                                await prefs.setString(
+                                  'remind_update_version',
+                                  widget.latestVersion.replaceAll('v', '').trim(),
+                                );
+                                if (context.mounted) Navigator.pop(context);
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ],
               ),
