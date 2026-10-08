@@ -781,103 +781,106 @@ class _SidebarTileState extends State<_SidebarTile> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          margin: const EdgeInsets.symmetric(vertical: 1.5),
-          padding: EdgeInsets.symmetric(
-            horizontal: isCollapsed ? 0 : 10,
-            vertical: 7.5,
-          ),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? colorScheme.primary.withValues(alpha: isDark ? 0.22 : 0.16)
-                : (_isHovered
-                    ? (isDark
-                        ? Colors.white.withValues(alpha: 0.07)
-                        : Colors.black.withValues(alpha: 0.05))
-                    : Colors.transparent),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected
-                  ? (isDark
-                      ? Colors.white.withValues(alpha: 0.14)
-                      : colorScheme.primary.withValues(alpha: 0.3))
-                  : Colors.transparent,
-              width: 1,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            margin: const EdgeInsets.symmetric(vertical: 1.5),
+            padding: EdgeInsets.symmetric(
+              horizontal: isCollapsed ? 0 : 10,
+              vertical: 7.5,
             ),
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment:
-                isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
-            children: [
-              Icon(
-                widget.icon,
-                size: 18,
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? colorScheme.primary.withValues(alpha: isDark ? 0.22 : 0.16)
+                  : (_isHovered
+                      ? (isDark
+                          ? Colors.white.withValues(alpha: 0.07)
+                          : Colors.black.withValues(alpha: 0.05))
+                      : Colors.transparent),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
                 color: isSelected
-                    ? colorScheme.primary
-                    : (_isHovered
-                        ? (isDark ? Colors.white : Colors.black87)
-                        : (isDark ? Colors.white70 : Colors.black54)),
+                    ? (isDark
+                        ? Colors.white.withValues(alpha: 0.14)
+                        : colorScheme.primary.withValues(alpha: 0.3))
+                    : Colors.transparent,
+                width: 1,
               ),
-              if (!isCollapsed) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    widget.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
-                      color: isSelected
-                          ? colorScheme.primary
-                          : (_isHovered
-                              ? (isDark ? Colors.white : Colors.black87)
-                              : (isDark ? Colors.white70 : Colors.black54)),
-                    ),
-                  ),
+            ),
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment:
+                  isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+              children: [
+                Icon(
+                  widget.icon,
+                  size: 18,
+                  color: isSelected
+                      ? colorScheme.primary
+                      : (_isHovered
+                          ? (isDark ? Colors.white : Colors.black87)
+                          : (isDark ? Colors.white70 : Colors.black54)),
                 ),
-                if (widget.badgeText != null) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? colorScheme.primary
-                          : (isDark
-                              ? Colors.white.withValues(alpha: 0.15)
-                              : Colors.black.withValues(alpha: 0.08)),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                if (!isCollapsed) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
                     child: Text(
-                      widget.badgeText!,
+                      widget.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w400,
                         color: isSelected
-                            ? colorScheme.onPrimary
-                            : (isDark ? Colors.white70 : Colors.black87),
+                            ? colorScheme.primary
+                            : (_isHovered
+                                ? (isDark ? Colors.white : Colors.black87)
+                                : (isDark ? Colors.white70 : Colors.black54)),
                       ),
                     ),
                   ),
-                ] else if (widget.shortcutHint != null && _isHovered) ...[
-                  Text(
-                    widget.shortcutHint!,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: isDark ? Colors.white38 : Colors.black38,
+                  if (widget.badgeText != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? colorScheme.primary
+                            : (isDark
+                                ? Colors.white.withValues(alpha: 0.15)
+                                : Colors.black.withValues(alpha: 0.08)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        widget.badgeText!,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected
+                              ? colorScheme.onPrimary
+                              : (isDark ? Colors.white70 : Colors.black87),
+                        ),
+                      ),
                     ),
-                  ),
+                  ] else if (widget.shortcutHint != null && _isHovered) ...[
+                    Text(
+                      widget.shortcutHint!,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isDark ? Colors.white38 : Colors.black38,
+                      ),
+                    ),
+                  ],
                 ],
               ],
-            ],
+            ),
           ),
         ),
       ),

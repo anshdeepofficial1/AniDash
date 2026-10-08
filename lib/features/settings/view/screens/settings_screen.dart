@@ -2,8 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:ani_dash/features/settings/view/screens/data_settings_screen.dart';
-import 'package:ani_dash/features/settings/view/screens/home_settings_screen.dart';
 import 'package:ani_dash/features/settings/view/widgets/settings_item.dart';
 import 'package:ani_dash/features/settings/view/widgets/settings_section.dart';
 import 'package:ani_dash/features/ai/view/widgets/anidash_ai_emblem.dart';
@@ -121,13 +119,7 @@ class SettingsScreen extends ConsumerWidget {
                   accent: colorScheme.primary,
                   title: 'Data & Storage',
                   description: 'Clear cache, backup & restore',
-                  onTap:
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const DataSettingsScreen(),
-                        ),
-                      ),
+                  onTap: () => context.push('/settings/data'),
                 ),
                 NormalSettingsItem(
                   icon: Icon(
@@ -156,9 +148,9 @@ class SettingsScreen extends ConsumerWidget {
                 NormalSettingsItem(
                   leading: const AniDashAiEmblem(size: 34),
                   accent: colorScheme.primary,
-                  title: 'AnyCore',
+                  title: 'AniCore',
                   description: 'AI team names, instructions and privacy',
-                  onTap: () => context.push('/settings/ai'),
+                  onTap: () => context.push('/ai'),
                 ),
               ],
             ),
@@ -180,13 +172,7 @@ class SettingsScreen extends ConsumerWidget {
                   accent: colorScheme.primary,
                   title: 'Home Layout',
                   description: 'Customize home screen sections',
-                  onTap:
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const HomeSettingsScreen(),
-                        ),
-                      ),
+                  onTap: () => context.push('/settings/home-layout'),
                 ),
                 NormalSettingsItem(
                   icon: Icon(Iconsax.mobile, color: colorScheme.primary),
