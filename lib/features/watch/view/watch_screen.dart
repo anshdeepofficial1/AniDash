@@ -422,7 +422,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
             final screenWidth = MediaQuery.of(context).size.width;
 
             // Desktop Crunchyroll/YouTube Theater View (when not in full-screen)
-            if (isDesktop && !_isLandscapeFullscreen && !isPiP && screenWidth > 900) {
+            if (isDesktop && !_isLandscapeFullscreen && !isPiP) {
               return SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -430,7 +430,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                     // Top Area: Video Player + Right-Side Episodes Carousel/Panel
                     Container(
                       color: Colors.black,
-                      height: (screenWidth * 0.52).clamp(380.0, 560.0),
+                      height: (screenWidth * 0.50).clamp(360.0, 560.0),
                       child: Row(
                         children: [
                           Expanded(
@@ -438,7 +438,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                             child: player,
                           ),
                           Container(
-                            width: 380,
+                            width: (screenWidth * 0.30).clamp(280.0, 380.0),
                             decoration: BoxDecoration(
                               color: const Color(0xFF141416),
                               border: Border(

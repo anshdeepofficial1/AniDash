@@ -72,7 +72,7 @@ class AnimatedGoRoute extends GoRoute {
                Platform.isWindows || Platform.isMacOS || Platform.isLinux;
            if (isDesktop || wrapWithDesktopScaffold) {
              return NoTransitionPage(
-               key: state.pageKey,
+               key: ValueKey('desktop_page_${state.matchedLocation}'),
                child: child,
              );
            }

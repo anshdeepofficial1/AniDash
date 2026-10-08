@@ -136,7 +136,10 @@ class DesktopAdaptiveScaffold extends ConsumerWidget {
                     icon: getIconForRoute(currentRoute),
                   ),
                   Expanded(
-                    child: child,
+                    child: KeyedSubtree(
+                      key: ValueKey('view_$currentRoute'),
+                      child: child,
+                    ),
                   ),
                 ],
               ),
