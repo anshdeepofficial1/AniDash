@@ -47,18 +47,26 @@ import 'package:ani_dash/router/router_wrapper.dart';
 import 'package:ani_dash/features/ai/domain/ai_models.dart';
 import 'package:ani_dash/features/ai/view/ai_chat_screen.dart';
 import 'package:ani_dash/features/ai/view/ai_settings_screen.dart';
+import 'package:ani_dash/router/desktop/desktop_adaptive_scaffold.dart';
 
 class AnimatedGoRoute extends GoRoute {
+  final bool wrapWithDesktopScaffold;
+
   AnimatedGoRoute({
     required super.path,
     required Widget Function(BuildContext, GoRouterState) contentBuilder,
     super.routes = const <RouteBase>[],
     super.redirect,
+    this.wrapWithDesktopScaffold = false,
   }) : super(
          pageBuilder:
              (context, state) => CustomTransitionPage(
                key: state.pageKey,
-               child: contentBuilder(context, state),
+               child: wrapWithDesktopScaffold
+                   ? DesktopAdaptiveScaffold(
+                     child: contentBuilder(context, state),
+                   )
+                   : contentBuilder(context, state),
                transitionsBuilder: (
                  context,
                  animation,
@@ -77,6 +85,15 @@ class AnimatedGoRoute extends GoRoute {
                },
              ),
        );
+}
+
+class DesktopAdaptiveRoute extends AnimatedGoRoute {
+  DesktopAdaptiveRoute({
+    required super.path,
+    required super.contentBuilder,
+    super.routes = const <RouteBase>[],
+    super.redirect,
+  }) : super(wrapWithDesktopScaffold: true);
 }
 
 bool _isUserOnboarded() {
@@ -155,19 +172,19 @@ final routerConfig = GoRouter(
             );
           }).toList(),
     ),
-    AnimatedGoRoute(
+    DesktopAdaptiveRoute(
       path: '/extensions',
       contentBuilder: (_, _) => const ExtensionScreen(),
     ),
-    AnimatedGoRoute(
+    DesktopAdaptiveRoute(
       path: '/news',
       contentBuilder: (_, _) => const NewsScreen(),
     ),
-    AnimatedGoRoute(
+    DesktopAdaptiveRoute(
       path: '/notifications',
       contentBuilder: (_, _) => const NotificationInboxScreen(),
     ),
-    AnimatedGoRoute(
+    DesktopAdaptiveRoute(
       path: '/ai',
       contentBuilder:
           (_, state) => AiChatScreen(
@@ -177,7 +194,7 @@ final routerConfig = GoRouter(
                     : const AiContext(),
           ),
     ),
-    AnimatedGoRoute(
+    DesktopAdaptiveRoute(
       path: '/c/:id',
       contentBuilder:
           (_, state) => AiChatScreen(sharedChatId: state.pathParameters['id']),
@@ -186,7 +203,7 @@ final routerConfig = GoRouter(
       path: '/onboarding',
       contentBuilder: (_, _) => const OnboardingScreen(),
     ),
-    AnimatedGoRoute(
+    DesktopAdaptiveRoute(
       path: '/details',
       contentBuilder:
           (context, state) => AnimeDetailsScreen(
@@ -195,7 +212,7 @@ final routerConfig = GoRouter(
             forceFetch: state.uri.queryParameters['forceFetch'] == 'true',
           ),
     ),
-    AnimatedGoRoute(
+    DesktopAdaptiveRoute(
       path: '/details/:id',
       contentBuilder: (context, state) {
         final anime =
@@ -220,7 +237,7 @@ final routerConfig = GoRouter(
         );
       },
     ),
-    AnimatedGoRoute(
+    DesktopAdaptiveRoute(
       path: '/anime/:id',
       contentBuilder: (context, state) {
         final anime =
@@ -284,95 +301,95 @@ final routerConfig = GoRouter(
                         : const <EpisodeDataModel>[]),
           ),
     ),
-    AnimatedGoRoute(
+    DesktopAdaptiveRoute(
       path: '/watch-history',
       contentBuilder: (_, _) => const WatchHistoryScreen(),
     ),
-    AnimatedGoRoute(
+    DesktopAdaptiveRoute(
       path: '/settings',
       contentBuilder: (_, _) => const SettingsScreen(),
       routes: [
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'debug',
           contentBuilder: (_, _) => const DebugScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'account',
           contentBuilder: (_, _) => const AccountSettingsScreen(),
           routes: [
-            AnimatedGoRoute(
+            DesktopAdaptiveRoute(
               path: 'profile',
               contentBuilder: (_, _) => const ProfileSettingsScreen(),
             ),
           ],
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'anime-sources',
           contentBuilder: (_, _) => const AnimeSourcesSettingsScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'downloads',
           contentBuilder: (_, _) => const DownloadSettingsScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'data',
           contentBuilder: (_, _) => const DataSettingsScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'home-layout',
           contentBuilder: (_, _) => const HomeSettingsScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'theme',
           contentBuilder: (_, _) => const ThemeSettingsScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'ui',
           contentBuilder: (_, _) => const UiSettingsScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'content',
           contentBuilder: (_, _) => const ContentSettingsScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'about',
           contentBuilder: (_, _) => const AboutScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'update',
           contentBuilder: (_, _) => const UpdateScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'notifications',
           contentBuilder: (_, _) => const NotificationSettingsScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'watch-history',
           contentBuilder: (_, _) => const WatchHistoryScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'tracking',
           contentBuilder: (_, _) => const TrackingSettingsScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'player',
           contentBuilder: (_, _) => const PlayerSettingsScreen(),
           routes: [
-            AnimatedGoRoute(
+            DesktopAdaptiveRoute(
               path: 'subtitles',
               contentBuilder: (_, _) => const SubtitleCustomizationScreen(),
             ),
-            AnimatedGoRoute(
+            DesktopAdaptiveRoute(
               path: 'advanced',
               contentBuilder: (_, _) => const AdvancedPlayerSettingsScreen(),
             ),
           ],
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'extensions',
           contentBuilder: (_, _) => const ExtensionScreen(),
           routes: [
-            AnimatedGoRoute(
+            DesktopAdaptiveRoute(
               path: 'extension-preference',
               contentBuilder:
                   (_, state) =>
@@ -380,23 +397,23 @@ final routerConfig = GoRouter(
             ),
           ],
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'experimental',
           contentBuilder: (_, _) => ExperimentalScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'permissions',
           contentBuilder: (_, _) => const PermissionsSettingsScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'security',
           contentBuilder: (_, _) => const SecuritySettingsScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'admin-broadcast',
           contentBuilder: (_, _) => const AdminBroadcastScreen(),
         ),
-        AnimatedGoRoute(
+        DesktopAdaptiveRoute(
           path: 'ai',
           contentBuilder: (_, _) => const AiSettingsScreen(),
         ),

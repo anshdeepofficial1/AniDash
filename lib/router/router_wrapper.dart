@@ -27,6 +27,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/router/desktop/mac_desktop_sidebar.dart';
 import 'package:ani_dash/router/desktop/mac_desktop_top_bar.dart';
+import 'package:ani_dash/router/desktop/desktop_adaptive_scaffold.dart';
 
 class NavItem {
   final int branchIndex;
@@ -99,7 +100,6 @@ class AppRouterScreen extends ConsumerStatefulWidget {
 class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
     with WidgetsBindingObserver {
   late final PageController _pageController;
-  bool _sidebarCollapsed = false;
   bool _updateCheckInProgress = false;
   bool _updateSheetVisible = false;
   DateTime? _lastForegroundUpdateCheck;
@@ -540,11 +540,9 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
                   MacDesktopSidebar(
                     shell: widget.navigationShell,
                     items: visibleNavItems,
-                    isCollapsed: _sidebarCollapsed,
+                    isCollapsed: ref.watch(desktopSidebarCollapsedProvider),
                     onToggleCollapse: () {
-                      setState(() {
-                        _sidebarCollapsed = !_sidebarCollapsed;
-                      });
+                      ref.read(desktopSidebarCollapsedProvider.notifier).toggle();
                     },
                     onTabSelected: (branch) => _onNavTap(branch, visibleNavItems),
                   ),

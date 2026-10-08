@@ -12,8 +12,103 @@ import 'package:ani_dash/shared/ui/brand_logo.dart';
 import 'package:ani_dash/router/router_wrapper.dart';
 import 'package:ani_dash/main.dart';
 
+class _SettingsNavCategory {
+  final String path;
+  final String title;
+  final IconData icon;
+
+  const _SettingsNavCategory({
+    required this.path,
+    required this.title,
+    required this.icon,
+  });
+}
+
+const List<_SettingsNavCategory> _settingsCategories = [
+  _SettingsNavCategory(
+    path: '/settings/ui',
+    title: 'Appearance & UI',
+    icon: Iconsax.element_3,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/theme',
+    title: 'Theme & Colors',
+    icon: Iconsax.colorfilter,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/player',
+    title: 'Player Settings',
+    icon: Iconsax.video_play,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/player/advanced',
+    title: 'Advanced Player',
+    icon: Iconsax.video_square,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/player/subtitles',
+    title: 'Subtitles',
+    icon: Iconsax.subtitle,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/anime-sources',
+    title: 'Anime Sources',
+    icon: Iconsax.global,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/downloads',
+    title: 'Downloads',
+    icon: Iconsax.document_download,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/account',
+    title: 'Account & Sync',
+    icon: Iconsax.user,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/tracking',
+    title: 'Tracking',
+    icon: Iconsax.chart_2,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/security',
+    title: 'Security & PIN',
+    icon: Iconsax.security_safe,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/home-layout',
+    title: 'Home Layout',
+    icon: Iconsax.grid_edit,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/content',
+    title: 'Content & Filter',
+    icon: Iconsax.shield_tick,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/data',
+    title: 'Data & Backup',
+    icon: Iconsax.folder_favorite,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/notifications',
+    title: 'Notifications',
+    icon: Iconsax.notification,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/update',
+    title: 'Check Updates',
+    icon: Iconsax.refresh_2,
+  ),
+  _SettingsNavCategory(
+    path: '/settings/about',
+    title: 'About AniDash',
+    icon: Iconsax.info_circle,
+  ),
+];
+
 class MacDesktopSidebar extends ConsumerStatefulWidget {
-  final StatefulNavigationShell shell;
+  final StatefulNavigationShell? shell;
   final List<NavItem> items;
   final void Function(int branchIndex) onTabSelected;
   final bool isCollapsed;
@@ -21,7 +116,7 @@ class MacDesktopSidebar extends ConsumerStatefulWidget {
 
   const MacDesktopSidebar({
     super.key,
-    required this.shell,
+    this.shell,
     required this.items,
     required this.onTabSelected,
     required this.isCollapsed,
@@ -42,6 +137,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
     final isCollapsed = widget.isCollapsed;
     final user = auth.anilistUser ?? auth.malUser;
     final currentRoute = GoRouterState.of(context).matchedLocation;
+    final isSettingsMode = currentRoute.startsWith('/settings');
     final isMac = Platform.isMacOS;
     final mod = isMac ? '⌘' : 'Ctrl+';
 
@@ -74,8 +170,11 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
 
                 const SizedBox(height: 6),
 
-                // 2. Liquid Glass Hero Action Button ("Ask AniAI" / "New Conversation")
-                _buildHeroActionButton(context, colorScheme, isCollapsed, isDark, mod),
+                // 2. Hero Action Button (Normal: "Ask AniCore", Settings: "< Main Menu")
+                if (isSettingsMode)
+                  _buildSettingsBackButton(context, colorScheme, isCollapsed, isDark)
+                else
+                  _buildHeroActionButton(context, colorScheme, isCollapsed, isDark, mod),
 
                 const SizedBox(height: 10),
 
@@ -87,97 +186,165 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                       vertical: 2,
                     ),
                     children: [
-                      // SECTION: DISCOVER
-                      if (!isCollapsed)
-                        _buildSectionHeader('DISCOVER', isDark),
-                      ...widget.items.map((item) {
-                        final isSelected =
-                            widget.shell.currentIndex == item.branchIndex &&
-                            (currentRoute == '/' ||
-                                currentRoute == '/browse' ||
-                                currentRoute == '/manga' ||
-                                currentRoute == '/downloads' ||
-                                currentRoute == '/watchlist');
+                      if (isSettingsMode) ...[
+                        if (!isCollapsed)
+                          _buildSectionHeader('SETTINGS CATEGORIES', isDark),
+                        ..._settingsCategories.map((cat) {
+                          final isSelected = currentRoute == cat.path ||
+                              (cat.path != '/settings' && currentRoute.startsWith(cat.path));
+                          return _SidebarTile(
+                            icon: cat.icon,
+                            label: cat.title,
+                            isSelected: isSelected,
+                            isCollapsed: isCollapsed,
+                            isDark: isDark,
+                            onTap: () => context.go(cat.path),
+                          );
+                        }),
+                      ] else ...[
+                        // SECTION: DISCOVER
+                        if (!isCollapsed)
+                          _buildSectionHeader('DISCOVER', isDark),
+                        ...widget.items.map((item) {
+                          final isSelected =
+                              (widget.shell != null
+                                  ? widget.shell!.currentIndex == item.branchIndex
+                                  : currentRoute == item.path) &&
+                              (currentRoute == '/' ||
+                                  currentRoute == '/browse' ||
+                                  currentRoute == '/manga' ||
+                                  currentRoute == '/downloads' ||
+                                  currentRoute == '/watchlist');
 
-                        final shortcutKey = switch (item.branchIndex) {
-                          0 => '${mod}1',
-                          1 => '${mod}2',
-                          2 => '${mod}3',
-                          3 => '${mod}4',
-                          4 => '${mod}5',
-                          _ => null,
-                        };
+                          final shortcutKey = switch (item.branchIndex) {
+                            0 => '${mod}1',
+                            1 => '${mod}2',
+                            2 => '${mod}3',
+                            3 => '${mod}4',
+                            4 => '${mod}5',
+                            _ => null,
+                          };
 
-                        return _SidebarTile(
-                          icon: item.icon,
-                          label: item.label,
-                          shortcutHint: shortcutKey,
-                          isSelected: isSelected,
+                          return _SidebarTile(
+                            icon: item.icon,
+                            label: item.label,
+                            shortcutHint: shortcutKey,
+                            isSelected: isSelected,
+                            isCollapsed: isCollapsed,
+                            isDark: isDark,
+                            onTap: () => widget.onTabSelected(item.branchIndex),
+                          );
+                        }),
+
+                        const SizedBox(height: 14),
+
+                        // SECTION: LIBRARY & ACTIVITY
+                        if (!isCollapsed)
+                          _buildSectionHeader('LIBRARY & ACTIVITY', isDark),
+                        _SidebarTile(
+                          icon: Iconsax.clock,
+                          label: 'Watch History',
+                          shortcutHint: '${mod}H',
+                          isSelected: currentRoute == '/watch-history',
                           isCollapsed: isCollapsed,
                           isDark: isDark,
-                          onTap: () => widget.onTabSelected(item.branchIndex),
-                        );
-                      }),
+                          badgeText: _getRecentHistoryCountBadge(),
+                          onTap: () {
+                            _markHistoryBadgeAsSeen();
+                            context.push('/watch-history');
+                          },
+                        ),
+                        _SidebarTile(
+                          icon: Iconsax.magicpen,
+                          label: 'AniCore',
+                          shortcutHint: '${mod}K',
+                          isSelected: currentRoute == '/ai',
+                          isCollapsed: isCollapsed,
+                          isDark: isDark,
+                          isAiSparkle: true,
+                          onTap: () => context.push('/ai'),
+                        ),
+                        _SidebarTile(
+                          icon: Iconsax.document_text,
+                          label: 'Anime News',
+                          shortcutHint: '${mod}N',
+                          isSelected: currentRoute == '/news',
+                          isCollapsed: isCollapsed,
+                          isDark: isDark,
+                          onTap: () => context.push('/news'),
+                        ),
 
-                      const SizedBox(height: 14),
+                        const SizedBox(height: 14),
 
-                      // SECTION: LIBRARY & ACTIVITY
-                      if (!isCollapsed)
-                        _buildSectionHeader('LIBRARY & ACTIVITY', isDark),
-                      _SidebarTile(
-                        icon: Iconsax.clock,
-                        label: 'Watch History',
-                        shortcutHint: '${mod}H',
-                        isSelected: currentRoute == '/watch-history' ||
-                            currentRoute == '/settings/watch-history',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        badgeText: _getRecentHistoryCountBadge(),
-                        onTap: () {
-                          _markHistoryBadgeAsSeen();
-                          context.push('/watch-history');
-                        },
-                      ),
-                      _SidebarTile(
-                        icon: Iconsax.magicpen,
-                        label: 'AniCore',
-                        shortcutHint: '${mod}K',
-                        isSelected: currentRoute == '/ai',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        isAiSparkle: true,
-                        onTap: () => context.push('/ai'),
-                      ),
-                      _SidebarTile(
-                        icon: Iconsax.document_text,
-                        label: 'Anime News',
-                        shortcutHint: '${mod}N',
-                        isSelected: currentRoute == '/news',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        onTap: () => context.push('/news'),
-                      ),
-
-                      const SizedBox(height: 14),
-
-                      // SECTION: SETTINGS
-                      if (!isCollapsed)
-                        _buildSectionHeader('SETTINGS', isDark),
-                      _SidebarTile(
-                        icon: Iconsax.setting_2,
-                        label: 'Settings',
-                        shortcutHint: '$mod,',
-                        isSelected: currentRoute == '/settings',
-                        isCollapsed: isCollapsed,
-                        isDark: isDark,
-                        onTap: () => context.push('/settings'),
-                      ),
+                        // SECTION: SETTINGS
+                        if (!isCollapsed)
+                          _buildSectionHeader('SETTINGS', isDark),
+                        _SidebarTile(
+                          icon: Iconsax.setting_2,
+                          label: 'Settings',
+                          shortcutHint: '$mod,',
+                          isSelected: currentRoute == '/settings' || currentRoute.startsWith('/settings'),
+                          isCollapsed: isCollapsed,
+                          isDark: isDark,
+                          onTap: () => context.go('/settings/ui'),
+                        ),
+                      ],
                     ],
                   ),
                 ),
 
                 // 4. Bottom Footer: User Profile & Quick Actions
                 _buildFooter(context, colorScheme, user, isCollapsed, isDark),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsBackButton(
+    BuildContext context,
+    ColorScheme colorScheme,
+    bool isCollapsed,
+    bool isDark,
+  ) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 12, vertical: 2),
+      child: Tooltip(
+        message: isCollapsed ? 'Return to Main Menu' : '',
+        child: InkWell(
+          onTap: () => context.go('/'),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: isCollapsed ? 0 : 12,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: isDark ? 0.2 : 0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment:
+                  isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+              children: [
+                Icon(Iconsax.arrow_left_2, size: 16, color: colorScheme.primary),
+                if (!isCollapsed) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    'Main Menu',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

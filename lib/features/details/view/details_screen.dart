@@ -114,6 +114,30 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
                 anime: displayedAnime,
                 tag: widget.tag,
               ),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _DetailsTabBarDelegate(
+                  tabBar: TabBar(
+                    controller: _tabController,
+                    labelColor: colorScheme.primary,
+                    unselectedLabelColor: colorScheme.onSurface.withValues(
+                      alpha: 0.6,
+                    ),
+                    indicatorColor: colorScheme.primary,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    indicatorWeight: 3,
+                    labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
+                    dividerColor: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    tabs: [
+                      const Tab(text: 'About'),
+                      Tab(text: isMovie ? 'Movie' : 'Episodes'),
+                      const Tab(text: 'Characters'),
+                    ],
+                  ),
+                  backgroundColor: colorScheme.surfaceContainerLowest,
+                ),
+              ),
             ];
           },
           body: ScrollConfiguration(
@@ -161,36 +185,12 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
                     characters: displayedAnime.characters,
                     isLoading: isLoading,
                     onRetry:
-                        () =>
-                            ref
-                                .read(detailsPageProvider(id).notifier)
-                                .fetchDetails(),
+                      () =>
+                          ref
+                              .read(detailsPageProvider(id).notifier)
+                              .fetchDetails(),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      bottomNavigationBar: Material(
-        color: colorScheme.surface,
-        elevation: 8,
-        child: SafeArea(
-          child: SizedBox(
-            height: 60,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: colorScheme.primary,
-              unselectedLabelColor: colorScheme.onSurface.withValues(
-                alpha: 0.6,
-              ),
-              indicatorColor: colorScheme.primary,
-              indicatorSize: TabBarIndicatorSize.label,
-              dividerColor: Colors.transparent,
-              tabs: [
-                const Tab(text: 'About'),
-                Tab(text: isMovie ? 'Movie' : 'Episodes'),
-                const Tab(text: 'Characters'),
               ],
             ),
           ),
@@ -200,6 +200,40 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
           !useExtensions ? _WatchFab(anime: displayedAnime) : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
+  }
+}
+
+class _DetailsTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+  final Color backgroundColor;
+
+  _DetailsTabBarDelegate({required this.tabBar, required this.backgroundColor});
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: backgroundColor,
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: tabBar,
+      ),
+    );
+  }
+
+  @override
+  double get maxExtent => 48.0;
+
+  @override
+  double get minExtent => 48.0;
+
+  @override
+  bool shouldRebuild(covariant _DetailsTabBarDelegate oldDelegate) {
+    return oldDelegate.tabBar != tabBar || oldDelegate.backgroundColor != backgroundColor;
   }
 }
 
