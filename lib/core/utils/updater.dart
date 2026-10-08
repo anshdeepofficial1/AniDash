@@ -98,6 +98,12 @@ Future<void> checkForUpdates(
       final assets = latestRelease['assets'] as List<dynamic>;
       final selectedAsset = _getPlatformSpecificAsset(assets);
 
+      // If this release does not yet contain an installer for this platform,
+      // do not prompt the user (e.g. DMG is still building or not present).
+      if (selectedAsset == null && !debugMode) {
+        return;
+      }
+
       if (!context.mounted) return;
 
       showUpdateBottomSheet(
