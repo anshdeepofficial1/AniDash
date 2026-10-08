@@ -63,6 +63,7 @@ class AnimatedGoRoute extends GoRoute {
          pageBuilder: (context, state) {
            final child = wrapWithDesktopScaffold
                ? DesktopAdaptiveScaffold(
+                   key: ValueKey(state.uri.toString()),
                    child: contentBuilder(context, state),
                  )
                : contentBuilder(context, state);
@@ -142,6 +143,12 @@ final routerConfig = GoRouter(
     final isGoingToOnboarding = state.matchedLocation == '/onboarding';
     if (!isOnboarded && !isGoingToOnboarding) return '/onboarding';
     if (isOnboarded && isGoingToOnboarding) return '/';
+
+    // On desktop, landing on exact '/settings' route opens Appearance & UI
+    if (state.uri.path == '/settings' &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      return '/settings/ui';
+    }
 
     // Handle incoming deep links (e.g. anidash://anime/123 or https://anilist.co/anime/123/...)
     final path = state.uri.path;
@@ -320,13 +327,6 @@ final routerConfig = GoRouter(
     ),
     DesktopAdaptiveRoute(
       path: '/settings',
-      redirect: (context, state) {
-        if (state.matchedLocation == '/settings' &&
-            (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
-          return '/settings/ui';
-        }
-        return null;
-      },
       contentBuilder: (_, _) => const SettingsScreen(),
       routes: [
         DesktopAdaptiveRoute(

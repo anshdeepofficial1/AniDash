@@ -7,7 +7,7 @@ description: >
 
 publish_to: "none"
 
-version: 1.19.0+124
+version: 1.19.1+125
 
 environment:
   sdk: ">=3.7.0 <4.0.0"
