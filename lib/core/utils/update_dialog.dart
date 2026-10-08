@@ -296,14 +296,35 @@ class _UpdateDialogState extends State<UpdateDialog>
             ? colorScheme.error
             : colorScheme.tertiary;
 
+    final isDesktop = MediaQuery.sizeOf(context).width > 700 ||
+        Platform.isWindows ||
+        Platform.isMacOS ||
+        Platform.isLinux;
+
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 32 : 16,
+        vertical: 24,
+      ),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
+        constraints: BoxConstraints(maxWidth: isDesktop ? 620 : 500),
         decoration: BoxDecoration(
           color: colorScheme.surface,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(24),
+          border: isDesktop
+              ? Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+                  width: 1.2,
+                )
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -475,7 +496,11 @@ class _UpdateDialogState extends State<UpdateDialog>
                                 ? 'Downloading...'
                                 : (_downloadedApkPath != null
                                     ? 'Install Update'
-                                    : 'Update Now')),
+                                    : (Platform.isWindows
+                                        ? 'Download & Install Windows .exe'
+                                        : (Platform.isMacOS
+                                            ? 'Download macOS .dmg'
+                                            : 'Update Now')))),
                       ),
                       onPressed:
                           _downloading
@@ -581,15 +606,21 @@ class _VersionBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final platformTag = Platform.isWindows
+        ? 'Windows .exe'
+        : (Platform.isMacOS
+            ? 'macOS .dmg'
+            : (Platform.isLinux ? 'Linux' : 'Android'));
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Text(
-        '${type.name.toUpperCase()} • $current → $latest',
+        '${type.name.toUpperCase()} • $platformTag • $current → $latest',
         style: theme.textTheme.labelMedium?.copyWith(
           color: color,
           fontWeight: FontWeight.bold,
