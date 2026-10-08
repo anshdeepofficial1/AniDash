@@ -52,7 +52,7 @@ class MangaSpotlight extends StatelessWidget {
                       child: CachedNetworkImage(
                         imageUrl: imageUrl,
                         fit: BoxFit.cover,
-                        memCacheWidth: 800,
+                        filterQuality: FilterQuality.high,
                         placeholder:
                             (_, _) =>
                                 const AnimeCardShimmer(height: double.infinity),

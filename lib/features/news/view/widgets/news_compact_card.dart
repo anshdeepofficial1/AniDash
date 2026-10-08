@@ -44,6 +44,7 @@ class NewsCompactCard extends ConsumerWidget {
                       ? CachedNetworkImage(
                           imageUrl: news.imageUrl!,
                           fit: BoxFit.cover,
+                          filterQuality: FilterQuality.high,
                           errorWidget: (context, url, error) => Container(
                             color: scheme.surfaceContainerHighest,
                             child: const Icon(Iconsax.image),

@@ -214,12 +214,15 @@ class _SectionScreenState extends ConsumerState<SectionScreen> {
                             borderRadius: BorderRadius.circular(8),
                             child: CachedNetworkImage(
                               imageUrl:
-                                  media.coverImage.large ??
-                                  media.coverImage.medium ??
-                                  '',
+                                  media.highResCoverImage.isNotEmpty
+                                      ? media.highResCoverImage
+                                      : (media.coverImage.large ??
+                                          media.coverImage.medium ??
+                                          ''),
                               width: 48,
                               height: 64,
                               fit: BoxFit.cover,
+                              filterQuality: FilterQuality.high,
                             ),
                           ),
                         ],

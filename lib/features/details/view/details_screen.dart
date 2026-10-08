@@ -96,6 +96,7 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
     final pageState = ref.watch(detailsPageProvider(id));
     final displayedAnime = pageState.details.value ?? _activeMedia;
     final isLoading = pageState.isLoading;
+    final isMovie = displayedAnime.format?.toUpperCase() == 'MOVIE';
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
@@ -186,10 +187,10 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
               indicatorColor: colorScheme.primary,
               indicatorSize: TabBarIndicatorSize.label,
               dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: 'About'),
-                Tab(text: 'Episodes'),
-                Tab(text: 'Characters'),
+              tabs: [
+                const Tab(text: 'About'),
+                Tab(text: isMovie ? 'Movie' : 'Episodes'),
+                const Tab(text: 'Characters'),
               ],
             ),
           ),
@@ -256,9 +257,11 @@ class _WatchFabState extends ConsumerState<_WatchFab> {
       label: Text(
         _isWatchLoading
             ? 'Loading...'
-            : progress?.currentEpisode != null
-            ? 'EP ${progress?.currentEpisode}'
-            : 'Watch Now',
+            : (widget.anime.format?.toUpperCase() == 'MOVIE')
+                ? 'Watch Movie'
+                : progress?.currentEpisode != null
+                ? 'EP ${progress?.currentEpisode}'
+                : 'Watch Now',
         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
     );

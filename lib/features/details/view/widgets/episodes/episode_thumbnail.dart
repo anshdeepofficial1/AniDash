@@ -34,6 +34,7 @@ class EpisodeThumbnail extends StatelessWidget {
                   ? CachedNetworkImage(
                       imageUrl: episodeThumbnail!,
                       fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
                       errorWidget: (_, _, _) => _buildFallbackIcon(theme),
                     )
                   : _buildBase64Image(theme, episodeThumbnail!)
@@ -46,6 +47,7 @@ class EpisodeThumbnail extends StatelessWidget {
                       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
                 },
                 fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
                 errorWidget: (_, _, _) => _buildFallbackIcon(theme),
               )
             else

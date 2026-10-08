@@ -19,7 +19,10 @@ import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/shared/providers/settings/sync_settings_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/watch_sync_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/player/player_provider.dart';
+import 'package:ani_dash/features/watch/view/widgets/player/sheets/settings_sheet.dart';
 import 'package:ani_dash/features/watch/view_model/player/pip_controller.dart';
+import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
+import 'package:ani_dash/features/details/view_model/details_page_notifier.dart';
 
 class WatchScreen extends ConsumerStatefulWidget {
   final String mediaId;
@@ -78,6 +81,11 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
+      final resolvedFormat = (widget.animeFormat?.trim().isNotEmpty == true)
+          ? widget.animeFormat
+          : ref.read(detailsPageProvider(widget.mediaId)).details.value?.format ??
+              ref.read(watchProgressRepositoryProvider).getProgress(widget.mediaId)?.animeFormat;
+
       ref
           .read(watchControllerProvider.notifier)
           .initialize(
@@ -86,7 +94,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
             episodes: widget.episodes ?? [],
             initialEpisode: widget.episode,
             mediaId: widget.mediaId,
-            animeFormat: widget.animeFormat,
+            animeFormat: resolvedFormat,
             animeCover: widget.animeCover,
             fromHentaiHub: widget.fromHentaiHub,
             malId: widget.malId,
@@ -134,6 +142,50 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                 child: EpisodesPanel(
                   panelAnimation: _panelController,
                   mediaId: widget.mediaId,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openSettingsSheet() {
+    final theme = Theme.of(context);
+    final sheetHeight = MediaQuery.of(context).size.height * 0.48;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => SizedBox(
+        height: sheetHeight,
+        child: Container(
+          decoration: BoxDecoration(
+            color: theme.scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.dividerColor.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: SettingsSheetContent(
+                  onDismiss: () => Navigator.of(ctx).pop(),
                 ),
               ),
             ],
@@ -260,6 +312,14 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     final currentEpThumb = currentEpModel?.thumbnail;
     final currentEpDesc = currentEpModel?.description;
 
+    final savedFormat = ref.watch(watchProgressRepositoryProvider).getProgress(widget.mediaId)?.animeFormat;
+    final detailsFormat = ref.watch(detailsPageProvider(widget.mediaId)).details.value?.format;
+    final resolvedFormat = (widget.animeFormat?.trim().isNotEmpty == true)
+        ? widget.animeFormat
+        : (savedFormat?.trim().isNotEmpty == true
+            ? savedFormat
+            : detailsFormat);
+
     // Listen for episode changes — if askBeforeSync is on, show confirmation dialog
     ref.listen(episodeDataProvider.select((s) => s.selectedEpisode), (
       prev,
@@ -341,7 +401,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         unawaited(_handleBack());
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: _isLandscapeFullscreen ? Colors.black : Theme.of(context).scaffoldBackgroundColor,
         body: OrientationBuilder(
           builder: (_, orientation) {
             final isPiP = ref.watch(pipProvider);
@@ -399,12 +459,12 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
 
                     // Bottom Area: Anime Info, Synopsis, Advisory, Comments & World Chat
                     Container(
-                      color: Colors.black,
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1200),
                         child: PortraitPlayerDetails(
                           animeTitle: widget.animeName,
-                          animeFormat: widget.animeFormat,
+                          animeFormat: resolvedFormat,
                           animeCover: widget.animeCover,
                           episodeNumber: selectedEp,
                           episodeTitle: currentEpTitle,
@@ -413,7 +473,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                           episodes: effectiveEpisodes,
                           mediaId: widget.mediaId,
                           onAllEpisodesPressed: _openEpisodesSheet,
-                          onMoreOptionsPressed: _openEpisodesSheet,
+                          onMoreOptionsPressed: _openSettingsSheet,
                           onToggleFullscreen: _toggleFullscreen,
                         ),
                       ),
@@ -442,6 +502,10 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
               );
             }
 
+            if (isPiP) {
+              return SizedBox.expand(child: player);
+            }
+
             // Mobile / Portrait Mode:
             // 16:9 Player pinned on top, rich interactive details below
             return Column(
@@ -456,7 +520,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                 Expanded(
                   child: PortraitPlayerDetails(
                     animeTitle: widget.animeName,
-                    animeFormat: widget.animeFormat,
+                    animeFormat: resolvedFormat,
                     animeCover: widget.animeCover,
                     episodeNumber: selectedEp,
                     episodeTitle: currentEpTitle,
@@ -465,7 +529,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                     episodes: effectiveEpisodes,
                     mediaId: widget.mediaId,
                     onAllEpisodesPressed: _openEpisodesSheet,
-                    onMoreOptionsPressed: _openEpisodesSheet,
+                    onMoreOptionsPressed: _openSettingsSheet,
                     onToggleFullscreen: _toggleFullscreen,
                   ),
                 ),

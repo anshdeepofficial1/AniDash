@@ -66,6 +66,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                     CachedNetworkImage(
                       imageUrl: widget.news.imageUrl!,
                       fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
                       errorWidget: (context, url, error) => Container(
                         color: scheme.surfaceContainerHighest,
                         child: Icon(

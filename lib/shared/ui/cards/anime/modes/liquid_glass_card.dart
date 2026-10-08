@@ -24,7 +24,9 @@ class LiquidGlassCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final imageUrl = anime?.coverImage.large ?? anime?.coverImage.medium ?? '';
+    final imageUrl = anime?.highResCoverImage.isNotEmpty == true
+        ? anime!.highResCoverImage
+        : (anime?.coverImage.large ?? anime?.coverImage.medium ?? '');
     final title = anime?.title.english ?? anime?.title.romaji ?? 'Unknown';
 
     return LayoutBuilder(
