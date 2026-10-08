@@ -88,7 +88,7 @@ class _UpdateDialogState extends State<UpdateDialog>
       return 'https://github.com/anshdeepofficial1/AniDash/releases/download/$tag/AniDash-$tag-Setup.exe';
     }
     if (Platform.isMacOS) {
-      return 'https://github.com/anshdeepofficial1/AniDash/releases/download/$tag/AniDash-$tag.dmg';
+      return 'https://github.com/anshdeepofficial1/AniDash/releases/download/$tag/AniDash-$tag-macOS.dmg';
     }
     final apkName =
         isBeta
