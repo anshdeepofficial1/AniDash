@@ -196,9 +196,21 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       await playerNotifier.stop();
     }
 
+    final savedProgress = ref.read(watchProgressRepositoryProvider).getProgress(mediaId);
+    final resolvedFormat = (animeFormat?.trim().isNotEmpty == true)
+        ? animeFormat
+        : savedProgress?.animeFormat;
+
+    final nameLower = animeName.toLowerCase();
+    final isMovie = (resolvedFormat?.toUpperCase() == 'MOVIE') ||
+        nameLower.contains('the very final') ||
+        nameLower.contains('movie') ||
+        nameLower.contains('film') ||
+        (episodes.length <= 1 && (resolvedFormat?.toUpperCase() == 'MOVIE'));
+
     _mediaId = mediaId;
     _animeName = animeName;
-    _animeFormat = animeFormat;
+    _animeFormat = resolvedFormat ?? (isMovie ? 'MOVIE' : null);
     _animeCover = animeCover;
     _totalEps = episodes.length;
     _fromHentaiHub = fromHentaiHub;
@@ -215,6 +227,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           episodes: episodes,
           force: false,
           isAdult: fromHentaiHub,
+          isMovie: isMovie,
         );
 
     // Resolve the initial episode metadata before the first progress save.
@@ -225,16 +238,19 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       final initialInfo = resolvedEpisodes.firstWhere(
         (episode) => episode.number == initialEpisode,
       );
-      _epTitle = initialInfo.title;
+      _epTitle = isMovie ? animeName : initialInfo.title;
       _epThumb = initialInfo.thumbnail;
     } catch (_) {
       try {
         final initialInfo = episodes.firstWhere(
           (episode) => episode.number == initialEpisode,
         );
-        _epTitle = initialInfo.title;
+        _epTitle = isMovie ? animeName : initialInfo.title;
         _epThumb = initialInfo.thumbnail;
-      } catch (_) {}
+      } catch (_) {
+        _epTitle = isMovie ? animeName : 'Episode $initialEpisode';
+        _epThumb = animeCover;
+      }
     }
 
     AudioFocusService().initialize(

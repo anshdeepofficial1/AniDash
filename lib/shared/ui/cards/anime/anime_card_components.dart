@@ -81,12 +81,17 @@ String? formatEpisodeText({
   final totalEpisodes = anime?.episodes;
   final hasTotal = totalEpisodes != null && totalEpisodes > 0;
   final currentProgress = progress;
-  final isMovie = anime?.format?.toUpperCase() == 'MOVIE';
+  final isMovie = anime?.format?.toUpperCase() == 'MOVIE' ||
+      (anime != null &&
+          (anime.episodes == 1 || anime.episodes == null) &&
+          (anime.title.userPreferred.toLowerCase().contains('the very final') ||
+              anime.title.userPreferred.toLowerCase().contains('movie') ||
+              anime.title.userPreferred.toLowerCase().contains('film')));
 
   // Movies are single playable titles, not one-episode series. Keep this
   // distinction visible everywhere the shared card metadata is used.
   if (isMovie) {
-    return null;
+    return 'MOVIE';
   }
 
   if (currentProgress != null && currentProgress > 0) {
@@ -327,12 +332,15 @@ class AnimeImage extends StatelessWidget {
         height: height,
         width: double.infinity,
         child: CachedNetworkImage(
-          imageUrl: anime?.coverImage.large ?? anime?.coverImage.medium ?? '',
+          imageUrl:
+              anime?.highResCoverImage.isNotEmpty == true
+                  ? anime!.highResCoverImage
+                  : (anime?.coverImage.large ?? anime?.coverImage.medium ?? ''),
           fit: BoxFit.cover,
           fadeInDuration: const Duration(milliseconds: 300),
           placeholder: (_, _) => AnimeCardShimmer(height: height),
           errorWidget: (_, _, _) => AnimeCardShimmer(height: height),
-          filterQuality: FilterQuality.medium,
+          filterQuality: FilterQuality.high,
           useOldImageOnUrlChange: true,
         ),
       ),

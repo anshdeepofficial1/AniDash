@@ -20,6 +20,7 @@ class EpisodeListItem extends StatelessWidget {
   final VoidCallback? onLongPress;
   final bool isSelected;
   final bool isSelectionMode;
+  final bool isMovie;
 
   const EpisodeListItem({
     super.key,
@@ -36,6 +37,7 @@ class EpisodeListItem extends StatelessWidget {
     this.onLongPress,
     this.isSelected = false,
     this.isSelectionMode = false,
+    this.isMovie = false,
   });
 
   @override
@@ -80,7 +82,9 @@ class EpisodeListItem extends StatelessWidget {
               ],
             ),
             title: Text(
-              episode.title ?? 'Episode ${episode.number ?? index + 1}',
+              (isMovie && (episode.title == null || episode.title!.isEmpty || episode.title!.startsWith('Episode ')))
+                  ? 'Movie'
+                  : (episode.title ?? 'Episode ${episode.number ?? index + 1}'),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -225,26 +229,26 @@ class EpisodeListItem extends StatelessWidget {
             )
           else
             Container(color: theme.colorScheme.surfaceContainer),
-          // Ep Number Overlay
-          Positioned(
-            left: 4,
-            bottom: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '$episodeNumber',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+          if (!isMovie)
+            Positioned(
+              left: 4,
+              bottom: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '$episodeNumber',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
-          ),
           if (isWatched)
             Container(
               color: Colors.black.withValues(alpha: 0.6),

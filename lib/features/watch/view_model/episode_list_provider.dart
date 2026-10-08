@@ -39,6 +39,7 @@ class EpisodeListState {
   final bool isJikanSyncing;
   final String? error;
   final bool isAdult;
+  final bool isMovie;
 
   const EpisodeListState({
     this.mediaId,
@@ -52,6 +53,7 @@ class EpisodeListState {
     this.isJikanSyncing = false,
     this.error,
     this.isAdult = false,
+    this.isMovie = false,
   });
 
   EpisodeListState copyWith({
@@ -66,6 +68,7 @@ class EpisodeListState {
     bool? isJikanSyncing,
     String? error,
     bool? isAdult,
+    bool? isMovie,
     bool clearMalId = false,
   }) {
     return EpisodeListState(
@@ -80,6 +83,7 @@ class EpisodeListState {
       isJikanSyncing: isJikanSyncing ?? this.isJikanSyncing,
       error: error ?? this.error,
       isAdult: isAdult ?? this.isAdult,
+      isMovie: isMovie ?? this.isMovie,
     );
   }
 
@@ -235,6 +239,11 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       return state.episodes;
     }
 
+    final resolvedIsMovie = isMovie ||
+        animeTitle.toLowerCase().contains('the very final') ||
+        animeTitle.toLowerCase().contains('movie') ||
+        animeTitle.toLowerCase().contains('film');
+
     state = state.copyWith(
       isLoading: true,
       error: null,
@@ -246,6 +255,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       clearMalId: malId == null && state.malId == null,
       jikanMatches: const [],
       isAdult: isAdult,
+      isMovie: resolvedIsMovie,
     );
     AppLogger.section('Fetching Episodes: $animeTitle');
 
@@ -255,7 +265,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       var normalized = _normalizeEpisodeTitles(
         episodes,
         animeTitle: animeTitle,
-        isMovie: isMovie,
+        isMovie: resolvedIsMovie,
       );
       normalized = await _applyPersistedCorrectedTitles(
         normalized,
@@ -264,7 +274,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         mediaId: mediaId,
       );
       if (requestGeneration != _requestGeneration) return const [];
-      state = state.copyWith(episodes: normalized, isLoading: false);
+      state = state.copyWith(episodes: normalized, isLoading: false, isMovie: resolvedIsMovie);
       _syncMetadataIfEnabled();
       return normalized;
     }
@@ -276,7 +286,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     fetched = _normalizeEpisodeTitles(
       fetched,
       animeTitle: animeTitle,
-      isMovie: isMovie,
+      isMovie: resolvedIsMovie,
     );
     fetched = await _applyPersistedCorrectedTitles(
       fetched,
@@ -375,10 +385,13 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
           final number = episode.number ?? index + 1;
           final title = episode.title?.trim() ?? '';
           final genericTitle = RegExp(
-            r'^(episode|ep\.?)\s*\d+$',
+            r'^(?:episode|ep\.?)\s*\d+$',
             caseSensitive: false,
           ).hasMatch(title);
-          if (title.isNotEmpty && !(isMovie && genericTitle)) return episode;
+          final isGenericOrEp = genericTitle ||
+              title.isEmpty ||
+              (isMovie && title.toLowerCase().startsWith('episode'));
+          if (title.isNotEmpty && !isGenericOrEp) return episode;
           return episode.copyWith(
             title: isMovie ? animeTitle : 'Episode $number',
             number: number,

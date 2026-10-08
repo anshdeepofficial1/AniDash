@@ -161,12 +161,21 @@ class ContinueSection extends ConsumerWidget {
                   (listEpisodeTitle?.trim().isNotEmpty ?? false)
                       ? listEpisodeTitle!.trim()
                       : savedEpisodeTitle;
-              final episodeLabel =
-                  resolvedEpisodeTitle.isEmpty ||
+              final isMovie = entry.animeFormat?.toUpperCase() == 'MOVIE' ||
+                  entry.animeTitle.toLowerCase().contains('the very final') ||
+                  entry.animeTitle.toLowerCase().contains('movie') ||
+                  entry.animeTitle.toLowerCase().contains('film') ||
+                  (entry.totalEpisodes == 1 && entry.animeFormat?.toUpperCase() == 'MOVIE');
+              final episodeLabel = isMovie
+                  ? (resolvedEpisodeTitle.isNotEmpty &&
+                          !resolvedEpisodeTitle.toLowerCase().startsWith('episode')
+                      ? resolvedEpisodeTitle
+                      : 'Movie')
+                  : (resolvedEpisodeTitle.isEmpty ||
                           resolvedEpisodeTitle.toLowerCase() ==
                               'episode $nextEpisodeNum'
                       ? 'E$nextEpisodeNum'
-                      : 'E$nextEpisodeNum - $resolvedEpisodeTitle';
+                      : 'E$nextEpisodeNum - $resolvedEpisodeTitle');
               final watchedSeconds = displayEp?.progressInSeconds ?? 0;
               final totalSeconds = displayEp?.durationInSeconds ?? 0;
               final remainingSeconds =
@@ -191,6 +200,7 @@ class ContinueSection extends ConsumerWidget {
                 imageWidget = CachedNetworkImage(
                   imageUrl: thumb,
                   fit: BoxFit.cover,
+                  filterQuality: FilterQuality.high,
                   errorWidget: (_, _, _) => _buildFallback(colorScheme),
                 );
               } else if (thumb != null) {
@@ -263,6 +273,7 @@ class ContinueSection extends ConsumerWidget {
                             animeMedia: UniversalMedia(
                               id: entry.animeId,
                               idMal: entry.animeId,
+                              format: entry.animeFormat ?? (isMovie ? 'MOVIE' : null),
                               title: UniversalTitle(
                                 romaji: entry.animeTitle,
                                 english: entry.animeTitle,
@@ -338,7 +349,7 @@ class ContinueSection extends ConsumerWidget {
                                           ),
                                         ),
                                         child: Text(
-                                          'EP $nextEpisodeNum',
+                                          isMovie ? 'MOVIE' : 'EP $nextEpisodeNum',
                                           style: TextStyle(
                                             color:
                                                 colorScheme.onPrimaryContainer,
@@ -516,6 +527,16 @@ class ContinueSection extends ConsumerWidget {
           }
         }
 
+        final isMovie = entry.animeFormat?.toUpperCase() == 'MOVIE' ||
+            entry.animeTitle.toLowerCase().contains('the very final') ||
+            entry.animeTitle.toLowerCase().contains('movie') ||
+            entry.animeTitle.toLowerCase().contains('film') ||
+            (entry.totalEpisodes == 1 && entry.animeFormat?.toUpperCase() == 'MOVIE');
+
+        if (isMovie && (resolvedTitle.isEmpty || resolvedTitle.toLowerCase().startsWith('episode'))) {
+          resolvedTitle = 'Movie';
+        }
+
         return SafeArea(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: screenHeight * 0.85),
@@ -564,8 +585,8 @@ class ContinueSection extends ConsumerWidget {
                       context.push('/details', extra: entry.toUniversalMedia());
                     },
                   ),
-                  if (entry.totalEpisodes == 0 ||
-                      targetEpNum < entry.totalEpisodes)
+                  if (!isMovie && (entry.totalEpisodes == 0 ||
+                      targetEpNum < entry.totalEpisodes))
                     ListTile(
                       leading: Icon(
                         Iconsax.next,
@@ -580,6 +601,7 @@ class ContinueSection extends ConsumerWidget {
                           ref: ref,
                           animeMedia: UniversalMedia(
                             id: entry.animeId,
+                            format: entry.animeFormat,
                             title: UniversalTitle(
                               romaji: entry.animeTitle,
                               english: entry.animeTitle,
@@ -645,10 +667,12 @@ class ContinueSection extends ConsumerWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            entry.totalEpisodes == 0 ||
-                                    targetEpNum < entry.totalEpisodes
-                                ? 'Episode $targetEpNum watched — Episode ${targetEpNum + 1} is up next'
-                                : 'Marked Episode $targetEpNum as watched',
+                            isMovie
+                                ? 'Marked Movie as watched'
+                                : (entry.totalEpisodes == 0 ||
+                                        targetEpNum < entry.totalEpisodes
+                                    ? 'Episode $targetEpNum watched — Episode ${targetEpNum + 1} is up next'
+                                    : 'Marked Episode $targetEpNum as watched'),
                           ),
                           duration: const Duration(seconds: 2),
                         ),
@@ -663,7 +687,9 @@ class ContinueSection extends ConsumerWidget {
                     ),
                     title: const Text('Jump to Time'),
                     subtitle: Text(
-                      'Start Episode $targetEpNum from a specific timestamp',
+                      isMovie
+                          ? 'Start movie from a specific timestamp'
+                          : 'Start Episode $targetEpNum from a specific timestamp',
                     ),
                     onTap: () {
                       Navigator.pop(sheetContext);
@@ -689,7 +715,7 @@ class ContinueSection extends ConsumerWidget {
                             (dialogCtx) => JumpToTimeDialog(
                               currentPosition: currentPos,
                               totalDuration: totalDur,
-                              title: 'Jump to Time (Ep $targetEpNum)',
+                              title: isMovie ? 'Jump to Time' : 'Jump to Time (Ep $targetEpNum)',
                               actionLabel: 'Play',
                               onJump: (targetDuration) async {
                                 final localDownload = await ref
@@ -719,6 +745,7 @@ class ContinueSection extends ConsumerWidget {
                                   ref: ref,
                                   animeMedia: UniversalMedia(
                                     id: entry.animeId,
+                                    format: entry.animeFormat ?? (isMovie ? 'MOVIE' : null),
                                     title: UniversalTitle(
                                       romaji: entry.animeTitle,
                                       english: entry.animeTitle,
@@ -747,8 +774,8 @@ class ContinueSection extends ConsumerWidget {
                       Iconsax.document_download,
                       color: theme.colorScheme.primary,
                     ),
-                    title: const Text('Download this episode'),
-                    subtitle: Text('Episode $targetEpNum'),
+                    title: Text(isMovie ? 'Download movie' : 'Download this episode'),
+                    subtitle: Text(isMovie ? entry.animeTitle : 'Episode $targetEpNum'),
                     onTap: () async {
                       Navigator.pop(sheetContext);
                       final currentEpList = ref.read(episodeListProvider);
@@ -772,6 +799,7 @@ class ContinueSection extends ConsumerWidget {
                               episodes: [],
                               force: true,
                               isAdult: isAdult || entry.isAdult,
+                              isMovie: isMovie,
                             );
                         if (context.mounted) {
                           Navigator.of(context, rootNavigator: true).pop();

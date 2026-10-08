@@ -1160,7 +1160,10 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                       )
                                     else
                                       Text(
-                                        '$totalEpisodes Episodes',
+                                        (widget.mediaFormat.toUpperCase() == 'MOVIE' ||
+                                                widget.anime?.format?.toUpperCase() == 'MOVIE')
+                                            ? 'Movie'
+                                            : '$totalEpisodes Episodes',
                                         style: theme.textTheme.titleSmall,
                                       ),
                                     if (!_showSearch) const Spacer(),
@@ -1411,10 +1414,13 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                   ],
                                 ),
                       ),
-                      SizedBox(
-                        height: 50,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
+                      if (widget.mediaFormat.toUpperCase() != 'MOVIE' &&
+                          widget.anime?.format?.toUpperCase() != 'MOVIE' &&
+                          (state.rangeOptions.length > 1 || _namedGroups.isNotEmpty || totalEpisodes > 25))
+                        SizedBox(
+                          height: 50,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           children: [
                             if (_groupingMode == EpisodeGroupingMode.ranges)
@@ -1621,6 +1627,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           onLongPress: onLongPressItem,
           isSelected: isSelected,
           isSelectionMode: _isSelectionMode,
+          isMovie:
+              widget.mediaFormat.toUpperCase() == 'MOVIE' ||
+              widget.anime?.format?.toUpperCase() == 'MOVIE',
         ),
       };
       if (epNum == _autoScrollEpisode) {
@@ -2334,7 +2343,10 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            'EP $epNum',
+                            (widget.mediaFormat.toUpperCase() == 'MOVIE' ||
+                                    widget.anime?.format?.toUpperCase() == 'MOVIE')
+                                ? 'MOVIE'
+                                : 'EP $epNum',
                             style: theme.textTheme.labelMedium?.copyWith(
                               color: colorScheme.primary,
                               fontWeight: FontWeight.bold,
@@ -2346,7 +2358,10 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       Text(
                         ep.title?.isNotEmpty == true
                             ? ep.title!
-                            : 'Episode $epNum',
+                            : ((widget.mediaFormat.toUpperCase() == 'MOVIE' ||
+                                    widget.anime?.format?.toUpperCase() == 'MOVIE')
+                                ? (widget.mediaTitle.english ?? widget.mediaTitle.romaji ?? 'Movie')
+                                : 'Episode $epNum'),
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),

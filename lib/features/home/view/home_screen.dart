@@ -209,7 +209,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             media.title.romaji ??
             media.title.native ??
             '';
-        final cover = media.coverImage.large ?? media.coverImage.medium ?? '';
+        final cover = media.highResCoverImage.isNotEmpty
+            ? media.highResCoverImage
+            : (media.coverImage.large ?? media.coverImage.medium ?? '');
 
         final updated = (local ??
                 AnimeWatchProgressEntry(
@@ -579,15 +581,17 @@ class _ContinueWatchingSection extends ConsumerWidget {
                   media.title.native ??
                   '',
               animeFormat: media.format,
-              animeCover:
-                  media.coverImage.large ?? media.coverImage.medium ?? '',
+              animeCover: media.highResCoverImage.isNotEmpty
+                  ? media.highResCoverImage
+                  : (media.coverImage.large ?? media.coverImage.medium ?? ''),
               totalEpisodes: media.episodes ?? 0,
               episodesProgress: {
                 targetProgress: EpisodeProgress(
                   episodeNumber: targetProgress,
                   episodeTitle: 'Episode $targetProgress',
-                  episodeThumbnail:
-                      media.coverImage.large ?? media.coverImage.medium,
+                  episodeThumbnail: media.highResCoverImage.isNotEmpty
+                      ? media.highResCoverImage
+                      : (media.coverImage.large ?? media.coverImage.medium),
                   progressInSeconds: 0,
                   durationInSeconds: 1440,
                   isCompleted: false,
@@ -632,15 +636,17 @@ class _ContinueWatchingSection extends ConsumerWidget {
                   animeId: media.id,
                   animeTitle: media.title.english ?? media.title.romaji ?? '',
                   animeFormat: media.format,
-                  animeCover:
-                      media.coverImage.large ?? media.coverImage.medium ?? '',
+                  animeCover: media.highResCoverImage.isNotEmpty
+                      ? media.highResCoverImage
+                      : (media.coverImage.large ?? media.coverImage.medium ?? ''),
                   totalEpisodes: media.episodes ?? 0,
                   episodesProgress: {
                     ep: EpisodeProgress(
                       episodeNumber: ep,
                       episodeTitle: 'Episode $ep',
-                      episodeThumbnail:
-                          media.coverImage.large ?? media.coverImage.medium,
+                      episodeThumbnail: media.highResCoverImage.isNotEmpty
+                          ? media.highResCoverImage
+                          : (media.coverImage.large ?? media.coverImage.medium),
                       progressInSeconds: 0,
                       durationInSeconds: 1440,
                       isCompleted: false,

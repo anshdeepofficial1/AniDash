@@ -640,6 +640,7 @@ class EpisodeTile extends StatelessWidget {
                                   ? CachedNetworkImage(
                                     imageUrl: thumbnail!,
                                     fit: BoxFit.cover,
+                                    filterQuality: FilterQuality.high,
                                     placeholder:
                                         (_, __) => ColoredBox(color: bgColor),
                                     errorWidget:

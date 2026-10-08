@@ -118,9 +118,6 @@ class _FloatingSkipButtonOverlayState
           currentSkip.skipType == SkipType.ed ||
           (currentSkip.skipType == SkipType.mixed &&
               currentSkip.interval!.startTime >= 480);
-      final isRecap =
-          currentSkip.skipType == SkipType.recap &&
-          currentSkip.interval!.startTime <= 360;
       final isSourceVerified =
           currentSkip.skipId?.startsWith('source-') ?? false;
       final durationMatches =
@@ -135,8 +132,7 @@ class _FloatingSkipButtonOverlayState
           (isEd &&
               dur.inSeconds > 0 &&
               currentSkip.interval!.startTime >= dur.inSeconds * .60 &&
-              currentSkip.interval!.startTime >= 480) ||
-          (isRecap && currentSkip.interval!.startTime <= 360);
+              currentSkip.interval!.startTime >= 480);
 
       if (!verified || !plausiblePlacement) {
         return const SizedBox.shrink();
@@ -148,20 +144,6 @@ class _FloatingSkipButtonOverlayState
           intro: true,
         );
         label = 'Skip Intro';
-        onSkip = () {
-          setState(() => _introDismissed = true);
-          final target = Duration(
-            seconds: currentSkip.interval!.endTime.toInt() + 1,
-          );
-          ref.read(playerStateProvider.notifier).seek(target);
-          ref.read(playerUIControllerProvider.notifier).restartHideTimer();
-        };
-      } else if (isRecap && !_introDismissed) {
-        _showBriefly(
-          '${currentEp}_recap_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
-          intro: true,
-        );
-        label = 'Skip Recap';
         onSkip = () {
           setState(() => _introDismissed = true);
           final target = Duration(

@@ -61,11 +61,13 @@ class MangaCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(0),
                       child: CachedNetworkImage(
                         imageUrl:
-                            anime?.coverImage.large ??
-                            anime?.coverImage.medium ??
-                            '',
+                            anime?.highResCoverImage.isNotEmpty == true
+                                ? anime!.highResCoverImage
+                                : (anime?.coverImage.large ??
+                                    anime?.coverImage.medium ??
+                                    ''),
                         fit: BoxFit.cover,
-                        memCacheHeight: 400,
+                        filterQuality: FilterQuality.high,
                         placeholder:
                             (_, _) =>
                                 const AnimeCardShimmer(height: double.infinity),

@@ -26,12 +26,13 @@ class CenterControls extends ConsumerWidget {
 
     final playerNotifier = ref.read(playerStateProvider.notifier);
     final settings = ref.watch(playerSettingsProvider);
+    final isMovie = ref.watch(episodeListProvider.select((s) => s.isMovie));
 
     return Center(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (settings.showNextPrevButtons) ...[
+          if (settings.showNextPrevButtons && !isMovie) ...[
             _ShadowIconButton(
               icon: Icons.skip_previous_rounded,
               size: 56,
@@ -77,7 +78,7 @@ class CenterControls extends ConsumerWidget {
             ),
           ),
 
-          if (settings.showNextPrevButtons) ...[
+          if (settings.showNextPrevButtons && !isMovie) ...[
             const SizedBox(width: 48),
             _ShadowIconButton(
               icon: Icons.skip_next_rounded,

@@ -49,6 +49,7 @@ class NewsCard extends ConsumerWidget {
                   CachedNetworkImage(
                     imageUrl: news.imageUrl!,
                     fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
                     placeholder: (context, url) => Container(
                       color: Colors.grey[900],
                       child: const Center(child: CircularProgressIndicator()),

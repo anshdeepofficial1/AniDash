@@ -98,8 +98,15 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
           ref.read(playerUIControllerProvider.notifier).setVolume(v);
         }
       });
+      // Flag to prevent the initial listener subscription or system sync from popping up the volume overlay
+      bool initialVolumeSyncDone = false;
       FlutterVolumeController.addListener((volume) {
         if (!mounted || _isChangingVolume) return;
+        if (!initialVolumeSyncDone) {
+          initialVolumeSyncDone = true;
+          ref.read(playerUIControllerProvider.notifier).setVolume(volume);
+          return;
+        }
         _applyPlayerVolume(volume, updateSystemVolume: false);
       });
     }
@@ -747,7 +754,15 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                 ControlsOverlay(
                   visible: uiState.isVisible,
                   locked: uiState.isLocked,
-                  onLockPressed: uiController.toggleLock,
+                  onLockPressed: () {
+                    final isCurrentlyLocked = uiState.isLocked;
+                    if (!isCurrentlyLocked) {
+                      if (MediaQuery.of(context).orientation == Orientation.portrait) {
+                        widget.onFullScreenPressed?.call();
+                      }
+                    }
+                    uiController.toggleLock();
+                  },
                   onRestartHide: uiController.restartHideTimer,
                   onEpisodesPressed: widget.onEpisodesPressed,
                   onSettingsPressed: _openSettings,

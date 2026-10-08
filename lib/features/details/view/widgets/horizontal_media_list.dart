@@ -105,8 +105,12 @@ class MediaCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: CachedNetworkImage(
-                      imageUrl: media.coverImage.large ?? '',
+                      imageUrl:
+                          media.highResCoverImage.isNotEmpty
+                              ? media.highResCoverImage
+                              : (media.coverImage.large ?? media.coverImage.medium ?? ''),
                       fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
                       width: double.infinity,
                       height: double.infinity,
                       placeholder: (context, url) => Container(
