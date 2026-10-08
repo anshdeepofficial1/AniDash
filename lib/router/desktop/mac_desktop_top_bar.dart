@@ -356,10 +356,15 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
                   onPressed: () {
                     if (canPop) {
                       Navigator.of(context).pop();
-                    } else if (currentRoute.startsWith('/settings/') &&
-                        currentRoute != '/settings/ui' &&
-                        currentRoute != '/settings') {
-                      context.go('/settings/ui');
+                    } else if (currentRoute.startsWith('/settings/player/') &&
+                        currentRoute != '/settings/player') {
+                      context.go('/settings/player');
+                    } else if (currentRoute.startsWith('/settings/account/') &&
+                        currentRoute != '/settings/account') {
+                      context.go('/settings/account');
+                    } else if (currentRoute.startsWith('/settings/extensions/') &&
+                        currentRoute != '/settings/extensions') {
+                      context.go('/settings/extensions');
                     } else {
                       context.go('/');
                     }

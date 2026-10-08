@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dartotsu_extension_bridge/Models/Source.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
@@ -59,31 +60,43 @@ class AnimatedGoRoute extends GoRoute {
     super.redirect,
     this.wrapWithDesktopScaffold = false,
   }) : super(
-         pageBuilder:
-             (context, state) => CustomTransitionPage(
+         pageBuilder: (context, state) {
+           final child = wrapWithDesktopScaffold
+               ? DesktopAdaptiveScaffold(
+                   child: contentBuilder(context, state),
+                 )
+               : contentBuilder(context, state);
+
+           final isDesktop =
+               Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+           if (isDesktop || wrapWithDesktopScaffold) {
+             return NoTransitionPage(
                key: state.pageKey,
-               child: wrapWithDesktopScaffold
-                   ? DesktopAdaptiveScaffold(
-                     child: contentBuilder(context, state),
-                   )
-                   : contentBuilder(context, state),
-               transitionsBuilder: (
-                 context,
-                 animation,
-                 secondaryAnimation,
-                 child,
-               ) {
-                 return SlideTransition(
-                   position: animation.drive(
-                     Tween<Offset>(
-                       begin: const Offset(0, 1),
-                       end: Offset.zero,
-                     ).chain(CurveTween(curve: Curves.easeOutCubic)),
-                   ),
-                   child: child,
-                 );
-               },
-             ),
+               child: child,
+             );
+           }
+
+           return CustomTransitionPage(
+             key: state.pageKey,
+             child: child,
+             transitionsBuilder: (
+               context,
+               animation,
+               secondaryAnimation,
+               child,
+             ) {
+               return SlideTransition(
+                 position: animation.drive(
+                   Tween<Offset>(
+                     begin: const Offset(0, 1),
+                     end: Offset.zero,
+                   ).chain(CurveTween(curve: Curves.easeOutCubic)),
+                 ),
+                 child: child,
+               );
+             },
+           );
+         },
        );
 }
 
@@ -307,6 +320,13 @@ final routerConfig = GoRouter(
     ),
     DesktopAdaptiveRoute(
       path: '/settings',
+      redirect: (context, state) {
+        if (state.matchedLocation == '/settings' &&
+            (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+          return '/settings/ui';
+        }
+        return null;
+      },
       contentBuilder: (_, _) => const SettingsScreen(),
       routes: [
         DesktopAdaptiveRoute(

@@ -251,7 +251,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                           badgeText: _getRecentHistoryCountBadge(),
                           onTap: () {
                             _markHistoryBadgeAsSeen();
-                            context.push('/watch-history');
+                            context.go('/watch-history');
                           },
                         ),
                         _SidebarTile(
@@ -262,7 +262,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                           isCollapsed: isCollapsed,
                           isDark: isDark,
                           isAiSparkle: true,
-                          onTap: () => context.push('/ai'),
+                          onTap: () => context.go('/ai'),
                         ),
                         _SidebarTile(
                           icon: Iconsax.document_text,
@@ -271,7 +271,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                           isSelected: currentRoute == '/news',
                           isCollapsed: isCollapsed,
                           isDark: isDark,
-                          onTap: () => context.push('/news'),
+                          onTap: () => context.go('/news'),
                         ),
 
                         const SizedBox(height: 14),
@@ -657,7 +657,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
         children: [
           if (!isCollapsed)
             InkWell(
-              onTap: () => context.push('/settings/account'),
+              onTap: () => context.go('/settings/account'),
               borderRadius: BorderRadius.circular(10),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
@@ -731,7 +731,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
               iconSize: 18,
               tooltip: user?.name ?? 'Account',
               icon: Icon(Iconsax.user, color: colorScheme.primary),
-              onPressed: () => context.push('/settings/account'),
+              onPressed: () => context.go('/settings/account'),
             ),
         ],
       ),
