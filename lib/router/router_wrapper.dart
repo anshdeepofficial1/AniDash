@@ -519,57 +519,59 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
         },
       };
 
-      return CallbackShortcuts(
-        bindings: globalShortcuts,
-        child: Focus(
-          autofocus: true,
-          child: PopScope(
-            canPop: false,
-            onPopInvokedWithResult: (didPop, _) {
-              if (didPop) return;
-              if (widget.navigationShell.currentIndex != 0) {
-                _onNavTap(0, visibleNavItems);
-              } else {
-                showExitConfirmationDialog(context, isSystemExit: true);
-              }
-            },
-            child: Scaffold(
-              backgroundColor: Theme.of(context).colorScheme.surface,
-              body: Row(
-                children: [
-                  MacDesktopSidebar(
-                    shell: widget.navigationShell,
-                    items: visibleNavItems,
-                    isCollapsed: ref.watch(desktopSidebarCollapsedProvider),
-                    onToggleCollapse: () {
-                      ref.read(desktopSidebarCollapsedProvider.notifier).toggle();
-                    },
-                    onTabSelected: (branch) => _onNavTap(branch, visibleNavItems),
-                  ),
-                  Expanded(
-                    child: Container(
-                      color: Theme.of(context).colorScheme.surface,
-                      child: Column(
-                        children: [
-                          MacDesktopTopBar(
-                            title: currentItem.label,
-                            icon: currentItem.icon,
-                          ),
-                          Expanded(
-                            child: PageView(
-                              controller: _pageController,
-                              physics: const NeverScrollableScrollPhysics(),
-                              children: visibleNavItems.map((item) {
-                                final child = widget.children[item.branchIndex];
-                                return _KeepAliveWrapper(child: child);
-                              }).toList(),
+      return DesktopGestureAndShortcutsWrapper(
+        child: CallbackShortcuts(
+          bindings: globalShortcuts,
+          child: Focus(
+            autofocus: true,
+            child: PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) {
+                if (didPop) return;
+                if (widget.navigationShell.currentIndex != 0) {
+                  _onNavTap(0, visibleNavItems);
+                } else {
+                  showExitConfirmationDialog(context, isSystemExit: true);
+                }
+              },
+              child: Scaffold(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                body: Row(
+                  children: [
+                    MacDesktopSidebar(
+                      shell: widget.navigationShell,
+                      items: visibleNavItems,
+                      isCollapsed: ref.watch(desktopSidebarCollapsedProvider),
+                      onToggleCollapse: () {
+                        ref.read(desktopSidebarCollapsedProvider.notifier).toggle();
+                      },
+                      onTabSelected: (branch) => _onNavTap(branch, visibleNavItems),
+                    ),
+                    Expanded(
+                      child: Container(
+                        color: Theme.of(context).colorScheme.surface,
+                        child: Column(
+                          children: [
+                            MacDesktopTopBar(
+                              title: currentItem.label,
+                              icon: currentItem.icon,
                             ),
-                          ),
-                        ],
+                            Expanded(
+                              child: PageView(
+                                controller: _pageController,
+                                physics: const NeverScrollableScrollPhysics(),
+                                children: visibleNavItems.map((item) {
+                                  final child = widget.children[item.branchIndex];
+                                  return _KeepAliveWrapper(child: child);
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
