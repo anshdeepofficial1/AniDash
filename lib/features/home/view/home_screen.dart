@@ -10,6 +10,8 @@ import 'package:ani_dash/core/models/anime/page_model.dart';
 import 'package:ani_dash/core/models/universal/universal_media.dart';
 import 'package:ani_dash/core/models/universal/universal_page_response.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
+import 'package:ani_dash/core/models/universal/universal_media_list_entry.dart';
+import 'package:ani_dash/core/utils/cloud_watch_progress_sync.dart';
 import 'package:ani_dash/features/home/model/home_section.dart';
 import 'package:ani_dash/shared/providers/settings/home_layout_notifier.dart';
 import 'package:ani_dash/features/home/view/widget/continue_section.dart';
@@ -570,6 +572,49 @@ class _ContinueWatchingSection extends ConsumerWidget {
             .where((c) => !dismissedIds.contains(c.media.id))
             .toList();
 
+    AnimeWatchProgressEntry createCloudProgressEntry(
+      UniversalMediaListEntry cloudItem,
+    ) {
+      final media = cloudItem.media;
+      final parsed = CloudWatchProgressSync.parseNotes(cloudItem.notes);
+      final targetProgress =
+          parsed?.episode ?? (cloudItem.progress > 0 ? cloudItem.progress : 1);
+      final progressSec = parsed?.seconds ?? 0;
+      final durationSec = parsed?.duration ?? 1440;
+
+      return AnimeWatchProgressEntry(
+        animeId: media.id,
+        animeTitle:
+            media.title.english ??
+            media.title.romaji ??
+            media.title.native ??
+            '',
+        animeFormat: media.format,
+        animeCover:
+            media.highResCoverImage.isNotEmpty
+                ? media.highResCoverImage
+                : (media.coverImage.large ?? media.coverImage.medium ?? ''),
+        totalEpisodes: media.episodes ?? 0,
+        episodesProgress: {
+          targetProgress: EpisodeProgress(
+            episodeNumber: targetProgress,
+            episodeTitle: 'Episode $targetProgress',
+            episodeThumbnail:
+                media.highResCoverImage.isNotEmpty
+                    ? media.highResCoverImage
+                    : (media.coverImage.large ?? media.coverImage.medium),
+            progressInSeconds: progressSec,
+            durationInSeconds: durationSec,
+            isCompleted: false,
+            watchedAt: DateTime.fromMillisecondsSinceEpoch(0),
+          ),
+        },
+        lastUpdated: DateTime.fromMillisecondsSinceEpoch(0),
+        currentEpisode: targetProgress,
+        status: 'watching',
+      );
+    }
+
     return sortedAsync.when(
       data: (sorted) {
         final Map<String, AnimeWatchProgressEntry> merged = {};
@@ -583,37 +628,7 @@ class _ContinueWatchingSection extends ConsumerWidget {
         for (final cloudItem in cloudWatching) {
           final media = cloudItem.media;
           if (!merged.containsKey(media.id)) {
-            final targetProgress =
-                cloudItem.progress > 0 ? cloudItem.progress : 1;
-            merged[media.id] = AnimeWatchProgressEntry(
-              animeId: media.id,
-              animeTitle:
-                  media.title.english ??
-                  media.title.romaji ??
-                  media.title.native ??
-                  '',
-              animeFormat: media.format,
-              animeCover: media.highResCoverImage.isNotEmpty
-                  ? media.highResCoverImage
-                  : (media.coverImage.large ?? media.coverImage.medium ?? ''),
-              totalEpisodes: media.episodes ?? 0,
-              episodesProgress: {
-                targetProgress: EpisodeProgress(
-                  episodeNumber: targetProgress,
-                  episodeTitle: 'Episode $targetProgress',
-                  episodeThumbnail: media.highResCoverImage.isNotEmpty
-                      ? media.highResCoverImage
-                      : (media.coverImage.large ?? media.coverImage.medium),
-                  progressInSeconds: 0,
-                  durationInSeconds: 1440,
-                  isCompleted: false,
-                  watchedAt: DateTime.fromMillisecondsSinceEpoch(0),
-                ),
-              },
-              lastUpdated: DateTime.fromMillisecondsSinceEpoch(0),
-              currentEpisode: targetProgress,
-              status: 'watching',
-            );
+            merged[media.id] = createCloudProgressEntry(cloudItem);
           }
         }
 
@@ -640,36 +655,7 @@ class _ContinueWatchingSection extends ConsumerWidget {
         }
 
         if (cloudWatching.isNotEmpty) {
-          final synthetic =
-              cloudWatching.map((c) {
-                final media = c.media;
-                final ep = c.progress > 0 ? c.progress : 1;
-                return AnimeWatchProgressEntry(
-                  animeId: media.id,
-                  animeTitle: media.title.english ?? media.title.romaji ?? '',
-                  animeFormat: media.format,
-                  animeCover: media.highResCoverImage.isNotEmpty
-                      ? media.highResCoverImage
-                      : (media.coverImage.large ?? media.coverImage.medium ?? ''),
-                  totalEpisodes: media.episodes ?? 0,
-                  episodesProgress: {
-                    ep: EpisodeProgress(
-                      episodeNumber: ep,
-                      episodeTitle: 'Episode $ep',
-                      episodeThumbnail: media.highResCoverImage.isNotEmpty
-                          ? media.highResCoverImage
-                          : (media.coverImage.large ?? media.coverImage.medium),
-                      progressInSeconds: 0,
-                      durationInSeconds: 1440,
-                      isCompleted: false,
-                      watchedAt: DateTime.fromMillisecondsSinceEpoch(0),
-                    ),
-                  },
-                  currentEpisode: ep,
-                  lastUpdated: DateTime.fromMillisecondsSinceEpoch(0),
-                  status: 'watching',
-                );
-              }).toList();
+          final synthetic = cloudWatching.map<AnimeWatchProgressEntry>(createCloudProgressEntry).toList();
           return ContinueSection(allProgress: synthetic.take(15).toList());
         }
         return const SizedBox.shrink();
@@ -690,34 +676,7 @@ class _ContinueWatchingSection extends ConsumerWidget {
         }
 
         if (cloudWatching.isNotEmpty) {
-          final synthetic =
-              cloudWatching.map((c) {
-                final media = c.media;
-                final ep = c.progress > 0 ? c.progress : 1;
-                return AnimeWatchProgressEntry(
-                  animeId: media.id,
-                  animeTitle: media.title.english ?? media.title.romaji ?? '',
-                  animeFormat: media.format,
-                  animeCover:
-                      media.coverImage.large ?? media.coverImage.medium ?? '',
-                  totalEpisodes: media.episodes ?? 0,
-                  episodesProgress: {
-                    ep: EpisodeProgress(
-                      episodeNumber: ep,
-                      episodeTitle: 'Episode $ep',
-                      episodeThumbnail:
-                          media.coverImage.large ?? media.coverImage.medium,
-                      progressInSeconds: 0,
-                      durationInSeconds: 1440,
-                      isCompleted: false,
-                      watchedAt: DateTime.fromMillisecondsSinceEpoch(0),
-                    ),
-                  },
-                  currentEpisode: ep,
-                  lastUpdated: DateTime.fromMillisecondsSinceEpoch(0),
-                  status: 'watching',
-                );
-              }).toList();
+          final synthetic = cloudWatching.map<AnimeWatchProgressEntry>(createCloudProgressEntry).toList();
           return ContinueSection(allProgress: synthetic.take(15).toList());
         }
         return const SizedBox.shrink();

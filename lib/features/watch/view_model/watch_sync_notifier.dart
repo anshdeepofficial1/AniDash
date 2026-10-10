@@ -11,10 +11,14 @@ import 'package:ani_dash/shared/providers/settings/sync_settings_notifier.dart';
 import 'package:ani_dash/shared/providers/tracker/media_tracker_notifier.dart';
 import 'package:ani_dash/shared/providers/incognito_provider.dart';
 
+import 'package:ani_dash/core/utils/cloud_watch_progress_sync.dart';
+
 part 'watch_sync_notifier.g.dart';
 
 @riverpod
 class WatchSyncNotifier extends _$WatchSyncNotifier {
+  DateTime? _lastPositionSyncTime;
+
   @override
   void build() {}
 
@@ -22,6 +26,8 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
   Future<void> handleTrackingUpdate({
     required String mediaId,
     required int episodeNum,
+    int? progressInSeconds,
+    int? durationInSeconds,
   }) async {
     if (IncognitoService.isIncognito(mediaId)) return;
     final syncSettings = ref.read(syncSettingsProvider);
@@ -30,13 +36,44 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
     // Skip manual or prompt-based sync calls (WatchScreen handles prompt if askBeforeSync is true)
     if (syncNotifier.isManualSync || syncSettings.askBeforeSync) return;
 
-    await updateTracking(mediaId: mediaId, episodeNum: episodeNum);
+    await updateTracking(
+      mediaId: mediaId,
+      episodeNum: episodeNum,
+      progressInSeconds: progressInSeconds,
+      durationInSeconds: durationInSeconds,
+    );
+  }
+
+  /// Syncs exact watch timestamp across platforms (e.g. Android <-> Windows <-> macOS)
+  Future<void> syncWatchPosition({
+    required String mediaId,
+    required int episodeNum,
+    required int progressInSeconds,
+    required int durationInSeconds,
+    bool force = false,
+  }) async {
+    if (IncognitoService.isIncognito(mediaId)) return;
+    final now = DateTime.now();
+    if (!force &&
+        _lastPositionSyncTime != null &&
+        now.difference(_lastPositionSyncTime!).inSeconds < 10) {
+      return;
+    }
+    _lastPositionSyncTime = now;
+    await updateTracking(
+      mediaId: mediaId,
+      episodeNum: episodeNum,
+      progressInSeconds: progressInSeconds,
+      durationInSeconds: durationInSeconds,
+    );
   }
 
   /// Forces an update to tracking without checking system automated rules
   Future<void> updateTracking({
     required String mediaId,
     required int episodeNum,
+    int? progressInSeconds,
+    int? durationInSeconds,
   }) async {
     if (IncognitoService.isIncognito(mediaId)) {
       AppLogger.d('Incognito active for $mediaId; skipping tracking sync.');
@@ -68,10 +105,22 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
           episodeNum >= totalEpisodes;
       final trackingStatus = isCompleted ? 'COMPLETED' : 'CURRENT';
 
+      final epProgress = progressEntry?.episodesProgress[episodeNum];
+      final sec = progressInSeconds ?? epProgress?.progressInSeconds ?? 0;
+      final dur = durationInSeconds ?? epProgress?.durationInSeconds ?? 1440;
+      final localEntry = await trackerNotifier.getLocalEntry();
+      final notesTag = CloudWatchProgressSync.formatNotes(
+        existingNotes: localEntry?.notes,
+        episode: episodeNum,
+        seconds: sec,
+        duration: dur,
+      );
+
       if (syncSettings.syncMode == 'background') {
         final inputData = <String, dynamic>{
           'progress': episodeNum,
           'status': trackingStatus,
+          'notes': notesTag,
         };
         for (final b in activeBindings) {
           if (b.type == TrackerType.anilist) {
@@ -98,13 +147,13 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
             bindings: activeBindings,
             status: trackingStatus,
             progress: episodeNum,
+            notes: notesTag,
           ),
         );
       }
 
       if (syncNotifier.shouldSyncLocal) {
         final entry = progressEntry;
-        final localEntry = await trackerNotifier.getLocalEntry();
 
         tasks.add(
           trackerNotifier.saveLocalEntry(
@@ -120,7 +169,7 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
             progress: episodeNum,
             score: localEntry?.score ?? 0.0,
             repeat: localEntry?.repeat ?? 0,
-            notes: localEntry?.notes ?? '',
+            notes: notesTag,
             isPrivate: localEntry?.isPrivate ?? false,
             startedAt: DateTime.now(),
           ),

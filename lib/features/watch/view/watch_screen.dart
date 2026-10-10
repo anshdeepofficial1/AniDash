@@ -20,7 +20,7 @@ import 'package:ani_dash/shared/providers/settings/sync_settings_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/watch_sync_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/player/player_provider.dart';
 import 'package:ani_dash/features/watch/view_model/player/player_ui_controller.dart';
-import 'package:ani_dash/features/watch/view/widgets/player/sheets/settings_sheet.dart';
+import 'package:ani_dash/features/watch/view/widgets/sheets/episode_actions_sheet.dart';
 import 'package:ani_dash/features/watch/view_model/player/pip_controller.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
 import 'package:flutter/services.dart';
@@ -156,45 +156,37 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     );
   }
 
-  void _openSettingsSheet() {
+  void _openEpisodeActionsSheet({
+    required int selectedEp,
+    String? currentEpTitle,
+    String? currentEpDesc,
+    String? resolvedFormat,
+  }) {
     final theme = Theme.of(context);
-    final sheetHeight = MediaQuery.of(context).size.height * 0.48;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => SizedBox(
-        height: sheetHeight,
-        child: Container(
-          decoration: BoxDecoration(
-            color: theme.scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 10,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 6),
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.dividerColor.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Expanded(
-                child: SettingsSheetContent(
-                  onDismiss: () => Navigator.of(ctx).pop(),
-                ),
-              ),
-            ],
-          ),
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: EpisodeActionsSheet(
+          mediaId: widget.mediaId,
+          episodeNumber: selectedEp,
+          episodeTitle: currentEpTitle,
+          episodeDescription: currentEpDesc,
+          animeTitle: widget.animeName,
+          animeFormat: resolvedFormat,
+          onDismiss: () => Navigator.of(ctx).pop(),
         ),
       ),
     );
@@ -607,7 +599,13 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                     physics:
                                         const NeverScrollableScrollPhysics(),
                                     onAllEpisodesPressed: _openEpisodesSheet,
-                                    onMoreOptionsPressed: _openSettingsSheet,
+                                    onMoreOptionsPressed: () =>
+                                        _openEpisodeActionsSheet(
+                                          selectedEp: selectedEp,
+                                          currentEpTitle: currentEpTitle,
+                                          currentEpDesc: currentEpDesc,
+                                          resolvedFormat: resolvedFormat,
+                                        ),
                                     onToggleFullscreen: _toggleFullscreen,
                                   ),
                                 ),
@@ -666,7 +664,13 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                     episodes: effectiveEpisodes,
                     mediaId: widget.mediaId,
                     onAllEpisodesPressed: _openEpisodesSheet,
-                    onMoreOptionsPressed: _openSettingsSheet,
+                    onMoreOptionsPressed: () =>
+                        _openEpisodeActionsSheet(
+                          selectedEp: selectedEp,
+                          currentEpTitle: currentEpTitle,
+                          currentEpDesc: currentEpDesc,
+                          resolvedFormat: resolvedFormat,
+                        ),
                     onToggleFullscreen: _toggleFullscreen,
                   ),
                 ),

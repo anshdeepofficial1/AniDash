@@ -640,6 +640,14 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
     if ((_pos - _lastSavedPos).abs() >= 5) {
       _lastSavedPos = _pos;
       _triggerSave(takeScreenshot: false);
+      if (_mediaId != null && _epNum != null && _pos > 0) {
+        ref.read(watchSyncProvider.notifier).syncWatchPosition(
+              mediaId: _mediaId!,
+              episodeNum: _epNum!,
+              progressInSeconds: _pos,
+              durationInSeconds: _dur,
+            );
+      }
     }
   }
 
@@ -679,6 +687,15 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
   }) async {
     if (_isDisposed) return;
     await _triggerSave(takeScreenshot: takeScreenshot, force: force);
+    if (_mediaId != null && _epNum != null && _pos > 0) {
+      ref.read(watchSyncProvider.notifier).syncWatchPosition(
+            mediaId: _mediaId!,
+            episodeNum: _epNum!,
+            progressInSeconds: _pos,
+            durationInSeconds: _dur,
+            force: true,
+          );
+    }
   }
 
   void _checkAniSkip(String mediaId, String animeName, Duration duration) {

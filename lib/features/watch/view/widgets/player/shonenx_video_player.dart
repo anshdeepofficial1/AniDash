@@ -75,6 +75,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
   String? _fitLabel;
   int _doubleTapPairCount = 0;
   Duration _doubleTapAnchor = Duration.zero;
+  bool _initialVolumeSyncDone = false;
 
   bool _isDraggingSeek = false;
   Duration _dragStartPos = Duration.zero;
@@ -98,16 +99,18 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
           ref.read(playerUIControllerProvider.notifier).setVolume(v);
         }
       });
-      // Flag to prevent the initial listener subscription or system sync from popping up the volume overlay
-      bool initialVolumeSyncDone = false;
       FlutterVolumeController.addListener((volume) {
         if (!mounted || _isChangingVolume) return;
-        if (!initialVolumeSyncDone) {
-          initialVolumeSyncDone = true;
+        if (!_initialVolumeSyncDone) {
+          _initialVolumeSyncDone = true;
           ref.read(playerUIControllerProvider.notifier).setVolume(volume);
           return;
         }
-        _applyPlayerVolume(volume, updateSystemVolume: false);
+        _applyPlayerVolume(volume, updateSystemVolume: false, showOverlay: true);
+      });
+      // Prevent any system volume broadcast on player open from popping up the volume overlay
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) _initialVolumeSyncDone = true;
       });
     }
     // Restart auto-hide timer on init
@@ -179,6 +182,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
 
   void _handleHardwareVolumeKey(bool isUp) {
     if (!mounted) return;
+    _initialVolumeSyncDone = true;
 
     if (Platform.isAndroid || Platform.isIOS) {
       FlutterVolumeController.updateShowSystemUI(false);
@@ -189,21 +193,33 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     const step = 0.05; // 5% per press
     final newV = (state.volume + (isUp ? step : -step)).clamp(0.0, 1.0);
 
-    _applyPlayerVolume(newV);
+    _applyPlayerVolume(newV, showOverlay: true);
   }
 
   void _handleHardwareVolumeChanged(double value) {
     if (!mounted) return;
-    _applyPlayerVolume(value.clamp(0.0, 1.0), updateSystemVolume: false);
+    final clamped = value.clamp(0.0, 1.0);
+    if (!_initialVolumeSyncDone) {
+      _initialVolumeSyncDone = true;
+      ref.read(playerUIControllerProvider.notifier).setVolume(clamped);
+      return;
+    }
+    _applyPlayerVolume(clamped, updateSystemVolume: false, showOverlay: true);
   }
 
-  void _applyPlayerVolume(double value, {bool updateSystemVolume = true}) {
+  void _applyPlayerVolume(
+    double value, {
+    bool updateSystemVolume = true,
+    bool showOverlay = true,
+  }) {
     final newV = value.clamp(0.0, 1.0);
     final controller = ref.read(playerUIControllerProvider.notifier);
 
-    setState(() {
-      _isChangingVolume = true;
-    });
+    if (showOverlay) {
+      setState(() {
+        _isChangingVolume = true;
+      });
+    }
 
     controller.setVolume(newV);
 
@@ -222,14 +238,16 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
           .setVolume(newV * 100.0);
     }
 
-    _volumeOverlayTimer?.cancel();
-    _volumeOverlayTimer = Timer(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        setState(() {
-          _isChangingVolume = false;
-        });
-      }
-    });
+    if (showOverlay) {
+      _volumeOverlayTimer?.cancel();
+      _volumeOverlayTimer = Timer(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          setState(() {
+            _isChangingVolume = false;
+          });
+        }
+      });
+    }
   }
 
   void _onVerticalDragStart(DragStartDetails details) {
@@ -387,39 +405,72 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
 
   Future<void> _sideSheet(Widget child) async {
     final controller = ref.read(playerUIControllerProvider.notifier);
-    await showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Close player settings',
-      barrierColor: Colors.black45,
-      transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder:
-          (context, animation, secondaryAnimation) => Align(
-            alignment: Alignment.centerRight,
-            child: FractionallySizedBox(
-              widthFactor: 0.38,
-              heightFactor: 1,
-              child: Material(
-                color: Theme.of(context).colorScheme.surface.withAlpha(248),
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(24),
+    final size = MediaQuery.of(context).size;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+
+    if (!isLandscape && size.width < 600) {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => Container(
+          height: size.height * 0.65,
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).dividerColor.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: child,
+              ),
+              Expanded(child: child),
+            ],
+          ),
+        ),
+      );
+    } else {
+      await showGeneralDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'Close player settings',
+        barrierColor: Colors.black45,
+        transitionDuration: const Duration(milliseconds: 220),
+        pageBuilder:
+            (context, animation, secondaryAnimation) => Align(
+              alignment: Alignment.centerRight,
+              child: SizedBox(
+                width: (size.width * 0.38).clamp(320.0, 440.0),
+                height: double.infinity,
+                child: Material(
+                  color: Theme.of(context).colorScheme.surface.withAlpha(248),
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(24),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: child,
+                ),
               ),
             ),
-          ),
-      transitionBuilder:
-          (context, animation, secondaryAnimation, child) => SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+        transitionBuilder:
+            (context, animation, secondaryAnimation, child) => SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              ),
+              child: child,
             ),
-            child: child,
-          ),
-    );
+      );
+    }
     controller.restartHideTimer();
   }
 

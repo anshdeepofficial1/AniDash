@@ -20,8 +20,7 @@ const ANILIST_CLIENT_ID = String.fromEnvironment(
 );
 const ANILIST_CLIENT_SECRET = String.fromEnvironment(
   'ANILIST_CLIENT_SECRET',
-  defaultValue:
-      'inpCGvXD5r2UglDrE6UHslYdSbW8GNBCBbgddDzW|cZEcp7iSA5jm730eJ0lJ13ACuZdPPFCLtLu2Typj',
+  defaultValue: '',
 );
 
 const MAL_CLIENT_ID = String.fromEnvironment(

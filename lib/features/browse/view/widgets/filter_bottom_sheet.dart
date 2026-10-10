@@ -61,11 +61,12 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
       if (query.isEmpty) {
         _filteredTags = [];
       } else {
-        _filteredTags = _tags
-            .where((t) => t.toLowerCase().contains(query.toLowerCase()))
-            .where((t) => !_filter.tags.contains(t))
-            .take(30)
-            .toList();
+        _filteredTags =
+            _tags
+                .where((t) => t.toLowerCase().contains(query.toLowerCase()))
+                .where((t) => !_filter.tags.contains(t))
+                .take(30)
+                .toList();
       }
     });
   }
@@ -280,7 +281,7 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
   Widget _buildSeasonDropdown() {
     const seasons = ['WINTER', 'SPRING', 'SUMMER', 'FALL'];
     return DropdownButtonFormField<String>(
-      value: _filter.season,
+      initialValue: _filter.season,
       decoration: InputDecoration(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -290,9 +291,10 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
         const DropdownMenuItem(value: null, child: Text("Any")),
         ...seasons.map((s) => DropdownMenuItem(value: s, child: Text(s))),
       ],
-      onChanged: (v) => setState(
-        () => _filter = _filter.copyWith(season: v, resetSeason: v == null),
-      ),
+      onChanged:
+          (v) => setState(
+            () => _filter = _filter.copyWith(season: v, resetSeason: v == null),
+          ),
     );
   }
 
@@ -301,7 +303,7 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
     final years = List.generate(60, (i) => currentYear - i);
 
     return DropdownButtonFormField<int>(
-      value: _filter.year,
+      initialValue: _filter.year,
       decoration: InputDecoration(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -311,9 +313,10 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
         const DropdownMenuItem(value: null, child: Text("Any")),
         ...years.map((y) => DropdownMenuItem(value: y, child: Text("$y"))),
       ],
-      onChanged: (v) => setState(
-        () => _filter = _filter.copyWith(year: v, resetYear: v == null),
-      ),
+      onChanged:
+          (v) => setState(
+            () => _filter = _filter.copyWith(year: v, resetYear: v == null),
+          ),
     );
   }
 
@@ -330,24 +333,28 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
               (f) => FilterChip(
                 label: Text(f),
                 selected: _filter.format == f,
-                onSelected: (v) => setState(
-                  () => _filter = _filter.copyWith(
-                    format: v ? f : null,
-                    resetFormat: !v,
-                  ),
-                ),
+                onSelected:
+                    (v) => setState(
+                      () =>
+                          _filter = _filter.copyWith(
+                            format: v ? f : null,
+                            resetFormat: !v,
+                          ),
+                    ),
               ),
             ),
             ...['RELEASING', 'FINISHED'].map(
               (s) => FilterChip(
                 label: Text(s),
                 selected: _filter.status == s,
-                onSelected: (v) => setState(
-                  () => _filter = _filter.copyWith(
-                    status: v ? s : null,
-                    resetStatus: !v,
-                  ),
-                ),
+                onSelected:
+                    (v) => setState(
+                      () =>
+                          _filter = _filter.copyWith(
+                            status: v ? s : null,
+                            resetStatus: !v,
+                          ),
+                    ),
               ),
             ),
           ],
@@ -371,32 +378,36 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: ratings.map((item) {
-            final key = item.$1;
-            final label = item.$2;
-            final isSelected = _filter.contentRating == key;
-            return ChoiceChip(
-              label: Text(label),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    final isAdult = key == 'ADULT' ? true : (key == 'ALL' ? false : null);
-                    _filter = _filter.copyWith(
-                      contentRating: key,
-                      isAdult: isAdult,
-                      resetAdult: isAdult == null,
-                    );
-                  } else {
-                    _filter = _filter.copyWith(
-                      resetContentRating: true,
-                      resetAdult: true,
-                    );
-                  }
-                });
-              },
-            );
-          }).toList(),
+          children:
+              ratings.map((item) {
+                final key = item.$1;
+                final label = item.$2;
+                final isSelected = _filter.contentRating == key;
+                return ChoiceChip(
+                  label: Text(label),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        final isAdult =
+                            key == 'ADULT'
+                                ? true
+                                : (key == 'ALL' ? false : null);
+                        _filter = _filter.copyWith(
+                          contentRating: key,
+                          isAdult: isAdult,
+                          resetAdult: isAdult == null,
+                        );
+                      } else {
+                        _filter = _filter.copyWith(
+                          resetContentRating: true,
+                          resetAdult: true,
+                        );
+                      }
+                    });
+                  },
+                );
+              }).toList(),
         ),
       ],
     );
@@ -421,9 +432,10 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: count > 0
-                ? theme.colorScheme.primaryContainer
-                : theme.colorScheme.surfaceContainerHighest,
+            color:
+                count > 0
+                    ? theme.colorScheme.primaryContainer
+                    : theme.colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text("$count selected", style: theme.textTheme.labelSmall),
@@ -441,28 +453,30 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: _genres.map((g) {
-        final selected = _filter.genres.contains(g);
-        return FilterChip(
-          label: Text(g),
-          selected: selected,
-          onSelected: (v) {
-            setState(() {
-              final list = List<String>.from(_filter.genres);
-              v ? list.add(g) : list.remove(g);
-              _filter = _filter.copyWith(genres: list);
-            });
-          },
-        );
-      }).toList(),
+      children:
+          _genres.map((g) {
+            final selected = _filter.genres.contains(g);
+            return FilterChip(
+              label: Text(g),
+              selected: selected,
+              onSelected: (v) {
+                setState(() {
+                  final list = List<String>.from(_filter.genres);
+                  v ? list.add(g) : list.remove(g);
+                  _filter = _filter.copyWith(genres: list);
+                });
+              },
+            );
+          }).toList(),
     );
   }
 
   Widget _buildTagSelect(ThemeData theme) {
     final selectedTags = _tags.where((t) => _filter.tags.contains(t)).toList();
-    final suggestions = _tagSearchController.text.isEmpty
-        ? _tags.where((t) => !_filter.tags.contains(t)).take(20).toList()
-        : _filteredTags;
+    final suggestions =
+        _tagSearchController.text.isEmpty
+            ? _tags.where((t) => !_filter.tags.contains(t)).take(20).toList()
+            : _filteredTags;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,20 +520,21 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: selectedTags.map((t) {
-              return FilterChip(
-                label: Text(t),
-                selected: true,
-                onSelected: (_) {
-                  setState(() {
-                    final list = List<String>.from(_filter.tags);
-                    list.remove(t);
-                    _filter = _filter.copyWith(tags: list);
-                    _onTagSearchChanged(_tagSearchController.text);
-                  });
-                },
-              );
-            }).toList(),
+            children:
+                selectedTags.map((t) {
+                  return FilterChip(
+                    label: Text(t),
+                    selected: true,
+                    onSelected: (_) {
+                      setState(() {
+                        final list = List<String>.from(_filter.tags);
+                        list.remove(t);
+                        _filter = _filter.copyWith(tags: list);
+                        _onTagSearchChanged(_tagSearchController.text);
+                      });
+                    },
+                  );
+                }).toList(),
           ),
           const SizedBox(height: 16),
           const Divider(height: 1),
@@ -535,21 +550,22 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: suggestions.map((t) {
-            return FilterChip(
-              label: Text(t),
-              selected: false,
-              onSelected: (_) {
-                setState(() {
-                  final list = List<String>.from(_filter.tags);
-                  list.add(t);
-                  _filter = _filter.copyWith(tags: list);
-                  _tagSearchController.clear();
-                  _onTagSearchChanged('');
-                });
-              },
-            );
-          }).toList(),
+          children:
+              suggestions.map((t) {
+                return FilterChip(
+                  label: Text(t),
+                  selected: false,
+                  onSelected: (_) {
+                    setState(() {
+                      final list = List<String>.from(_filter.tags);
+                      list.add(t);
+                      _filter = _filter.copyWith(tags: list);
+                      _tagSearchController.clear();
+                      _onTagSearchChanged('');
+                    });
+                  },
+                );
+              }).toList(),
         ),
       ],
     );

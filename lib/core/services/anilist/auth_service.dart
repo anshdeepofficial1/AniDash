@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:ani_dash/core/services/oauth/base_oauth_service.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/core/utils/env_loader.dart';
@@ -8,15 +10,15 @@ class AniListAuthService extends BaseOAuthService {
           ? ANILIST_CLIENT_ID.split('|')[1]
           : ANILIST_CLIENT_ID.split('|')[0];
 
-  String get _clientSecret =>
-      isDesktop
-          ? ANILIST_CLIENT_SECRET.split('|')[1]
-          : ANILIST_CLIENT_SECRET.split('|')[0];
+  String get _clientSecret {
+    final parts = ANILIST_CLIENT_SECRET.split('|');
+    return isDesktop && parts.length > 1 ? parts[1] : parts.first;
+  }
 
   static const String _authUrl = 'https://anilist.co/api/v2/oauth/authorize';
   static const String _tokenUrl = 'https://anilist.co/api/v2/oauth/token';
 
-  Uri buildAuthorizationUri({bool? desktop}) {
+  Uri buildAuthorizationUri({bool? desktop, String? state}) {
     final useDesktopFlow = desktop ?? isDesktop;
     final clientId =
         useDesktopFlow
@@ -25,6 +27,7 @@ class AniListAuthService extends BaseOAuthService {
     final parameters = <String, String>{
       'client_id': clientId,
       'response_type': useDesktopFlow ? 'code' : 'token',
+      if (state != null) 'state': state,
     };
 
     if (useDesktopFlow) {
@@ -35,10 +38,15 @@ class AniListAuthService extends BaseOAuthService {
   }
 
   Future<String?> authenticate() async {
-    final loginUrl = buildAuthorizationUri().toString();
+    final state = _randomState();
+    final loginUrl = buildAuthorizationUri(state: state).toString();
 
     final queryParams = await performWebAuth(loginUrl);
     if (queryParams == null) return null;
+    if (queryParams['state'] != state) {
+      AppLogger.w('AniList OAuth state mismatch; rejecting callback.');
+      return null;
+    }
     if (queryParams.containsKey('access_token') &&
         queryParams['access_token']!.isNotEmpty) {
       return queryParams['access_token'];
@@ -46,10 +54,22 @@ class AniListAuthService extends BaseOAuthService {
     return queryParams['code'];
   }
 
+  String _randomState() {
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    final random = Random.secure();
+    return List.generate(32, (_) => chars[random.nextInt(chars.length)]).join();
+  }
+
   Future<Map<String, dynamic>?> getAccessToken(String tokenOrCode) async {
     // On mobile, authenticate() returns access_token directly from implicit flow fragment.
     if (!isDesktop) {
       return {'access_token': tokenOrCode, 'token_type': 'Bearer'};
+    }
+
+    if (_clientSecret.trim().isEmpty) {
+      AppLogger.w('AniList desktop OAuth secret is not configured.');
+      return null;
     }
 
     AppLogger.i('Exchanging code for AniList access token...');

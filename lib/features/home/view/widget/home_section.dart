@@ -47,31 +47,62 @@ class HomeSectionWidget extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        SizedBox(
-          height: height,
-          child: ListView.builder(
-            addAutomaticKeepAlives: true,
-            addRepaintBoundaries: true,
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: mediaList.length,
-            itemBuilder: (context, index) {
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+            final cardWidth = mode.getDimensions(context).width;
+            final visibleCount = ((constraints.maxWidth + 12) /
+                    (cardWidth + 12))
+                .floor()
+                .clamp(1, mediaList.length);
+
+            Widget buildCard(int index) {
               final media = mediaList[index];
               final tag = 'home-$title-${media.id}';
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: GestureDetector(
-                  onTap: () => navigateToDetail(
-                    context,
-                    media,
-                    tag,
-                    fromHentaiHub: fromHentaiHub || media.isAdult,
-                  ),
-                  child: AnimeCard(anime: media, tag: tag, mode: mode),
-                ),
+              return GestureDetector(
+                onTap:
+                    () => navigateToDetail(
+                      context,
+                      media,
+                      tag,
+                      fromHentaiHub: fromHentaiHub || media.isAdult,
+                    ),
+                child: AnimeCard(anime: media, tag: tag, mode: mode),
               );
-            },
-          ),
+            }
+
+            return SizedBox(
+              height: height,
+              child:
+                  isDesktop
+                      ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (
+                            var index = 0;
+                            index < visibleCount;
+                            index++
+                          ) ...[
+                            SizedBox(width: cardWidth, child: buildCard(index)),
+                            if (index < visibleCount - 1)
+                              const SizedBox(width: 12),
+                          ],
+                        ],
+                      )
+                      : ListView.builder(
+                        addAutomaticKeepAlives: true,
+                        addRepaintBoundaries: true,
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: mediaList.length,
+                        itemBuilder:
+                            (context, index) => Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: buildCard(index),
+                            ),
+                      ),
+            );
+          },
         ),
 
         const SizedBox(height: 24),

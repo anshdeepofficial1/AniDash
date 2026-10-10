@@ -13,6 +13,7 @@ import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
 import 'package:ani_dash/shared/providers/anilist_service_provider.dart';
 import 'package:ani_dash/shared/providers/mal_service_provider.dart';
 import 'package:ani_dash/shared/providers/tracker/tracker_service.dart';
+import 'package:ani_dash/core/utils/cloud_watch_progress_sync.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'media_tracker_notifier.g.dart';
@@ -376,9 +377,15 @@ class MediaTracker extends _$MediaTracker {
       if (entry == null) return;
 
       final media = entry.media;
+      final parsedNotes = CloudWatchProgressSync.parseNotes(entry.notes);
       final isCompleted = entry.status.toUpperCase() == 'COMPLETED';
       final int targetProgress;
-      if (isCompleted && (media.episodes != null && media.episodes! > 0)) {
+      final int? savedSeconds = parsedNotes?.seconds;
+      final int savedDuration = parsedNotes?.duration ?? 1440;
+
+      if (parsedNotes != null) {
+        targetProgress = parsedNotes.episode;
+      } else if (isCompleted && (media.episodes != null && media.episodes! > 0)) {
         targetProgress = media.episodes!;
       } else {
         targetProgress = entry.progress;
@@ -392,21 +399,52 @@ class MediaTracker extends _$MediaTracker {
       final episodesMap =
           Map<int, EpisodeProgress>.from(local?.episodesProgress ?? {});
 
-      // Mark all episodes up to targetProgress as watched
-      for (int i = 1; i <= targetProgress; i++) {
-        final existing = episodesMap[i];
-        if (existing == null || !existing.isCompleted) {
-          episodesMap[i] = EpisodeProgress(
-            episodeNumber: i,
-            episodeTitle: existing?.episodeTitle ?? 'Episode $i',
-            episodeThumbnail: existing?.episodeThumbnail,
-            progressInSeconds: existing?.progressInSeconds ??
-                (existing?.durationInSeconds ?? 1440),
-            durationInSeconds: existing?.durationInSeconds ?? 1440,
-            isCompleted: true,
-            watchedAt: existing?.watchedAt ??
-                DateTime.fromMillisecondsSinceEpoch(0),
-          );
+      if (savedSeconds != null && savedSeconds > 0) {
+        // Episodes before targetProgress were finished
+        for (int i = 1; i < targetProgress; i++) {
+          final existing = episodesMap[i];
+          if (existing == null || !existing.isCompleted) {
+            episodesMap[i] = EpisodeProgress(
+              episodeNumber: i,
+              episodeTitle: existing?.episodeTitle ?? 'Episode $i',
+              episodeThumbnail: existing?.episodeThumbnail,
+              progressInSeconds: existing?.progressInSeconds ??
+                  (existing?.durationInSeconds ?? 1440),
+              durationInSeconds: existing?.durationInSeconds ?? 1440,
+              isCompleted: true,
+              watchedAt: existing?.watchedAt ??
+                  DateTime.fromMillisecondsSinceEpoch(0),
+            );
+          }
+        }
+        // Current episode is actively being watched at savedSeconds
+        final existing = episodesMap[targetProgress];
+        episodesMap[targetProgress] = EpisodeProgress(
+          episodeNumber: targetProgress,
+          episodeTitle: existing?.episodeTitle ?? 'Episode $targetProgress',
+          episodeThumbnail: existing?.episodeThumbnail,
+          progressInSeconds: savedSeconds,
+          durationInSeconds: savedDuration,
+          isCompleted: false,
+          watchedAt: DateTime.now(),
+        );
+      } else {
+        // Mark all episodes up to targetProgress as watched
+        for (int i = 1; i <= targetProgress; i++) {
+          final existing = episodesMap[i];
+          if (existing == null || !existing.isCompleted) {
+            episodesMap[i] = EpisodeProgress(
+              episodeNumber: i,
+              episodeTitle: existing?.episodeTitle ?? 'Episode $i',
+              episodeThumbnail: existing?.episodeThumbnail,
+              progressInSeconds: existing?.progressInSeconds ??
+                  (existing?.durationInSeconds ?? 1440),
+              durationInSeconds: existing?.durationInSeconds ?? 1440,
+              isCompleted: true,
+              watchedAt: existing?.watchedAt ??
+                  DateTime.fromMillisecondsSinceEpoch(0),
+            );
+          }
         }
       }
 
@@ -417,9 +455,9 @@ class MediaTracker extends _$MediaTracker {
           : (targetProgress + 1);
       final isRemoteAhead =
           local == null || targetProgress >= local.currentEpisode;
-      final resolvedCurrentEpisode = isRemoteAhead
-          ? nextUpEpisode
-          : local.currentEpisode;
+      final resolvedCurrentEpisode = (savedSeconds != null && savedSeconds > 0)
+          ? targetProgress
+          : (isRemoteAhead ? nextUpEpisode : local.currentEpisode);
       final effectiveLastPlayedAt =
           isRemoteAhead ? DateTime.now() : (local.lastPlayedAt ?? DateTime.now());
 

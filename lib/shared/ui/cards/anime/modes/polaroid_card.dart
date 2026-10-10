@@ -20,9 +20,15 @@ class PolaroidCard extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutBack,
-      transform: Matrix4.identity()
-        ..scale(isHovered ? 1.05 : 1.0)
-        ..rotateZ(isHovered ? -0.02 : 0),
+      transform:
+          Matrix4.identity()
+            ..scaleByDouble(
+              isHovered ? 1.05 : 1.0,
+              isHovered ? 1.05 : 1.0,
+              1,
+              1,
+            )
+            ..rotateZ(isHovered ? -0.02 : 0),
       transformAlignment: Alignment.center,
       decoration: BoxDecoration(
         color: Colors.white,

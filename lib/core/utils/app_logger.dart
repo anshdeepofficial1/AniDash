@@ -18,6 +18,7 @@ class AppLogger {
   );
 
   static File? _logFile;
+  static IOSink? _logSink;
   static bool _isFileLoggingEnabled = false;
 
   // Strip colors before writing to file
@@ -41,8 +42,9 @@ class AppLogger {
       final path = p.join(dir.path, 'AniDash', 'app_logs.txt');
 
       _logFile = File(path);
-      _clearLogFile(force: true);
-      await _logFile!.create(recursive: true); // create dir if missing
+      await _logFile!.create(recursive: true);
+      await _logFile!.writeAsString('', mode: FileMode.write, flush: true);
+      _logSink = _logFile!.openWrite(mode: FileMode.append);
       _isFileLoggingEnabled = true;
 
       _writeLine('\n\n=== SESSION START: ${DateTime.now()} ===\n');
@@ -127,24 +129,9 @@ class AppLogger {
 
     try {
       final clean = msg.replaceAll(_ansiRegex, '');
-      // Sync write prevents data loss during crash
-      _logFile!.writeAsStringSync(
-        '${DateTime.now().toIso8601String()}: $clean\n',
-        mode: FileMode.append,
-        flush: true,
-      );
+      _logSink?.writeln('${DateTime.now().toIso8601String()}: $clean');
     } catch (e) {
       debugPrint('Log write failed: $e');
-    }
-  }
-
-  static void _clearLogFile({bool force = false}) {
-    if (!force && !_isFileLoggingEnabled || _logFile == null) return;
-
-    try {
-      _logFile!.writeAsStringSync('', mode: FileMode.write);
-    } catch (e) {
-      debugPrint('Log clear failed: $e');
     }
   }
 

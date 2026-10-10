@@ -142,9 +142,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: theme.brightness == Brightness.dark
-                                ? Colors.white70
-                                : Colors.black87,
+                            color:
+                                theme.brightness == Brightness.dark
+                                    ? Colors.white70
+                                    : Colors.black87,
                           ),
                         ),
                         const Expanded(
@@ -159,107 +160,112 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Padding(
                   padding: EdgeInsets.fromLTRB(24, isDesktop ? 8 : 16, 24, 0),
                   child: Row(
-                children: List.generate(_totalPages, (index) {
-                  final isActive = index <= _currentPage;
-                  return Expanded(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeOutExpo,
-                      height: 4,
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      decoration: BoxDecoration(
-                        color:
-                            isActive
-                                ? colorScheme.primary
-                                : colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                onPageChanged: (index) => setState(() => _currentPage = index),
-                children: [
-                  _buildIntroStep(context),
-                  _buildAuthStep(context),
-                  _buildThemeStep(context, ref),
-                  _buildSourceStep(context, ref),
-                  _buildCardModeStep(context, ref),
-                  _buildSpotlightModeStep(context, ref),
-                  _buildHomeLayoutStep(context, ref),
-                  _buildAiTeamStep(context),
-                  if (Platform.isAndroid) _buildPermissionsStep(context, ref),
-                  _buildUpdatesStep(context, ref),
-                  _buildSupportDeveloperStep(context),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (_currentPage > 0)
-                    TextButton.icon(
-                      onPressed: _previousPage,
-                      icon: const Icon(Iconsax.arrow_left_2),
-                      label: const Text('Back'),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 16,
+                    children: List.generate(_totalPages, (index) {
+                      final isActive = index <= _currentPage;
+                      return Expanded(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeOutExpo,
+                          height: 4,
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          decoration: BoxDecoration(
+                            color:
+                                isActive
+                                    ? colorScheme.primary
+                                    : colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
-                      ),
-                    )
-                  else
-                    TextButton(
-                      onPressed: _skipOnboarding,
-                      child: const Text('Skip to Home'),
-                    ),
-                  Row(
+                      );
+                    }),
+                  ),
+                ),
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    onPageChanged:
+                        (index) => setState(() => _currentPage = index),
                     children: [
-                      if (_currentPage > 0 && _currentPage < _totalPages - 1) ...[
+                      _buildIntroStep(context),
+                      _buildAuthStep(context),
+                      _buildThemeStep(context, ref),
+                      _buildSourceStep(context, ref),
+                      _buildCardModeStep(context, ref),
+                      _buildSpotlightModeStep(context, ref),
+                      _buildHomeLayoutStep(context, ref),
+                      _buildAiTeamStep(context),
+                      if (Platform.isAndroid)
+                        _buildPermissionsStep(context, ref),
+                      _buildUpdatesStep(context, ref),
+                      _buildSupportDeveloperStep(context),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (_currentPage > 0)
+                        TextButton.icon(
+                          onPressed: _previousPage,
+                          icon: const Icon(Iconsax.arrow_left_2),
+                          label: const Text('Back'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
+                          ),
+                        )
+                      else
                         TextButton(
                           onPressed: _skipOnboarding,
                           child: const Text('Skip to Home'),
                         ),
-                        const SizedBox(width: 8),
-                      ],
-                      FilledButton.icon(
-                        onPressed: _nextPage,
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 16,
+                      Row(
+                        children: [
+                          if (_currentPage > 0 &&
+                              _currentPage < _totalPages - 1) ...[
+                            TextButton(
+                              onPressed: _skipOnboarding,
+                              child: const Text('Skip to Home'),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          FilledButton.icon(
+                            onPressed: _nextPage,
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                                vertical: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            label: Text(
+                              _currentPage == _totalPages - 1
+                                  ? 'Get Started'
+                                  : 'Next',
+                            ),
+                            icon: Icon(
+                              _currentPage == _totalPages - 1
+                                  ? Iconsax.tick_circle
+                                  : Iconsax.arrow_right_3,
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        label: Text(
-                          _currentPage == _totalPages - 1 ? 'Get Started' : 'Next',
-                        ),
-                        icon: Icon(
-                          _currentPage == _totalPages - 1
-                              ? Iconsax.tick_circle
-                              : Iconsax.arrow_right_3,
-                        ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
-    ),
-    ),
     );
   }
 
@@ -511,13 +517,34 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     spacing: 12,
                     runSpacing: 6,
                     children: const [
-                      Text('• Esc : Step back', style: TextStyle(fontSize: 11.5)),
-                      Text('• F / Double-Click : Fullscreen', style: TextStyle(fontSize: 11.5)),
-                      Text('• Space : Play / Pause', style: TextStyle(fontSize: 11.5)),
-                      Text('• ← / → : Seek 10s', style: TextStyle(fontSize: 11.5)),
-                      Text('• Ctrl/⌘+F : Search', style: TextStyle(fontSize: 11.5)),
-                      Text('• Ctrl/⌘+H : Watch History', style: TextStyle(fontSize: 11.5)),
-                      Text('• Ctrl/⌘+, : Settings', style: TextStyle(fontSize: 11.5)),
+                      Text(
+                        '• Esc : Step back',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                      Text(
+                        '• F / Double-Click : Fullscreen',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                      Text(
+                        '• Space : Play / Pause',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                      Text(
+                        '• ← / → : Seek 10s',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                      Text(
+                        '• Ctrl/⌘+F : Search',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                      Text(
+                        '• Ctrl/⌘+H : Watch History',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                      Text(
+                        '• Ctrl/⌘+, : Settings',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
                     ],
                   ),
                 ],
@@ -842,14 +869,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(16),
                     onTap: () async {
-                      final uri = Uri.parse('https://buymeacoffee.com/anshdeepofficial');
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      final uri = Uri.parse(
+                        'https://buymeacoffee.com/anshdeepofficial',
+                      );
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
                     },
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       child: Row(
                         children: [
-                          const Icon(Iconsax.coffee, color: Color(0xFFFFDD00), size: 24),
+                          const Icon(
+                            Iconsax.coffee,
+                            color: Color(0xFFFFDD00),
+                            size: 24,
+                          ),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
@@ -870,7 +909,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                               ],
                             ),
                           ),
-                          Icon(Icons.open_in_new_rounded, size: 20, color: colorScheme.onSurfaceVariant),
+                          Icon(
+                            Icons.open_in_new_rounded,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ],
                       ),
                     ),
@@ -885,14 +928,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(16),
                     onTap: () async {
-                      final uri = Uri.parse('https://github.com/sponsors/anshdeepofficial1');
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      final uri = Uri.parse(
+                        'https://github.com/sponsors/anshdeepofficial1',
+                      );
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
                     },
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       child: Row(
                         children: [
-                          const Icon(Iconsax.heart, color: Color(0xFFEA4AAA), size: 24),
+                          const Icon(
+                            Iconsax.heart,
+                            color: Color(0xFFEA4AAA),
+                            size: 24,
+                          ),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
@@ -913,7 +968,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                               ],
                             ),
                           ),
-                          Icon(Icons.open_in_new_rounded, size: 20, color: colorScheme.onSurfaceVariant),
+                          Icon(
+                            Icons.open_in_new_rounded,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ],
                       ),
                     ),
@@ -939,7 +998,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         );
                       } catch (_) {}
                       if (!launched && context.mounted) {
-                        await Clipboard.setData(const ClipboardData(text: upiId));
+                        await Clipboard.setData(
+                          const ClipboardData(text: upiId),
+                        );
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
@@ -950,10 +1012,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       }
                     },
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       child: Row(
                         children: [
-                          Icon(Iconsax.card, color: colorScheme.primary, size: 24),
+                          Icon(
+                            Iconsax.card,
+                            color: colorScheme.primary,
+                            size: 24,
+                          ),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
@@ -975,7 +1044,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                               ],
                             ),
                           ),
-                          Icon(Icons.touch_app_rounded, size: 20, color: colorScheme.primary),
+                          Icon(
+                            Icons.touch_app_rounded,
+                            size: 20,
+                            color: colorScheme.primary,
+                          ),
                         ],
                       ),
                     ),

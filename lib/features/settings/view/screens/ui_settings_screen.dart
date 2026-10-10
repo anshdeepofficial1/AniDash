@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +21,8 @@ class UiSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final uiSettings = ref.watch(uiSettingsProvider);
+    final isDesktop =
+        Platform.isWindows || Platform.isLinux || Platform.isMacOS;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton.filledTonal(
@@ -28,156 +32,175 @@ class UiSettingsScreen extends ConsumerWidget {
         title: const Text('UI Settings'),
         forceMaterialTransparency: true,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(10.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SettingsSection(
-                title: 'Content Display',
-                titleColor: colorScheme.primary,
-                children: [
-                  NormalSettingsItem(
-                    icon: Icon(Iconsax.card, color: colorScheme.primary),
-                    accent: colorScheme.primary,
-                    title: 'Card Style',
-                    description: 'Customize standard anime card appearance',
-                    onTap: () => _showStyleSelector(context, ref, false),
-                  ),
-                  NormalSettingsItem(
-                    icon: Icon(Iconsax.star_1, color: colorScheme.primary),
-                    accent: colorScheme.primary,
-                    title: 'Spotlight Card Style',
-                    description: 'Customize spotlight/banner appearance',
-                    onTap: () => _showStyleSelector(context, ref, true),
-                  ),
-                  DropdownSettingsItem(
-                    icon: Icon(Iconsax.task, color: colorScheme.primary),
-                    accent: colorScheme.primary,
-                    title: 'Episode View Mode',
-                    description: 'Choose how episodes are displayed',
-                    value: uiSettings.episodeViewMode,
-                    items: const [
-                      DropdownMenuItem(value: 'list', child: Text('List')),
-                      DropdownMenuItem(
-                        value: 'compact',
-                        child: Text('Compact'),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1120),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              isDesktop ? 20 : 10,
+              isDesktop ? 16 : 10,
+              isDesktop ? 20 : 10,
+              48,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SettingsSection(
+                  title: 'Content Display',
+                  titleColor: colorScheme.primary,
+                  children: [
+                    NormalSettingsItem(
+                      icon: Icon(Iconsax.card, color: colorScheme.primary),
+                      accent: colorScheme.primary,
+                      title: 'Card Style',
+                      description: 'Customize standard anime card appearance',
+                      onTap: () => _showStyleSelector(context, ref, false),
+                    ),
+                    NormalSettingsItem(
+                      icon: Icon(Iconsax.star_1, color: colorScheme.primary),
+                      accent: colorScheme.primary,
+                      title: 'Spotlight Card Style',
+                      description: 'Customize spotlight/banner appearance',
+                      onTap: () => _showStyleSelector(context, ref, true),
+                    ),
+                    DropdownSettingsItem(
+                      icon: Icon(Iconsax.task, color: colorScheme.primary),
+                      accent: colorScheme.primary,
+                      title: 'Episode View Mode',
+                      description: 'Choose how episodes are displayed',
+                      value: uiSettings.episodeViewMode,
+                      items: const [
+                        DropdownMenuItem(value: 'list', child: Text('List')),
+                        DropdownMenuItem(
+                          value: 'compact',
+                          child: Text('Compact'),
+                        ),
+                        DropdownMenuItem(value: 'grid', child: Text('Grid')),
+                        DropdownMenuItem(value: 'block', child: Text('Block')),
+                        DropdownMenuItem(
+                          value: 'banner',
+                          child: Text('Banner'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          ref
+                              .read(uiSettingsProvider.notifier)
+                              .updateSettings(
+                                (s) => s.copyWith(episodeViewMode: value),
+                              );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                SettingsSection(
+                  title: 'Navigation Bar',
+                  titleColor: colorScheme.primary,
+                  children: [
+                    ToggleableSettingsItem(
+                      icon: Icon(Iconsax.home, color: colorScheme.primary),
+                      accent: colorScheme.primary,
+                      title: 'Home',
+                      description: 'Primary landing screen (Always enabled)',
+                      value: true,
+                      onChanged: (val) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Home tab cannot be disabled'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                    ToggleableSettingsItem(
+                      icon: Icon(
+                        Iconsax.search_normal_1,
+                        color: colorScheme.primary,
                       ),
-                      DropdownMenuItem(value: 'grid', child: Text('Grid')),
-                      DropdownMenuItem(value: 'block', child: Text('Block')),
-                      DropdownMenuItem(value: 'banner', child: Text('Banner')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
+                      accent: colorScheme.primary,
+                      title: 'Browse',
+                      description:
+                          'Discover trending, popular and seasonal anime',
+                      value: uiSettings.showBrowseNav,
+                      onChanged: (value) {
                         ref
                             .read(uiSettingsProvider.notifier)
                             .updateSettings(
-                              (s) => s.copyWith(episodeViewMode: value),
+                              (s) => s.copyWith(showBrowseNav: value),
                             );
-                      }
-                    },
-                  ),
-                ],
-              ),
-              SettingsSection(
-                title: 'Navigation Bar',
-                titleColor: colorScheme.primary,
-                children: [
-                  ToggleableSettingsItem(
-                    icon: Icon(Iconsax.home, color: colorScheme.primary),
-                    accent: colorScheme.primary,
-                    title: 'Home',
-                    description: 'Primary landing screen (Always enabled)',
-                    value: true,
-                    onChanged: (val) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Home tab cannot be disabled'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                  ),
-                  ToggleableSettingsItem(
-                    icon: Icon(Iconsax.search_normal_1, color: colorScheme.primary),
-                    accent: colorScheme.primary,
-                    title: 'Browse',
-                    description: 'Discover trending, popular and seasonal anime',
-                    value: uiSettings.showBrowseNav,
-                    onChanged: (value) {
-                      ref
-                          .read(uiSettingsProvider.notifier)
-                          .updateSettings(
-                            (s) => s.copyWith(showBrowseNav: value),
-                          );
-                    },
-                  ),
-                  ToggleableSettingsItem(
-                    icon: Icon(Iconsax.book, color: colorScheme.primary),
-                    accent: colorScheme.primary,
-                    title: 'Manga',
-                    description: 'Read manga chapters and titles',
-                    value: uiSettings.showMangaNav,
-                    onChanged: (value) {
-                      ref
-                          .read(uiSettingsProvider.notifier)
-                          .updateSettings(
-                            (s) => s.copyWith(showMangaNav: value),
-                          );
-                    },
-                  ),
-                  ToggleableSettingsItem(
-                    icon: Icon(Iconsax.receive_square, color: colorScheme.primary),
-                    accent: colorScheme.primary,
-                    title: 'Downloads',
-                    description: 'Offline episodes and manager',
-                    value: uiSettings.showDownloadsNav,
-                    onChanged: (value) {
-                      ref
-                          .read(uiSettingsProvider.notifier)
-                          .updateSettings(
-                            (s) => s.copyWith(showDownloadsNav: value),
-                          );
-                    },
-                  ),
-                  ToggleableSettingsItem(
-                    icon: Icon(Iconsax.bookmark, color: colorScheme.primary),
-                    accent: colorScheme.primary,
-                    title: 'Watchlist',
-                    description: 'Personal anime library and tracker',
-                    value: uiSettings.showWatchlistNav,
-                    onChanged: (value) {
-                      ref
-                          .read(uiSettingsProvider.notifier)
-                          .updateSettings(
-                            (s) => s.copyWith(showWatchlistNav: value),
-                          );
-                    },
-                  ),
-                ],
-              ),
-              SettingsSection(
-                title: "Responsive",
-                children: [
-                  SliderSettingsItem(
-                    icon: Icon(Iconsax.task, color: colorScheme.primary),
-                    accent: colorScheme.primary,
-                    title: 'Scale',
-                    description: "${uiSettings.scale.toStringAsFixed(1)}x",
-                    value: uiSettings.scale,
-                    min: 0.5,
-                    max: 1.5,
-                    divisions: 10,
-                    onChanged: (value) {
-                      ref
-                          .read(uiSettingsProvider.notifier)
-                          .updateSettings((s) => s.copyWith(scale: value));
-                    },
-                  ),
-                ],
-              ),
-            ],
+                      },
+                    ),
+                    ToggleableSettingsItem(
+                      icon: Icon(Iconsax.book, color: colorScheme.primary),
+                      accent: colorScheme.primary,
+                      title: 'Manga',
+                      description: 'Read manga chapters and titles',
+                      value: uiSettings.showMangaNav,
+                      onChanged: (value) {
+                        ref
+                            .read(uiSettingsProvider.notifier)
+                            .updateSettings(
+                              (s) => s.copyWith(showMangaNav: value),
+                            );
+                      },
+                    ),
+                    ToggleableSettingsItem(
+                      icon: Icon(
+                        Iconsax.receive_square,
+                        color: colorScheme.primary,
+                      ),
+                      accent: colorScheme.primary,
+                      title: 'Downloads',
+                      description: 'Offline episodes and manager',
+                      value: uiSettings.showDownloadsNav,
+                      onChanged: (value) {
+                        ref
+                            .read(uiSettingsProvider.notifier)
+                            .updateSettings(
+                              (s) => s.copyWith(showDownloadsNav: value),
+                            );
+                      },
+                    ),
+                    ToggleableSettingsItem(
+                      icon: Icon(Iconsax.bookmark, color: colorScheme.primary),
+                      accent: colorScheme.primary,
+                      title: 'Watchlist',
+                      description: 'Personal anime library and tracker',
+                      value: uiSettings.showWatchlistNav,
+                      onChanged: (value) {
+                        ref
+                            .read(uiSettingsProvider.notifier)
+                            .updateSettings(
+                              (s) => s.copyWith(showWatchlistNav: value),
+                            );
+                      },
+                    ),
+                  ],
+                ),
+                SettingsSection(
+                  title: "Responsive",
+                  children: [
+                    SliderSettingsItem(
+                      icon: Icon(Iconsax.task, color: colorScheme.primary),
+                      accent: colorScheme.primary,
+                      title: 'Scale',
+                      description: "${uiSettings.scale.toStringAsFixed(1)}x",
+                      value: uiSettings.scale,
+                      min: 0.5,
+                      max: 1.5,
+                      divisions: 10,
+                      onChanged: (value) {
+                        ref
+                            .read(uiSettingsProvider.notifier)
+                            .updateSettings((s) => s.copyWith(scale: value));
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

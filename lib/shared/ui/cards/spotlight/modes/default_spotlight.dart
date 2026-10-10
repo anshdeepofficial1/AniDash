@@ -43,7 +43,13 @@ class _DefaultSpotlightState extends State<DefaultSpotlight> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
-          transform: Matrix4.identity()..scale(_isHovered ? 1.01 : 1.0),
+          transform:
+              Matrix4.identity()..scaleByDouble(
+                _isHovered ? 1.01 : 1.0,
+                _isHovered ? 1.01 : 1.0,
+                1,
+                1,
+              ),
           decoration: BoxDecoration(
             borderRadius: borderRadius,
             boxShadow: [
