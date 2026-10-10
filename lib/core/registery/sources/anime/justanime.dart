@@ -270,7 +270,7 @@ class JustAnimeProvider extends AnimeProvider {
       try {
         final response = await UniversalHttpClient.instance
             .get(Uri.parse('$apiUrl$path'), headers: headers)
-            .timeout(const Duration(seconds: 10));
+            .timeout(const Duration(seconds: 6));
         if (response.statusCode < 200 || response.statusCode >= 300) {
           return null;
         }
@@ -447,9 +447,10 @@ class JustAnimeProvider extends AnimeProvider {
       endpoints.add('/watch/$animeId/episode/$episode/animegg');
     }
 
-    // Priority order tuned for high-speed & reliable playback (Megaplay & Zoko first):
+    // Priority order tuned for high-speed & reliable playback (Megaplay & default API first):
     final priorityEndpoints = [
       '/watch/$animeId/episode/$episode/megaplay',
+      '/watch/$animeId/episode/$episode',
       '/watch/$animeId/episode/$episode/zokoanime',
       if (requestedAudio == 'dub') ...[
         '/watch/$animeId/episode/$episode/animegg',
@@ -479,7 +480,7 @@ class JustAnimeProvider extends AnimeProvider {
       inFlight++;
 
       request(ep)
-          .timeout(const Duration(seconds: 12))
+          .timeout(const Duration(seconds: 8))
           .then((payload) {
             final model = parseSource(ep, payload);
             if (model != null) {
@@ -530,7 +531,7 @@ class JustAnimeProvider extends AnimeProvider {
     // penalty when its DNS, TLS, or extraction endpoint is delayed.
     Timer? hedgeTimer;
     if (endpoints.length > 1) {
-      hedgeTimer = Timer(const Duration(milliseconds: 400), () {
+      hedgeTimer = Timer(const Duration(milliseconds: 250), () {
         if (!isDone && inFlight < 2 && nextIndex < endpoints.length) {
           spawnNext();
         }
@@ -538,7 +539,7 @@ class JustAnimeProvider extends AnimeProvider {
     }
 
     var resolvedModel = await completer.future.timeout(
-      const Duration(seconds: 20),
+      const Duration(seconds: 10),
       onTimeout: () => null,
     );
     hedgeTimer?.cancel();

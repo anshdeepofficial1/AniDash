@@ -23,6 +23,7 @@ class _FloatingSkipButtonOverlayState
   int? _lastEpisode;
   bool _introDismissed = false;
   bool _outroDismissed = false;
+  bool _recapDismissed = false;
   Timer? _visibilityTimer;
   String? _visibleRangeKey;
   late final AnimationController _countdownController;
@@ -43,7 +44,7 @@ class _FloatingSkipButtonOverlayState
     super.dispose();
   }
 
-  void _showBriefly(String key, {required bool intro}) {
+  void _showBriefly(String key, {required String type}) {
     if (_visibleRangeKey == key) return;
     _visibleRangeKey = key;
     _visibilityTimer?.cancel();
@@ -53,8 +54,10 @@ class _FloatingSkipButtonOverlayState
     _visibilityTimer = Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
       setState(() {
-        if (intro) {
+        if (type == 'intro') {
           _introDismissed = true;
+        } else if (type == 'recap') {
+          _recapDismissed = true;
         } else {
           _outroDismissed = true;
         }
@@ -79,6 +82,7 @@ class _FloatingSkipButtonOverlayState
       _lastEpisode = currentEp;
       _introDismissed = false;
       _outroDismissed = false;
+      _recapDismissed = false;
       _visibleRangeKey = null;
       _visibilityTimer?.cancel();
     }
@@ -118,6 +122,7 @@ class _FloatingSkipButtonOverlayState
           currentSkip.skipType == SkipType.ed ||
           (currentSkip.skipType == SkipType.mixed &&
               currentSkip.interval!.startTime >= 480);
+      final isRecap = currentSkip.skipType == SkipType.recap;
       final isSourceVerified =
           currentSkip.skipId?.startsWith('source-') ?? false;
       final durationMatches =
@@ -128,7 +133,7 @@ class _FloatingSkipButtonOverlayState
           currentSkip.skipId?.isNotEmpty == true ||
           durationMatches;
       final plausiblePlacement =
-          (isOp && currentSkip.interval!.startTime <= 300) ||
+          ((isOp || isRecap) && currentSkip.interval!.startTime <= 360) ||
           (isEd &&
               dur.inSeconds > 0 &&
               currentSkip.interval!.startTime >= dur.inSeconds * .60 &&
@@ -141,7 +146,7 @@ class _FloatingSkipButtonOverlayState
       if (isOp && !_introDismissed) {
         _showBriefly(
           '${currentEp}_intro_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
-          intro: true,
+          type: 'intro',
         );
         label = 'Skip Intro';
         onSkip = () {
@@ -152,10 +157,24 @@ class _FloatingSkipButtonOverlayState
           ref.read(playerStateProvider.notifier).seek(target);
           ref.read(playerUIControllerProvider.notifier).restartHideTimer();
         };
+      } else if (isRecap && !_recapDismissed) {
+        _showBriefly(
+          '${currentEp}_recap_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
+          type: 'recap',
+        );
+        label = 'Skip Recap';
+        onSkip = () {
+          setState(() => _recapDismissed = true);
+          final target = Duration(
+            seconds: currentSkip.interval!.endTime.toInt() + 1,
+          );
+          ref.read(playerStateProvider.notifier).seek(target);
+          ref.read(playerUIControllerProvider.notifier).restartHideTimer();
+        };
       } else if (isEd && !_outroDismissed) {
         _showBriefly(
           '${currentEp}_outro_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
-          intro: false,
+          type: 'outro',
         );
         label = 'Skip Outro';
         onSkip = () {

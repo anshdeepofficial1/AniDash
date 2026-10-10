@@ -1,41 +1,27 @@
-# AniDash v1.19.3 — Windows Desktop Quality & Playback Reliability
+# AniDash v1.19.4 — Fast Stream Resolution, Auto-Skip Recap & Mobile Layout Restoration
 
-This release focuses on making AniDash feel native and dependable on Windows while preserving the familiar poster artwork and mobile experience.
+This release resolves JustAnime stream loading issues, restores instant multi-source failover, recovers the mobile bottom navigation bar on anime details, adds automatic recap skipping, and restores the 100-second video playback readahead buffer.
 
 ## What's New & Fixed
 
-- **Desktop-first interface polish**
-  - Refined the Windows navigation rail, spacing, hover states, page widths, and settings layout.
-  - Removed duplicate settings headers and eliminated clipped cards in Home, Browse, and Manga sections.
-  - Desktop spotlight sections now use the available window width cleanly while poster artwork keeps its original portrait ratio.
+- **Fast JustAnime Stream Resolution**
+  - Prioritized direct high-performance endpoints (`/watch/:id/episode/:ep/megaplay` and `/watch/:id/episode/:ep`) for sub and dub streams.
+  - Eliminated infinite loading spinners with aggressive 6-second timeouts and fast 250ms hedging across stream probes.
 
-- **Reliable source selection, auto-failover, and playback**
-  - The selected native provider or extension is now respected throughout server and stream resolution.
-  - Automatic seamless failover to alternative pre-installed native providers (HiAnime, AniKoto, JustAnime) if the active source times out or fails.
-  - Provider-specific caches prevent stale JustAnime results from appearing after the user changes source.
-  - Eliminated the startup volume overlay flicker when opening the video player.
-  - Improved request invalidation, playback controls, and PiP background streaming stability.
+- **Non-blocking Multi-Source Failover**
+  - Instant concurrent fallback when primary or external providers (such as HiAnime or AniKoto) are slow or unreachable.
+  - Reduced individual probe timeouts so playback begins in seconds instead of hanging on the loading screen.
 
-- **Cross-device watch progress synchronization (Android ⇄ Windows ⇄ macOS)**
-  - Seamlessly syncs exact episode numbers and second-level timestamps across devices via tracker notes.
-  - Automatically restores exact progress into 'Continue Watching' and local history upon opening the app on any platform.
+- **High-Performance Video Playback & Buffering**
+  - Restored 100-second readahead buffer (`demuxer-readahead-secs: 100`) and 600-second cache time.
+  - Buffer memory clamped to 100MB–256MB with instant startup (`cache-pause-initial: no`), ensuring zero stutter and instant seek response.
 
-- **Responsive player UI & dedicated episode actions**
-  - Redesigned player side sheet into an ergonomic modal bottom sheet on mobile portrait mode and clamped drawer on landscape/desktop.
-  - Separated video player stream settings from portrait episode actions (mark watched/unwatched, jump to timestamp, share episode, synopsis, cache clear).
+- **Auto-Skip Recap, OP & ED**
+  - Integrated full automatic skipping for "Recap / Previously-on" segments in addition to Opening and Ending themes.
+  - Added dedicated "Skip Recap" floating overlay button and labeled recap markers on the playback seekbar.
 
-- **Safer updates and local data**
-  - Windows downloads now receive SHA-256 verification when a checksum is supplied.
-  - Downloads can be cancelled cleanly from the update dialog.
-  - A temporary Hive open failure no longer deletes the user's stored data.
+- **Mobile Navigation Bar Restored on Details Screen**
+  - Restored 'About', 'Episodes', and 'Characters' navigation tabs to the bottom navigation bar on Android and iOS.
+  - Preserved sticky inline header exclusively for desktop platforms (Windows and macOS).
 
-- **Authentication and security hardening**
-  - AniList desktop OAuth now validates a cryptographically random state value.
-  - Removed the embedded AniList client-secret fallback; release credentials are injected at build time.
-
-- **Maintenance and compatibility**
-  - Updated deprecated Flutter APIs and resolved all analyzer findings.
-  - Unified Windows installer identity to preserve upgrades across versions.
-  - Improved asynchronous file logging and fixed duplicate movie metadata labels.
-
-**Version:** 1.19.3 (127)
+**Version:** 1.19.4 (128)

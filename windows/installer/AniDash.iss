@@ -5,7 +5,7 @@
 [Setup]
 AppId={{0516D984-72BF-47D4-BFBC-B2B8FD563479}
 AppName={#MyAppName}
-AppVersion=1.19.3
+AppVersion=1.19.4
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\AniDash
 DefaultGroupName=AniDash

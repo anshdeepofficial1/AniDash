@@ -478,14 +478,14 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
                     null,
                     1,
                   )
-                  .timeout(const Duration(seconds: 20));
+                  .timeout(const Duration(seconds: 6));
               final altMatch = searchResults.results.firstOrNull;
               matchId = altMatch?.id;
             }
             if (matchId != null && matchId.isNotEmpty) {
               final altResult = await altProvider
                   .getEpisodes(matchId)
-                  .timeout(const Duration(seconds: 15));
+                  .timeout(const Duration(seconds: 8));
               final altEps = altResult.episodes ?? [];
               if (altEps.isNotEmpty) {
                 AppLogger.success(
