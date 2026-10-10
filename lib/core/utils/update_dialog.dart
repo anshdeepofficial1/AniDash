@@ -41,6 +41,8 @@ class _UpdateDialogState extends State<UpdateDialog>
   bool _error = false;
   String? _downloadedApkPath;
   bool _awaitingInstallPermission = false;
+  http.Client? _activeClient;
+  bool _cancelRequested = false;
 
   final String _linuxCmd =
       'bash <(curl -fsSL https://raw.githubusercontent.com/anshdeepofficial1/AniDash/main/install.sh)';
@@ -53,8 +55,21 @@ class _UpdateDialogState extends State<UpdateDialog>
 
   @override
   void dispose() {
+    _cancelRequested = true;
+    _activeClient?.close();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _cancelDownload() {
+    _cancelRequested = true;
+    _activeClient?.close();
+    if (!mounted) return;
+    setState(() {
+      _downloading = false;
+      _progress = 0;
+      _statusMessage = 'Download cancelled.';
+    });
   }
 
   @override
@@ -116,6 +131,7 @@ class _UpdateDialogState extends State<UpdateDialog>
 
   Future<void> _downloadAndInstall(String downloadUrl) async {
     setState(() {
+      _cancelRequested = false;
       _downloading = true;
       _progress = 0;
       _statusMessage = "Starting download...";
@@ -123,15 +139,17 @@ class _UpdateDialogState extends State<UpdateDialog>
     });
 
     final client = http.Client();
+    _activeClient = client;
     try {
       Directory? dir;
-      if (Platform.isAndroid) {
+      if (Platform.isAndroid || Platform.isWindows) {
         try {
           dir = await getExternalStorageDirectory();
         } catch (_) {}
       }
       dir ??= await getTemporaryDirectory();
-      final ext = Platform.isWindows ? 'exe' : (Platform.isMacOS ? 'dmg' : 'apk');
+      final ext =
+          Platform.isWindows ? 'exe' : (Platform.isMacOS ? 'dmg' : 'apk');
       final savePath = '${dir.path}/AniDash-Update.$ext';
       final file = File(savePath);
       if (await file.exists()) await file.delete();
@@ -186,17 +204,18 @@ class _UpdateDialogState extends State<UpdateDialog>
         if (expected == null || expected.isEmpty) {
           await file.delete();
           throw const FormatException(
-            'This release has no verifiable APK SHA-256 digest.',
+            'This release has no verifiable SHA-256 digest.',
           );
         }
         final actual = sha256.convert(await file.readAsBytes()).toString();
         if (actual != expected) {
           await file.delete();
-          throw const FormatException('APK integrity verification failed.');
+          throw const FormatException('Update integrity verification failed.');
         }
       }
       await _launchInstaller(savePath);
     } catch (e) {
+      if (_cancelRequested) return;
       if (mounted) {
         setState(() {
           _error = true;
@@ -206,6 +225,7 @@ class _UpdateDialogState extends State<UpdateDialog>
       }
     } finally {
       client.close();
+      if (identical(_activeClient, client)) _activeClient = null;
     }
   }
 
@@ -219,11 +239,7 @@ class _UpdateDialogState extends State<UpdateDialog>
           });
         }
         // Launch installer detached so it stays running after AniDash exits
-        await Process.start(
-          savePath,
-          [],
-          mode: ProcessStartMode.detached,
-        );
+        await Process.start(savePath, [], mode: ProcessStartMode.detached);
         // Allow the installer process to spawn, then exit AniDash cleanly so files are not locked
         await Future.delayed(const Duration(milliseconds: 600));
         exit(0);
@@ -296,7 +312,8 @@ class _UpdateDialogState extends State<UpdateDialog>
             ? colorScheme.error
             : colorScheme.tertiary;
 
-    final isDesktop = MediaQuery.sizeOf(context).width > 700 ||
+    final isDesktop =
+        MediaQuery.sizeOf(context).width > 700 ||
         Platform.isWindows ||
         Platform.isMacOS ||
         Platform.isLinux;
@@ -312,12 +329,13 @@ class _UpdateDialogState extends State<UpdateDialog>
         decoration: BoxDecoration(
           color: colorScheme.surface,
           borderRadius: BorderRadius.circular(24),
-          border: isDesktop
-              ? Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-                  width: 1.2,
-                )
-              : null,
+          border:
+              isDesktop
+                  ? Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+                    width: 1.2,
+                  )
+                  : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.25),
@@ -466,7 +484,9 @@ class _UpdateDialogState extends State<UpdateDialog>
                 margin: const EdgeInsets.symmetric(horizontal: 24),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                  color: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.45,
+                  ),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: colorScheme.outlineVariant.withValues(alpha: 0.3),
@@ -488,7 +508,9 @@ class _UpdateDialogState extends State<UpdateDialog>
                           decoration: BoxDecoration(
                             color: colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: colorScheme.outlineVariant),
+                            border: Border.all(
+                              color: colorScheme.outlineVariant,
+                            ),
                           ),
                           child: Text(
                             _linuxCmd,
@@ -511,8 +533,11 @@ class _UpdateDialogState extends State<UpdateDialog>
                       const SizedBox(height: 8),
                       MarkdownBody(
                         data:
-                            widget.releaseNotes ?? "No release notes available.",
-                        styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+                            widget.releaseNotes ??
+                            "No release notes available.",
+                        styleSheet: MarkdownStyleSheet.fromTheme(
+                          theme,
+                        ).copyWith(
                           p: theme.textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurface,
                             height: 1.45,
@@ -564,7 +589,13 @@ class _UpdateDialogState extends State<UpdateDialog>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        if (!_downloading && _downloadedApkPath == null)
+                        if (_downloading)
+                          TextButton.icon(
+                            onPressed: _cancelDownload,
+                            icon: const Icon(Icons.close_rounded, size: 16),
+                            label: const Text('Cancel download'),
+                          )
+                        else if (_downloadedApkPath == null)
                           TextButton(
                             onPressed: () => Navigator.pop(context),
                             child: const Text('Remind Me Later'),
@@ -574,11 +605,12 @@ class _UpdateDialogState extends State<UpdateDialog>
                         Row(
                           children: [
                             OutlinedButton.icon(
-                              onPressed: () => launchUrl(
-                                Uri.parse(
-                                  'https://github.com/anshdeepofficial1/AniDash/releases',
-                                ),
-                              ),
+                              onPressed:
+                                  () => launchUrl(
+                                    Uri.parse(
+                                      'https://github.com/anshdeepofficial1/AniDash/releases',
+                                    ),
+                                  ),
                               icon: const Icon(Icons.code_rounded, size: 16),
                               label: const Text('GitHub'),
                               style: OutlinedButton.styleFrom(
@@ -618,8 +650,8 @@ class _UpdateDialogState extends State<UpdateDialog>
                                       : (_downloadedApkPath != null &&
                                               Platform.isAndroid
                                           ? () => _launchInstaller(
-                                              _downloadedApkPath!,
-                                            )
+                                            _downloadedApkPath!,
+                                          )
                                           : _handleUpdateAction),
                               style: FilledButton.styleFrom(
                                 backgroundColor: statusColor,
@@ -663,7 +695,8 @@ class _UpdateDialogState extends State<UpdateDialog>
                                 ? null
                                 : (_downloadedApkPath != null &&
                                         Platform.isAndroid
-                                    ? () => _launchInstaller(_downloadedApkPath!)
+                                    ? () =>
+                                        _launchInstaller(_downloadedApkPath!)
                                     : _handleUpdateAction),
                         style: FilledButton.styleFrom(
                           backgroundColor: statusColor,
@@ -693,12 +726,16 @@ class _UpdateDialogState extends State<UpdateDialog>
                                 );
                                 await prefs.setString(
                                   'remind_update_version',
-                                  widget.latestVersion.replaceAll('v', '').trim(),
+                                  widget.latestVersion
+                                      .replaceAll('v', '')
+                                      .trim(),
                                 );
                                 if (context.mounted) Navigator.pop(context);
                               },
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -721,12 +758,16 @@ class _UpdateDialogState extends State<UpdateDialog>
                                 );
                                 await prefs.setString(
                                   'remind_update_version',
-                                  widget.latestVersion.replaceAll('v', '').trim(),
+                                  widget.latestVersion
+                                      .replaceAll('v', '')
+                                      .trim(),
                                 );
                                 if (context.mounted) Navigator.pop(context);
                               },
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -763,11 +804,12 @@ class _VersionBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final platformTag = Platform.isWindows
-        ? 'Windows .exe'
-        : (Platform.isMacOS
-            ? 'macOS .dmg'
-            : (Platform.isLinux ? 'Linux' : 'Android'));
+    final platformTag =
+        Platform.isWindows
+            ? 'Windows .exe'
+            : (Platform.isMacOS
+                ? 'macOS .dmg'
+                : (Platform.isLinux ? 'Linux' : 'Android'));
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),

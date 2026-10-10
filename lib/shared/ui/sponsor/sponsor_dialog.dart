@@ -33,11 +33,7 @@ class SponsorDialog extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        child: const Icon(
-          Iconsax.coffee,
-          color: Color(0xFFFFDD00),
-          size: 34,
-        ),
+        child: const Icon(Iconsax.coffee, color: Color(0xFFFFDD00), size: 34),
       ),
       title: const Text(
         'Sponsor AniDash 💖☕',
@@ -81,6 +77,7 @@ class SponsorDialog extends StatelessWidget {
                   } catch (_) {}
                   if (!launched && context.mounted) {
                     await Clipboard.setData(const ClipboardData(text: upiId));
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
@@ -251,6 +248,7 @@ class SponsorDialog extends StatelessWidget {
             } catch (_) {}
             if (!launched && context.mounted) {
               await Clipboard.setData(const ClipboardData(text: upiId));
+              if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text(

@@ -198,11 +198,15 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       );
 
       // Typo-tolerant / Fuzzy fallback: If 0 results found on page 1, try fuzzy correction
-      if (page == 1 && effectiveResults.isEmpty && searchWord.trim().isNotEmpty) {
+      if (page == 1 &&
+          effectiveResults.isEmpty &&
+          searchWord.trim().isNotEmpty) {
         final fuzzyCorrection = _findFuzzyCorrection(searchWord);
         if (fuzzyCorrection != null &&
             fuzzyCorrection.toLowerCase() != searchWord.trim().toLowerCase()) {
-          AppLogger.d("Fuzzy search correcting '$searchWord' -> '$fuzzyCorrection'");
+          AppLogger.d(
+            "Fuzzy search correcting '$searchWord' -> '$fuzzyCorrection'",
+          );
           final fuzzyRes = await _repo.searchAnime(
             fuzzyCorrection,
             page: 1,
@@ -215,7 +219,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               setState(() => _fuzzySuggestion = fuzzyCorrection);
             }
           } else {
-            final jikanFuzzy = await JikanService().searchUniversal(fuzzyCorrection);
+            final jikanFuzzy = await JikanService().searchUniversal(
+              fuzzyCorrection,
+            );
             if (jikanFuzzy.isNotEmpty) {
               effectiveResults = List<UniversalMedia>.from(jikanFuzzy);
               if (mounted && generation == _searchGeneration) {
@@ -358,7 +364,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       v1[0] = i + 1;
       for (var j = 0; j < t.length; j++) {
         final cost = s[i] == t[j] ? 0 : 1;
-        v1[j + 1] = [v1[j] + 1, v0[j + 1] + 1, v0[j] + cost].reduce((a, b) => a < b ? a : b);
+        v1[j + 1] = [
+          v1[j] + 1,
+          v0[j + 1] + 1,
+          v0[j] + cost,
+        ].reduce((a, b) => a < b ? a : b);
       }
       final temp = v0;
       v0 = v1;
@@ -583,83 +593,87 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
         body: Column(
-        children: [
-          _Header(
-            controller: _searchController,
-            animation: _animationController,
-            onSearch: _submitSearch,
-            onFocusChange:
-                (focused) => setState(() => _isSearchFocused = focused),
-            isSearchFocused: _isSearchFocused,
-            onSearchChanged: _onSearchChanged,
-            onFilter: _openFilter,
-            hasFilter: !_currentFilter.isEmpty,
-          ),
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child:
-                      (!_isSearchSubmitted && _currentFilter.isEmpty)
-                          ? _ExploreView(
-                            trending: _trending,
-                            popular: _popular,
-                            upcoming: _upcoming,
-                            isLoading: _isExploreLoading,
-                            onRetry: _fetchExploreData,
-                          )
-                          : _results.isEmpty && !_isLoading
-                          ? _EmptyState(fuzzySuggestion: _fuzzySuggestion)
-                          : _results.isEmpty && _isLoading
-                          ? const _BrowseLoadingSkeleton()
-                          : _ResultsGrid(
-                            results: _results,
-                            scrollController: _scrollController,
-                            columnCount: _getColumnCount(),
-                            isLoading: _isLoading,
-                            animation: _animationController,
-                            fuzzySuggestion: _fuzzySuggestion,
-                            onApplySuggestion: (suggested) {
-                              _searchController.text = suggested;
-                              _submitSearch();
-                            },
-                          ),
-                ),
-                if (_isSearchFocused && _suggestions.isNotEmpty)
-                  Positioned(
-                    top: 0,
-                    left: 10,
-                    right: 10,
-                    child: Material(
-                      elevation: 8,
-                      shadowColor: Colors.black54,
-                      borderRadius: BorderRadius.circular(16),
-                      color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                      child: ClipRRect(
+          children: [
+            _Header(
+              controller: _searchController,
+              animation: _animationController,
+              onSearch: _submitSearch,
+              onFocusChange:
+                  (focused) => setState(() => _isSearchFocused = focused),
+              isSearchFocused: _isSearchFocused,
+              onSearchChanged: _onSearchChanged,
+              onFilter: _openFilter,
+              hasFilter: !_currentFilter.isEmpty,
+            ),
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child:
+                        (!_isSearchSubmitted && _currentFilter.isEmpty)
+                            ? _ExploreView(
+                              trending: _trending,
+                              popular: _popular,
+                              upcoming: _upcoming,
+                              isLoading: _isExploreLoading,
+                              onRetry: _fetchExploreData,
+                            )
+                            : _results.isEmpty && !_isLoading
+                            ? _EmptyState(fuzzySuggestion: _fuzzySuggestion)
+                            : _results.isEmpty && _isLoading
+                            ? const _BrowseLoadingSkeleton()
+                            : _ResultsGrid(
+                              results: _results,
+                              scrollController: _scrollController,
+                              columnCount: _getColumnCount(),
+                              isLoading: _isLoading,
+                              animation: _animationController,
+                              fuzzySuggestion: _fuzzySuggestion,
+                              onApplySuggestion: (suggested) {
+                                _searchController.text = suggested;
+                                _submitSearch();
+                              },
+                            ),
+                  ),
+                  if (_isSearchFocused && _suggestions.isNotEmpty)
+                    Positioned(
+                      top: 0,
+                      left: 10,
+                      right: 10,
+                      child: Material(
+                        elevation: 8,
+                        shadowColor: Colors.black54,
                         borderRadius: BorderRadius.circular(16),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 320),
-                          child: _SearchSuggestions(
-                            items: _suggestions,
-                            history: _searchHistory.toSet(),
-                            onSelected: _selectSuggestion,
-                            onClear: () async {
-                              await sharedPrefs.setStringList(_historyKey, []);
-                              setState(() => _searchHistory = []);
-                            },
+                        color:
+                            Theme.of(context).colorScheme.surfaceContainerHigh,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 320),
+                            child: _SearchSuggestions(
+                              items: _suggestions,
+                              history: _searchHistory.toSet(),
+                              onSelected: _selectSuggestion,
+                              onClear: () async {
+                                await sharedPrefs.setStringList(
+                                  _historyKey,
+                                  [],
+                                );
+                                setState(() => _searchHistory = []);
+                              },
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 class _SearchSuggestions extends StatelessWidget {
@@ -926,9 +940,9 @@ class _ResultsGrid extends ConsumerWidget {
                     opacity: animation.value,
                     child: Text(
                       '${results.length} Results',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   );
                 },
@@ -936,9 +950,14 @@ class _ResultsGrid extends ConsumerWidget {
               if (fuzzySuggestion != null) ...[
                 const SizedBox(height: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -1191,6 +1210,7 @@ class _HorizontalSection extends ConsumerWidget {
 
     final mode = ref.watch(uiSettingsProvider).cardStyle;
     final size = mode.getDimensions(context);
+    final isDesktop = MediaQuery.sizeOf(context).width >= 1000;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1244,26 +1264,72 @@ class _HorizontalSection extends ConsumerWidget {
             ],
           ),
         ),
-        SizedBox(
-          height: size.height,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            scrollDirection: Axis.horizontal,
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final anime = items[index];
-              final tag = 'browse-$title-${anime.id}';
-              return SizedBox(
-                width: size.width,
-                child: GestureDetector(
-                  onTap: () => navigateToDetail(context, anime, tag),
-                  child: AnimeCard(anime: anime, mode: mode, tag: tag),
+        if (isDesktop)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = (constraints.maxWidth / (size.width + 12))
+                  .floor()
+                  .clamp(4, 8);
+              final visibleItems = items.take(columns).toList();
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (
+                      var index = 0;
+                      index < visibleItems.length;
+                      index++
+                    ) ...[
+                      Expanded(
+                        child: AspectRatio(
+                          aspectRatio: size.width / size.height,
+                          child: GestureDetector(
+                            onTap: () {
+                              final anime = visibleItems[index];
+                              navigateToDetail(
+                                context,
+                                anime,
+                                'browse-$title-${anime.id}',
+                              );
+                            },
+                            child: AnimeCard(
+                              anime: visibleItems[index],
+                              mode: mode,
+                              tag: 'browse-$title-${visibleItems[index].id}',
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (index != visibleItems.length - 1)
+                        const SizedBox(width: 12),
+                    ],
+                  ],
                 ),
               );
             },
+          )
+        else
+          SizedBox(
+            height: size.height,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              scrollDirection: Axis.horizontal,
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final anime = items[index];
+                final tag = 'browse-$title-${anime.id}';
+                return SizedBox(
+                  width: size.width,
+                  child: GestureDetector(
+                    onTap: () => navigateToDetail(context, anime, tag),
+                    child: AnimeCard(anime: anime, mode: mode, tag: tag),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
         const SizedBox(height: 16),
       ],
     );

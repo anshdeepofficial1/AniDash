@@ -14,13 +14,17 @@ void main() {
     });
 
     test('desktop keeps the authorization-code redirect URI', () {
-      final uri = AniListAuthService().buildAuthorizationUri(desktop: true);
+      final uri = AniListAuthService().buildAuthorizationUri(
+        desktop: true,
+        state: 'expected-state',
+      );
 
       expect(uri.queryParameters['response_type'], 'code');
       expect(
         uri.queryParameters['redirect_uri'],
         'http://localhost:43824/success?code=1337',
       );
+      expect(uri.queryParameters['state'], 'expected-state');
     });
   });
 }

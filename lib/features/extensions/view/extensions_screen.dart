@@ -248,7 +248,7 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       DropdownButtonFormField<ItemType>(
-                        value: selectedType,
+                        initialValue: selectedType,
                         decoration: const InputDecoration(
                           labelText: 'Extension Type',
                         ),

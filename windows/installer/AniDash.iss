@@ -3,9 +3,9 @@
 #define MyAppExeName "AniDash.exe"
 
 [Setup]
-AppId={{36E49B50-7D47-4D95-9A79-5DC6274C1871}
+AppId={{0516D984-72BF-47D4-BFBC-B2B8FD563479}
 AppName={#MyAppName}
-AppVersion=1.17.0
+AppVersion=1.19.3
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\AniDash
 DefaultGroupName=AniDash

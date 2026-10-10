@@ -81,17 +81,18 @@ String? formatEpisodeText({
   final totalEpisodes = anime?.episodes;
   final hasTotal = totalEpisodes != null && totalEpisodes > 0;
   final currentProgress = progress;
-  final isMovie = anime?.format?.toUpperCase() == 'MOVIE' ||
+  final isMovie =
+      anime?.format?.toUpperCase() == 'MOVIE' ||
       (anime != null &&
           (anime.episodes == 1 || anime.episodes == null) &&
           (anime.title.userPreferred.toLowerCase().contains('the very final') ||
               anime.title.userPreferred.toLowerCase().contains('movie') ||
               anime.title.userPreferred.toLowerCase().contains('film')));
 
-  // Movies are single playable titles, not one-episode series. Keep this
-  // distinction visible everywhere the shared card metadata is used.
+  // The dedicated season badge already renders movies as "M". Repeating
+  // "MOVIE" in the metadata row wastes scarce card space on desktop.
   if (isMovie) {
-    return 'MOVIE';
+    return null;
   }
 
   if (currentProgress != null && currentProgress > 0) {

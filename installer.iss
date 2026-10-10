@@ -1,12 +1,12 @@
 [Setup]
-AppId={{032B25E0-0713-4B9E-B19E-B23B15B9A60C}}
+AppId={{0516D984-72BF-47D4-BFBC-B2B8FD563479}}
 AppName=AniDash
-AppVersion=1.19.2
+AppVersion=1.19.3
 AppPublisher=Anshdeep Singh
 DefaultDirName={autopf}\AniDash
 DefaultGroupName=AniDash
 OutputDir=build\windows\x64\installer
-OutputBaseFilename=AniDash-v1.19.2-Setup
+OutputBaseFilename=AniDash-v1.19.3-Setup
 SetupIconFile=windows\runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\AniDash.exe
 Compression=lzma
@@ -35,13 +35,3 @@ Name: "{autodesktop}\AniDash"; Filename: "{app}\AniDash.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\AniDash.exe"; Description: "{cm:LaunchProgram,AniDash}"; Flags: nowait postinstall skipifsilent
-
-[Code]
-function InitializeSetup(): Boolean;
-var
-  ErrorCode: Integer;
-begin
-  Result := True;
-  // Automatically terminate any running AniDash instance before updating
-  ShellExec('open', 'taskkill.exe', '/F /IM AniDash.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ErrorCode);
-end;

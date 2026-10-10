@@ -114,27 +114,28 @@ class _ExtensionPreferenceScreenState
                         return AlertDialog(
                           title: Text(pref.title ?? ""),
                           content: SingleChildScrollView(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: List.generate(entries.length, (index) {
-                                return RadioListTile<int>(
-                                  title: Text(entries[index]),
-                                  value: index,
-                                  groupValue: pref.valueIndex,
-                                  onChanged: (value) {
-                                    Navigator.pop(context);
-                                    if (value != null) {
-                                      setState(() {
-                                        pref.valueIndex = value;
-                                      });
-                                      widget.source.methods.setPreference(
-                                        e,
-                                        pref.entryValues![value],
-                                      );
-                                    }
-                                  },
+                            child: RadioGroup<int>(
+                              groupValue: pref.valueIndex,
+                              onChanged: (value) {
+                                Navigator.pop(context);
+                                if (value == null) return;
+                                setState(() => pref.valueIndex = value);
+                                widget.source.methods.setPreference(
+                                  e,
+                                  pref.entryValues![value],
                                 );
-                              }),
+                              },
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: List.generate(entries.length, (
+                                  index,
+                                ) {
+                                  return RadioListTile<int>(
+                                    title: Text(entries[index]),
+                                    value: index,
+                                  );
+                                }),
+                              ),
                             ),
                           ),
                           actions: [

@@ -28,8 +28,8 @@ class DesktopSidebarCollapsedNotifier extends Notifier<bool> {
 
 final desktopSidebarCollapsedProvider =
     NotifierProvider<DesktopSidebarCollapsedNotifier, bool>(
-  DesktopSidebarCollapsedNotifier.new,
-);
+      DesktopSidebarCollapsedNotifier.new,
+    );
 
 class DesktopAdaptiveScaffold extends ConsumerWidget {
   final Widget child;
@@ -47,7 +47,9 @@ class DesktopAdaptiveScaffold extends ConsumerWidget {
     if (path.startsWith('/news')) return 'Anime News';
     if (path.startsWith('/extensions')) return 'Extensions';
     if (path.startsWith('/ai') || path.startsWith('/c/')) return 'AniCore AI';
-    if (path.startsWith('/details') || path.startsWith('/anime/')) return 'Anime Details';
+    if (path.startsWith('/details') || path.startsWith('/anime/')) {
+      return 'Anime Details';
+    }
     if (path == '/settings') return 'Settings';
     if (path == '/settings/ui') return 'Appearance & UI';
     if (path == '/settings/theme') return 'Theme & Colors';
@@ -80,8 +82,12 @@ class DesktopAdaptiveScaffold extends ConsumerWidget {
     if (path.startsWith('/notifications')) return Iconsax.notification;
     if (path.startsWith('/news')) return Iconsax.document_text;
     if (path.startsWith('/extensions')) return Iconsax.box;
-    if (path.startsWith('/ai') || path.startsWith('/c/')) return Iconsax.magicpen;
-    if (path.startsWith('/details') || path.startsWith('/anime/')) return Iconsax.video;
+    if (path.startsWith('/ai') || path.startsWith('/c/')) {
+      return Iconsax.magicpen;
+    }
+    if (path.startsWith('/details') || path.startsWith('/anime/')) {
+      return Iconsax.video;
+    }
     if (path == '/settings/ui') return Iconsax.element_3;
     if (path == '/settings/theme') return Iconsax.colorfilter;
     if (path == '/settings/player') return Iconsax.video_play;
@@ -110,6 +116,7 @@ class DesktopAdaptiveScaffold extends ConsumerWidget {
 
     final isCollapsed = ref.watch(desktopSidebarCollapsedProvider);
     final currentRoute = GoRouterState.of(context).matchedLocation;
+    final childOwnsTopBar = currentRoute.startsWith('/settings');
 
     return DesktopGestureAndShortcutsWrapper(
       child: Scaffold(
@@ -131,10 +138,11 @@ class DesktopAdaptiveScaffold extends ConsumerWidget {
             Expanded(
               child: Column(
                 children: [
-                  MacDesktopTopBar(
-                    title: getTitleForRoute(currentRoute),
-                    icon: getIconForRoute(currentRoute),
-                  ),
+                  if (!childOwnsTopBar)
+                    MacDesktopTopBar(
+                      title: getTitleForRoute(currentRoute),
+                      icon: getIconForRoute(currentRoute),
+                    ),
                   Expanded(
                     child: KeyedSubtree(
                       key: ValueKey('view_$currentRoute'),
@@ -251,10 +259,7 @@ class _DesktopGestureAndShortcutsWrapperState
           const SingleActivator(LogicalKeyboardKey.browserBack):
               () => _handleBack(context),
         },
-        child: Focus(
-          autofocus: true,
-          child: widget.child,
-        ),
+        child: Focus(autofocus: true, child: widget.child),
       ),
     );
   }

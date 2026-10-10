@@ -233,10 +233,7 @@ class _MangaReaderScreenState extends ConsumerState<MangaReaderScreen> {
         final targetOffset =
             targetFraction * _scrollController.position.maxScrollExtent;
         _scrollController.jumpTo(
-          targetOffset.clamp(
-            0.0,
-            _scrollController.position.maxScrollExtent,
-          ),
+          targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
         );
       }
     });
@@ -281,24 +278,28 @@ class _MangaReaderScreenState extends ConsumerState<MangaReaderScreen> {
       },
       itemBuilder: (context, index) {
         final first = twoPage ? (index * 2) : index;
-        final pageWidget = !twoPage
-            ? _pageImage(_pages[first], first)
-            : Row(
-                children: [
-                  Expanded(child: _pageImage(_pages[first], first)),
-                  if (first + 1 < _pages.length)
-                    Expanded(child: _pageImage(_pages[first + 1], first + 1))
-                  else
-                    const Spacer(),
-                ],
-              );
+        final pageWidget =
+            !twoPage
+                ? _pageImage(_pages[first], first)
+                : Row(
+                  children: [
+                    Expanded(child: _pageImage(_pages[first], first)),
+                    if (first + 1 < _pages.length)
+                      Expanded(child: _pageImage(_pages[first + 1], first + 1))
+                    else
+                      const Spacer(),
+                  ],
+                );
 
         return AnimatedBuilder(
           animation: _pageController,
           builder: (context, child) {
             double diff = 0.0;
             if (_pageController.position.haveDimensions) {
-              diff = (_pageController.page ?? _pageController.initialPage.toDouble()) - index;
+              diff =
+                  (_pageController.page ??
+                      _pageController.initialPage.toDouble()) -
+                  index;
             }
             final normalized = diff.clamp(-1.0, 1.0);
             if (normalized.abs() < 0.001) {
@@ -306,14 +307,13 @@ class _MangaReaderScreenState extends ConsumerState<MangaReaderScreen> {
             }
             final opacity = (1.0 - (normalized.abs() * 0.12)).clamp(0.0, 1.0);
             return Transform(
-              transform: Matrix4.identity()
-                ..setEntry(3, 2, 0.0006)
-                ..rotateY(normalized * 0.08),
-              alignment: normalized > 0 ? Alignment.centerRight : Alignment.centerLeft,
-              child: Opacity(
-                opacity: opacity,
-                child: child,
-              ),
+              transform:
+                  Matrix4.identity()
+                    ..setEntry(3, 2, 0.0006)
+                    ..rotateY(normalized * 0.08),
+              alignment:
+                  normalized > 0 ? Alignment.centerRight : Alignment.centerLeft,
+              child: Opacity(opacity: opacity, child: child),
             );
           },
           child: Container(
@@ -364,316 +364,310 @@ class _MangaReaderScreenState extends ConsumerState<MangaReaderScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Main Manga Viewer
-          GestureDetector(
-            onTap: _toggleControls,
-            child:
-                _isLoading
-                    ? const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(color: Colors.white),
-                          SizedBox(height: 16),
-                          Text(
-                            'Loading chapter...',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                    )
-                    : _error != null
-                    ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
+        body: Stack(
+          children: [
+            // Main Manga Viewer
+            GestureDetector(
+              onTap: _toggleControls,
+              child:
+                  _isLoading
+                      ? const Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.redAccent,
-                              size: 48,
-                            ),
-                            const SizedBox(height: 16),
+                            CircularProgressIndicator(color: Colors.white),
+                            SizedBox(height: 16),
                             Text(
-                              _error!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.white70),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: _loadPages,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Retry'),
+                              'Loading chapter...',
+                              style: TextStyle(color: Colors.white70),
                             ),
                           ],
                         ),
+                      )
+                      : _error != null
+                      ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.redAccent,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white70),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: _loadPages,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      : _readerMode == _ReaderMode.book
+                      ? _bookReader(context)
+                      : InteractiveViewer(
+                        minScale: 1.0,
+                        maxScale: 3.5,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          itemCount: _pages.length,
+                          padding: EdgeInsets.zero,
+                          itemBuilder: (context, index) {
+                            final page = _pages[index];
+                            return CachedNetworkImage(
+                              imageUrl: page.url,
+                              httpHeaders: page.headers,
+                              fit: BoxFit.fitWidth,
+                              placeholder:
+                                  (context, url) => Container(
+                                    height: 400,
+                                    color: Colors.grey[900],
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white60,
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            'Page ${index + 1}',
+                                            style: const TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                              errorWidget:
+                                  (context, url, error) => Container(
+                                    height: 280,
+                                    color: Colors.grey[900],
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.broken_image,
+                                            color: Colors.redAccent,
+                                            size: 36,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'Failed to load page ${index + 1}',
+                                            style: const TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                            );
+                          },
+                        ),
                       ),
-                    )
-                    : _readerMode == _ReaderMode.book
-                    ? _bookReader(context)
-                    : InteractiveViewer(
-                      minScale: 1.0,
-                      maxScale: 3.5,
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        itemCount: _pages.length,
-                        padding: EdgeInsets.zero,
-                        itemBuilder: (context, index) {
-                          final page = _pages[index];
-                          return CachedNetworkImage(
-                            imageUrl: page.url,
-                            httpHeaders: page.headers,
-                            fit: BoxFit.fitWidth,
-                            placeholder:
-                                (context, url) => Container(
-                                  height: 400,
-                                  color: Colors.grey[900],
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white60,
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Text(
-                                          'Page ${index + 1}',
-                                          style: const TextStyle(
-                                            color: Colors.white54,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+            ),
+
+            // Top App Bar Controls
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 200),
+              top: _showControls ? 0 : -100,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: EdgeInsets.only(
+                  top: MediaQuery.paddingOf(context).top,
+                  left: 8,
+                  right: 16,
+                  bottom: 8,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.85),
+                      Colors.black.withValues(alpha: 0.4),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  widget.chapter.name ??
+                                      'Chapter ${widget.chapter.episodeNumber}',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                            errorWidget:
-                                (context, url, error) => Container(
-                                  height: 280,
-                                  color: Colors.grey[900],
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.broken_image,
-                                          color: Colors.redAccent,
-                                          size: 36,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Failed to load page ${index + 1}',
-                                          style: const TextStyle(
-                                            color: Colors.white54,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                          );
-                        },
+                              ),
+                              if (isAdult) ...[
+                                const SizedBox(width: 8),
+                                build18PlusBadge(fontSize: 9),
+                              ],
+                            ],
+                          ),
+                          Text(
+                            widget.mangaTitle,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ),
-          ),
-
-          // Top App Bar Controls
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 200),
-            top: _showControls ? 0 : -100,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: EdgeInsets.only(
-                top: MediaQuery.paddingOf(context).top,
-                left: 8,
-                right: 16,
-                bottom: 8,
-              ),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.85),
-                    Colors.black.withValues(alpha: 0.4),
-                    Colors.transparent,
+                    if (_pages.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '$_currentPage / ${_pages.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    IconButton(
+                      tooltip: 'Toggle 2-Page Landscape',
+                      icon: Icon(
+                        MediaQuery.orientationOf(context) ==
+                                Orientation.landscape
+                            ? Icons.stay_current_portrait_rounded
+                            : Icons.stay_current_landscape_rounded,
+                        color: Colors.white,
+                      ),
+                      onPressed: _toggleOrientation,
+                    ),
+                    IconButton(
+                      tooltip: 'Reader mode',
+                      icon: const Icon(
+                        Icons.menu_book_rounded,
+                        color: Colors.white,
+                      ),
+                      onPressed:
+                          () => showModalBottomSheet<void>(
+                            context: context,
+                            builder:
+                                (sheetContext) => SafeArea(
+                                  child: RadioGroup<_ReaderMode>(
+                                    groupValue: _readerMode,
+                                    onChanged: (value) {
+                                      Navigator.pop(sheetContext);
+                                      if (value != null) _setReaderMode(value);
+                                    },
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        RadioListTile<_ReaderMode>(
+                                          value: _ReaderMode.vertical,
+                                          title: const Text('Vertical scroll'),
+                                          subtitle: const Text(
+                                            'Continuous chapter reading',
+                                          ),
+                                        ),
+                                        RadioListTile<_ReaderMode>(
+                                          value: _ReaderMode.book,
+                                          title: const Text('Book mode'),
+                                          subtitle: const Text(
+                                            'Animated pages; two pages in landscape',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                          ),
+                    ),
+                    if (!Platform.isAndroid && !Platform.isIOS) ...[
+                      const SizedBox(width: 8),
+                      const WindowsCaptionButtons(height: 38, isDark: true),
+                    ],
                   ],
                 ),
               ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                widget.chapter.name ??
-                                    'Chapter ${widget.chapter.episodeNumber}',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (isAdult) ...[
-                              const SizedBox(width: 8),
-                              build18PlusBadge(fontSize: 9),
-                            ],
-                          ],
-                        ),
-                        Text(
-                          widget.mangaTitle,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white70,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (_pages.isNotEmpty)
-                    Container(
+            ),
+
+            // Bottom Floating Page Pill
+            if (_pages.isNotEmpty && !_isLoading)
+              Positioned(
+                bottom: 24,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: _showControls ? 1.0 : 0.4,
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                        horizontal: 14,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.15),
+                        ),
                       ),
                       child: Text(
-                        '$_currentPage / ${_pages.length}',
+                        'Page $_currentPage of ${_pages.length}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
                         ),
-                      ),
-                    ),
-                  IconButton(
-                    tooltip: 'Toggle 2-Page Landscape',
-                    icon: Icon(
-                      MediaQuery.orientationOf(context) == Orientation.landscape
-                          ? Icons.stay_current_portrait_rounded
-                          : Icons.stay_current_landscape_rounded,
-                      color: Colors.white,
-                    ),
-                    onPressed: _toggleOrientation,
-                  ),
-                  IconButton(
-                    tooltip: 'Reader mode',
-                    icon: const Icon(
-                      Icons.menu_book_rounded,
-                      color: Colors.white,
-                    ),
-                    onPressed:
-                        () => showModalBottomSheet<void>(
-                          context: context,
-                          builder:
-                              (sheetContext) => SafeArea(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    RadioListTile<_ReaderMode>(
-                                      value: _ReaderMode.vertical,
-                                      groupValue: _readerMode,
-                                      title: const Text('Vertical scroll'),
-                                      subtitle: const Text(
-                                        'Continuous chapter reading',
-                                      ),
-                                      onChanged: (value) {
-                                        Navigator.pop(sheetContext);
-                                        if (value != null) {
-                                          _setReaderMode(value);
-                                        }
-                                      },
-                                    ),
-                                    RadioListTile<_ReaderMode>(
-                                      value: _ReaderMode.book,
-                                      groupValue: _readerMode,
-                                      title: const Text('Book mode'),
-                                      subtitle: const Text(
-                                        'Animated pages; two pages in landscape',
-                                      ),
-                                      onChanged: (value) {
-                                        Navigator.pop(sheetContext);
-                                        if (value != null) {
-                                          _setReaderMode(value);
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                        ),
-                  ),
-                  if (!Platform.isAndroid && !Platform.isIOS) ...[
-                    const SizedBox(width: 8),
-                    const WindowsCaptionButtons(height: 38, isDark: true),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          // Bottom Floating Page Pill
-          if (_pages.isNotEmpty && !_isLoading)
-            Positioned(
-              bottom: 24,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: AnimatedOpacity(
-                  opacity: _showControls ? 1.0 : 0.4,
-                  duration: const Duration(milliseconds: 200),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.15),
-                      ),
-                    ),
-                    child: Text(
-                      'Page $_currentPage of ${_pages.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.3,
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }

@@ -159,7 +159,6 @@ class EpisodeData extends _$EpisodeData {
   int _loadGeneration = 0;
   EpisodeListState get _epList => ref.read(episodeListProvider);
   ExperimentalFeaturesModel get _exp => ref.read(experimentalProvider);
-  AnimeProvider? get _provider => ref.read(selectedAnimeProvider);
   SourceNotifier get _srcNotifier => ref.read(sourceProvider.notifier);
   PlayerStateNotifier get _player => ref.read(playerStateProvider.notifier);
 
@@ -169,13 +168,34 @@ class EpisodeData extends _$EpisodeData {
     return ref.read(animeSourceRegistryProvider).has(key);
   }
 
+  String get _streamSourceKey {
+    final selected =
+        ref.read(selectedProviderKeyProvider)?.trim().toLowerCase();
+    if (selected != null && selected.isNotEmpty) return selected;
+    final extension = ref.read(sourceProvider).activeAnimeSource;
+    final extensionId = extension?.id?.toString().trim().toLowerCase();
+    if (extensionId != null && extensionId.isNotEmpty) {
+      return 'ext:$extensionId';
+    }
+    final extensionName = extension?.name?.trim().toLowerCase();
+    if (extensionName != null && extensionName.isNotEmpty) {
+      return 'ext:$extensionName';
+    }
+    return _effectiveProvider?.providerName.toLowerCase() ?? 'unknown';
+  }
+
   AnimeProvider? get _effectiveProvider {
     final registry = ref.read(animeSourceRegistryProvider);
-    final currentKey = ref.read(selectedProviderKeyProvider)?.toLowerCase();
-    if (_provider?.providerName == 'justanime' || currentKey == 'justanime') {
-      return registry.get('justanime') ?? JustAnimeProvider();
+    final currentKey =
+        ref.read(selectedProviderKeyProvider)?.toLowerCase().trim();
+    if (currentKey != null &&
+        currentKey.isNotEmpty &&
+        registry.has(currentKey)) {
+      return registry.get(currentKey);
     }
-    return _provider;
+    return ref.read(selectedAnimeProvider) ??
+        registry.get('justanime') ??
+        JustAnimeProvider();
   }
 
   String get _justAnimeId {
@@ -291,10 +311,12 @@ class EpisodeData extends _$EpisodeData {
       _sourceCache.removeWhere(
         (k, _) => k.startsWith('${targetMediaId}_$episodeNumber'),
       );
-      _serverListCache.remove('${targetMediaId}_$episodeNumber');
+      _serverListCache.removeWhere(
+        (k, _) => k.startsWith('$targetMediaId:$episodeNumber:'),
+      );
     } else if (targetMediaId != null) {
       _sourceCache.removeWhere((k, _) => k.startsWith('${targetMediaId}_'));
-      _serverListCache.removeWhere((k, _) => k.startsWith('${targetMediaId}_'));
+      _serverListCache.removeWhere((k, _) => k.startsWith('$targetMediaId:'));
     }
     _prefetchedEpNum = null;
     _prefetchedSourceData = null;
@@ -962,11 +984,14 @@ class EpisodeData extends _$EpisodeData {
 
   Future<List<ServerData>> _getRawServers(EpisodeDataModel ep) async {
     final provider = _effectiveProvider;
+    final currentKey =
+        ref.read(selectedProviderKeyProvider)?.toLowerCase().trim();
     final activeExt =
         ref.read(sourceProvider).activeAnimeSource?.name?.toLowerCase() ?? '';
     final isJustAnime =
-        provider?.providerName == 'justanime' ||
-        activeExt.contains('justanime');
+        (currentKey == 'justanime' ||
+            (currentKey == null && provider?.providerName == 'justanime')) ||
+        (!_isNativeProvider && activeExt.contains('justanime'));
 
     if (!_isNativeProvider && _exp.useExtensions && !isJustAnime) {
       return [];
@@ -986,8 +1011,8 @@ class EpisodeData extends _$EpisodeData {
   }
 
   Future<void> _fetchServers(int epNum, [int? generation]) async {
-    final cacheKey =
-        '${_epList.mediaId ?? _epList.animeId ?? "unknown"}_$epNum';
+    final mediaKey = _epList.mediaId ?? _epList.animeId ?? 'unknown';
+    final cacheKey = '$mediaKey:$epNum:$_streamSourceKey';
     final cached = _serverListCache[cacheKey];
     if (cached != null && cached.isNotEmpty) {
       final preferDub = ref.read(playerSettingsProvider).preferDub;
@@ -1487,9 +1512,8 @@ class EpisodeData extends _$EpisodeData {
     final playerSettings = ref.read(playerSettingsProvider);
     final isDubRequested = server?.isDub ?? playerSettings.preferDub;
     final effectiveMediaKey = _epList.mediaId ?? _epList.animeId ?? 'unknown';
-    final effectiveAnimeKey = _epList.animeId ?? 'unknown';
     final cacheKey =
-        '${effectiveMediaKey}_${effectiveAnimeKey}_${ep.number}_${ep.id}_${server?.id}_${isDubRequested ? "dub" : "sub"}';
+        '${effectiveMediaKey}_${ep.number}_${_streamSourceKey}_${ep.id}_${server?.id}_${isDubRequested ? "dub" : "sub"}';
     final cached = _sourceCache[cacheKey];
     if (cached != null && !cached.isExpired && cached.data.sources.isNotEmpty) {
       AppLogger.success(
@@ -1510,11 +1534,15 @@ class EpisodeData extends _$EpisodeData {
     );
 
     final provider = _effectiveProvider;
+    final currentKey =
+        ref.read(selectedProviderKeyProvider)?.toLowerCase().trim();
+    final isNative = _isNativeProvider;
     final activeExt =
         ref.read(sourceProvider).activeAnimeSource?.name?.toLowerCase() ?? '';
     final isJustAnime =
-        provider?.providerName == 'justanime' ||
-        activeExt.contains('justanime');
+        (currentKey == 'justanime' ||
+            (currentKey == null && provider?.providerName == 'justanime')) ||
+        (!isNative && activeExt.contains('justanime'));
 
     final effectiveAnimeId =
         (isJustAnime &&
@@ -1690,8 +1718,22 @@ class EpisodeData extends _$EpisodeData {
               bestMatches.firstOrNull?.result.id ??
               searchRes.results.firstOrNull?.id;
           if (bestId != null && bestId != effectiveAnimeId) {
+            String resolvedTargetEpId = targetEpId;
+            if (effectiveProvider.providerName != 'justanime') {
+              try {
+                final epListRes = await effectiveProvider
+                    .getEpisodes(bestId)
+                    .timeout(const Duration(seconds: 10));
+                final matchEp = epListRes.episodes?.firstWhereOrNull(
+                  (e) => e.number == ep.number,
+                );
+                if (matchEp?.id != null && matchEp!.id!.isNotEmpty) {
+                  resolvedTargetEpId = matchEp.id!;
+                }
+              } catch (_) {}
+            }
             final res = await effectiveProvider
-                .getSources(bestId, targetEpId, server?.id, category)
+                .getSources(bestId, resolvedTargetEpId, server?.id, category)
                 .timeout(const Duration(seconds: 15));
             if (res.sources.isNotEmpty) {
               AppLogger.success(
@@ -1785,7 +1827,7 @@ class EpisodeData extends _$EpisodeData {
             if (altEpsList == null) {
               final altEps = await altProvider
                   .getEpisodes(altMatchId)
-                  .timeout(const Duration(seconds: 5));
+                  .timeout(const Duration(seconds: 10));
               if (activeGeneration != _loadGeneration) return null;
               altEpsList = altEps.episodes;
               if (altEpsList != null) {
@@ -1803,7 +1845,7 @@ class EpisodeData extends _$EpisodeData {
         if (activeGeneration != _loadGeneration) return null;
         final altSources = await altProvider
             .getSources(altMatchId, resolvedEpId, null, category)
-            .timeout(const Duration(seconds: 12));
+            .timeout(const Duration(seconds: 15));
         if (activeGeneration != _loadGeneration) return null;
         if (altSources.sources.isNotEmpty) {
           AppLogger.success('Provider $altKey found sources!');
@@ -1815,8 +1857,7 @@ class EpisodeData extends _$EpisodeData {
       return null;
     }
 
-    // 1. If JustAnime is the active provider, strictly prioritize JustAnime
-    // and never let unselected fallbacks preempt it.
+    // 1. If JustAnime is the active provider and not excluded, try it first
     if (currentKey == 'justanime' &&
         !excludedProviderKeys.contains('justanime') &&
         registry.has('justanime')) {
@@ -1826,8 +1867,16 @@ class EpisodeData extends _$EpisodeData {
       }
     }
 
-    // 2. Fallback order for remaining candidates
-    final candidateKeys = [
+    // 2. Auto-failover order for alternative pre-installed native providers
+    final candidateKeys = <String>[
+      if (registry.has('hianime') &&
+          currentKey != 'hianime' &&
+          !excludedProviderKeys.contains('hianime'))
+        'hianime',
+      if (registry.has('anikoto') &&
+          currentKey != 'anikoto' &&
+          !excludedProviderKeys.contains('anikoto'))
+        'anikoto',
       if (registry.has('justanime') &&
           currentKey != 'justanime' &&
           !excludedProviderKeys.contains('justanime'))
@@ -1835,40 +1884,28 @@ class EpisodeData extends _$EpisodeData {
       ...registry.keys.where(
         (k) =>
             k != currentKey &&
-            k != 'justanime' &&
-            !excludedProviderKeys.contains(k),
+            !excludedProviderKeys.contains(k) &&
+            k != 'hianime' &&
+            k != 'anikoto' &&
+            k != 'justanime',
       ),
     ];
 
-    if (candidateKeys.isEmpty) return null;
-    final result = Completer<BaseSourcesModel?>();
-    var completed = 0;
-
     for (final altKey in candidateKeys) {
-      () async {
+      if (activeGeneration != _loadGeneration) return null;
+      try {
         final res = await resolveFromKey(altKey);
-        if (res != null && res.sources.isNotEmpty && !result.isCompleted) {
-          result.complete(res);
+        if (res != null && res.sources.isNotEmpty) {
+          AppLogger.success(
+            'Auto-failover to $altKey succeeded with ${res.sources.length} sources',
+          );
+          return res;
         }
-        completed++;
-        if (completed == candidateKeys.length && !result.isCompleted) {
-          result.complete(null);
-        }
-      }().timeout(
-        const Duration(seconds: 12),
-        onTimeout: () {
-          completed++;
-          if (completed == candidateKeys.length && !result.isCompleted) {
-            result.complete(null);
-          }
-        },
-      );
+      } catch (e) {
+        AppLogger.w('Failover error on $altKey: $e');
+      }
     }
-
-    return result.future.timeout(
-      const Duration(seconds: 15),
-      onTimeout: () => null,
-    );
+    return null;
   }
 
   Future<List<Map<String, dynamic>>> _getQualities(

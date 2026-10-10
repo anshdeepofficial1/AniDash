@@ -59,7 +59,8 @@ class AppInitializer {
     AppLogger.success('Flutter bindings initialized');
 
     // Tune Flutter image cache to conserve RAM under heavy system usage
-    PaintingBinding.instance.imageCache.maximumSizeBytes = 64 * 1024 * 1024; // 64 MB
+    PaintingBinding.instance.imageCache.maximumSizeBytes =
+        64 * 1024 * 1024; // 64 MB
     PaintingBinding.instance.imageCache.maximumSize = 300;
 
     await _initializeHive();
@@ -196,18 +197,9 @@ class AppInitializer {
           await entry.value();
         } catch (e) {
           AppLogger.fail('Failed to open box [${entry.key}]: $e');
-          AppLogger.warning(
-            'Deleting corrupted box: ${entry.key} and retrying...',
+          AppLogger.fail(
+            'Preserving Hive box [${entry.key}] after open failure; no data was deleted.',
           );
-          try {
-            await Hive.deleteBoxFromDisk(entry.key);
-            await entry.value();
-            AppLogger.success('Successfully recovered box: ${entry.key}');
-          } catch (e2) {
-            AppLogger.fail(
-              'CRITICAL: Failed to recover box [${entry.key}]: $e2',
-            );
-          }
         }
       }
 

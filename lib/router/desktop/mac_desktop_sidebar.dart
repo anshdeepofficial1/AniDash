@@ -144,20 +144,22 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
-      width: isCollapsed ? 76 : 264,
+      width: isCollapsed ? 72 : 252,
       child: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
           child: Container(
             decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF14161C).withValues(alpha: 0.82)
-                  : const Color(0xFFF8F9FB).withValues(alpha: 0.88),
+              color:
+                  isDark
+                      ? const Color(0xFF14161C).withValues(alpha: 0.82)
+                      : const Color(0xFFF8F9FB).withValues(alpha: 0.88),
               border: Border(
                 right: BorderSide(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.10)
-                      : Colors.black.withValues(alpha: 0.08),
+                  color:
+                      isDark
+                          ? Colors.white.withValues(alpha: 0.10)
+                          : Colors.black.withValues(alpha: 0.08),
                   width: 1,
                 ),
               ),
@@ -172,26 +174,39 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
 
                 // 2. Hero Action Button (Normal: "Ask AniCore", Settings: "< Main Menu")
                 if (isSettingsMode)
-                  _buildSettingsBackButton(context, colorScheme, isCollapsed, isDark)
+                  _buildSettingsBackButton(
+                    context,
+                    colorScheme,
+                    isCollapsed,
+                    isDark,
+                  )
                 else
-                  _buildHeroActionButton(context, colorScheme, isCollapsed, isDark, mod),
+                  _buildHeroActionButton(
+                    context,
+                    colorScheme,
+                    isCollapsed,
+                    isDark,
+                    mod,
+                  ),
 
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
 
                 // 3. Scrollable Navigation Sections
                 Expanded(
                   child: ListView(
                     padding: EdgeInsets.symmetric(
                       horizontal: isCollapsed ? 8 : 12,
-                      vertical: 2,
+                      vertical: 0,
                     ),
                     children: [
                       if (isSettingsMode) ...[
                         if (!isCollapsed)
                           _buildSectionHeader('SETTINGS CATEGORIES', isDark),
                         ..._settingsCategories.map((cat) {
-                          final isSelected = currentRoute == cat.path ||
-                              (cat.path != '/settings' && currentRoute.startsWith(cat.path));
+                          final isSelected =
+                              currentRoute == cat.path ||
+                              (cat.path != '/settings' &&
+                                  currentRoute.startsWith(cat.path));
                           return _SidebarTile(
                             icon: cat.icon,
                             label: cat.title,
@@ -208,7 +223,8 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                         ...widget.items.map((item) {
                           final isSelected =
                               (widget.shell != null
-                                  ? widget.shell!.currentIndex == item.branchIndex
+                                  ? widget.shell!.currentIndex ==
+                                      item.branchIndex
                                   : currentRoute == item.path) &&
                               (currentRoute == '/' ||
                                   currentRoute == '/browse' ||
@@ -236,7 +252,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                           );
                         }),
 
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 8),
 
                         // SECTION: LIBRARY & ACTIVITY
                         if (!isCollapsed)
@@ -274,7 +290,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                           onTap: () => context.go('/news'),
                         ),
 
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 8),
 
                         // SECTION: SETTINGS
                         if (!isCollapsed)
@@ -283,7 +299,9 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                           icon: Iconsax.setting_2,
                           label: 'Settings',
                           shortcutHint: '$mod,',
-                          isSelected: currentRoute == '/settings' || currentRoute.startsWith('/settings'),
+                          isSelected:
+                              currentRoute == '/settings' ||
+                              currentRoute.startsWith('/settings'),
                           isCollapsed: isCollapsed,
                           isDark: isDark,
                           onTap: () => context.go('/settings/ui'),
@@ -310,7 +328,10 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
     bool isDark,
   ) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 12, vertical: 2),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCollapsed ? 8 : 12,
+        vertical: 2,
+      ),
       child: Tooltip(
         message: isCollapsed ? 'Return to Main Menu' : '',
         child: InkWell(
@@ -331,9 +352,15 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
             ),
             child: Row(
               mainAxisAlignment:
-                  isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+                  isCollapsed
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
               children: [
-                Icon(Iconsax.arrow_left_2, size: 16, color: colorScheme.primary),
+                Icon(
+                  Iconsax.arrow_left_2,
+                  size: 16,
+                  color: colorScheme.primary,
+                ),
                 if (!isCollapsed) ...[
                   const SizedBox(width: 8),
                   Text(
@@ -376,10 +403,11 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
 
       // If user has already opened Watch History, only show count if new items were watched after
       if (lastSeenTime > 0) {
-        final newItems = historyState.history.where((e) {
-          final t = e.effectiveLastPlayedTime.millisecondsSinceEpoch;
-          return t > lastSeenTime;
-        }).length;
+        final newItems =
+            historyState.history.where((e) {
+              final t = e.effectiveLastPlayedTime.millisecondsSinceEpoch;
+              return t > lastSeenTime;
+            }).length;
         if (newItems == 0) return null;
         return newItems > 99 ? '99+' : '$newItems';
       }
@@ -405,7 +433,9 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
       padding: EdgeInsets.fromLTRB(isCollapsed ? 12 : 16, topInset, 12, 10),
       child: Row(
         mainAxisAlignment:
-            isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
+            isCollapsed
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.spaceBetween,
         children: [
           if (!isCollapsed) ...[
             Expanded(
@@ -501,10 +531,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
               height: 40,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    colorScheme.primary,
-                    colorScheme.tertiary,
-                  ],
+                  colors: [colorScheme.primary, colorScheme.tertiary],
                 ),
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
@@ -542,9 +569,10 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
             ),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.18)
-                  : colorScheme.primary.withValues(alpha: 0.35),
+              color:
+                  isDark
+                      ? Colors.white.withValues(alpha: 0.18)
+                      : colorScheme.primary.withValues(alpha: 0.35),
               width: 1,
             ),
             boxShadow: [
@@ -595,9 +623,10 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.12)
-                      : colorScheme.surfaceContainerHighest,
+                  color:
+                      isDark
+                          ? Colors.white.withValues(alpha: 0.12)
+                          : colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(5),
                 ),
                 child: Text(
@@ -646,9 +675,10 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.06),
+            color:
+                isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06),
             width: 1,
           ),
         ),
@@ -665,13 +695,22 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                   children: [
                     CircleAvatar(
                       radius: 16,
-                      backgroundColor: colorScheme.primary.withValues(alpha: 0.15),
-                      backgroundImage: (user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty)
-                          ? CachedNetworkImageProvider(user.avatarUrl!)
-                          : null,
-                      child: (user?.avatarUrl == null || user!.avatarUrl!.isEmpty)
-                          ? Icon(Iconsax.user, size: 16, color: colorScheme.primary)
-                          : null,
+                      backgroundColor: colorScheme.primary.withValues(
+                        alpha: 0.15,
+                      ),
+                      backgroundImage:
+                          (user?.avatarUrl != null &&
+                                  user!.avatarUrl!.isNotEmpty)
+                              ? CachedNetworkImageProvider(user.avatarUrl!)
+                              : null,
+                      child:
+                          (user?.avatarUrl == null || user!.avatarUrl!.isEmpty)
+                              ? Icon(
+                                Iconsax.user,
+                                size: 16,
+                                color: colorScheme.primary,
+                              )
+                              : null,
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -694,9 +733,10 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                                 width: 6,
                                 height: 6,
                                 decoration: BoxDecoration(
-                                  color: user != null
-                                      ? Colors.greenAccent
-                                      : Colors.grey,
+                                  color:
+                                      user != null
+                                          ? Colors.greenAccent
+                                          : Colors.grey,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -705,7 +745,8 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                                 user != null ? 'Synced' : 'Not logged in',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: isDark ? Colors.white54 : Colors.black54,
+                                  color:
+                                      isDark ? Colors.white54 : Colors.black54,
                                 ),
                               ),
                             ],
@@ -791,39 +832,46 @@ class _SidebarTileState extends State<_SidebarTile> {
             margin: const EdgeInsets.symmetric(vertical: 1.5),
             padding: EdgeInsets.symmetric(
               horizontal: isCollapsed ? 0 : 10,
-              vertical: 7.5,
+              vertical: 6.5,
             ),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? colorScheme.primary.withValues(alpha: isDark ? 0.22 : 0.16)
-                  : (_isHovered
-                      ? (isDark
-                          ? Colors.white.withValues(alpha: 0.07)
-                          : Colors.black.withValues(alpha: 0.05))
-                      : Colors.transparent),
+              color:
+                  isSelected
+                      ? colorScheme.primary.withValues(
+                        alpha: isDark ? 0.22 : 0.16,
+                      )
+                      : (_isHovered
+                          ? (isDark
+                              ? Colors.white.withValues(alpha: 0.045)
+                              : Colors.black.withValues(alpha: 0.035))
+                          : Colors.transparent),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isSelected
-                    ? (isDark
-                        ? Colors.white.withValues(alpha: 0.14)
-                        : colorScheme.primary.withValues(alpha: 0.3))
-                    : Colors.transparent,
+                color:
+                    isSelected
+                        ? (isDark
+                            ? Colors.white.withValues(alpha: 0.14)
+                            : colorScheme.primary.withValues(alpha: 0.3))
+                        : Colors.transparent,
                 width: 1,
               ),
             ),
             alignment: Alignment.center,
             child: Row(
               mainAxisAlignment:
-                  isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+                  isCollapsed
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
               children: [
                 Icon(
                   widget.icon,
                   size: 18,
-                  color: isSelected
-                      ? colorScheme.primary
-                      : (_isHovered
-                          ? (isDark ? Colors.white : Colors.black87)
-                          : (isDark ? Colors.white70 : Colors.black54)),
+                  color:
+                      isSelected
+                          ? colorScheme.primary
+                          : (_isHovered
+                              ? (isDark ? Colors.white : Colors.black87)
+                              : (isDark ? Colors.white70 : Colors.black54)),
                 ),
                 if (!isCollapsed) ...[
                   const SizedBox(width: 10),
@@ -836,11 +884,14 @@ class _SidebarTileState extends State<_SidebarTile> {
                         fontSize: 13,
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.w400,
-                        color: isSelected
-                            ? colorScheme.primary
-                            : (_isHovered
-                                ? (isDark ? Colors.white : Colors.black87)
-                                : (isDark ? Colors.white70 : Colors.black54)),
+                        color:
+                            isSelected
+                                ? colorScheme.primary
+                                : (_isHovered
+                                    ? (isDark ? Colors.white : Colors.black87)
+                                    : (isDark
+                                        ? Colors.white70
+                                        : Colors.black54)),
                       ),
                     ),
                   ),
@@ -851,11 +902,12 @@ class _SidebarTileState extends State<_SidebarTile> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: isSelected
-                            ? colorScheme.primary
-                            : (isDark
-                                ? Colors.white.withValues(alpha: 0.15)
-                                : Colors.black.withValues(alpha: 0.08)),
+                        color:
+                            isSelected
+                                ? colorScheme.primary
+                                : (isDark
+                                    ? Colors.white.withValues(alpha: 0.15)
+                                    : Colors.black.withValues(alpha: 0.08)),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -863,9 +915,10 @@ class _SidebarTileState extends State<_SidebarTile> {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: isSelected
-                              ? colorScheme.onPrimary
-                              : (isDark ? Colors.white70 : Colors.black87),
+                          color:
+                              isSelected
+                                  ? colorScheme.onPrimary
+                                  : (isDark ? Colors.white70 : Colors.black87),
                         ),
                       ),
                     ),

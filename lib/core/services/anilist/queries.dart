@@ -302,6 +302,7 @@ class AnilistQueries {
           status
           score
           progress
+          notes
           media {
             $mediaFields
           }

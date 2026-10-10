@@ -654,6 +654,7 @@ class _MangaScreenState extends ConsumerState<MangaScreen> {
   // ---------------------------------------------------------------------------
   Widget _buildSpotlightBanner(BuildContext context, ColorScheme colorScheme) {
     if (_spotlightList.isEmpty) return const SizedBox.shrink();
+    final isDesktop = MediaQuery.sizeOf(context).width >= 900;
 
     return Padding(
       padding: const EdgeInsets.only(top: 6, bottom: 16),
@@ -696,8 +697,8 @@ class _MangaScreenState extends ConsumerState<MangaScreen> {
               autoPlay: _spotlightList.length > 1,
               autoPlayInterval: const Duration(seconds: 5),
               enableInfiniteScroll: _spotlightList.length > 1,
-              enlargeCenterPage: true,
-              viewportFraction: 0.92,
+              enlargeCenterPage: !isDesktop,
+              viewportFraction: isDesktop ? 1.0 : 0.92,
               enlargeStrategy: CenterPageEnlargeStrategy.scale,
             ),
             itemCount: _spotlightList.length,
@@ -1392,116 +1393,140 @@ class _MangaScreenState extends ConsumerState<MangaScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        SizedBox(
-          height: 225,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: list.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final item = list[index];
-              final isAdult =
-                  isAdultSection || isMangaAdult(item, source: activeSource);
-              final chCount = _getChapterCount(item);
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+            const cardWidth = 125.0;
+            const gap = 12.0;
+            const horizontalPadding = 28.0;
+            final visibleCount = ((constraints.maxWidth -
+                        horizontalPadding +
+                        gap) /
+                    (cardWidth + gap))
+                .floor()
+                .clamp(1, list.length);
 
-              return GestureDetector(
-                onTap: () => _openMangaDetails(item),
-                child: SizedBox(
-                  width: 125,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Card Cover
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              CachedNetworkImage(
-                                imageUrl: item.cover ?? '',
-                                fit: BoxFit.cover,
-                                placeholder:
-                                    (_, __) => Container(
-                                      color:
-                                          theme
-                                              .colorScheme
-                                              .surfaceContainerHighest,
-                                      child: const Center(
-                                        child: SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
+            return SizedBox(
+              height: 225,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                scrollDirection: Axis.horizontal,
+                physics:
+                    isDesktop
+                        ? const NeverScrollableScrollPhysics()
+                        : const BouncingScrollPhysics(),
+                itemCount: isDesktop ? visibleCount : list.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final item = list[index];
+                  final isAdult =
+                      isAdultSection ||
+                      isMangaAdult(item, source: activeSource);
+                  final chCount = _getChapterCount(item);
+
+                  return GestureDetector(
+                    onTap: () => _openMangaDetails(item),
+                    child: SizedBox(
+                      width: 125,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Card Cover
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  CachedNetworkImage(
+                                    imageUrl: item.cover ?? '',
+                                    fit: BoxFit.cover,
+                                    placeholder:
+                                        (_, __) => Container(
+                                          color:
+                                              theme
+                                                  .colorScheme
+                                                  .surfaceContainerHighest,
+                                          child: const Center(
+                                            child: SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            ),
                                           ),
+                                        ),
+                                    errorWidget:
+                                        (_, __, ___) => Container(
+                                          color:
+                                              theme
+                                                  .colorScheme
+                                                  .surfaceContainerHighest,
+                                          child: const Icon(
+                                            Iconsax.book,
+                                            size: 30,
+                                          ),
+                                        ),
+                                  ),
+                                  // 18+ Badge
+                                  if (isAdult)
+                                    Positioned(
+                                      top: 6,
+                                      left: 6,
+                                      child: build18PlusBadge(fontSize: 8.5),
+                                    ),
+                                  // Chapter Badge
+                                  if (chCount != null && chCount > 0)
+                                    Positioned(
+                                      bottom: 6,
+                                      right: 6,
+                                      child: _buildChapterBadge(chCount),
+                                    ),
+                                  // Bottom subtle gradient
+                                  Positioned(
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    height: 35,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [
+                                            Colors.transparent,
+                                            Colors.black.withValues(
+                                              alpha: 0.65,
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
-                                errorWidget:
-                                    (_, __, ___) => Container(
-                                      color:
-                                          theme
-                                              .colorScheme
-                                              .surfaceContainerHighest,
-                                      child: const Icon(Iconsax.book, size: 30),
-                                    ),
-                              ),
-                              // 18+ Badge
-                              if (isAdult)
-                                Positioned(
-                                  top: 6,
-                                  left: 6,
-                                  child: build18PlusBadge(fontSize: 8.5),
-                                ),
-                              // Chapter Badge
-                              if (chCount != null && chCount > 0)
-                                Positioned(
-                                  bottom: 6,
-                                  right: 6,
-                                  child: _buildChapterBadge(chCount),
-                                ),
-                              // Bottom subtle gradient
-                              Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                height: 35,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.transparent,
-                                        Colors.black.withValues(alpha: 0.65),
-                                      ],
-                                    ),
                                   ),
-                                ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 6),
+                          Text(
+                            item.title ?? 'Unknown',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        item.title ?? 'Unknown',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         ),
         const SizedBox(height: 22),
       ],
