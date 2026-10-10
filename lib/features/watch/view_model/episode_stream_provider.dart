@@ -1802,7 +1802,7 @@ class EpisodeData extends _$EpisodeData {
                 null,
                 1,
               )
-              .timeout(const Duration(seconds: 10));
+              .timeout(const Duration(seconds: 6));
           if (activeGeneration != _loadGeneration) return null;
 
           final bestMatches = getBestMatches(
@@ -1827,7 +1827,7 @@ class EpisodeData extends _$EpisodeData {
             if (altEpsList == null) {
               final altEps = await altProvider
                   .getEpisodes(altMatchId)
-                  .timeout(const Duration(seconds: 10));
+                  .timeout(const Duration(seconds: 6));
               if (activeGeneration != _loadGeneration) return null;
               altEpsList = altEps.episodes;
               if (altEpsList != null) {
@@ -1845,7 +1845,7 @@ class EpisodeData extends _$EpisodeData {
         if (activeGeneration != _loadGeneration) return null;
         final altSources = await altProvider
             .getSources(altMatchId, resolvedEpId, null, category)
-            .timeout(const Duration(seconds: 15));
+            .timeout(const Duration(seconds: 8));
         if (activeGeneration != _loadGeneration) return null;
         if (altSources.sources.isNotEmpty) {
           AppLogger.success('Provider $altKey found sources!');
@@ -1869,6 +1869,10 @@ class EpisodeData extends _$EpisodeData {
 
     // 2. Auto-failover order for alternative pre-installed native providers
     final candidateKeys = <String>[
+      if (registry.has('justanime') &&
+          currentKey != 'justanime' &&
+          !excludedProviderKeys.contains('justanime'))
+        'justanime',
       if (registry.has('hianime') &&
           currentKey != 'hianime' &&
           !excludedProviderKeys.contains('hianime'))
@@ -1877,10 +1881,6 @@ class EpisodeData extends _$EpisodeData {
           currentKey != 'anikoto' &&
           !excludedProviderKeys.contains('anikoto'))
         'anikoto',
-      if (registry.has('justanime') &&
-          currentKey != 'justanime' &&
-          !excludedProviderKeys.contains('justanime'))
-        'justanime',
       ...registry.keys.where(
         (k) =>
             k != currentKey &&
@@ -1891,21 +1891,35 @@ class EpisodeData extends _$EpisodeData {
       ),
     ];
 
+    if (candidateKeys.isEmpty) return null;
+
+    final result = Completer<BaseSourcesModel?>();
+    var remaining = candidateKeys.length;
+
     for (final altKey in candidateKeys) {
-      if (activeGeneration != _loadGeneration) return null;
-      try {
-        final res = await resolveFromKey(altKey);
-        if (res != null && res.sources.isNotEmpty) {
-          AppLogger.success(
-            'Auto-failover to $altKey succeeded with ${res.sources.length} sources',
-          );
-          return res;
+      () async {
+        try {
+          if (activeGeneration != _loadGeneration) return;
+          final res = await resolveFromKey(altKey);
+          if (res != null && res.sources.isNotEmpty && !result.isCompleted) {
+            AppLogger.success(
+              'Auto-failover to $altKey succeeded with ${res.sources.length} sources',
+            );
+            result.complete(res);
+          }
+        } catch (_) {} finally {
+          remaining--;
+          if (remaining <= 0 && !result.isCompleted) {
+            result.complete(null);
+          }
         }
-      } catch (e) {
-        AppLogger.w('Failover error on $altKey: $e');
-      }
+      }();
     }
-    return null;
+
+    return result.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => null,
+    );
   }
 
   Future<List<Map<String, dynamic>>> _getQualities(

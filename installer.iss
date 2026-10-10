@@ -1,12 +1,12 @@
 [Setup]
 AppId={{0516D984-72BF-47D4-BFBC-B2B8FD563479}}
 AppName=AniDash
-AppVersion=1.19.3
+AppVersion=1.19.4
 AppPublisher=Anshdeep Singh
 DefaultDirName={autopf}\AniDash
 DefaultGroupName=AniDash
 OutputDir=build\windows\x64\installer
-OutputBaseFilename=AniDash-v1.19.3-Setup
+OutputBaseFilename=AniDash-v1.19.4-Setup
 SetupIconFile=windows\runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\AniDash.exe
 Compression=lzma

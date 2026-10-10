@@ -166,12 +166,12 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     // Leaner, smarter buffer (32 MiB - 96 MiB) prevents Windows pagefile swapping/thrashing
     // when system RAM is heavily utilized by other applications.
     final effectiveBufferBytes = (bufferSize.toInt() * 1024 * 1024).clamp(
-      32 * 1024 * 1024,
-      96 * 1024 * 1024,
+      100 * 1024 * 1024,
+      256 * 1024 * 1024,
     );
-    final backBufferBytes = (effectiveBufferBytes ~/ 4).clamp(
-      8 * 1024 * 1024,
-      24 * 1024 * 1024,
+    final backBufferBytes = (effectiveBufferBytes ~/ 5).clamp(
+      16 * 1024 * 1024,
+      32 * 1024 * 1024,
     );
     _player = Player(
       configuration: PlayerConfiguration(
@@ -202,30 +202,28 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       // Multi-threaded decoding (0 = auto select based on CPU core count)
       'vd-lavc-threads': '0',
 
-      // ── Smart cache / buffer sizing (Low RAM footprint) ───────────────────
-      // Sized to buffer 30-60s ahead (~20-40MB) instead of 10 minutes (256MB),
-      // preventing Windows pagefile disk thrashing when RAM is tight.
+      // ── Cache / buffer sizing (100 seconds readahead) ─────────────────────
       'cache': 'yes',
-      'cache-secs': '120',
+      'cache-secs': '600',
       'demuxer-seekable-cache': 'yes',
       'demuxer-max-bytes': effectiveBufferBytes.toString(),
       'demuxer-max-back-bytes': backBufferBytes.toString(),
-      'demuxer-readahead-secs': '30',
+      'demuxer-readahead-secs': '100',
       'demuxer-hysteresis-secs': '0',
 
-      // ── Smooth playback + underrun protection ────────────────────────────
+      // ── Instant playback + underrun protection ────────────────────────────
       'cache-pause': 'yes', // Pause gracefully on underrun
-      'cache-pause-wait': '3', // Buffer 3 seconds before resuming after underrun, avoids 1s loop stutter
-      'cache-pause-initial': 'yes', // Let initial buffer fill smoothly so stream doesn't choke on frame 0
+      'cache-pause-wait': '2',
+      'cache-pause-initial': 'no', // Instant startup; start playing first frame without delay
 
       // ── Network & Reconnect ───────────────────────────────────────────────
-      'network-timeout': '15',
+      'network-timeout': '30',
       'stream-lavf-o': 'reconnect=1,reconnect_streamed=1,reconnect_delay_max=5',
 
-      // ── FFmpeg demuxer / HLS probe (tuned for smooth playback) ────────────
-      'demuxer-lavf-probesize': '2097152',
-      'demuxer-lavf-buffersize': '2097152',
-      'demuxer-lavf-analyzeduration': '2.0',
+      // ── FFmpeg demuxer / HLS probe (tuned for ultra-fast startup) ─────────
+      'demuxer-lavf-probesize': '1048576',
+      'demuxer-lavf-buffersize': '1048576',
+      'demuxer-lavf-analyzeduration': '1.0',
 
       // ── Seeking & sync ────────────────────────────────────────────────────
       'force-seekable': 'yes',

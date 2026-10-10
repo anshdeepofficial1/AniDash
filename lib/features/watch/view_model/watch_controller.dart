@@ -44,6 +44,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
   bool _hasAutoAdvanced = false;
   bool _hasAutoSkippedIntro = false;
   bool _hasAutoSkippedOutro = false;
+  bool _hasAutoSkippedRecap = false;
   bool _fromHentaiHub = false;
   bool _prefetchTriggered = false;
   bool _nextPromptTriggered = false;
@@ -607,6 +608,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         ref.read(aniSkipProvider.notifier).clear();
         _hasAutoSkippedIntro = false;
         _hasAutoSkippedOutro = false;
+        _hasAutoSkippedRecap = false;
         _pendingAutoSkipTimer?.cancel();
         _lastAniSkipEpisode = null;
         _epNum = next;
@@ -748,9 +750,11 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       final isOutro =
           skip.skipType == SkipType.ed ||
           (skip.skipType == SkipType.mixed && skip.interval!.startTime > 300);
+      final isRecap = skip.skipType == SkipType.recap;
 
       if (isIntro && _hasAutoSkippedIntro) continue;
       if (isOutro && _hasAutoSkippedOutro) continue;
+      if (isRecap && _hasAutoSkippedRecap) continue;
 
       final start = Duration(seconds: skip.interval!.startTime.toInt());
       final end = Duration(seconds: skip.interval!.endTime.toInt() + 1);
@@ -758,7 +762,8 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       final validType =
           skip.skipType == SkipType.op ||
           skip.skipType == SkipType.ed ||
-          skip.skipType == SkipType.mixed;
+          skip.skipType == SkipType.mixed ||
+          skip.skipType == SkipType.recap;
       final length = end - start;
       final isSourceVerified = skip.skipId?.startsWith('source-') ?? false;
       final durationMatches =
@@ -768,7 +773,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           skip.skipId?.isNotEmpty == true ||
           durationMatches;
       final plausiblePlacement =
-          (isIntro && start <= const Duration(minutes: 5)) ||
+          ((isIntro || isRecap) && start <= const Duration(minutes: 6)) ||
           (isOutro &&
               start.inSeconds >= (_dur * .50) &&
               start >= const Duration(minutes: 5));
@@ -776,8 +781,8 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           start >= Duration.zero &&
           end > start &&
           end <= Duration(seconds: _dur + 3) &&
-          length <= const Duration(minutes: 5) &&
-          length.inSeconds <= (_dur * 0.25);
+          length <= const Duration(minutes: 6) &&
+          length.inSeconds <= (_dur * 0.35);
 
       if (validType &&
           validTiming &&
@@ -787,18 +792,9 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           position < end) {
         if (isIntro) _hasAutoSkippedIntro = true;
         if (isOutro) _hasAutoSkippedOutro = true;
-        final scheduledEpisode = _epNum;
+        if (isRecap) _hasAutoSkippedRecap = true;
         _pendingAutoSkipTimer?.cancel();
-        // Keep the manual Skip Intro/Outro action visible for its documented
-        // three-second countdown even when auto-skip is enabled. Seeking in
-        // the same frame previously made the button impossible to see.
-        _pendingAutoSkipTimer = Timer(const Duration(seconds: 3), () {
-          if (_isDisposed || _epNum != scheduledEpisode) return;
-          final current = ref.read(playerStateProvider).position;
-          if (current >= start && current < end) {
-            ref.read(playerStateProvider.notifier).seek(end);
-          }
-        });
+        ref.read(playerStateProvider.notifier).seek(end);
         return;
       }
     }

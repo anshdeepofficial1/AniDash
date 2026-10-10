@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
@@ -97,6 +98,7 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
     final displayedAnime = pageState.details.value ?? _activeMedia;
     final isLoading = pageState.isLoading;
     final isMovie = displayedAnime.format?.toUpperCase() == 'MOVIE';
+    final isDesktop = !(Platform.isAndroid || Platform.isIOS);
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
@@ -114,30 +116,31 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
                 anime: displayedAnime,
                 tag: widget.tag,
               ),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _DetailsTabBarDelegate(
-                  tabBar: TabBar(
-                    controller: _tabController,
-                    labelColor: colorScheme.primary,
-                    unselectedLabelColor: colorScheme.onSurface.withValues(
-                      alpha: 0.6,
+              if (isDesktop)
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _DetailsTabBarDelegate(
+                    tabBar: TabBar(
+                      controller: _tabController,
+                      labelColor: colorScheme.primary,
+                      unselectedLabelColor: colorScheme.onSurface.withValues(
+                        alpha: 0.6,
+                      ),
+                      indicatorColor: colorScheme.primary,
+                      indicatorSize: TabBarIndicatorSize.label,
+                      indicatorWeight: 3,
+                      labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
+                      dividerColor: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      tabs: [
+                        const Tab(text: 'About'),
+                        Tab(text: isMovie ? 'Movie' : 'Episodes'),
+                        const Tab(text: 'Characters'),
+                      ],
                     ),
-                    indicatorColor: colorScheme.primary,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    indicatorWeight: 3,
-                    labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
-                    dividerColor: colorScheme.outlineVariant.withValues(alpha: 0.3),
-                    tabs: [
-                      const Tab(text: 'About'),
-                      Tab(text: isMovie ? 'Movie' : 'Episodes'),
-                      const Tab(text: 'Characters'),
-                    ],
+                    backgroundColor: colorScheme.surfaceContainerLowest,
                   ),
-                  backgroundColor: colorScheme.surfaceContainerLowest,
                 ),
-              ),
             ];
           },
           body: ScrollConfiguration(
@@ -196,6 +199,32 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
           ),
         ),
       ),
+      bottomNavigationBar: isDesktop
+          ? null
+          : Material(
+              color: colorScheme.surface,
+              elevation: 8,
+              child: SafeArea(
+                child: SizedBox(
+                  height: 60,
+                  child: TabBar(
+                    controller: _tabController,
+                    labelColor: colorScheme.primary,
+                    unselectedLabelColor: colorScheme.onSurface.withValues(
+                      alpha: 0.6,
+                    ),
+                    indicatorColor: colorScheme.primary,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    dividerColor: Colors.transparent,
+                    tabs: [
+                      const Tab(text: 'About'),
+                      Tab(text: isMovie ? 'Movie' : 'Episodes'),
+                      const Tab(text: 'Characters'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
       floatingActionButton:
           !useExtensions ? _WatchFab(anime: displayedAnime) : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
