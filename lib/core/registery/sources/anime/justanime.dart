@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:ani_dash/core/network/http_client.dart';
 import 'package:ani_dash/core/models/anime/anime_model.dep.dart';
 import 'package:ani_dash/core/models/anime/episode_model.dart';
@@ -9,13 +10,15 @@ import 'package:ani_dash/core/models/anime/source_model.dart';
 import 'package:ani_dash/core/registery/sources/anime/anime_provider.dart';
 
 class JustAnimeProvider extends AnimeProvider {
+  static const String _relayUrl = 'https://anidashweb.vercel.app/api/justanime';
   static const String _userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36';
+      'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
 
   final Map<String, String> _sourceHeaders = {
     'Origin': 'https://justanime.to',
     'Referer': 'https://justanime.to/',
     'User-Agent': _userAgent,
+    'Accept': 'application/json, text/plain, */*',
   };
 
   JustAnimeProvider()
@@ -27,6 +30,51 @@ class JustAnimeProvider extends AnimeProvider {
 
   @override
   Map<String, String> get headers => _sourceHeaders;
+
+  Future<Map<String, dynamic>?> _fetchJson(
+    String path, {
+    Duration timeout = const Duration(seconds: 15),
+    CacheConfig? cacheConfig,
+  }) async {
+    Future<Map<String, dynamic>?> fetch(Uri uri) async {
+      try {
+        final response = await UniversalHttpClient.instance
+            .get(uri, headers: headers, cacheConfig: cacheConfig)
+            .timeout(timeout);
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          return null;
+        }
+        final decoded = json.decode(response.body);
+        if (decoded is! Map || decoded['error'] != null) return null;
+        return Map<String, dynamic>.from(decoded);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final direct = Uri.parse('$apiUrl$path');
+    final relay = Uri.parse(_relayUrl).replace(queryParameters: {'path': path});
+    final completer = Completer<Map<String, dynamic>?>();
+    var completed = 0;
+
+    void launch(Uri uri) {
+      fetch(uri).then((value) {
+        completed++;
+        if (value != null && !completer.isCompleted) {
+          completer.complete(value);
+        } else if (completed == 2 && !completer.isCompleted) {
+          completer.complete(null);
+        }
+      });
+    }
+
+    launch(direct);
+    Timer(const Duration(milliseconds: 300), () => launch(relay));
+    return completer.future.timeout(
+      timeout + const Duration(seconds: 1),
+      onTimeout: () => null,
+    );
+  }
 
   @override
   Future<DetailPage> getDetails(String animeId) {
@@ -60,13 +108,13 @@ class JustAnimeProvider extends AnimeProvider {
 
     Future<SearchPage> doSearch(String q) async {
       try {
-        final url = Uri.parse(
-          '$apiUrl/search',
-        ).replace(queryParameters: {'query': q, 'page': '$page'});
-        final res = await UniversalHttpClient.instance
-            .get(url, headers: headers)
-            .timeout(const Duration(seconds: 20));
-        final Map<String, dynamic> decoded = json.decode(res.body);
+        final path =
+            Uri(
+              path: '/search',
+              queryParameters: {'query': q, 'page': '$page'},
+            ).toString();
+        final decoded = await _fetchJson(path);
+        if (decoded == null) return SearchPage(results: []);
         final results = (decoded['results'] as List<dynamic>? ?? const []);
         final searchPage = SearchPage(
           results:
@@ -131,21 +179,16 @@ class JustAnimeProvider extends AnimeProvider {
 
   Future<bool> probeAnimeExists(String animeId) async {
     try {
-      final response = await UniversalHttpClient.instance
-          .get(
-            Uri.parse('$apiUrl/anime/$animeId/episodes?page=1'),
-            headers: headers,
-            cacheConfig: CacheConfig.short,
-          )
-          .timeout(const Duration(seconds: 8));
-      if (response.statusCode == 200) {
-        final decoded = json.decode(response.body);
-        if (decoded is Map) {
-          final eps = decoded['episodes'];
-          if (eps is List && eps.isNotEmpty) return true;
-          if (decoded['totalPages'] != null || decoded['pageInfo'] != null) {
-            return true;
-          }
+      final decoded = await _fetchJson(
+        '/anime/$animeId/episodes?page=1',
+        timeout: const Duration(seconds: 10),
+        cacheConfig: CacheConfig.short,
+      );
+      if (decoded != null) {
+        final eps = decoded['episodes'];
+        if (eps is List && eps.isNotEmpty) return true;
+        if (decoded['totalPages'] != null || decoded['pageInfo'] != null) {
+          return true;
         }
       }
     } catch (_) {}
@@ -159,14 +202,15 @@ class JustAnimeProvider extends AnimeProvider {
     String? malId,
   }) async {
     Future<Map<String, dynamic>> fetchPage(int page) async {
-      final response = await UniversalHttpClient.instance
-          .get(
-            Uri.parse('$apiUrl/anime/$animeId/episodes?page=$page'),
-            headers: headers,
-            cacheConfig: CacheConfig.short,
-          )
-          .timeout(const Duration(seconds: 25));
-      return Map<String, dynamic>.from(json.decode(response.body) as Map);
+      final decoded = await _fetchJson(
+        '/anime/$animeId/episodes?page=$page',
+        timeout: const Duration(seconds: 18),
+        cacheConfig: CacheConfig.short,
+      );
+      if (decoded == null) {
+        throw Exception('JustAnime episode endpoint unavailable');
+      }
+      return decoded;
     }
 
     final first = await fetchPage(1);
@@ -178,13 +222,15 @@ class JustAnimeProvider extends AnimeProvider {
       totalPages = (first['pageInfo']['lastPage'] as num?)?.toInt();
     }
 
+    final hasNextPage = first['hasNextPage'] == true;
+
     if (totalPages != null && totalPages > 1) {
       final additionalPages = await Future.wait([
         for (var page = 2; page <= totalPages; page++)
           fetchPage(page).catchError((_) => <String, dynamic>{'episodes': []}),
       ]);
       pages.addAll(additionalPages.where((p) => p.isNotEmpty));
-    } else if (firstEps.length >= 100) {
+    } else if (hasNextPage || firstEps.length >= 100) {
       // Loop until less than 100 items or empty (up to max 25 pages)
       int currentPage = 2;
       while (currentPage <= 25) {
@@ -193,7 +239,7 @@ class JustAnimeProvider extends AnimeProvider {
           final nextEps = next['episodes'] as List<dynamic>? ?? const [];
           if (nextEps.isEmpty) break;
           pages.add(next);
-          if (nextEps.length < 100) break;
+          if (next['hasNextPage'] != true && nextEps.length < 100) break;
           currentPage++;
         } catch (_) {
           break;
@@ -225,11 +271,6 @@ class JustAnimeProvider extends AnimeProvider {
             .toList()
           ..sort((a, b) => a.number!.compareTo(b.number!));
 
-    // For movies, if episodes list was empty, synthesize Episode 1
-    if (episodes.isEmpty) {
-      episodes.add(EpisodeDataModel(id: '1', number: 1, title: 'Full Movie'));
-    }
-
     return BaseEpisodeModel(episodes: episodes, totalEpisodes: episodes.length);
   }
 
@@ -246,6 +287,51 @@ class JustAnimeProvider extends AnimeProvider {
     } else {
       _sourcesCache.removeWhere((k, _) => k.startsWith('$animeId:$episode:'));
     }
+  }
+
+  Future<BaseSourcesModel?> _keepResolvableStreams(
+    BaseSourcesModel model,
+  ) async {
+    // A source response commonly exposes several qualities from the same host.
+    // Cache the in-flight lookup itself so those qualities do not start dozens
+    // of concurrent DNS requests and temporarily poison Android's resolver.
+    final hostChecks = <String, Future<bool>>{};
+
+    Future<bool> resolves(String? value) async {
+      final uri = Uri.tryParse(value ?? '');
+      final host = uri?.host ?? '';
+      if (host.isEmpty) return false;
+      return hostChecks.putIfAbsent(host, () async {
+        try {
+          final addresses = await InternetAddress.lookup(
+            host,
+          ).timeout(const Duration(milliseconds: 1600));
+          return addresses.isNotEmpty;
+        } catch (_) {
+          return false;
+        }
+      });
+    }
+
+    final checks = await Future.wait(
+      model.sources.map((source) => resolves(source.url)),
+    );
+    final playable = <Source>[];
+    for (var index = 0; index < model.sources.length; index++) {
+      if (checks[index]) playable.add(model.sources[index]);
+    }
+    if (playable.isEmpty) return null;
+
+    return BaseSourcesModel(
+      sources: playable,
+      tracks: model.tracks,
+      headers: model.headers,
+      preview: model.preview,
+      intro: model.intro,
+      outro: model.outro,
+      anilistID: model.anilistID,
+      malID: model.malID,
+    );
   }
 
   @override
@@ -267,19 +353,7 @@ class JustAnimeProvider extends AnimeProvider {
     }
 
     Future<Map<String, dynamic>?> request(String path) async {
-      try {
-        final response = await UniversalHttpClient.instance
-            .get(Uri.parse('$apiUrl$path'), headers: headers)
-            .timeout(const Duration(seconds: 6));
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          return null;
-        }
-        final decoded = json.decode(response.body);
-        if (decoded is! Map || decoded['error'] != null) return null;
-        return Map<String, dynamic>.from(decoded);
-      } catch (_) {
-        return null;
-      }
+      return _fetchJson(path, timeout: const Duration(seconds: 10));
     }
 
     BaseSourcesModel? parseSource(
@@ -454,15 +528,21 @@ class JustAnimeProvider extends AnimeProvider {
       '/watch/$animeId/episode/$episode/zokoanime',
       if (requestedAudio == 'dub') ...[
         '/watch/$animeId/episode/$episode/animegg',
+        '/watch/$animeId/episode/$episode/anineko/dub/hd1',
         '/watch/$animeId/episode/$episode/anineko/dub',
       ] else ...[
         '/watch/$animeId/episode/$episode/animegg',
+        '/watch/$animeId/episode/$episode/anineko/sub/hd1',
         '/watch/$animeId/episode/$episode/anineko/sub',
       ],
     ];
-    for (final ep in priorityEndpoints) {
-      if (!endpoints.contains(ep)) {
-        endpoints.add(ep);
+    // An explicit server choice must remain exact. Only use the provider's
+    // automatic server race when no server was selected by the user.
+    if (endpoints.isEmpty) {
+      for (final ep in priorityEndpoints) {
+        if (!endpoints.contains(ep)) {
+          endpoints.add(ep);
+        }
       }
     }
 
@@ -481,8 +561,12 @@ class JustAnimeProvider extends AnimeProvider {
 
       request(ep)
           .timeout(const Duration(seconds: 8))
-          .then((payload) {
-            final model = parseSource(ep, payload);
+          .then((payload) async {
+            final parsedModel = parseSource(ep, payload);
+            final model =
+                parsedModel == null
+                    ? null
+                    : await _keepResolvableStreams(parsedModel);
             if (model != null) {
               if (model.intro != null && discoveredIntro == null) {
                 discoveredIntro = model.intro;

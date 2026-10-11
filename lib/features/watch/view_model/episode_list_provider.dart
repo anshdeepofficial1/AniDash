@@ -32,6 +32,10 @@ class EpisodeListState {
   final String? animeId;
   final String? animeTitle;
   final String? animeCover;
+
+  /// Provider that actually produced [episodes] for this details session.
+  /// This may differ from the preferred provider after automatic failover.
+  final String? resolvedProviderKey;
   final int? malId;
   final List<EpisodeDataModel> episodes;
   final List<({JikanMedia result, double similarity})> jikanMatches;
@@ -46,6 +50,7 @@ class EpisodeListState {
     this.animeId,
     this.animeTitle,
     this.animeCover,
+    this.resolvedProviderKey,
     this.malId,
     this.episodes = const [],
     this.jikanMatches = const [],
@@ -61,6 +66,7 @@ class EpisodeListState {
     String? animeId,
     String? animeTitle,
     String? animeCover,
+    String? resolvedProviderKey,
     int? malId,
     List<EpisodeDataModel>? episodes,
     List<({JikanMedia result, double similarity})>? jikanMatches,
@@ -76,6 +82,7 @@ class EpisodeListState {
       animeId: animeId ?? this.animeId,
       animeTitle: animeTitle ?? this.animeTitle,
       animeCover: animeCover ?? this.animeCover,
+      resolvedProviderKey: resolvedProviderKey ?? this.resolvedProviderKey,
       malId: clearMalId ? null : (malId ?? this.malId),
       episodes: episodes ?? this.episodes,
       jikanMatches: jikanMatches ?? this.jikanMatches,
@@ -239,7 +246,8 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       return state.episodes;
     }
 
-    final resolvedIsMovie = isMovie ||
+    final resolvedIsMovie =
+        isMovie ||
         animeTitle.toLowerCase().contains('the very final') ||
         animeTitle.toLowerCase().contains('movie') ||
         animeTitle.toLowerCase().contains('film');
@@ -251,6 +259,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       animeId: animeId,
       animeTitle: animeTitle,
       animeCover: animeCover ?? media?.cover,
+      resolvedProviderKey: ref.read(selectedProviderKeyProvider),
       malId: malId ?? state.malId,
       clearMalId: malId == null && state.malId == null,
       jikanMatches: const [],
@@ -274,7 +283,11 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         mediaId: mediaId,
       );
       if (requestGeneration != _requestGeneration) return const [];
-      state = state.copyWith(episodes: normalized, isLoading: false, isMovie: resolvedIsMovie);
+      state = state.copyWith(
+        episodes: normalized,
+        isLoading: false,
+        isMovie: resolvedIsMovie,
+      );
       _syncMetadataIfEnabled();
       return normalized;
     }
@@ -388,7 +401,8 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             r'^(?:episode|ep\.?)\s*\d+$',
             caseSensitive: false,
           ).hasMatch(title);
-          final isGenericOrEp = genericTitle ||
+          final isGenericOrEp =
+              genericTitle ||
               title.isEmpty ||
               (isMovie && title.toLowerCase().startsWith('episode'));
           if (title.isNotEmpty && !isGenericOrEp) return episode;
@@ -404,6 +418,13 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     if (state.malId == malId) return;
     state = state.copyWith(malId: malId);
     _syncMetadataIfEnabled();
+  }
+
+  void setResolvedProvider(String providerKey, {String? animeId}) {
+    state = state.copyWith(
+      resolvedProviderKey: providerKey.toLowerCase().trim(),
+      animeId: animeId,
+    );
   }
 
   // --- Internal Source Routing ---
@@ -428,7 +449,10 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         if (directId != null) {
           final directEps = await _fetchLegacyEpisodes(directId);
           if (directEps.isNotEmpty) {
-            state = state.copyWith(animeId: directId);
+            state = state.copyWith(
+              animeId: directId,
+              resolvedProviderKey: 'justanime',
+            );
             return directEps;
           }
         }
@@ -438,16 +462,24 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
           (!isNative && _exp.useExtensions)
               ? await _fetchExtensionEpisodes(media)
               : await _fetchLegacyEpisodes(animeId);
+      if (eps.isNotEmpty && currentKey != null) {
+        state = state.copyWith(resolvedProviderKey: currentKey);
+      }
 
       // Multi-Source Fallback: If 0 episodes returned, search active and fallback sources by title
       if (eps.isEmpty &&
           state.animeTitle != null &&
           state.animeTitle!.isNotEmpty) {
-        final candidateKeys = [
-          if (currentKey != null) currentKey,
-          if (registry.has('justanime') && currentKey != 'justanime')
-            'justanime',
-          ...registry.keys.where((k) => k != currentKey && k != 'justanime'),
+        final candidateKeys = <String>[
+          for (final key in const ['hianime', 'anikoto', 'justanime'])
+            if (key != currentKey && registry.has(key)) key,
+          ...registry.keys.where(
+            (key) =>
+                key != currentKey &&
+                key != 'hianime' &&
+                key != 'anikoto' &&
+                key != 'justanime',
+          ),
         ];
 
         final cleanTitle =
@@ -458,9 +490,16 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
                 .replaceAll(RegExp(r'\s+'), ' ')
                 .trim();
 
-        for (final altKey in candidateKeys) {
+        showAppSnackBar(
+          'Source switch',
+          '${currentKey?.toUpperCase() ?? 'Selected source'} is unavailable. Trying alternatives…',
+          type: ContentType.help,
+        );
+
+        Future<({String key, String id, List<EpisodeDataModel> episodes})?>
+        tryAlternative(String altKey) async {
           final altProvider = registry.get(altKey);
-          if (altProvider == null) continue;
+          if (altProvider == null) return null;
 
           try {
             AppLogger.w(
@@ -478,26 +517,48 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
                     null,
                     1,
                   )
-                  .timeout(const Duration(seconds: 6));
+                  .timeout(const Duration(seconds: 5));
               final altMatch = searchResults.results.firstOrNull;
               matchId = altMatch?.id;
             }
             if (matchId != null && matchId.isNotEmpty) {
               final altResult = await altProvider
                   .getEpisodes(matchId)
-                  .timeout(const Duration(seconds: 8));
+                  .timeout(const Duration(seconds: 5));
               final altEps = altResult.episodes ?? [];
               if (altEps.isNotEmpty) {
-                AppLogger.success(
-                  'Source $altKey found ${altEps.length} episodes!',
-                );
-                state = state.copyWith(animeId: matchId);
-                return altEps;
+                return (key: altKey, id: matchId, episodes: altEps);
               }
             }
           } catch (e) {
             AppLogger.d('Fallback $altKey failed: $e');
           }
+          return null;
+        }
+
+        final alternatives = await Future.wait(
+          candidateKeys.map(tryAlternative),
+        );
+        final winner =
+            alternatives
+                .whereType<
+                  ({String key, String id, List<EpisodeDataModel> episodes})
+                >()
+                .firstOrNull;
+        if (winner != null) {
+          AppLogger.success(
+            'Source ${winner.key} found ${winner.episodes.length} episodes!',
+          );
+          showAppSnackBar(
+            'Source switched',
+            'Episodes loaded from ${winner.key.toUpperCase()}.',
+            type: ContentType.success,
+          );
+          state = state.copyWith(
+            animeId: winner.id,
+            resolvedProviderKey: winner.key,
+          );
+          return winner.episodes;
         }
       }
 
@@ -564,12 +625,28 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     AppLogger.d(
       'Fetching episodes via Legacy Provider: $provider (id: $targetId)',
     );
-    try {
-      return (await provider.getEpisodes(targetId)).episodes ?? [];
-    } catch (e) {
-      AppLogger.w('Direct legacy episode fetch failed: $e');
-      return [];
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      if (attempt > 1) {
+        showAppSnackBar(
+          'Checking ${provider.providerName.toUpperCase()}',
+          'Retry $attempt of 3…',
+          type: ContentType.help,
+        );
+      }
+      try {
+        final episodes =
+            (await provider
+                .getEpisodes(targetId)
+                .timeout(const Duration(milliseconds: 2800))).episodes ??
+            [];
+        if (episodes.isNotEmpty) return episodes;
+      } catch (e) {
+        AppLogger.w(
+          '${provider.providerName} episode attempt $attempt failed: $e',
+        );
+      }
     }
+    return [];
   }
 
   // --- Metadata & Episode Name Syncing ---
@@ -613,7 +690,9 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       await Future.wait([
         _syncWithJikan().catchError((e) => AppLogger.d('Jikan sync error: $e')),
         _syncWithKitsu().catchError((e) => AppLogger.d('Kitsu sync error: $e')),
-        _syncFillerInfo().catchError((e) => AppLogger.d('Filler sync error: $e')),
+        _syncFillerInfo().catchError(
+          (e) => AppLogger.d('Filler sync error: $e'),
+        ),
       ]);
 
       // 3. Final TVMaze pass in case any thumbnails or titles remain unfilled
@@ -704,10 +783,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     final hasGenericTitles = currentEpisodes.any((episode) {
       final t = episode.title?.trim() ?? '';
       return t.isEmpty ||
-          RegExp(
-            r'^(episode|ep\.?)\s*\d+$',
-            caseSensitive: false,
-          ).hasMatch(t);
+          RegExp(r'^(episode|ep\.?)\s*\d+$', caseSensitive: false).hasMatch(t);
     });
 
     if (missingCount == 0 && !hasGenericTitles) return;
@@ -749,7 +825,9 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             final show = Map<String, dynamic>.from(
               (result as Map)['show'] as Map,
             );
-            final showNorm = _normalizeMetadataTitle(show['name']?.toString() ?? '');
+            final showNorm = _normalizeMetadataTitle(
+              show['name']?.toString() ?? '',
+            );
             final showType = show['type']?.toString().toLowerCase() ?? '';
             if (showType == 'animation' &&
                 (showNorm.contains(normalizedTitle) ||
@@ -1374,9 +1452,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
               // Only enrich if the existing title is generic (e.g. 'Episode 235').
               // Never replace a real title already provided by the official stream/source with a catalogue translation!
               if (isGeneric) {
-                updated[i] = updated[i].copyWith(
-                  title: syncedTitle,
-                );
+                updated[i] = updated[i].copyWith(title: syncedTitle);
                 syncedCount++;
               }
             }
@@ -1428,13 +1504,14 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         next = next.copyWith(isFiller: true);
       }
       final currentEpTitle = episode.title?.trim() ?? '';
-      final isGeneric = currentEpTitle.isEmpty ||
-          RegExp(r'^(episode|ep\.?)\s*\d+$', caseSensitive: false)
-              .hasMatch(currentEpTitle);
+      final isGeneric =
+          currentEpTitle.isEmpty ||
+          RegExp(
+            r'^(episode|ep\.?)\s*\d+$',
+            caseSensitive: false,
+          ).hasMatch(currentEpTitle);
       if (isGeneric && catalogue.title.trim().isNotEmpty) {
-        next = next.copyWith(
-          title: catalogue.title.trim(),
-        );
+        next = next.copyWith(title: catalogue.title.trim());
       }
       if (!identical(next, episode)) {
         updated[index] = next;

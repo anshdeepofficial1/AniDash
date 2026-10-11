@@ -20,11 +20,13 @@ import 'package:ani_dash/features/episode_groups/repository/episode_grouping_rep
 class EpisodesPanel extends ConsumerStatefulWidget {
   final AnimationController panelAnimation;
   final String mediaId;
+  final VoidCallback? onEpisodeSelected;
 
   const EpisodesPanel({
     super.key,
     required this.panelAnimation,
     required this.mediaId,
+    this.onEpisodeSelected,
   });
 
   @override
@@ -60,8 +62,9 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
   }
 
   void _scrollToEpisode(int epNum, List<EpisodeDataModel> visible) {
-    final selectedIndex =
-        visible.indexWhere((e) => e.number != null && e.number == epNum);
+    final selectedIndex = visible.indexWhere(
+      (e) => e.number != null && e.number == epNum,
+    );
     if (selectedIndex < 0) return;
 
     void performJump() {
@@ -93,9 +96,9 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
     final selectedEp = ref.read(episodeDataProvider).selectedEpisode ?? 1;
     setState(() {
       _namedGroups = groups;
-      _selectedNamedGroup = groups.firstWhereOrNull(
-        (group) => group.contains(selectedEp),
-      ) ?? groups.firstOrNull;
+      _selectedNamedGroup =
+          groups.firstWhereOrNull((group) => group.contains(selectedEp)) ??
+          groups.firstOrNull;
       if (groups.isEmpty) _useNamedGroups = false;
       _lastScrolledEp = null;
     });
@@ -392,16 +395,13 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
                         (!isGeneric && epRawTitle.isNotEmpty)
                             ? epRawTitle
                             : (savedEpProgress?.episodeTitle != null &&
-                                    savedEpProgress!
-                                        .episodeTitle
-                                        .trim()
-                                        .isNotEmpty &&
-                                    !RegExp(
-                                      r'^(episode|ep\.?)\s*\d+$',
-                                      caseSensitive: false,
-                                    ).hasMatch(
-                                      savedEpProgress.episodeTitle.trim(),
-                                    ))
+                                savedEpProgress!.episodeTitle
+                                    .trim()
+                                    .isNotEmpty &&
+                                !RegExp(
+                                  r'^(episode|ep\.?)\s*\d+$',
+                                  caseSensitive: false,
+                                ).hasMatch(savedEpProgress.episodeTitle.trim()))
                             ? savedEpProgress.episodeTitle.trim()
                             : (epRawTitle?.isNotEmpty == true
                                 ? epRawTitle!
@@ -428,7 +428,11 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
                           episode.number,
                           force: true,
                         );
-                        widget.panelAnimation.reverse();
+                        if (widget.onEpisodeSelected != null) {
+                          widget.onEpisodeSelected!();
+                        } else {
+                          widget.panelAnimation.reverse();
+                        }
                       },
                       onLongPress: () {
                         final epNum = episode.number ?? 1;

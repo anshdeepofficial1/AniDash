@@ -214,8 +214,8 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       // ── Instant playback + underrun protection ────────────────────────────
       'cache-pause': 'yes', // Pause gracefully on underrun
       'cache-pause-wait': '2',
-      'cache-pause-initial': 'no', // Instant startup; start playing first frame without delay
-
+      'cache-pause-initial':
+          'no', // Instant startup; start playing first frame without delay
       // ── Network & Reconnect ───────────────────────────────────────────────
       'network-timeout': '30',
       'stream-lavf-o': 'reconnect=1,reconnect_streamed=1,reconnect_delay_max=5',
@@ -478,7 +478,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       AppLogger.w('Could not apply stream headers before playback: $error');
     }
     if (openGeneration != _openGeneration) return;
-    _startupTimer = Timer(const Duration(seconds: 30), () {
+    _startupTimer = Timer(const Duration(seconds: 14), () {
       if (openGeneration == _openGeneration &&
           state.isOpening &&
           _player.state.position == Duration.zero) {

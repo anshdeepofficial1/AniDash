@@ -60,37 +60,28 @@ class CenterControls extends ConsumerWidget {
                   child: FadeTransition(opacity: animation, child: child),
                 );
               },
-              child: isPlaying
-                  ? _ShadowIconButton(
-                      key: const ValueKey('pause'),
-                      icon: Icons.pause_rounded,
-                      size: 80,
-                      onTap: () {
-                        onInteraction();
-                        playerNotifier.togglePlay();
-                      },
-                    )
-                  : isBusy
-                      ? const Center(
-                          key: ValueKey('loading'),
-                          child: SizedBox(
-                            width: 50,
-                            height: 50,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3.5,
-                              color: Colors.white,
-                            ),
-                          ),
-                        )
+              child:
+                  isPlaying
+                      ? _ShadowIconButton(
+                        key: const ValueKey('pause'),
+                        icon: Icons.pause_rounded,
+                        size: 80,
+                        onTap: () {
+                          onInteraction();
+                          playerNotifier.togglePlay();
+                        },
+                      )
+                      : isBusy
+                      ? const SizedBox.shrink(key: ValueKey('loading'))
                       : _ShadowIconButton(
-                          key: const ValueKey('play'),
-                          icon: Icons.play_arrow_rounded,
-                          size: 80,
-                          onTap: () {
-                            onInteraction();
-                            playerNotifier.togglePlay();
-                          },
-                        ),
+                        key: const ValueKey('play'),
+                        icon: Icons.play_arrow_rounded,
+                        size: 80,
+                        onTap: () {
+                          onInteraction();
+                          playerNotifier.togglePlay();
+                        },
+                      ),
             ),
           ),
 

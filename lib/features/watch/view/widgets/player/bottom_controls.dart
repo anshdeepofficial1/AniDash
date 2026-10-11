@@ -122,82 +122,6 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (!widget.isLocal) ...[
-                              _FlatTextBtn(
-                                text: ref.watch(
-                                  episodeDataProvider.select(
-                                    (s) =>
-                                        s.selectedServer?.isDub == true
-                                            ? 'DUB'
-                                            : 'SUB',
-                                  ),
-                                ),
-                                onTap: widget.onAudioPressed,
-                                isAccent: true,
-                                scheme: scheme,
-                              ),
-                              Builder(
-                                builder: (context) {
-                                  final servers = ref.watch(
-                                    episodeDataProvider.select(
-                                      (s) => s.servers,
-                                    ),
-                                  );
-                                  final currentServer = ref.watch(
-                                    episodeDataProvider.select(
-                                      (s) => s.selectedServer,
-                                    ),
-                                  );
-                                  final validServers =
-                                      servers.where((s) {
-                                        final id = s.id?.toLowerCase() ?? '';
-                                        final name =
-                                            s.name?.toLowerCase() ?? '';
-                                        return id != 'ext' &&
-                                            name != 'extension' &&
-                                            id != 'default' &&
-                                            name != 'default';
-                                      }).toList();
-
-                                  if (validServers.length <= 1) {
-                                    return const SizedBox.shrink();
-                                  }
-
-                                  final serverName =
-                                      currentServer?.name ??
-                                      currentServer?.id ??
-                                      'SERVER';
-                                  if (serverName.toLowerCase() == 'extension' ||
-                                      serverName.toLowerCase() == 'default') {
-                                    return const SizedBox.shrink();
-                                  }
-
-                                  final cleanName =
-                                      serverName
-                                          .replaceAll(RegExp(r'\(.*?\)'), '')
-                                          .trim()
-                                          .toUpperCase();
-
-                                  return _FlatTextBtn(
-                                    text:
-                                        cleanName.isEmpty
-                                            ? 'SERVER'
-                                            : cleanName,
-                                    onTap: widget.onServerPressed,
-                                    isAccent: false,
-                                    scheme: scheme,
-                                  );
-                                },
-                              ),
-                            ],
-                            _ToolbarIcon(
-                              icon: Icons.subtitles_rounded,
-                              onTap: widget.onSubtitlePressed,
-                            ),
-                            _ToolbarIcon(
-                              icon: Icons.high_quality_rounded,
-                              onTap: widget.onSourcePressed,
-                            ),
                             if (widget.onEpisodePressed != null)
                               _ToolbarIcon(
                                 icon: Icons.video_library_rounded,
@@ -508,11 +432,7 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
         customBorder: const CircleBorder(),
         child: const Padding(
           padding: EdgeInsets.all(4.0),
-          child: Icon(
-            Icons.skip_next_rounded,
-            color: Colors.white,
-            size: 24,
-          ),
+          child: Icon(Icons.skip_next_rounded, color: Colors.white, size: 24),
         ),
       ),
     );
@@ -594,49 +514,6 @@ class _ToolbarIcon extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(6.0),
           child: Icon(icon, color: Colors.white, size: 22),
-        ),
-      ),
-    );
-  }
-}
-
-class _FlatTextBtn extends StatelessWidget {
-  final String text;
-  final VoidCallback onTap;
-  final bool isAccent;
-  final ColorScheme? scheme;
-
-  const _FlatTextBtn({
-    required this.text,
-    required this.onTap,
-    this.isAccent = false,
-    this.scheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: Material(
-        color:
-            isAccent
-                ? scheme?.primary.withValues(alpha: 0.15)
-                : Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(4),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-            child: Text(
-              text,
-              style: TextStyle(
-                color: isAccent ? scheme?.primary : Colors.white70,
-                fontSize: 12,
-                fontWeight: isAccent ? FontWeight.w900 : FontWeight.w700,
-              ),
-            ),
-          ),
         ),
       ),
     );

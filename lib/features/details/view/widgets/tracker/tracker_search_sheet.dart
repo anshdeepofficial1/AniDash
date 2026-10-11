@@ -13,12 +13,14 @@ class TrackerSearchSheet extends ConsumerStatefulWidget {
   final TrackerType type;
   final String initialQuery;
   final Function(UniversalMedia) onSelected;
+  final UniversalMedia? exactMedia;
 
   const TrackerSearchSheet({
     super.key,
     required this.type,
     required this.initialQuery,
     required this.onSelected,
+    this.exactMedia,
   });
 
   static void show(
@@ -26,6 +28,7 @@ class TrackerSearchSheet extends ConsumerStatefulWidget {
     required TrackerType type,
     required String initialQuery,
     required Function(UniversalMedia) onSelected,
+    UniversalMedia? exactMedia,
   }) {
     showModalBottomSheet(
       context: context,
@@ -36,11 +39,13 @@ class TrackerSearchSheet extends ConsumerStatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => TrackerSearchSheet(
-        type: type,
-        initialQuery: initialQuery,
-        onSelected: onSelected,
-      ),
+      builder:
+          (context) => TrackerSearchSheet(
+            type: type,
+            initialQuery: initialQuery,
+            onSelected: onSelected,
+            exactMedia: exactMedia,
+          ),
     );
   }
 
@@ -59,8 +64,20 @@ class _TrackerSearchSheetState extends ConsumerState<TrackerSearchSheet> {
     super.initState();
     _controller = TextEditingController(text: widget.initialQuery);
 
-    // Defer search to allow bottom sheet animation to complete smoothly
-    WidgetsBinding.instance.addPostFrameCallback((_) => _search());
+    final exactId =
+        widget.type == TrackerType.anilist
+            ? widget.exactMedia?.id
+            : widget.exactMedia?.idMal;
+    if (widget.exactMedia != null && int.tryParse(exactId ?? '') != null) {
+      _results = [widget.exactMedia!];
+    }
+
+    // The details page already carries the canonical tracker ID. Keep that
+    // exact match visible instead of replacing it with an unreliable title
+    // search result.
+    if (_results.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _search());
+    }
   }
 
   @override
@@ -80,9 +97,10 @@ class _TrackerSearchSheetState extends ConsumerState<TrackerSearchSheet> {
     });
 
     try {
-      final AnimeRepository repository = widget.type == TrackerType.anilist
-          ? ref.read(anilistServiceProvider)
-          : ref.read(malServiceProvider);
+      final AnimeRepository repository =
+          widget.type == TrackerType.anilist
+              ? ref.read(anilistServiceProvider)
+              : ref.read(malServiceProvider);
 
       final results = await repository.searchAnime(query);
 
@@ -134,8 +152,9 @@ class _TrackerSearchSheetState extends ConsumerState<TrackerSearchSheet> {
               decoration: InputDecoration(
                 hintText: 'Search anime...',
                 filled: true,
-                fillColor:
-                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                fillColor: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 prefixIcon: Icon(
                   Iconsax.search_normal,
                   color: colorScheme.onSurfaceVariant,
@@ -217,12 +236,13 @@ class _TrackerSearchSheetState extends ConsumerState<TrackerSearchSheet> {
                       width: 52,
                       height: 72,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => Container(
-                        width: 52,
-                        height: 72,
-                        color: colorScheme.surfaceContainerHighest,
-                        child: const Icon(Iconsax.image),
-                      ),
+                      errorWidget:
+                          (_, __, ___) => Container(
+                            width: 52,
+                            height: 72,
+                            color: colorScheme.surfaceContainerHighest,
+                            child: const Icon(Iconsax.image),
+                          ),
                     ),
                   ),
                   const SizedBox(width: 16),

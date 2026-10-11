@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ani_dash/shared/providers/anime_source_provider.dart';
-import 'package:http/http.dart' as http;
 import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:go_router/go_router.dart';
@@ -13,38 +12,36 @@ final providerStatusProvider = FutureProvider<Map<String, dynamic>>((
   final registry = ref.read(animeSourceRegistryProvider);
   final providers = registry.keys;
   final statusMap = <String, dynamic>{};
-  
-  await Future.wait(providers.map((key) async {
-    final provider = registry.get(key);
-    if (provider == null) {
-      statusMap[key] = {'status': 'offline'};
-      return;
-    }
-    try {
-      final headers = {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        ...provider.headers,
-      };
-      final response = await http
-          .get(Uri.parse(provider.baseUrl), headers: headers)
-          .timeout(const Duration(seconds: 5));
-      // A successful response or an explicit anti-bot challenge proves the
-      // endpoint is reachable. Server failures must not be shown as online.
-      if ((response.statusCode >= 200 && response.statusCode < 400) ||
-          response.statusCode == 401 ||
-          response.statusCode == 403 ||
-          response.statusCode == 429) {
-        statusMap[key] = {'status': 'online'};
-      } else {
+
+  await Future.wait(
+    providers.map((key) async {
+      final provider = registry.get(key);
+      if (provider == null) {
+        statusMap[key] = {'status': 'offline'};
+        return;
+      }
+      try {
+        final timer = Stopwatch()..start();
+        final result = await provider
+            .getSearch('one piece', null, 1)
+            .timeout(const Duration(seconds: 9));
+        timer.stop();
+        final working = result.results.isNotEmpty;
+        statusMap[key] = {
+          'status':
+              !working
+                  ? 'offline'
+                  : timer.elapsedMilliseconds > 4000
+                  ? 'degraded'
+                  : 'online',
+          'latencyMs': timer.elapsedMilliseconds,
+        };
+      } catch (_) {
         statusMap[key] = {'status': 'offline'};
       }
-    } catch (e) {
-      statusMap[key] = {'status': 'offline'};
-    }
-  }));
-  
+    }),
+  );
+
   return statusMap;
 });
 
@@ -86,56 +83,62 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             Expanded(
               child: providerStatus.when(
-                data: (statusData) => ListView.builder(
-                  itemCount: animeSources.length,
-                  itemBuilder: (context, index) {
-                    final provider = animeSources[index];
-                    final statusInfo = statusData[provider];
-                    final status = statusInfo?['status'] as String?;                    final isSelected = selectedAnimeSource?.providerName ==
-                        provider.toLowerCase();
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: SelectableSettingsItem(
-                        icon: Icon(_getStatusIcon(status)),
-                        iconColor: _getStatusColor(status),
-                        accent: _getStatusColor(status),
-                        title: provider.toUpperCase(),
-                        description:
-                            'Status: ${_getFriendlyStatus(status)}\nAvailable: ${_getSubDub(provider)}',
-                        isInSelectionMode: true,
-                        isSelected: isSelected,
-                        onTap: () {
-                          ref
-                              .read(selectedProviderKeyProvider.notifier)
-                              .select(provider);
-                          ref
-                              .read(experimentalProvider.notifier)
-                              .toggleExtensions(false);
-                        },
-                      ),
-                    );
-                  },
-                ),
+                data:
+                    (statusData) => ListView.builder(
+                      itemCount: animeSources.length,
+                      itemBuilder: (context, index) {
+                        final provider = animeSources[index];
+                        final statusInfo = statusData[provider];
+                        final status = statusInfo?['status'] as String?;
+                        final latency = statusInfo?['latencyMs'] as int?;
+                        final isSelected =
+                            selectedAnimeSource?.providerName ==
+                            provider.toLowerCase();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: SelectableSettingsItem(
+                            icon: Icon(_getStatusIcon(status)),
+                            iconColor: _getStatusColor(status),
+                            accent: _getStatusColor(status),
+                            title: provider.toUpperCase(),
+                            description:
+                                'Status: ${_getFriendlyStatus(status)}${latency == null ? '' : ' (${latency}ms)'}\nAvailable: ${_getSubDub(provider)}',
+                            isInSelectionMode: true,
+                            isSelected: isSelected,
+                            onTap: () {
+                              ref
+                                  .read(selectedProviderKeyProvider.notifier)
+                                  .select(provider);
+                              ref
+                                  .read(experimentalProvider.notifier)
+                                  .toggleExtensions(false);
+                            },
+                          ),
+                        );
+                      },
+                    ),
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: Colors.red,
+                error:
+                    (error, stack) => Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text('Failed to load provider status'),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed:
+                                () => ref.refresh(providerStatusProvider),
+                            child: const Text('Retry'),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      const Text('Failed to load provider status'),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () => ref.refresh(providerStatusProvider),
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
               ),
             ),
           ],
@@ -188,7 +191,9 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
 
   String _getSubDub(String provider) {
     final name = provider.toLowerCase();
-    if (name.contains('hianime') || name.contains('aniwatch') || name.contains('kaido')) {
+    if (name.contains('hianime') ||
+        name.contains('aniwatch') ||
+        name.contains('kaido')) {
       return 'Sub & Dub';
     } else if (name.contains('animepahe') || name.contains('animekai')) {
       return 'Sub & Dub';
