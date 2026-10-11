@@ -692,11 +692,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     for (final provider in animeSources) ...[
                       Builder(
                         builder: (context) {
-                          // A registered built-in source is ready for selection.
-                          // Startup website probes are not a reliable playback
-                          // health signal and previously marked every source
-                          // offline while the device network was warming up.
-                          const status = 'online';
+                          final status =
+                              statusData[provider]?['status'] as String? ??
+                              'offline';
                           final isSelected =
                               selectedAnimeSource?.providerName ==
                               provider.toLowerCase();

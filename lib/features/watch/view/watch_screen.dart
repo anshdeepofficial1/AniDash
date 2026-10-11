@@ -86,10 +86,18 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      final resolvedFormat = (widget.animeFormat?.trim().isNotEmpty == true)
-          ? widget.animeFormat
-          : ref.read(detailsPageProvider(widget.mediaId)).details.value?.format ??
-              ref.read(watchProgressRepositoryProvider).getProgress(widget.mediaId)?.animeFormat;
+      final resolvedFormat =
+          (widget.animeFormat?.trim().isNotEmpty == true)
+              ? widget.animeFormat
+              : ref
+                      .read(detailsPageProvider(widget.mediaId))
+                      .details
+                      .value
+                      ?.format ??
+                  ref
+                      .read(watchProgressRepositoryProvider)
+                      .getProgress(widget.mediaId)
+                      ?.animeFormat;
 
       ref
           .read(watchControllerProvider.notifier)
@@ -121,38 +129,47 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   void _openEpisodesSheet() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (_, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF141416),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 6),
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
+      builder:
+          (ctx) => DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.75,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            builder:
+                (_, scrollController) => Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF141416),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(top: 10, bottom: 6),
+                        width: 44,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      Expanded(
+                        child: EpisodesPanel(
+                          panelAnimation: _panelController,
+                          mediaId: widget.mediaId,
+                          onEpisodeSelected: () => Navigator.of(ctx).pop(),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: EpisodesPanel(
-                  panelAnimation: _panelController,
-                  mediaId: widget.mediaId,
-                ),
-              ),
-            ],
           ),
-        ),
-      ),
     );
   }
 
@@ -167,28 +184,31 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: theme.scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+      builder:
+          (ctx) => Container(
+            decoration: BoxDecoration(
+              color: theme.scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: EpisodeActionsSheet(
-          mediaId: widget.mediaId,
-          episodeNumber: selectedEp,
-          episodeTitle: currentEpTitle,
-          episodeDescription: currentEpDesc,
-          animeTitle: widget.animeName,
-          animeFormat: resolvedFormat,
-          onDismiss: () => Navigator.of(ctx).pop(),
-        ),
-      ),
+            child: EpisodeActionsSheet(
+              mediaId: widget.mediaId,
+              episodeNumber: selectedEp,
+              episodeTitle: currentEpTitle,
+              episodeDescription: currentEpDesc,
+              animeTitle: widget.animeName,
+              animeFormat: resolvedFormat,
+              onDismiss: () => Navigator.of(ctx).pop(),
+            ),
+          ),
     );
   }
 
@@ -314,9 +334,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         ref
             .read(watchControllerProvider.notifier)
             .cleanup()
-            .whenComplete(
-              () => ref.read(playerStateProvider.notifier).stop(),
-            ),
+            .whenComplete(() => ref.read(playerStateProvider.notifier).stop()),
       );
     }
     final isDesktop = !Platform.isAndroid && !Platform.isIOS;
@@ -335,16 +353,17 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     // Keep controller alive to ensure listeners work
     ref.watch(watchControllerProvider);
 
-    final selectedEp = ref.watch(
-      episodeDataProvider.select((s) => s.selectedEpisode),
-    ) ?? widget.episode;
+    final selectedEp =
+        ref.watch(episodeDataProvider.select((s) => s.selectedEpisode)) ??
+        widget.episode;
 
     final allEpisodes = ref.watch(
       episodeListProvider.select((s) => s.episodes),
     );
-    final effectiveEpisodes = allEpisodes.isNotEmpty
-        ? allEpisodes
-        : (widget.episodes ?? <EpisodeDataModel>[]);
+    final effectiveEpisodes =
+        allEpisodes.isNotEmpty
+            ? allEpisodes
+            : (widget.episodes ?? <EpisodeDataModel>[]);
 
     final currentEpModel = effectiveEpisodes.firstWhereOrNull(
       (e) => e.number == selectedEp,
@@ -353,13 +372,19 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     final currentEpThumb = currentEpModel?.thumbnail;
     final currentEpDesc = currentEpModel?.description;
 
-    final savedFormat = ref.watch(watchProgressRepositoryProvider).getProgress(widget.mediaId)?.animeFormat;
-    final detailsFormat = ref.watch(detailsPageProvider(widget.mediaId)).details.value?.format;
-    final resolvedFormat = (widget.animeFormat?.trim().isNotEmpty == true)
-        ? widget.animeFormat
-        : (savedFormat?.trim().isNotEmpty == true
-            ? savedFormat
-            : detailsFormat);
+    final savedFormat =
+        ref
+            .watch(watchProgressRepositoryProvider)
+            .getProgress(widget.mediaId)
+            ?.animeFormat;
+    final detailsFormat =
+        ref.watch(detailsPageProvider(widget.mediaId)).details.value?.format;
+    final resolvedFormat =
+        (widget.animeFormat?.trim().isNotEmpty == true)
+            ? widget.animeFormat
+            : (savedFormat?.trim().isNotEmpty == true
+                ? savedFormat
+                : detailsFormat);
 
     // Listen for episode changes — if askBeforeSync is on, show confirmation dialog
     ref.listen(episodeDataProvider.select((s) => s.selectedEpisode), (
@@ -385,22 +410,22 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         context: context,
         barrierDismissible: false,
         builder:
-          (context) => AlertDialog(
-            title: const Text('Update Progress?'),
-            content: Text(
-              'Do you want to update your list progress to Episode $episodeNum?',
+            (context) => AlertDialog(
+              title: const Text('Update Progress?'),
+              content: Text(
+                'Do you want to update your list progress to Episode $episodeNum?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('No'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Yes'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('No'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Yes'),
-              ),
-            ],
-          ),
       );
 
       if (confirmed == true && context.mounted) {
@@ -431,6 +456,21 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                       ),
                     ),
           ),
+        ),
+      );
+    });
+
+    ref.listen(episodeDataProvider.select((s) => s.sourceNotice), (
+      previous,
+      next,
+    ) {
+      if (next == null || next == previous || !context.mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(next),
+          duration: const Duration(milliseconds: 1400),
         ),
       );
     });
@@ -484,10 +524,10 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
               ref.read(playerStateProvider.notifier).forward(10);
             }
           },
-          const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-              _adjustVolume(true),
-          const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-              _adjustVolume(false),
+          const SingleActivator(LogicalKeyboardKey.arrowUp):
+              () => _adjustVolume(true),
+          const SingleActivator(LogicalKeyboardKey.arrowDown):
+              () => _adjustVolume(false),
           const SingleActivator(LogicalKeyboardKey.keyM): () {
             if (!_isEditingText()) {
               ref.read(playerStateProvider.notifier).toggleMute();
@@ -505,9 +545,10 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         child: Focus(
           autofocus: true,
           child: Scaffold(
-            backgroundColor: _isLandscapeFullscreen
-                ? Colors.black
-                : Theme.of(context).scaffoldBackgroundColor,
+            backgroundColor:
+                _isLandscapeFullscreen
+                    ? Colors.black
+                    : Theme.of(context).scaffoldBackgroundColor,
             body: OrientationBuilder(
               builder: (_, orientation) {
                 final isPiP = ref.watch(pipProvider);
@@ -515,7 +556,8 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                   _panelController.reset();
                 }
 
-                final isLandscape = orientation == Orientation.landscape ||
+                final isLandscape =
+                    orientation == Orientation.landscape ||
                     _isLandscapeFullscreen;
 
                 final player = AniDashVideoPlayer(
@@ -549,22 +591,25 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                               // Top Area: Video Player + Right-Side Episodes Carousel/Panel
                               Container(
                                 color: Colors.black,
-                                height: (screenWidth * 0.50).clamp(360.0, 560.0),
+                                height: (screenWidth * 0.50).clamp(
+                                  360.0,
+                                  560.0,
+                                ),
                                 child: Row(
                                   children: [
-                                    Expanded(
-                                      flex: 7,
-                                      child: player,
-                                    ),
+                                    Expanded(flex: 7, child: player),
                                     Container(
-                                      width: (screenWidth * 0.30)
-                                          .clamp(280.0, 380.0),
+                                      width: (screenWidth * 0.30).clamp(
+                                        280.0,
+                                        380.0,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFF141416),
                                         border: Border(
                                           left: BorderSide(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.08),
+                                            color: Colors.white.withValues(
+                                              alpha: 0.08,
+                                            ),
                                             width: 1,
                                           ),
                                         ),
@@ -580,11 +625,13 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
 
                               // Bottom Area: Anime Info, Synopsis, Advisory, Comments & World Chat
                               Container(
-                                color: Theme.of(context).scaffoldBackgroundColor,
+                                color:
+                                    Theme.of(context).scaffoldBackgroundColor,
                                 alignment: Alignment.topCenter,
                                 child: ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 1200),
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 1200,
+                                  ),
                                   child: PortraitPlayerDetails(
                                     animeTitle: widget.animeName,
                                     animeFormat: resolvedFormat,
@@ -599,8 +646,8 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                     physics:
                                         const NeverScrollableScrollPhysics(),
                                     onAllEpisodesPressed: _openEpisodesSheet,
-                                    onMoreOptionsPressed: () =>
-                                        _openEpisodeActionsSheet(
+                                    onMoreOptionsPressed:
+                                        () => _openEpisodeActionsSheet(
                                           selectedEp: selectedEp,
                                           currentEpTitle: currentEpTitle,
                                           currentEpDesc: currentEpDesc,
@@ -618,70 +665,67 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                   );
                 }
 
-            if (isLandscape && !isPiP) {
-              return Row(
-                children: [
-                  Expanded(child: player),
-                  SizeTransition(
-                    sizeFactor: _panelAnimation,
-                    axis: Axis.horizontal,
-                    child: SizedBox(
-                      width: MediaQuery.of(context).size.width * 0.35,
-                      child: EpisodesPanel(
-                        panelAnimation: _panelController,
+                if (isLandscape && !isPiP) {
+                  return Row(
+                    children: [
+                      Expanded(child: player),
+                      SizeTransition(
+                        sizeFactor: _panelAnimation,
+                        axis: Axis.horizontal,
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width * 0.35,
+                          child: EpisodesPanel(
+                            panelAnimation: _panelController,
+                            mediaId: widget.mediaId,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                if (isPiP) {
+                  return SizedBox.expand(child: player);
+                }
+
+                // Mobile / Portrait Mode:
+                // 16:9 Player pinned on top, rich interactive details below
+                return Column(
+                  children: [
+                    SafeArea(
+                      bottom: false,
+                      child: AspectRatio(aspectRatio: 16 / 9, child: player),
+                    ),
+                    Expanded(
+                      child: PortraitPlayerDetails(
+                        animeTitle: widget.animeName,
+                        animeFormat: resolvedFormat,
+                        animeCover: widget.animeCover,
+                        episodeNumber: selectedEp,
+                        episodeTitle: currentEpTitle,
+                        episodeThumbnail: currentEpThumb,
+                        episodeDescription: currentEpDesc,
+                        episodes: effectiveEpisodes,
                         mediaId: widget.mediaId,
+                        onAllEpisodesPressed: _openEpisodesSheet,
+                        onMoreOptionsPressed:
+                            () => _openEpisodeActionsSheet(
+                              selectedEp: selectedEp,
+                              currentEpTitle: currentEpTitle,
+                              currentEpDesc: currentEpDesc,
+                              resolvedFormat: resolvedFormat,
+                            ),
+                        onToggleFullscreen: _toggleFullscreen,
                       ),
                     ),
-                  ),
-                ],
-              );
-            }
-
-            if (isPiP) {
-              return SizedBox.expand(child: player);
-            }
-
-            // Mobile / Portrait Mode:
-            // 16:9 Player pinned on top, rich interactive details below
-            return Column(
-              children: [
-                SafeArea(
-                  bottom: false,
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: player,
-                  ),
-                ),
-                Expanded(
-                  child: PortraitPlayerDetails(
-                    animeTitle: widget.animeName,
-                    animeFormat: resolvedFormat,
-                    animeCover: widget.animeCover,
-                    episodeNumber: selectedEp,
-                    episodeTitle: currentEpTitle,
-                    episodeThumbnail: currentEpThumb,
-                    episodeDescription: currentEpDesc,
-                    episodes: effectiveEpisodes,
-                    mediaId: widget.mediaId,
-                    onAllEpisodesPressed: _openEpisodesSheet,
-                    onMoreOptionsPressed: () =>
-                        _openEpisodeActionsSheet(
-                          selectedEp: selectedEp,
-                          currentEpTitle: currentEpTitle,
-                          currentEpDesc: currentEpDesc,
-                          resolvedFormat: resolvedFormat,
-                        ),
-                    onToggleFullscreen: _toggleFullscreen,
-                  ),
-                ),
-              ],
-            );
-          },
+                  ],
+                );
+              },
+            ),
+          ),
         ),
       ),
-    ),
-  ),
-);
+    );
   }
 }
 
@@ -722,18 +766,10 @@ class _WatchDesktopTopBar extends StatelessWidget {
       },
       child: Container(
         height: 42,
-        padding: const EdgeInsets.only(
-          left: 12,
-          right: 0,
-        ),
+        padding: const EdgeInsets.only(left: 12, right: 0),
         decoration: const BoxDecoration(
           color: Color(0xFF101216),
-          border: Border(
-            bottom: BorderSide(
-              color: Colors.white10,
-              width: 1,
-            ),
-          ),
+          border: Border(bottom: BorderSide(color: Colors.white10, width: 1)),
         ),
         child: Row(
           children: [
@@ -747,11 +783,7 @@ class _WatchDesktopTopBar extends StatelessWidget {
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
             const SizedBox(width: 8),
-            Container(
-              height: 16,
-              width: 1,
-              color: Colors.white24,
-            ),
+            Container(height: 16, width: 1, color: Colors.white24),
             const SizedBox(width: 10),
             // Title & Episode Badge
             Flexible(
@@ -772,8 +804,10 @@ class _WatchDesktopTopBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
@@ -791,11 +825,14 @@ class _WatchDesktopTopBar extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (animeFormat != null && animeFormat!.trim().isNotEmpty) ...[
+                  if (animeFormat != null &&
+                      animeFormat!.trim().isNotEmpty) ...[
                     const SizedBox(width: 6),
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white12,
                         borderRadius: BorderRadius.circular(4),

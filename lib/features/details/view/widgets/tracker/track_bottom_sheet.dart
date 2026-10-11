@@ -60,7 +60,6 @@ class _TrackBottomSheetState extends ConsumerState<TrackBottomSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-
             _TrackerListItem(
               title:
                   widget.anime.title.english ??
@@ -112,6 +111,7 @@ class _TrackerListItem extends ConsumerWidget {
         context,
         type: type,
         initialQuery: anime.title.english ?? anime.title.romaji ?? '',
+        exactMedia: anime,
         onSelected: (mediaItem) async {
           await ref
               .read(mediaTrackerProvider(anime.id).notifier)
@@ -178,83 +178,90 @@ class _TrackerListItem extends ConsumerWidget {
                   width: 24,
                   height: 24,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const Icon(
-                    Icons.broken_image,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  errorBuilder:
+                      (_, _, _) => const Icon(
+                        Icons.broken_image,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                 ),
               ),
             ),
             Expanded(
-              child: isBound
-                  ? Row(
-                      children: [
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: InkWell(
-                            onTap: () {
-                              if (entry == null) {
-                                ref
-                                    .read(mediaTrackerProvider(anime.id).notifier)
-                                    .trackAsCurrent(type);
-                              } else {
-                                updateStatus();
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    title.toUpperCase(),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                  if (entry == null)
+              child:
+                  isBound
+                      ? Row(
+                        children: [
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                if (entry == null) {
+                                  ref
+                                      .read(
+                                        mediaTrackerProvider(anime.id).notifier,
+                                      )
+                                      .trackAsCurrent(type);
+                                } else {
+                                  updateStatus();
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
                                     Text(
-                                      'Tap to add to Watching (Current)',
-                                      style: TextStyle(
-                                        color: colorScheme.primary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
+                                      title.toUpperCase(),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                ],
+                                    if (entry == null)
+                                      Text(
+                                        'Tap to add to Watching (Current)',
+                                        style: TextStyle(
+                                          color: colorScheme.primary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.more_vert),
-                          tooltip: 'Change / Rebind Anime',
-                          onPressed: () => editBinding(),
-                        ),
-                      ],
-                    )
-                  : InkWell(
-                      onTap: () => editBinding(),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        height: 48,
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Add tracking',
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 15,
+                          IconButton(
+                            icon: const Icon(Icons.more_vert),
+                            tooltip: 'Change / Rebind Anime',
+                            onPressed: () => editBinding(),
+                          ),
+                        ],
+                      )
+                      : InkWell(
+                        onTap: () => editBinding(),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          height: 48,
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Add tracking',
+                            style: TextStyle(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 15,
+                            ),
                           ),
                         ),
                       ),
-                    ),
             ),
           ],
         ),
@@ -321,9 +328,8 @@ class _TrackerListItem extends ConsumerWidget {
                       Expanded(
                         flex: 2,
                         child: _StatCell(
-                          value: entry!.score > 0
-                              ? entry!.score.toString()
-                              : '-',
+                          value:
+                              entry!.score > 0 ? entry!.score.toString() : '-',
                           onTap: () => updateScore(),
                         ),
                       ),
