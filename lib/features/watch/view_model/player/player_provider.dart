@@ -332,6 +332,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   Future<void> _handleStreamError(Object error) async {
     final urlAtError = _lastUrl;
     final positionAtError = _player.state.position;
+    // A network/demuxer warning can temporarily pause MPV before its regular
+    // buffering event arrives. Surface that wait immediately instead of
+    // leaving a frozen frame with no feedback.
+    state = state.copyWith(isBuffering: true);
     try {
       // HLS commonly emits a transient segment warning while MPV reconnects.
       // Escalating after 1.5 seconds caused the source manager to reopen media
@@ -342,6 +346,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       var currentPosition = _player.state.position;
       if (currentPosition > positionAtError + const Duration(seconds: 1)) {
         AppLogger.d('Ignoring recoverable player stream warning: $error');
+        state = state.copyWith(isBuffering: false, clearPlaybackError: true);
         return;
       }
 
@@ -354,8 +359,20 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         currentPosition = _player.state.position;
         if (currentPosition > positionAtError + const Duration(seconds: 1)) {
           AppLogger.d('Stream recovered after extended buffering: $error');
+          state = state.copyWith(isBuffering: false, clearPlaybackError: true);
           return;
         }
+      }
+
+      // Re-check once after the recovery grace period. A stream which resumed
+      // at the boundary must not receive an error overlay while frames flow.
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (urlAtError != _lastUrl) return;
+      currentPosition = _player.state.position;
+      if (_player.state.playing ||
+          currentPosition > positionAtError + const Duration(seconds: 1)) {
+        state = state.copyWith(isBuffering: false, clearPlaybackError: true);
+        return;
       }
 
       AppLogger.w('Player stream failure after recovery grace period: $error');
@@ -529,6 +546,12 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       mediaId: _activeMediaId,
       episode: _activeEpisode,
     );
+  }
+
+  void clearPlaybackError() {
+    if (state.playbackError != null) {
+      state = state.copyWith(clearPlaybackError: true);
+    }
   }
 
   Future<void> togglePlay() async {

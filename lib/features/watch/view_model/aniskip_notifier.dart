@@ -76,7 +76,8 @@ class AniSkipNotifier extends _$AniSkipNotifier {
           malId = _knownTopAnimeMalIds[cacheKey];
         } else {
           for (final entry in _knownTopAnimeMalIds.entries) {
-            if (cacheKey.startsWith(entry.key) || cacheKey.contains(entry.key)) {
+            if (cacheKey.startsWith(entry.key) ||
+                cacheKey.contains(entry.key)) {
               malId = entry.value;
               break;
             }
@@ -85,64 +86,10 @@ class AniSkipNotifier extends _$AniSkipNotifier {
         }
       }
 
-      // 2. Authoritative check: Query JustAnime Core API for exact intro/outro timestamps
       final anilistId =
           int.tryParse(mediaId) ??
           int.tryParse(ref.read(episodeListProvider).animeId ?? '') ??
           int.tryParse(ref.read(episodeListProvider).mediaId ?? '');
-      if (anilistId != null) {
-        try {
-          final res = await UniversalHttpClient.instance
-              .get(
-                Uri.parse(
-                  'https://core.justanime.to/api/watch/$anilistId/episode/$episodeNumber/megaplay',
-                ),
-                headers: {
-                  'Origin': 'https://justanime.to',
-                  'Referer': 'https://justanime.to/',
-                  'User-Agent':
-                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                },
-              )
-              .timeout(const Duration(seconds: 4));
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            final decoded = json.decode(res.body);
-            if (decoded is Map) {
-              final subMap = decoded['sub'] as Map?;
-              final dubMap = decoded['dub'] as Map?;
-              final rawIntro =
-                  decoded['intro'] ?? subMap?['intro'] ?? dubMap?['intro'];
-              final rawOutro =
-                  decoded['outro'] ?? subMap?['outro'] ?? dubMap?['outro'];
-              Intro? intro;
-              Intro? outro;
-              if (rawIntro is Map) {
-                final s = (rawIntro['start'] as num?)?.toInt();
-                final e = (rawIntro['end'] as num?)?.toInt();
-                if (s != null && e != null && e > s) {
-                  intro = Intro(start: s, end: e);
-                }
-              }
-              if (rawOutro is Map) {
-                final s = (rawOutro['start'] as num?)?.toInt();
-                final e = (rawOutro['end'] as num?)?.toInt();
-                if (s != null && e != null && e > s) {
-                  outro = Intro(start: s, end: e);
-                }
-              }
-              if (intro != null || outro != null) {
-                if (requestGeneration != _requestGeneration) return;
-                setFallbackFromSource(intro: intro, outro: outro);
-                AppLogger.d(
-                  'JustAnime Core API provided exact intro ($intro) and outro ($outro) for Ep $episodeNumber',
-                );
-              }
-            }
-          }
-        } catch (e) {
-          AppLogger.d('JustAnime Core API fast intro/outro check skipped: $e');
-        }
-      }
 
       // 3. Query AniList directly by numeric ID (fast GraphQL, ~200ms)
       if (malId == null && anilistId != null) {
@@ -176,16 +123,17 @@ class AniSkipNotifier extends _$AniSkipNotifier {
       // 4. Query AniList by Title Search if ID was not numeric or had no MAL ID
       if (malId == null && animeTitle.isNotEmpty) {
         try {
-          final cleanTitle = animeTitle
-              .replaceAll(
-                RegExp(
-                  r'\s*\((?:sub|dub|uncensored|tv)\)',
-                  caseSensitive: false,
-                ),
-                '',
-              )
-              .replaceAll(RegExp(r'\[.*?\]'), '')
-              .trim();
+          final cleanTitle =
+              animeTitle
+                  .replaceAll(
+                    RegExp(
+                      r'\s*\((?:sub|dub|uncensored|tv)\)',
+                      caseSensitive: false,
+                    ),
+                    '',
+                  )
+                  .replaceAll(RegExp(r'\[.*?\]'), '')
+                  .trim();
           final res = await UniversalHttpClient.instance.post(
             Uri.parse('https://graphql.anilist.co'),
             headers: {
@@ -262,8 +210,11 @@ class AniSkipNotifier extends _$AniSkipNotifier {
     required List<AniSkipResultItem> aniSkipSkips,
     required List<AniSkipResultItem> sourceSkips,
   }) {
-    // 1. Original AniSkip community intervals are authoritative ground truth
-    final list = List<AniSkipResultItem>.from(aniSkipSkips);
+    // Stream markers belong to the exact episode/server currently playing and
+    // therefore win over crowd timestamps for the same marker type. This is
+    // important for episodes whose OP/ED is intentionally placed later than
+    // usual (for example One Piece episode 259).
+    final list = List<AniSkipResultItem>.from(sourceSkips);
 
     final hasOp = list.any(
       (s) =>
@@ -276,21 +227,24 @@ class AniSkipNotifier extends _$AniSkipNotifier {
           (s.skipType == SkipType.mixed && (s.interval?.startTime ?? 0) > 300),
     );
 
-    // 2. Only use validated stream source intervals if AniSkip has no data for that type
-    for (final src in sourceSkips) {
-      final isSrcOp =
-          src.skipType == SkipType.op ||
-          (src.skipType == SkipType.mixed &&
-              (src.interval?.startTime ?? 0) <= 300);
-      final isSrcEd =
-          src.skipType == SkipType.ed ||
-          (src.skipType == SkipType.mixed &&
-              (src.interval?.startTime ?? 0) > 300);
+    // AniSkip remains the fallback when the selected server did not provide a
+    // validated marker of that type.
+    for (final crowd in aniSkipSkips) {
+      final isCrowdOp =
+          crowd.skipType == SkipType.op ||
+          (crowd.skipType == SkipType.mixed &&
+              (crowd.interval?.startTime ?? 0) <= 300);
+      final isCrowdEd =
+          crowd.skipType == SkipType.ed ||
+          (crowd.skipType == SkipType.mixed &&
+              (crowd.interval?.startTime ?? 0) > 300);
 
-      if (isSrcOp && !hasOp) {
-        list.add(src);
-      } else if (isSrcEd && !hasEd) {
-        list.add(src);
+      if (isCrowdOp && !hasOp) {
+        list.add(crowd);
+      } else if (isCrowdEd && !hasEd) {
+        list.add(crowd);
+      } else if (!isCrowdOp && !isCrowdEd) {
+        list.add(crowd);
       }
     }
     return list;
@@ -313,10 +267,7 @@ class AniSkipNotifier extends _$AniSkipNotifier {
       if (start >= 0 && start <= 300 && duration >= 15 && duration <= 180) {
         newSourceItems.add(
           AniSkipResultItem(
-            interval: AniSkipInterval(
-              startTime: start,
-              endTime: end,
-            ),
+            interval: AniSkipInterval(startTime: start, endTime: end),
             skipType: SkipType.op,
             action: 'skip',
             episodeLength: 0,
@@ -343,10 +294,7 @@ class AniSkipNotifier extends _$AniSkipNotifier {
       if (start >= 300 && duration >= 15 && duration <= 180) {
         newSourceItems.add(
           AniSkipResultItem(
-            interval: AniSkipInterval(
-              startTime: start,
-              endTime: end,
-            ),
+            interval: AniSkipInterval(startTime: start, endTime: end),
             skipType: SkipType.ed,
             action: 'skip',
             episodeLength: 0,
@@ -362,13 +310,18 @@ class AniSkipNotifier extends _$AniSkipNotifier {
 
     _sourceSkips = newSourceItems;
     // Overwrite state while strictly keeping any original AniSkip intervals as primary priority!
-    state = _mergeSkips(
-      aniSkipSkips: _aniSkipSkips,
-      sourceSkips: _sourceSkips,
-    );
+    state = _mergeSkips(aniSkipSkips: _aniSkipSkips, sourceSkips: _sourceSkips);
     AppLogger.d(
       'AniSkip: Applied ${newSourceItems.length} validated fallback intro/outro from source (Active total: ${state.length})',
     );
+  }
+
+  /// Removes timestamps supplied by the previous stream/server while keeping
+  /// provider-independent AniSkip data. This prevents a failed stream from
+  /// leaking its intro/outro markers into the next playback attempt.
+  void clearSourceFallback() {
+    _sourceSkips = [];
+    state = _mergeSkips(aniSkipSkips: _aniSkipSkips, sourceSkips: const []);
   }
 
   void clear() {

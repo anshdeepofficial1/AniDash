@@ -106,7 +106,11 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
           ref.read(playerUIControllerProvider.notifier).setVolume(volume);
           return;
         }
-        _applyPlayerVolume(volume, updateSystemVolume: false, showOverlay: true);
+        _applyPlayerVolume(
+          volume,
+          updateSystemVolume: false,
+          showOverlay: true,
+        );
       });
       // Prevent any system volume broadcast on player open from popping up the volume overlay
       Future.delayed(const Duration(milliseconds: 1500), () {
@@ -414,27 +418,30 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (ctx) => Container(
-          height: size.height * 0.65,
-          decoration: BoxDecoration(
-            color: Theme.of(ctx).colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 10),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(ctx).dividerColor.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
+        builder:
+            (ctx) => Container(
+              height: size.height * 0.65,
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
                 ),
               ),
-              Expanded(child: child),
-            ],
-          ),
-        ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Theme.of(ctx).dividerColor.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Expanded(child: child),
+                ],
+              ),
+            ),
       );
     } else {
       await showGeneralDialog<void>(
@@ -745,6 +752,11 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     final episodeStreamState = ref.watch(
       episodeDataProvider.select((e) => e.states),
     );
+    final episodeStreamError = ref.watch(
+      episodeDataProvider.select((e) => e.error),
+    );
+    final visiblePlaybackError =
+        isPlaying ? null : (playbackError ?? episodeStreamError);
     final episodesLoading = ref.watch(
       episodeListProvider.select((e) => e.isLoading),
     );
@@ -780,8 +792,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
       ),
     );
 
-    if (fitMode == VideoFitMode.ratio16x9 ||
-        fitMode == VideoFitMode.ratio4x3) {
+    if (fitMode == VideoFitMode.ratio16x9 || fitMode == VideoFitMode.ratio4x3) {
       videoView = Center(
         child: AspectRatio(
           aspectRatio: fitMode == VideoFitMode.ratio16x9 ? 16 / 9 : 4 / 3,
@@ -916,7 +927,8 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                   onLockPressed: () {
                     final isCurrentlyLocked = uiState.isLocked;
                     if (!isCurrentlyLocked) {
-                      if (MediaQuery.of(context).orientation == Orientation.portrait) {
+                      if (MediaQuery.of(context).orientation ==
+                          Orientation.portrait) {
                         widget.onFullScreenPressed?.call();
                       }
                     }
@@ -930,12 +942,13 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                   onServerPressed: _openServer,
                   onAudioPressed: _openAudio,
                   onSubtitlePressed: _openSubtitle,
-                  onFullScreenPressed: widget.onFullScreenPressed ?? _cycleVideoFit,
+                  onFullScreenPressed:
+                      widget.onFullScreenPressed ?? _cycleVideoFit,
                   localTitle: widget.localTitle,
                   isLocal: widget.localFilePath != null,
                 ),
 
-                if (playbackError != null)
+                if (visiblePlaybackError != null)
                   Center(
                     child: Container(
                       padding: const EdgeInsets.all(20),
@@ -953,15 +966,33 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            playbackError,
+                            visiblePlaybackError,
                             style: const TextStyle(color: Colors.white),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 12),
-                          FilledButton.icon(
-                            onPressed: notifier.retry,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Retry'),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed:
+                                    ref
+                                        .read(episodeDataProvider.notifier)
+                                        .retrySelectedServer,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Retry server'),
+                              ),
+                              FilledButton.icon(
+                                onPressed:
+                                    ref
+                                        .read(episodeDataProvider.notifier)
+                                        .retryWithAnotherServer,
+                                icon: const Icon(Icons.swap_horiz),
+                                label: const Text('Another server'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
