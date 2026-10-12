@@ -197,13 +197,17 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       await playerNotifier.stop();
     }
 
-    final savedProgress = ref.read(watchProgressRepositoryProvider).getProgress(mediaId);
-    final resolvedFormat = (animeFormat?.trim().isNotEmpty == true)
-        ? animeFormat
-        : savedProgress?.animeFormat;
+    final savedProgress = ref
+        .read(watchProgressRepositoryProvider)
+        .getProgress(mediaId);
+    final resolvedFormat =
+        (animeFormat?.trim().isNotEmpty == true)
+            ? animeFormat
+            : savedProgress?.animeFormat;
 
     final nameLower = animeName.toLowerCase();
-    final isMovie = (resolvedFormat?.toUpperCase() == 'MOVIE') ||
+    final isMovie =
+        (resolvedFormat?.toUpperCase() == 'MOVIE') ||
         nameLower.contains('the very final') ||
         nameLower.contains('movie') ||
         nameLower.contains('film') ||
@@ -493,9 +497,13 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       if (next.playbackError != null &&
           next.playbackError != prev?.playbackError &&
           !_isAppInBackground) {
-        unawaited(
-          ref.read(episodeDataProvider.notifier).recoverFromPlaybackFailure(),
-        );
+        if (next.isPlaying && next.position > Duration.zero) {
+          ref.read(playerStateProvider.notifier).clearPlaybackError();
+        } else {
+          unawaited(
+            ref.read(episodeDataProvider.notifier).recoverFromPlaybackFailure(),
+          );
+        }
       }
 
       // Fetch skip ranges as soon as the manifest duration is known. This lets
@@ -553,9 +561,10 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         // User requirement: Prompt appears immediately when outro begins.
         // If there is NO outro detected, only appear exactly 90 seconds before the episode ends.
         final remainingSeconds = _dur - _pos;
-        final shouldTriggerNextPrompt = hasDetectedOutro
-            ? isInDetectedOutro
-            : (remainingSeconds <= 90 && remainingSeconds > 0 && _dur > 90);
+        final shouldTriggerNextPrompt =
+            hasDetectedOutro
+                ? isInDetectedOutro
+                : (remainingSeconds <= 90 && remainingSeconds > 0 && _dur > 90);
 
         final hasNextEpisode =
             (_epNum ?? 0) > 0 && (_totalEps <= 0 || (_epNum ?? 0) < _totalEps);
@@ -643,7 +652,9 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       _lastSavedPos = _pos;
       _triggerSave(takeScreenshot: false);
       if (_mediaId != null && _epNum != null && _pos > 0) {
-        ref.read(watchSyncProvider.notifier).syncWatchPosition(
+        ref
+            .read(watchSyncProvider.notifier)
+            .syncWatchPosition(
               mediaId: _mediaId!,
               episodeNum: _epNum!,
               progressInSeconds: _pos,
@@ -690,7 +701,9 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
     if (_isDisposed) return;
     await _triggerSave(takeScreenshot: takeScreenshot, force: force);
     if (_mediaId != null && _epNum != null && _pos > 0) {
-      ref.read(watchSyncProvider.notifier).syncWatchPosition(
+      ref
+          .read(watchSyncProvider.notifier)
+          .syncWatchPosition(
             mediaId: _mediaId!,
             episodeNum: _epNum!,
             progressInSeconds: _pos,

@@ -169,11 +169,11 @@ class EpisodeData extends _$EpisodeData {
   PlayerStateNotifier get _player => ref.read(playerStateProvider.notifier);
 
   String? get _effectiveProviderKey {
-    final resolved = _epList.resolvedProviderKey?.trim().toLowerCase();
-    if (resolved != null && resolved.isNotEmpty) return resolved;
     final selected =
         ref.read(selectedProviderKeyProvider)?.trim().toLowerCase();
-    return (selected == null || selected.isEmpty) ? null : selected;
+    if (selected != null && selected.isNotEmpty) return selected;
+    final resolved = _epList.resolvedProviderKey?.trim().toLowerCase();
+    return (resolved == null || resolved.isEmpty) ? null : resolved;
   }
 
   bool get _isNativeProvider {
@@ -237,7 +237,6 @@ class EpisodeData extends _$EpisodeData {
     }
 
     if (state.selectedEpisode != ep) {
-      _runtimeRecoveryAttempts = 0;
       _failedRuntimeServerIds.clear();
     }
 
@@ -339,6 +338,7 @@ class EpisodeData extends _$EpisodeData {
     _prefetchedEpNum = null;
     _prefetchedSourceData = null;
     _prefetchedIsDub = null;
+    _prefetchedRouteKey = null;
     JustAnimeProvider.clearCache(
       animeId: targetMediaId,
       episode: episodeNumber,
@@ -351,9 +351,9 @@ class EpisodeData extends _$EpisodeData {
   int? _prefetchedEpNum;
   BaseSourcesModel? _prefetchedSourceData;
   bool? _prefetchedIsDub;
+  String? _prefetchedRouteKey;
   bool _isPrefetching = false;
   bool _isRecoveringPlayback = false;
-  int _runtimeRecoveryAttempts = 0;
   final Set<String> _failedRuntimeServerIds = <String>{};
 
   Future<void> prefetchNextEpisode() async {
@@ -381,6 +381,8 @@ class EpisodeData extends _$EpisodeData {
         _prefetchedEpNum = nextEpNum;
         _prefetchedSourceData = data;
         _prefetchedIsDub = state.selectedServer?.isDub == true;
+        _prefetchedRouteKey =
+            '$_streamSourceKey:${state.selectedServer?.id ?? 'default'}';
         AppLogger.success(
           '⚡ Successfully pre-fetched Episode $nextEpNum stream ready for instant play!',
         );
@@ -405,105 +407,67 @@ class EpisodeData extends _$EpisodeData {
     );
   }
 
-  /// Recovers from an error emitted *after* MPV accepted the URL. In that
-  /// case `_player.open` has already completed, so the normal extraction
-  /// fallback cannot see the failure. Keep audio language unchanged and try
-  /// another source/server at the last confirmed position.
+  /// Records a runtime stream failure without silently changing the user's
+  /// selected server or provider. Recovery is explicitly user-controlled.
   Future<void> recoverFromPlaybackFailure() async {
-    if (_isRecoveringPlayback || _runtimeRecoveryAttempts >= 6) return;
+    if (_isRecoveringPlayback) return;
     final ep = state.selectedEpisode;
     if (ep == null) return;
+    final livePlayer = ref.read(playerStateProvider);
+    if (livePlayer.isPlaying && livePlayer.position > Duration.zero) {
+      ref.read(playerStateProvider.notifier).clearPlaybackError();
+      return;
+    }
 
     _isRecoveringPlayback = true;
-    _runtimeRecoveryAttempts++;
-    final generation = ++_loadGeneration;
-    final startAt = _player.lastStablePosition;
     final failedServerId = state.selectedServer?.id;
     if (failedServerId != null) _failedRuntimeServerIds.add(failedServerId);
+    ref.read(aniSkipProvider.notifier).clearSourceFallback();
     state = state.copyWith(
-      addState: EpisodeStreamState.SOURCE_LOADING,
-      clearError: true,
-      sourceNotice: 'Stream unavailable. Trying another server...',
+      error: 'The selected server could not start this video.',
+      sourceNotice: 'Selected server unavailable',
     );
-    try {
-      final currentIndex = state.selectedSourceIdx ?? 0;
-      final nextIndex = currentIndex + 1;
-      if (nextIndex < state.sources.length) {
-        for (var index = nextIndex; index < state.sources.length; index++) {
-          try {
-            await _loadSourceStream(
-              index,
-              startAt: startAt,
-              generation: generation,
-            );
-            return;
-          } catch (error) {
-            AppLogger.w('Runtime source $index was unavailable: $error');
-          }
-        }
-      }
+    _isRecoveringPlayback = false;
+  }
 
-      // Some otherwise valid HLS providers expose a multi-variant master that
-      // a device demuxer can accept without ever producing its first frame.
-      // Quality discovery runs in the background after open; on a genuine
-      // startup failure, retry one concrete child playlist before abandoning
-      // the user's selected server or audio language.
-      final currentQuality = state.selectedQualityIdx ?? 0;
-      if (currentQuality == 0 && state.qualityOptions.length > 1) {
-        final preferred = ref.read(playerSettingsProvider).defaultQuality;
-        var qualityIndex = -1;
-        if (preferred.toLowerCase() != 'auto') {
-          qualityIndex = state.qualityOptions.indexWhere(
-            (quality) => (quality['quality'] as String? ?? '')
-                .toLowerCase()
-                .contains(preferred.toLowerCase()),
-          );
-        }
-        if (qualityIndex <= 0) qualityIndex = 1;
-        final option = state.qualityOptions[qualityIndex];
-        final qualityUrl = option['url'] as String?;
-        if (qualityUrl != null && qualityUrl.isNotEmpty) {
-          final qualityHeaders =
-              option['headers'] as Map<String, String>? ??
-              state.headers?.cast<String, String>();
-          state = state.copyWith(selectedQualityIdx: qualityIndex);
-          await _player.open(
-            qualityUrl,
-            startAt,
-            headers: qualityHeaders,
-            mediaId: _epList.animeId,
-            episode: ep,
-          );
-          return;
-        }
-      }
+  Future<void> retrySelectedServer() async {
+    final generation = ++_loadGeneration;
+    ref.read(aniSkipProvider.notifier).clearSourceFallback();
+    clearEpisodeCache(
+      mediaId: _epList.mediaId ?? _epList.animeId,
+      episodeNumber: state.selectedEpisode,
+    );
+    state = state.copyWith(clearError: true, clearSourceNotice: true);
+    await _playCurrent(_player.lastStablePosition, generation: generation);
+  }
 
-      final currentServer = state.selectedServer;
-      final alternateServer = state.servers.firstWhereOrNull(
-        (server) =>
-            server.isDub == currentServer?.isDub &&
-            server.id != currentServer?.id &&
-            !_failedRuntimeServerIds.contains(server.id),
-      );
-      if (alternateServer != null) {
-        state = state.copyWith(selectedServer: alternateServer);
-        clearEpisodeCache(
-          mediaId: _epList.mediaId ?? _epList.animeId,
-          episodeNumber: ep,
-        );
-        await _playCurrent(startAt, generation: generation);
-        return;
-      }
+  Future<void> retryWithAnotherServer() async {
+    final current = state.selectedServer;
+    final alternate = state.servers.firstWhereOrNull(
+      (server) =>
+          server.isDub == current?.isDub &&
+          server.id != current?.id &&
+          !_failedRuntimeServerIds.contains(server.id),
+    );
+    if (alternate == null) {
       state = state.copyWith(
         error:
-            'This stream failed on all available ${currentServer?.isDub == true ? 'English dub' : 'Japanese sub'} servers.',
+            'No other ${current?.isDub == true ? 'dub' : 'sub'} server is available.',
       );
-    } finally {
-      if (generation == _loadGeneration) {
-        state = state.copyWith(removeState: EpisodeStreamState.SOURCE_LOADING);
-      }
-      _isRecoveringPlayback = false;
+      return;
     }
+    final generation = ++_loadGeneration;
+    ref.read(aniSkipProvider.notifier).clearSourceFallback();
+    state = state.copyWith(
+      selectedServer: alternate,
+      clearError: true,
+      sourceNotice: 'Trying ${alternate.name ?? alternate.id}',
+    );
+    clearEpisodeCache(
+      mediaId: _epList.mediaId ?? _epList.animeId,
+      episodeNumber: state.selectedEpisode,
+    );
+    await _playCurrent(_player.lastStablePosition, generation: generation);
   }
 
   Future<void> switchAudioLanguage(String language) async {
@@ -1118,7 +1082,9 @@ class EpisodeData extends _$EpisodeData {
     state = state.copyWith(
       addState: EpisodeStreamState.SOURCE_LOADING,
       clearError: true,
+      clearSourceNotice: true,
     );
+    ref.read(aniSkipProvider.notifier).clearSourceFallback();
 
     try {
       var epModel = _epList.getEpisode(epNum);
@@ -1134,12 +1100,15 @@ class EpisodeData extends _$EpisodeData {
       final requestedDub = state.selectedServer?.isDub == true;
       if (epNum == _prefetchedEpNum &&
           _prefetchedSourceData != null &&
-          _prefetchedIsDub == requestedDub) {
+          _prefetchedIsDub == requestedDub &&
+          _prefetchedRouteKey ==
+              '$_streamSourceKey:${state.selectedServer?.id ?? 'default'}') {
         AppLogger.success('⚡ Using pre-fetched stream data for Episode $epNum');
         data = _prefetchedSourceData;
         _prefetchedEpNum = null;
         _prefetchedSourceData = null;
         _prefetchedIsDub = null;
+        _prefetchedRouteKey = null;
       } else {
         data = await _fetchSourceData(
           epModel,
@@ -1155,171 +1124,27 @@ class EpisodeData extends _$EpisodeData {
       if (data == null || data.sources.isEmpty) {
         throw StateError('No playable sources found');
       }
-      ref
-          .read(aniSkipProvider.notifier)
-          .setFallbackFromSource(intro: data.intro, outro: data.outro);
       state = state.copyWith(
         sources: data.sources,
         subtitles: [Subtitle(lang: 'None'), ...data.tracks],
         headers: data.headers?.cast<String, String>(),
       );
-      try {
-        final playerSw = Stopwatch()..start();
-        await _loadSourceStream(
-          0,
-          startAt: startAt,
-          generation: activeGeneration,
-        );
-        playerSw.stop();
-        timing.playerOpenMs = playerSw.elapsedMilliseconds;
-        timing.logSummary(
-          server: state.selectedServer?.name ?? state.selectedServer?.id,
-          provider: _effectiveProvider?.providerName,
-        );
-        if (activeGeneration != _loadGeneration) return;
-      } catch (primaryError) {
-        final livePlayerState = ref.read(playerStateProvider);
-        if (livePlayerState.isPlaying ||
-            livePlayerState.position > startAt + const Duration(seconds: 1)) {
-          // Some hosts complete their open command late even though frames are
-          // already flowing. Treating that late completion as failure caused
-          // a needless source reopen and playback jumping back to the intro.
-          AppLogger.w(
-            'Ignoring late stream-open failure because playback already started: $primaryError',
-          );
-          return;
-        }
-        AppLogger.w('Primary stream stalled; trying alternate stream');
-        var alternateStarted = false;
-        final currentPos = ref.read(playerStateProvider).position;
-        final recoveryStartAt =
-            currentPos > Duration.zero
-                ? currentPos
-                : (_player.lastStablePosition > Duration.zero
-                    ? _player.lastStablePosition
-                    : startAt);
-        for (var index = 1; index < state.sources.length; index++) {
-          try {
-            await _loadSourceStream(
-              index,
-              startAt: recoveryStartAt,
-              generation: activeGeneration,
-            );
-            alternateStarted = true;
-            break;
-          } catch (_) {}
-        }
-        if (alternateStarted) return;
-
-        final category = state.selectedServer?.isDub == true ? 'dub' : 'sub';
-        BaseSourcesModel? fallback;
-        final altServer =
-            state.selectedServer?.id == 'megaplay' ? 'zokoanime' : 'megaplay';
-
-        // Try alternate JustAnime server if primary stalled
-        if (_isNativeProvider &&
-            _effectiveProvider?.providerName == 'justanime') {
-          try {
-            fallback = await _effectiveProvider!
-                .getSources(
-                  _justAnimeId,
-                  // JustAnime's watch API accepts the displayed episode
-                  // number. Extension episode IDs may be opaque or belong to
-                  // a neighbouring item after metadata enrichment.
-                  epModel.number?.toString() ?? epNum.toString(),
-                  altServer,
-                  category,
-                )
-                .timeout(const Duration(seconds: 10));
-          } catch (e) {
-            AppLogger.w('JustAnime alternate server recovery failed: $e');
-          }
-        }
-
-        fallback ??= await _fetchFallbackNativeSourceData(
-          epModel,
-          category,
-          generation: activeGeneration,
-        );
-        if (fallback != null && fallback.sources.isNotEmpty) {
-          if (activeGeneration != _loadGeneration) return;
-          ref
-              .read(aniSkipProvider.notifier)
-              .setFallbackFromSource(
-                intro: fallback.intro,
-                outro: fallback.outro,
-              );
-          final matchingServer = state.servers.firstWhereOrNull(
-            (s) => s.id == altServer && s.isDub == (category == 'dub'),
-          );
-          state = state.copyWith(
-            selectedServer:
-                matchingServer ?? state.selectedServer?.copyWith(id: altServer),
-            sources: fallback.sources,
-            subtitles: [Subtitle(lang: 'None'), ...fallback.tracks],
-            headers: fallback.headers?.cast<String, String>(),
-          );
-          await _loadSourceStream(
-            0,
-            startAt: recoveryStartAt,
-            generation: activeGeneration,
-          );
-          return;
-        }
-
-        // A DUB request must remain a DUB request. Slow or temporarily failing
-        // DUB servers must never silently change the user's audio preference.
-        if (state.selectedServer?.isDub == true && _effectiveProvider != null) {
-          final targetId =
-              (_effectiveProvider?.providerName == 'justanime')
-                  ? _justAnimeId
-                  : (_epList.animeId ?? '');
-
-          // 1. Try all other available DUB servers first!
-          final altDubServers =
-              state.servers
-                  .where((s) => s.isDub && s.id != state.selectedServer?.id)
-                  .toList();
-          for (final altDub in altDubServers) {
-            try {
-              final dubFallback = await _effectiveProvider!
-                  .getSources(
-                    targetId,
-                    _effectiveProvider?.providerName == 'justanime'
-                        ? (epModel.number?.toString() ?? epNum.toString())
-                        : (epModel.id ?? epNum.toString()),
-                    altDub.id,
-                    'dub',
-                  )
-                  .timeout(const Duration(seconds: 10));
-              // The response came from an explicitly DUB server. Some source
-              // adapters do not annotate every returned URL with isDub.
-              if (dubFallback.sources.isNotEmpty) {
-                if (activeGeneration != _loadGeneration) return;
-                ref
-                    .read(aniSkipProvider.notifier)
-                    .setFallbackFromSource(
-                      intro: dubFallback.intro,
-                      outro: dubFallback.outro,
-                    );
-                state = state.copyWith(
-                  selectedServer: altDub,
-                  sources: dubFallback.sources,
-                  subtitles: [Subtitle(lang: 'None'), ...dubFallback.tracks],
-                  headers: dubFallback.headers?.cast<String, String>(),
-                );
-                await _loadSourceStream(
-                  0,
-                  startAt: recoveryStartAt,
-                  generation: activeGeneration,
-                );
-                return;
-              }
-            } catch (_) {}
-          }
-        }
-        rethrow;
-      }
+      final playerSw = Stopwatch()..start();
+      await _loadSourceStream(
+        0,
+        startAt: startAt,
+        generation: activeGeneration,
+      );
+      playerSw.stop();
+      if (activeGeneration != _loadGeneration) return;
+      ref
+          .read(aniSkipProvider.notifier)
+          .setFallbackFromSource(intro: data.intro, outro: data.outro);
+      timing.playerOpenMs = playerSw.elapsedMilliseconds;
+      timing.logSummary(
+        server: state.selectedServer?.name ?? state.selectedServer?.id,
+        provider: _effectiveProvider?.providerName,
+      );
     } catch (e, stack) {
       if (activeGeneration != _loadGeneration) return;
       AppLogger.e('Episode playback failed', e, stack);
@@ -1327,8 +1152,9 @@ class EpisodeData extends _$EpisodeData {
       try {
         ref.read(playerStateProvider.notifier).pause();
       } catch (_) {}
+      ref.read(aniSkipProvider.notifier).clearSourceFallback();
       state = state.copyWith(
-        error: 'Source not available for this episode. Try another server.',
+        error: 'The selected server could not play this episode.',
       );
     } finally {
       if (activeGeneration == _loadGeneration) {
@@ -1616,11 +1442,8 @@ class EpisodeData extends _$EpisodeData {
           );
           final res = await provider
               .getSources(effectiveAnimeId, targetEpId, server?.id, category)
-              .timeout(const Duration(milliseconds: 2500));
+              .timeout(const Duration(seconds: 4));
           if (res.sources.isNotEmpty) {
-            ref
-                .read(aniSkipProvider.notifier)
-                .setFallbackFromSource(intro: res.intro, outro: res.outro);
             state = state.copyWith(sourceNotice: 'Connected to JUSTANIME');
             return saveAndReturn(res);
           }
@@ -1724,9 +1547,7 @@ class EpisodeData extends _$EpisodeData {
           );
         }
       } catch (err) {
-        AppLogger.e(
-          'Extension source fetch failed, trying legacy provider: $err',
-        );
+        AppLogger.e('Selected extension source fetch failed: $err');
       }
     }
 
@@ -1751,7 +1572,7 @@ class EpisodeData extends _$EpisodeData {
           );
           final res = await effectiveProvider
               .getSources(effectiveAnimeId, targetEpId, server?.id, category)
-              .timeout(const Duration(milliseconds: 2500));
+              .timeout(const Duration(seconds: 4));
           if (res.sources.isNotEmpty) {
             state = state.copyWith(
               sourceNotice:
@@ -1816,13 +1637,7 @@ class EpisodeData extends _$EpisodeData {
       }
     }
 
-    final fallback = await _fetchFallbackNativeSourceData(
-      ep,
-      category,
-      generation: activeGeneration,
-      excludedProviderKeys: isJustAnime ? const {'justanime'} : const {},
-    );
-    return saveAndReturn(fallback);
+    return null;
   }
 
   Future<BaseSourcesModel?> _fetchFallbackNativeSourceData(

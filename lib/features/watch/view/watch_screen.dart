@@ -439,7 +439,12 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
       previous,
       next,
     ) {
-      if (next == null || next == previous || !context.mounted) return;
+      if (next == null ||
+          next == previous ||
+          !next.startsWith('Trying ') ||
+          !context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(next),
@@ -456,21 +461,6 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                       ),
                     ),
           ),
-        ),
-      );
-    });
-
-    ref.listen(episodeDataProvider.select((s) => s.sourceNotice), (
-      previous,
-      next,
-    ) {
-      if (next == null || next == previous || !context.mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(next),
-          duration: const Duration(milliseconds: 1400),
         ),
       );
     });
