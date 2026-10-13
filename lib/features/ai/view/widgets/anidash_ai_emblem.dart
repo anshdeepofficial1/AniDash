@@ -4,6 +4,7 @@ import 'package:ani_dash/main.dart';
 import 'package:flutter/material.dart';
 
 const anyCoreLogoAnimationKey = 'anycore_logo_animation';
+const anyCoreEnabledKey = 'anycore_enabled';
 
 /// The shared AniDash AI mark used everywhere AI is surfaced in AniDash.
 /// Features a modern, sleek AI sparkle constellation that seamlessly blends
@@ -26,13 +27,17 @@ class _AniDashAiEmblemState extends State<AniDashAiEmblem>
   );
   late final Animation<double> _scaleAnimation = TweenSequence<double>([
     TweenSequenceItem(
-      tween: Tween<double>(begin: 1.0, end: 1.08)
-          .chain(CurveTween(curve: Curves.easeInOut)),
+      tween: Tween<double>(
+        begin: 1.0,
+        end: 1.08,
+      ).chain(CurveTween(curve: Curves.easeInOut)),
       weight: 50,
     ),
     TweenSequenceItem(
-      tween: Tween<double>(begin: 1.08, end: 1.0)
-          .chain(CurveTween(curve: Curves.easeInOut)),
+      tween: Tween<double>(
+        begin: 1.08,
+        end: 1.0,
+      ).chain(CurveTween(curve: Curves.easeInOut)),
       weight: 50,
     ),
   ]).animate(_controller);
@@ -79,17 +84,10 @@ class _AniDashAiEmblemState extends State<AniDashAiEmblem>
     );
 
     if (_shouldAnimate) {
-      child = ScaleTransition(
-        scale: _scaleAnimation,
-        child: child,
-      );
+      child = ScaleTransition(scale: _scaleAnimation, child: child);
     }
 
-    return Semantics(
-      label: 'AniDash AI',
-      image: true,
-      child: child,
-    );
+    return Semantics(label: 'AniDash AI', image: true, child: child);
   }
 }
 
@@ -111,18 +109,19 @@ class _AniDashAiSparklePainter extends CustomPainter {
     final center = Offset(w * 0.44, h * 0.54);
     final mainRadius = math.min(w, h) * 0.38;
 
-    final paint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color.lerp(primaryColor, Colors.white, 0.35)!,
-          primaryColor,
-          secondaryColor,
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, w, h))
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
+    final paint =
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.lerp(primaryColor, Colors.white, 0.35)!,
+              primaryColor,
+              secondaryColor,
+            ],
+          ).createShader(Rect.fromLTWH(0, 0, w, h))
+          ..style = PaintingStyle.fill
+          ..isAntiAlias = true;
 
     // 1. Primary 4-pointed curved star in center
     final mainStar = _createSparklePath(center, mainRadius, 0.22);
@@ -147,10 +146,30 @@ class _AniDashAiSparklePainter extends CustomPainter {
     final inset = r * insetFactor;
 
     path.moveTo(center.dx, center.dy - r);
-    path.quadraticBezierTo(center.dx + inset, center.dy - inset, center.dx + r, center.dy);
-    path.quadraticBezierTo(center.dx + inset, center.dy + inset, center.dx, center.dy + r);
-    path.quadraticBezierTo(center.dx - inset, center.dy + inset, center.dx - r, center.dy);
-    path.quadraticBezierTo(center.dx - inset, center.dy - inset, center.dx, center.dy - r);
+    path.quadraticBezierTo(
+      center.dx + inset,
+      center.dy - inset,
+      center.dx + r,
+      center.dy,
+    );
+    path.quadraticBezierTo(
+      center.dx + inset,
+      center.dy + inset,
+      center.dx,
+      center.dy + r,
+    );
+    path.quadraticBezierTo(
+      center.dx - inset,
+      center.dy + inset,
+      center.dx - r,
+      center.dy,
+    );
+    path.quadraticBezierTo(
+      center.dx - inset,
+      center.dy - inset,
+      center.dx,
+      center.dy - r,
+    );
     path.close();
     return path;
   }

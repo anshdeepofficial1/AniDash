@@ -289,19 +289,19 @@ class JustAnimeProvider extends AnimeProvider {
     }
   }
 
-  Future<BaseSourcesModel?> _keepResolvableStreams(
-    BaseSourcesModel model,
-  ) async {
-    // A source response commonly exposes several qualities from the same host.
-    // Cache the in-flight lookup itself so those qualities do not start dozens
-    // of concurrent DNS requests and temporarily poison Android's resolver.
-    final hostChecks = <String, Future<bool>>{};
+  Future<BaseSourcesModel?> _keepPlayableStreams(BaseSourcesModel model) async {
+    // A successful extractor response is not enough: dead HLS manifests often
+    // keep a healthy-looking proxy host while referencing an expired segment
+    // host inside the playlist. Validate the manifest chain before MPV opens it
+    // so a DNS failure becomes a clear server error instead of a black player.
+    final checks = <String, Future<bool>>{};
 
-    Future<bool> resolves(String? value) async {
-      final uri = Uri.tryParse(value ?? '');
+    Future<bool> resolves(String value) async {
+      final uri = Uri.tryParse(value);
       final host = uri?.host ?? '';
       if (host.isEmpty) return false;
-      return hostChecks.putIfAbsent(host, () async {
+      if (InternetAddress.tryParse(host) != null) return true;
+      return checks.putIfAbsent('dns:$host', () async {
         try {
           final addresses = await InternetAddress.lookup(
             host,
@@ -313,12 +313,60 @@ class JustAnimeProvider extends AnimeProvider {
       });
     }
 
-    final checks = await Future.wait(
-      model.sources.map((source) => resolves(source.url)),
-    );
+    Uri? childUri(Uri parent, String line) {
+      final value = line.trim();
+      if (value.isEmpty || value.startsWith('#')) return null;
+      return parent.resolve(value);
+    }
+
+    Future<bool> validate(Source source) async {
+      final value = source.url;
+      final uri = Uri.tryParse(value ?? '');
+      if (uri == null || uri.host.isEmpty || !await resolves(uri.toString())) {
+        return false;
+      }
+
+      final isHls = source.isM3U8 || uri.path.toLowerCase().contains('.m3u8');
+      if (!isHls) return true;
+
+      final key = 'hls:${uri.toString()}';
+      return checks.putIfAbsent(key, () async {
+        try {
+          var current = uri;
+          // A master playlist can point to a variant playlist which then points
+          // to the media segment host. Two hops cover that common HLS layout.
+          for (var depth = 0; depth < 2; depth++) {
+            final response = await UniversalHttpClient.instance
+                .get(current, headers: source.headers ?? model.headers)
+                .timeout(const Duration(seconds: 5));
+            if (response.statusCode < 200 || response.statusCode >= 300) {
+              return false;
+            }
+            final body = response.body.trimLeft();
+            if (!body.startsWith('#EXTM3U')) return false;
+            final nextLine = const LineSplitter()
+                .convert(body)
+                .map((line) => line.trim())
+                .firstWhere(
+                  (line) => line.isNotEmpty && !line.startsWith('#'),
+                  orElse: () => '',
+                );
+            final next = childUri(current, nextLine);
+            if (next == null || !await resolves(next.toString())) return false;
+            if (!next.path.toLowerCase().contains('.m3u8')) return true;
+            current = next;
+          }
+          return true;
+        } catch (_) {
+          return false;
+        }
+      });
+    }
+
+    final results = await Future.wait(model.sources.map(validate));
     final playable = <Source>[];
     for (var index = 0; index < model.sources.length; index++) {
-      if (checks[index]) playable.add(model.sources[index]);
+      if (results[index]) playable.add(model.sources[index]);
     }
     if (playable.isEmpty) return null;
 
@@ -566,7 +614,7 @@ class JustAnimeProvider extends AnimeProvider {
             final model =
                 parsedModel == null
                     ? null
-                    : await _keepResolvableStreams(parsedModel);
+                    : await _keepPlayableStreams(parsedModel);
             if (model != null) {
               if (model.intro != null && discoveredIntro == null) {
                 discoveredIntro = model.intro;

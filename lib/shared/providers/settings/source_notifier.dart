@@ -33,11 +33,6 @@ class SourceNotifier extends _$SourceNotifier {
   Future<void> initialize() async {
     try {
       final extensionManager = Get.find<ExtensionManager>();
-      // AniDash only supports sandboxed, in-process MangaYomi sources.
-      // AniYomi indexes distribute Android APKs and therefore must not be
-      // presented as an in-app extension installation.
-      extensionManager.setCurrentManager(ExtensionType.mangayomi);
-
       // Listen for manager changes (e.g., swapping between Aniyomi/Mangayomi)
       _managerSubscription?.cancel();
       _managerSubscription = extensionManager.currentManagerRx.listen(

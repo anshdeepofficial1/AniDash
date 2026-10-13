@@ -113,6 +113,36 @@ class ThemeSettingsScreen extends ConsumerWidget {
                     labels: const {0: 'System', 1: 'Light', 2: 'Dark'},
                     icon: const Icon(Iconsax.color_swatch),
                   ),
+                  ToggleableSettingsItem(
+                    icon: Icon(
+                      Icons.blur_on_rounded,
+                      color: colorScheme.primary,
+                    ),
+                    accent: colorScheme.primary,
+                    title: 'Navigation blur',
+                    description: 'Turn off for a solid toolbar color',
+                    value: theme.navigationBlur,
+                    onChanged:
+                        (value) => themeNotifier.updateSettings(
+                          (prev) => prev.copyWith(navigationBlur: value),
+                        ),
+                  ),
+                  ToggleableSettingsItem(
+                    icon: Icon(
+                      Icons.compress_rounded,
+                      color: colorScheme.primary,
+                    ),
+                    accent: colorScheme.primary,
+                    title: 'Compact toolbar on scroll',
+                    description:
+                        'Shrink while scrolling down and expand upward',
+                    value: theme.compactNavigationOnScroll,
+                    onChanged:
+                        (value) => themeNotifier.updateSettings(
+                          (prev) =>
+                              prev.copyWith(compactNavigationOnScroll: value),
+                        ),
+                  ),
                 ],
               ),
               const SizedBox(height: 24),

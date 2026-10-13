@@ -214,8 +214,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       // ── Instant playback + underrun protection ────────────────────────────
       'cache-pause': 'yes', // Pause gracefully on underrun
       'cache-pause-wait': '2',
-      'cache-pause-initial':
-          'no', // Instant startup; start playing first frame without delay
+      // Do not block the very first decoded frame behind an opaque initial
+      // cache threshold. MPV still keeps the 100-second read-ahead above and
+      // pauses cleanly if the network later falls behind.
+      'cache-pause-initial': 'no',
       // ── Network & Reconnect ───────────────────────────────────────────────
       'network-timeout': '30',
       'stream-lavf-o': 'reconnect=1,reconnect_streamed=1,reconnect_delay_max=5',
@@ -495,7 +497,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       AppLogger.w('Could not apply stream headers before playback: $error');
     }
     if (openGeneration != _openGeneration) return;
-    _startupTimer = Timer(const Duration(seconds: 14), () {
+    _startupTimer = Timer(const Duration(seconds: 30), () {
       if (openGeneration == _openGeneration &&
           state.isOpening &&
           _player.state.position == Duration.zero) {

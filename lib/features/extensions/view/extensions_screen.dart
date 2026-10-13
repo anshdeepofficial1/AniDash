@@ -20,10 +20,6 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
   @override
   void initState() {
     super.initState();
-    // AniDash extensions are intentionally in-process. AniYomi repositories
-    // contain Android APK plug-ins, which would be installed as separate apps
-    // and cannot satisfy AniDash's sandboxed extension model.
-    Get.find<ExtensionManager>().setCurrentManager(ExtensionType.mangayomi);
     WidgetsBinding.instance.addPostFrameCallback((_) => _refreshRepositories());
   }
 
@@ -55,23 +51,39 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
   };
 
   List<String> _getSavedAnimeRepos(dynamic manager) {
+    final isAniyomi =
+        ExtensionType.fromManager(manager) == ExtensionType.aniyomi;
+    final saved = sharedPrefs.getStringList('saved_anime_repos') ?? const [];
+    if (isAniyomi) {
+      return saved
+          .where((url) => url.contains('index.min.json'))
+          .toSet()
+          .toList();
+    }
     final repos = <String>{
       'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
       'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime_index.json',
     };
-    final saved = sharedPrefs.getStringList('saved_anime_repos');
-    if (saved != null && saved.isNotEmpty) {
+    if (saved.isNotEmpty) {
       repos.addAll(saved.where((url) => !url.contains('index.min.json')));
     }
     return repos.toList();
   }
 
   List<String> _getSavedMangaRepos(dynamic manager) {
+    final isAniyomi =
+        ExtensionType.fromManager(manager) == ExtensionType.aniyomi;
+    final saved = sharedPrefs.getStringList('saved_manga_repos') ?? const [];
+    if (isAniyomi) {
+      return saved
+          .where((url) => url.contains('index.min.json'))
+          .toSet()
+          .toList();
+    }
     final repos = <String>{
       'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
     };
-    final saved = sharedPrefs.getStringList('saved_manga_repos');
-    if (saved != null && saved.isNotEmpty) {
+    if (saved.isNotEmpty) {
       repos.addAll(saved.where((url) => !url.contains('index.min.json')));
     }
     return repos.toList();
@@ -103,7 +115,7 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                     title: const Text('Extension engines'),
                     content: const Text(
                       'AniDash uses MangaYomi-compatible source files that run inside AniDash.\n\n'
-                      'AniYomi repositories distribute Android APK plug-ins. They are intentionally blocked because they install as separate apps instead of staying inside AniDash.\n\n'
+                      'On Android, AniYomi repositories are also supported. Their APK plug-ins use Android\'s secure package installer, so the system may ask you to approve the installation.\n\n'
                       'Adding a repository does not install every source inside it. After adding it, open Available Anime or Available Manga and install the source you want.',
                     ),
                     actions: [
@@ -220,7 +232,7 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
     final controller = TextEditingController();
     final presets = [
       (
-        name: 'Kohi-den (Standard Anime)',
+        name: 'Kohi-den (AniYomi Anime)',
         url:
             'https://kohiden.xyz/Kohi-den/extensions/raw/branch/main/index.min.json',
         type: ItemType.anime,
@@ -374,17 +386,6 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                           : () async {
                             final url = controller.text.trim();
                             if (url.isNotEmpty) {
-                              if (url.contains('index.min.json') ||
-                                  url.toLowerCase().contains('aniyomi')) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'AniYomi APK repositories are not supported. Add a MangaYomi JSON repository so sources stay inside AniDash.',
-                                    ),
-                                  ),
-                                );
-                                return;
-                              }
                               setState(() => isAdding = true);
                               final messenger = ScaffoldMessenger.of(context);
                               try {
@@ -555,9 +556,6 @@ class ExtensionListWidget extends StatefulWidget implements ExtensionConfig {
 class _ExtensionListWidgetState extends ExtensionList<ExtensionListWidget> {
   @override
   Widget build(BuildContext context) {
-    // Always use AniDash's in-process engine. Stale AniYomi APK entries must
-    // never launch Android's separate-app installer from this screen.
-    Get.find<ExtensionManager>().setCurrentManager(ExtensionType.mangayomi);
     manager = Get.find<ExtensionManager>().currentManager;
     return super.build(context);
   }
