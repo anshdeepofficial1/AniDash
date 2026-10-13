@@ -14,6 +14,8 @@ class ThemeModel {
   final int customSecondaryColor;
   final int customTertiaryColor;
   final int customSurfaceColor;
+  final bool navigationBlur;
+  final bool compactNavigationOnScroll;
 
   ThemeModel({
     this.themeMode = 'system',
@@ -28,6 +30,8 @@ class ThemeModel {
     this.customSecondaryColor = 0xFF625B71,
     this.customTertiaryColor = 0xFF7D5260,
     this.customSurfaceColor = 0xFFFFF7FF,
+    this.navigationBlur = true,
+    this.compactNavigationOnScroll = true,
   });
 
   ThemeModel copyWith({
@@ -43,6 +47,8 @@ class ThemeModel {
     int? customSecondaryColor,
     int? customTertiaryColor,
     int? customSurfaceColor,
+    bool? navigationBlur,
+    bool? compactNavigationOnScroll,
   }) {
     return ThemeModel(
       themeMode: themeMode ?? this.themeMode,
@@ -57,6 +63,9 @@ class ThemeModel {
       customSecondaryColor: customSecondaryColor ?? this.customSecondaryColor,
       customTertiaryColor: customTertiaryColor ?? this.customTertiaryColor,
       customSurfaceColor: customSurfaceColor ?? this.customSurfaceColor,
+      navigationBlur: navigationBlur ?? this.navigationBlur,
+      compactNavigationOnScroll:
+          compactNavigationOnScroll ?? this.compactNavigationOnScroll,
     );
   }
 
@@ -78,6 +87,8 @@ class ThemeModel {
       'customSecondaryColor': customSecondaryColor,
       'customTertiaryColor': customTertiaryColor,
       'customSurfaceColor': customSurfaceColor,
+      'navigationBlur': navigationBlur,
+      'compactNavigationOnScroll': compactNavigationOnScroll,
     };
   }
 
@@ -95,6 +106,8 @@ class ThemeModel {
       customSecondaryColor: map['customSecondaryColor'] ?? 0xFF625B71,
       customTertiaryColor: map['customTertiaryColor'] ?? 0xFF7D5260,
       customSurfaceColor: map['customSurfaceColor'] ?? 0xFFFFF7FF,
+      navigationBlur: map['navigationBlur'] ?? true,
+      compactNavigationOnScroll: map['compactNavigationOnScroll'] ?? true,
     );
   }
 

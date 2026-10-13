@@ -626,13 +626,8 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       'Fetching episodes via Legacy Provider: $provider (id: $targetId)',
     );
     for (var attempt = 1; attempt <= 3; attempt++) {
-      if (attempt > 1) {
-        showAppSnackBar(
-          'Checking ${provider.providerName.toUpperCase()}',
-          'Retry $attempt of 3…',
-          type: ContentType.help,
-        );
-      }
+      // Episode metadata retries are deliberately silent. A playback-style
+      // snackbar here made users think a video was failing before Play.
       try {
         final episodes =
             (await provider

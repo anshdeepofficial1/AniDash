@@ -21,6 +21,7 @@ import 'package:ani_dash/core/utils/updater.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:ani_dash/shared/providers/settings/ui_notifier.dart';
+import 'package:ani_dash/shared/providers/settings/theme_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/update_settings_notifier.dart';
 import 'package:ani_dash/shared/providers/permissions_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -111,6 +112,21 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
   bool _deferredUpdateCheck = false;
   bool _wasWatchingVideo = false;
   GoRouter? _goRouter;
+  bool _navigationCompact = false;
+
+  bool _handleNavigationScroll(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical ||
+        notification is! ScrollUpdateNotification) {
+      return false;
+    }
+    final delta = notification.scrollDelta ?? 0;
+    if (delta.abs() < 2) return false;
+    final next = delta > 0;
+    if (next != _navigationCompact && mounted) {
+      setState(() => _navigationCompact = next);
+    }
+    return false;
+  }
 
   bool get _isWatchingVideo {
     if (!mounted) return false;
@@ -423,6 +439,7 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
 
     final isWide = MediaQuery.sizeOf(context).width > 800;
     final uiSettings = ref.watch(uiSettingsProvider);
+    final themeSettings = ref.watch(themeSettingsProvider);
     final visibleNavItems = _getVisibleNavItems(uiSettings);
 
     // If active branch was disabled by user in settings, safely redirect to Home (branch 0)
@@ -543,9 +560,12 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
                       items: visibleNavItems,
                       isCollapsed: ref.watch(desktopSidebarCollapsedProvider),
                       onToggleCollapse: () {
-                        ref.read(desktopSidebarCollapsedProvider.notifier).toggle();
+                        ref
+                            .read(desktopSidebarCollapsedProvider.notifier)
+                            .toggle();
                       },
-                      onTabSelected: (branch) => _onNavTap(branch, visibleNavItems),
+                      onTabSelected:
+                          (branch) => _onNavTap(branch, visibleNavItems),
                     ),
                     Expanded(
                       child: Container(
@@ -560,10 +580,12 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
                               child: PageView(
                                 controller: _pageController,
                                 physics: const NeverScrollableScrollPhysics(),
-                                children: visibleNavItems.map((item) {
-                                  final child = widget.children[item.branchIndex];
-                                  return _KeepAliveWrapper(child: child);
-                                }).toList(),
+                                children:
+                                    visibleNavItems.map((item) {
+                                      final child =
+                                          widget.children[item.branchIndex];
+                                      return _KeepAliveWrapper(child: child);
+                                    }).toList(),
                               ),
                             ),
                           ],
@@ -598,33 +620,39 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
         body: Stack(
           fit: StackFit.expand,
           children: [
-            PageView(
-              controller: _pageController,
-              onPageChanged: (pageIndex) {
-                if (pageIndex >= 0 && pageIndex < visibleNavItems.length) {
-                  final targetBranch = visibleNavItems[pageIndex].branchIndex;
-                  if (targetBranch != widget.navigationShell.currentIndex) {
-                    widget.navigationShell.goBranch(targetBranch);
+            NotificationListener<ScrollNotification>(
+              onNotification:
+                  themeSettings.compactNavigationOnScroll
+                      ? _handleNavigationScroll
+                      : null,
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (pageIndex) {
+                  if (pageIndex >= 0 && pageIndex < visibleNavItems.length) {
+                    final targetBranch = visibleNavItems[pageIndex].branchIndex;
+                    if (targetBranch != widget.navigationShell.currentIndex) {
+                      widget.navigationShell.goBranch(targetBranch);
+                    }
                   }
-                }
-              },
-              physics: const BouncingScrollPhysics(),
-              children:
-                  visibleNavItems.map((item) {
-                    final child = widget.children[item.branchIndex];
-                    return Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        isWide ? 90 : 0,
-                        isWide ? 15 : 0,
-                        0,
-                        isWide ? 15 : 0,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(15),
-                        child: _KeepAliveWrapper(child: child),
-                      ),
-                    );
-                  }).toList(),
+                },
+                physics: const BouncingScrollPhysics(),
+                children:
+                    visibleNavItems.map((item) {
+                      final child = widget.children[item.branchIndex];
+                      return Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          isWide ? 90 : 0,
+                          isWide ? 15 : 0,
+                          0,
+                          isWide ? 15 : 0,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: _KeepAliveWrapper(child: child),
+                        ),
+                      );
+                    }).toList(),
+              ),
             ),
             Positioned(
               left: isWide ? 10 : 0,
@@ -643,6 +671,10 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
                         : _BottomNav(
                           shell: widget.navigationShell,
                           items: visibleNavItems,
+                          blur: themeSettings.navigationBlur,
+                          compact:
+                              themeSettings.compactNavigationOnScroll &&
+                              _navigationCompact,
                           onTabSelected:
                               (branch) => _onNavTap(branch, visibleNavItems),
                         ),
@@ -730,10 +762,14 @@ class _BottomNav extends StatelessWidget {
   final StatefulNavigationShell shell;
   final List<NavItem> items;
   final void Function(int branchIndex)? onTabSelected;
+  final bool blur;
+  final bool compact;
 
   const _BottomNav({
     required this.shell,
     required this.items,
+    required this.blur,
+    required this.compact,
     this.onTabSelected,
   });
 
@@ -743,60 +779,66 @@ class _BottomNav extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final width = MediaQuery.sizeOf(context).width;
 
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: width * 0.08),
-      child: ClipRRect(
+    final content = Container(
+      padding: EdgeInsets.all(compact ? 4 : 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: blur ? 0.72 : 1),
         borderRadius: BorderRadius.circular(100),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: colorScheme.surface.withValues(alpha: 0.5),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.8)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: List.generate(items.length, (index) {
+          final item = items[index];
+          final isSelected = shell.currentIndex == item.branchIndex;
+          return Expanded(
+            child: InkWell(
+              onTap: () {
+                if (onTabSelected != null) {
+                  onTabSelected!(item.branchIndex);
+                } else {
+                  shell.goBranch(item.branchIndex);
+                }
+              },
               borderRadius: BorderRadius.circular(100),
-              border: Border.all(
-                color: colorScheme.primary.withValues(alpha: 0.8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: EdgeInsets.symmetric(vertical: compact ? 7 : 10),
+                decoration: BoxDecoration(
+                  color:
+                      isSelected
+                          ? colorScheme.primary.withValues(alpha: 0.2)
+                          : null,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  item.icon,
+                  size: compact ? 21 : 24,
+                  color:
+                      isSelected ? colorScheme.primary : colorScheme.onSurface,
+                ),
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(items.length, (index) {
-                final item = items[index];
-                final isSelected = shell.currentIndex == item.branchIndex;
-                return Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      if (onTabSelected != null) {
-                        onTabSelected!(item.branchIndex);
-                      } else {
-                        shell.goBranch(item.branchIndex);
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(100),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color:
-                            isSelected
-                                ? colorScheme.primary.withValues(alpha: 0.2)
-                                : null,
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        item.icon,
-                        color:
-                            isSelected
-                                ? colorScheme.primary
-                                : colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-        ),
+          );
+        }),
+      ),
+    );
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      padding: EdgeInsets.symmetric(
+        horizontal: width * (compact ? 0.16 : 0.08),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(100),
+        child:
+            blur
+                ? BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  child: content,
+                )
+                : content,
       ),
     );
   }

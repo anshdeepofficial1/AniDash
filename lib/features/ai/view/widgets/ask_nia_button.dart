@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ani_dash/features/ai/domain/ai_models.dart';
 import 'package:ani_dash/features/ai/view/widgets/anidash_ai_emblem.dart';
+import 'package:ani_dash/main.dart';
 
 class AskNiaButton extends StatelessWidget {
   const AskNiaButton({
@@ -28,16 +29,19 @@ class AskNiaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!(sharedPrefs.getBool(anyCoreEnabledKey) ?? true)) {
+      return const SizedBox.shrink();
+    }
     return compact
         ? IconButton(
-            tooltip: 'Ask AniDash AI',
-            icon: const AniDashAiEmblem(size: 22),
-            onPressed: () => _open(context),
-          )
+          tooltip: 'Ask AniDash AI',
+          icon: const AniDashAiEmblem(size: 22),
+          onPressed: () => _open(context),
+        )
         : FilledButton.tonalIcon(
-            onPressed: () => _open(context),
-            icon: const AniDashAiEmblem(size: 20),
-            label: const Text('Ask AniDash AI'),
-          );
+          onPressed: () => _open(context),
+          icon: const AniDashAiEmblem(size: 20),
+          label: const Text('Ask AniDash AI'),
+        );
   }
 }

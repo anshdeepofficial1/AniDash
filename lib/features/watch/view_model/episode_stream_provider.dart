@@ -322,8 +322,6 @@ class EpisodeData extends _$EpisodeData {
     if (targetMediaId == null && episodeNumber == null) {
       _sourceCache.clear();
       _serverListCache.clear();
-      _animeSearchMatchCache.clear();
-      _animeEpisodesCache.clear();
     } else if (targetMediaId != null && episodeNumber != null) {
       _sourceCache.removeWhere(
         (k, _) => k.startsWith('${targetMediaId}_$episodeNumber'),
@@ -1114,7 +1112,7 @@ class EpisodeData extends _$EpisodeData {
           epModel,
           server: state.selectedServer,
           generation: activeGeneration,
-        ).timeout(const Duration(seconds: 15));
+        ).timeout(const Duration(seconds: 18));
       }
       streamSw.stop();
       timing.streamResolveMs = streamSw.elapsedMilliseconds;
@@ -1442,7 +1440,7 @@ class EpisodeData extends _$EpisodeData {
           );
           final res = await provider
               .getSources(effectiveAnimeId, targetEpId, server?.id, category)
-              .timeout(const Duration(seconds: 4));
+              .timeout(const Duration(seconds: 12));
           if (res.sources.isNotEmpty) {
             state = state.copyWith(sourceNotice: 'Connected to JUSTANIME');
             return saveAndReturn(res);
@@ -1572,7 +1570,7 @@ class EpisodeData extends _$EpisodeData {
           );
           final res = await effectiveProvider
               .getSources(effectiveAnimeId, targetEpId, server?.id, category)
-              .timeout(const Duration(seconds: 4));
+              .timeout(const Duration(seconds: 12));
           if (res.sources.isNotEmpty) {
             state = state.copyWith(
               sourceNotice:
@@ -1640,6 +1638,9 @@ class EpisodeData extends _$EpisodeData {
     return null;
   }
 
+  // Kept for the explicit "Another server" recovery path. It must never be
+  // invoked automatically while the user's selected source is still active.
+  // ignore: unused_element
   Future<BaseSourcesModel?> _fetchFallbackNativeSourceData(
     EpisodeDataModel ep,
     String category, {

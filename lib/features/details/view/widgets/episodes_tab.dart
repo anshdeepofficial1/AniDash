@@ -141,13 +141,19 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         .read(watchProgressRepositoryProvider)
         .getProgress(widget.mediaId);
     if (progress == null) {
-      final title = (widget.mediaTitle.english ?? widget.mediaTitle.romaji ?? widget.mediaTitle.userPreferred).trim().toLowerCase();
+      final title =
+          (widget.mediaTitle.english ??
+                  widget.mediaTitle.romaji ??
+                  widget.mediaTitle.userPreferred)
+              .trim()
+              .toLowerCase();
       if (title.isNotEmpty) {
-        progress = ref
-            .read(watchProgressRepositoryProvider)
-            .getAllProgress()
-            .where((p) => p.animeTitle.trim().toLowerCase() == title)
-            .firstOrNull;
+        progress =
+            ref
+                .read(watchProgressRepositoryProvider)
+                .getAllProgress()
+                .where((p) => p.animeTitle.trim().toLowerCase() == title)
+                .firstOrNull;
       }
     }
     final currentEpisode = progress?.currentEpisode ?? 1;
@@ -196,12 +202,26 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
       final scrollController = PrimaryScrollController.maybeOf(context);
       if (scrollController == null || !scrollController.hasClients) return;
 
-      final maxExtent = scrollController.position.maxScrollExtent;
+      // A PrimaryScrollController may legitimately be attached to the outer
+      // details sheet and an inner episode list. Accessing `.position` throws
+      // when both are attached, which used to interrupt episode loading.
+      final positions =
+          scrollController.positions
+              .where((position) => position.hasContentDimensions)
+              .toList();
+      if (positions.isEmpty) return;
+      final position = positions.reduce(
+        (current, candidate) =>
+            candidate.maxScrollExtent > current.maxScrollExtent
+                ? candidate
+                : current,
+      );
+      final maxExtent = position.maxScrollExtent;
       final fraction =
           visibleEpisodes.length <= 1
               ? 0.0
               : targetIndex / (visibleEpisodes.length - 1);
-      await scrollController.animateTo(
+      await position.animateTo(
         (maxExtent * fraction).clamp(0.0, maxExtent),
         duration: const Duration(milliseconds: 280),
         curve: Curves.easeOutCubic,
@@ -903,11 +923,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                           children: [
                             OutlinedButton.icon(
                               onPressed:
-                                  () => _handleWrongMatch(
-                                    context,
-                                    ref,
-                                    notifier,
-                                  ),
+                                  () =>
+                                      _handleWrongMatch(context, ref, notifier),
                               icon: const Icon(
                                 Icons.touch_app_rounded,
                                 size: 18,
@@ -1160,8 +1177,11 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                       )
                                     else
                                       Text(
-                                        (widget.mediaFormat.toUpperCase() == 'MOVIE' ||
-                                                widget.anime?.format?.toUpperCase() == 'MOVIE')
+                                        (widget.mediaFormat.toUpperCase() ==
+                                                    'MOVIE' ||
+                                                widget.anime?.format
+                                                        ?.toUpperCase() ==
+                                                    'MOVIE')
                                             ? 'Movie'
                                             : '$totalEpisodes Episodes',
                                         style: theme.textTheme.titleSmall,
@@ -1416,57 +1436,59 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       ),
                       if (widget.mediaFormat.toUpperCase() != 'MOVIE' &&
                           widget.anime?.format?.toUpperCase() != 'MOVIE' &&
-                          (state.rangeOptions.length > 1 || _namedGroups.isNotEmpty || totalEpisodes > 25))
+                          (state.rangeOptions.length > 1 ||
+                              _namedGroups.isNotEmpty ||
+                              totalEpisodes > 25))
                         SizedBox(
                           height: 50,
                           child: ListView(
                             scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          children: [
-                            if (_groupingMode == EpisodeGroupingMode.ranges)
-                              ...state.rangeOptions.map((range) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4.0,
-                                  ),
-                                  child: Center(
-                                    child: ChoiceChip(
-                                      label: Text(range),
-                                      selected: state.selectedRange == range,
-                                      onSelected: (isSelected) {
-                                        if (isSelected) {
-                                          notifier.updateRange(range);
-                                        }
-                                      },
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            children: [
+                              if (_groupingMode == EpisodeGroupingMode.ranges)
+                                ...state.rangeOptions.map((range) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4.0,
                                     ),
-                                  ),
-                                );
-                              })
-                            else ...[
-                              ..._namedGroups.map(
-                                (group) => Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                  child: Center(
-                                    child: ChoiceChip(
-                                      label: Text(
-                                        '${group.title} (${group.rangeLabel})',
+                                    child: Center(
+                                      child: ChoiceChip(
+                                        label: Text(range),
+                                        selected: state.selectedRange == range,
+                                        onSelected: (isSelected) {
+                                          if (isSelected) {
+                                            notifier.updateRange(range);
+                                          }
+                                        },
                                       ),
-                                      selected:
-                                          _selectedNamedGroup?.id == group.id,
-                                      onSelected:
-                                          (_) => setState(
-                                            () => _selectedNamedGroup = group,
-                                          ),
+                                    ),
+                                  );
+                                })
+                              else ...[
+                                ..._namedGroups.map(
+                                  (group) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    child: Center(
+                                      child: ChoiceChip(
+                                        label: Text(
+                                          '${group.title} (${group.rangeLabel})',
+                                        ),
+                                        selected:
+                                            _selectedNamedGroup?.id == group.id,
+                                        onSelected:
+                                            (_) => setState(
+                                              () => _selectedNamedGroup = group,
+                                            ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -2344,7 +2366,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                           const SizedBox(width: 6),
                           Text(
                             (widget.mediaFormat.toUpperCase() == 'MOVIE' ||
-                                    widget.anime?.format?.toUpperCase() == 'MOVIE')
+                                    widget.anime?.format?.toUpperCase() ==
+                                        'MOVIE')
                                 ? 'MOVIE'
                                 : 'EP $epNum',
                             style: theme.textTheme.labelMedium?.copyWith(
@@ -2359,8 +2382,11 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                         ep.title?.isNotEmpty == true
                             ? ep.title!
                             : ((widget.mediaFormat.toUpperCase() == 'MOVIE' ||
-                                    widget.anime?.format?.toUpperCase() == 'MOVIE')
-                                ? (widget.mediaTitle.english ?? widget.mediaTitle.romaji ?? 'Movie')
+                                    widget.anime?.format?.toUpperCase() ==
+                                        'MOVIE')
+                                ? (widget.mediaTitle.english ??
+                                    widget.mediaTitle.romaji ??
+                                    'Movie')
                                 : 'Episode $epNum'),
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,

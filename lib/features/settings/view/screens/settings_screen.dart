@@ -51,7 +51,10 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () {},
               children: [
                 NormalSettingsItem(
-                  icon: const Icon(Icons.favorite_rounded, color: Colors.pinkAccent),
+                  icon: const Icon(
+                    Icons.favorite_rounded,
+                    color: Colors.pinkAccent,
+                  ),
                   accent: Colors.pinkAccent,
                   title: 'Sponsor AniDash 💖',
                   description: 'Keep AniDash 100% free and ad-free',
@@ -149,8 +152,8 @@ class SettingsScreen extends ConsumerWidget {
                   leading: const AniDashAiEmblem(size: 34),
                   accent: colorScheme.primary,
                   title: 'AniCore',
-                  description: 'AI team names, instructions and privacy',
-                  onTap: () => context.push('/ai'),
+                  description: 'AI visibility, names, instructions and privacy',
+                  onTap: () => context.push('/settings/ai'),
                 ),
               ],
             ),

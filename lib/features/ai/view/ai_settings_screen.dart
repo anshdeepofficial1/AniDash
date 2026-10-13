@@ -13,6 +13,7 @@ class AiSettingsScreen extends StatefulWidget {
 class _AiSettingsScreenState extends State<AiSettingsScreen> {
   final _registry = AssistantRegistry();
   late bool _animateLogo = sharedPrefs.getBool(anyCoreLogoAnimationKey) ?? true;
+  late bool _enabled = sharedPrefs.getBool(anyCoreEnabledKey) ?? true;
 
   Future<String?> _editText(
     String title,
@@ -53,6 +54,18 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          Card(
+            child: SwitchListTile(
+              secondary: const Icon(Icons.auto_awesome_rounded),
+              title: const Text('AnyCore assistant'),
+              subtitle: const Text('Show AI shortcuts throughout AniDash'),
+              value: _enabled,
+              onChanged: (value) async {
+                await sharedPrefs.setBool(anyCoreEnabledKey, value);
+                if (mounted) setState(() => _enabled = value);
+              },
+            ),
+          ),
           Card(
             child: SwitchListTile(
               secondary: AniDashAiEmblem(

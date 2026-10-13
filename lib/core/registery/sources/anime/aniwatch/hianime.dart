@@ -116,8 +116,9 @@ class HiAnimeProvider extends AnimeProvider {
         Uri.parse('$apiUrl/anime/$animeId/episodes'),
         cacheConfig: CacheConfig.medium,
       );
-      if (response.statusCode != 200)
+      if (response.statusCode != 200) {
         throw StateError('Legacy API unavailable');
+      }
       final decoded = jsonDecode(response.body);
       final data = decoded['data'];
       if (data == null || data['episodes'] == null) {
