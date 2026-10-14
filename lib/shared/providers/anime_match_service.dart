@@ -163,10 +163,14 @@ class AnimeMatchService {
     } else {
       final registry = _ref.read(animeSourceRegistryProvider);
       final currentKey = _ref.read(selectedProviderKeyProvider);
+      // A source selected by the user is authoritative. Searching another
+      // provider here returns a provider-specific anime id, and previously
+      // also changed the global source behind the user's back. That could
+      // make a JustAnime details page start a HiAnime stream.
       final keys = <String>[
-        if (currentKey != null) currentKey,
-        for (final fallback in const ['justanime', 'hianime', 'anikoto'])
-          if (fallback != currentKey) fallback,
+        if (currentKey != null && currentKey.isNotEmpty)
+          currentKey
+        else ...const ['justanime', 'hianime', 'anikoto'],
       ];
       for (final key in keys) {
         final candidate = registry.get(key);
@@ -191,15 +195,7 @@ class AnimeMatchService {
                     ),
                   )
                   .toList();
-          if (results.isNotEmpty) {
-            if (key != currentKey) {
-              // Keep all subsequent episode and stream calls on the provider
-              // which produced this id.
-              _ref.read(selectedProviderKeyProvider.notifier).select(key);
-              AppLogger.w('Source search fell back from $currentKey to $key');
-            }
-            return results;
-          }
+          if (results.isNotEmpty) return results;
         } catch (error) {
           AppLogger.d('Search failed on $key: $error');
         }

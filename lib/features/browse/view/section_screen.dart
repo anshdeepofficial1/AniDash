@@ -154,7 +154,9 @@ class _SectionScreenState extends ConsumerState<SectionScreen> {
                   if (rank == 1) {
                     // Gold
                     rankColor = const Color(0xFFFFD700);
-                    rankBgColor = const Color(0xFFFFD700).withValues(alpha: 0.12);
+                    rankBgColor = const Color(
+                      0xFFFFD700,
+                    ).withValues(alpha: 0.12);
                     rankBorderSide = BorderSide(
                       color: const Color(0xFFFFD700).withValues(alpha: 0.55),
                       width: 1.2,
@@ -162,7 +164,9 @@ class _SectionScreenState extends ConsumerState<SectionScreen> {
                   } else if (rank == 2) {
                     // Silver
                     rankColor = const Color(0xFFD6D6D6);
-                    rankBgColor = const Color(0xFFD6D6D6).withValues(alpha: 0.10);
+                    rankBgColor = const Color(
+                      0xFFD6D6D6,
+                    ).withValues(alpha: 0.10);
                     rankBorderSide = BorderSide(
                       color: const Color(0xFFD6D6D6).withValues(alpha: 0.45),
                       width: 1.2,
@@ -170,7 +174,9 @@ class _SectionScreenState extends ConsumerState<SectionScreen> {
                   } else if (rank == 3) {
                     // Bronze
                     rankColor = const Color(0xFFCD7F32);
-                    rankBgColor = const Color(0xFFCD7F32).withValues(alpha: 0.12);
+                    rankBgColor = const Color(
+                      0xFFCD7F32,
+                    ).withValues(alpha: 0.12);
                     rankBorderSide = BorderSide(
                       color: const Color(0xFFCD7F32).withValues(alpha: 0.50),
                       width: 1.2,
@@ -182,10 +188,14 @@ class _SectionScreenState extends ConsumerState<SectionScreen> {
                     color: rankBgColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: rankBorderSide ?? BorderSide(
-                        color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
-                        width: 0.8,
-                      ),
+                      side:
+                          rankBorderSide ??
+                          BorderSide(
+                            color: Theme.of(
+                              context,
+                            ).dividerColor.withValues(alpha: 0.2),
+                            width: 0.8,
+                          ),
                     ),
                     child: ListTile(
                       onTap:
@@ -206,7 +216,11 @@ class _SectionScreenState extends ConsumerState<SectionScreen> {
                                 context,
                               ).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w900,
-                                color: rankColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
+                                color:
+                                    rankColor ??
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
@@ -216,9 +230,7 @@ class _SectionScreenState extends ConsumerState<SectionScreen> {
                               imageUrl:
                                   media.highResCoverImage.isNotEmpty
                                       ? media.highResCoverImage
-                                      : (media.coverImage.large ??
-                                          media.coverImage.medium ??
-                                          ''),
+                                      : media.highResCoverImage,
                               width: 48,
                               height: 64,
                               fit: BoxFit.cover,

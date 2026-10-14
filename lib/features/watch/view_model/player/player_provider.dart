@@ -342,7 +342,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       // HLS commonly emits a transient segment warning while MPV reconnects.
       // Escalating after 1.5 seconds caused the source manager to reopen media
       // during ordinary buffering, producing the exact play-2s/restart loop.
-      await Future<void>.delayed(const Duration(seconds: 12));
+      await Future<void>.delayed(const Duration(seconds: 6));
       if (urlAtError == null || urlAtError != _lastUrl) return;
 
       var currentPosition = _player.state.position;
@@ -356,7 +356,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       // finish before considering another server. Switching while buffering
       // discards the cache and is worse on weak connections.
       if (_player.state.buffering) {
-        await Future<void>.delayed(const Duration(seconds: 12));
+        await Future<void>.delayed(const Duration(seconds: 6));
         if (urlAtError != _lastUrl) return;
         currentPosition = _player.state.position;
         if (currentPosition > positionAtError + const Duration(seconds: 1)) {
@@ -368,7 +368,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
 
       // Re-check once after the recovery grace period. A stream which resumed
       // at the boundary must not receive an error overlay while frames flow.
-      await Future<void>.delayed(const Duration(seconds: 2));
+      await Future<void>.delayed(const Duration(seconds: 1));
       if (urlAtError != _lastUrl) return;
       currentPosition = _player.state.position;
       if (_player.state.playing ||
@@ -415,6 +415,8 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         episode != null &&
         mediaId == _activeMediaId &&
         episode == _activeEpisode;
+    final requiresPipelineReset =
+        !isSameSession || (_lastUrl != null && _lastUrl != url);
 
     // If startAt is explicitly provided, use it. Otherwise, if reopening the same media & episode,
     // preserve the last stable playback position so we don't restart from beginning on stream recovery/reload.
@@ -443,10 +445,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       duration: isSameSession ? state.duration : Duration.zero,
     );
     _startupTimer?.cancel();
-    if (!isSameSession) {
+    if (requiresPipelineReset) {
       // mpv can retain the preceding HLS demuxer/cache when another episode
-      // is opened immediately. Stop that session first so episode two and
-      // later start with a clean pipeline instead of timing out at 00:00.
+      // or provider is opened immediately. Stop that session first so the new
+      // URL cannot inherit the old demuxer, buffer, or rendered frame.
       try {
         await _player.stop();
       } catch (error) {
@@ -497,7 +499,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       AppLogger.w('Could not apply stream headers before playback: $error');
     }
     if (openGeneration != _openGeneration) return;
-    _startupTimer = Timer(const Duration(seconds: 30), () {
+    _startupTimer = Timer(const Duration(seconds: 15), () {
       if (openGeneration == _openGeneration &&
           state.isOpening &&
           _player.state.position == Duration.zero) {

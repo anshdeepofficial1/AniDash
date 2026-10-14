@@ -46,24 +46,25 @@ class HorizontalMediaSection<T> extends StatelessWidget {
         const SizedBox(height: 16),
         SizedBox(
           height: 200,
-          child: isLoading && items.isEmpty
-              ? ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  itemCount: 4,
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (_, _) => const _ShimmerItem(),
-                )
-              : ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return itemBuilder(context, item);
-                  },
-                ),
+          child:
+              isLoading && items.isEmpty
+                  ? ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    itemCount: 4,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (_, _) => const _ShimmerItem(),
+                  )
+                  : ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return itemBuilder(context, item);
+                    },
+                  ),
         ),
       ],
     );
@@ -108,34 +109,36 @@ class MediaCard extends StatelessWidget {
                       imageUrl:
                           media.highResCoverImage.isNotEmpty
                               ? media.highResCoverImage
-                              : (media.coverImage.large ?? media.coverImage.medium ?? ''),
+                              : media.highResCoverImage,
                       fit: BoxFit.cover,
                       filterQuality: FilterQuality.high,
                       width: double.infinity,
                       height: double.infinity,
-                      placeholder: (context, url) => Container(
-                        color: theme.colorScheme.surfaceContainer,
-                        child: Center(
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: theme.colorScheme.primary.withValues(
-                                alpha: 0.5,
+                      placeholder:
+                          (context, url) => Container(
+                            color: theme.colorScheme.surfaceContainer,
+                            child: Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: theme.colorScheme.primary.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                      errorWidget: (_, _, _) => Container(
-                        color: theme.colorScheme.surfaceContainer,
-                        child: Icon(
-                          Icons.image_not_supported_outlined,
-                          color: theme.colorScheme.outline,
-                          size: 32,
-                        ),
-                      ),
+                      errorWidget:
+                          (_, _, _) => Container(
+                            color: theme.colorScheme.surfaceContainer,
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
+                              color: theme.colorScheme.outline,
+                              size: 32,
+                            ),
+                          ),
                     ),
                   ),
                   if (badgeText != null)
@@ -190,9 +193,12 @@ class MediaCard extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                   fontSize: 13,
                   height: 1.3,
-                  color: isManga
-                      ? theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5)
-                      : null,
+                  color:
+                      isManga
+                          ? theme.textTheme.bodySmall?.color?.withValues(
+                            alpha: 0.5,
+                          )
+                          : null,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -292,16 +298,18 @@ class StaffCard extends StatelessWidget {
                   fit: BoxFit.cover,
                   width: double.infinity,
                   height: double.infinity,
-                  placeholder: (context, url) =>
-                      Container(color: theme.colorScheme.surfaceContainer),
-                  errorWidget: (_, _, _) => Container(
-                    color: theme.colorScheme.surfaceContainer,
-                    child: Icon(
-                      Icons.person,
-                      color: theme.colorScheme.outline,
-                      size: 32,
-                    ),
-                  ),
+                  placeholder:
+                      (context, url) =>
+                          Container(color: theme.colorScheme.surfaceContainer),
+                  errorWidget:
+                      (_, _, _) => Container(
+                        color: theme.colorScheme.surfaceContainer,
+                        child: Icon(
+                          Icons.person,
+                          color: theme.colorScheme.outline,
+                          size: 32,
+                        ),
+                      ),
                 ),
               ),
             ),

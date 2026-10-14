@@ -63,6 +63,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               onChanged: (value) async {
                 await sharedPrefs.setBool(anyCoreEnabledKey, value);
                 if (mounted) setState(() => _enabled = value);
+                anyCoreSettingsRevision.value++;
               },
             ),
           ),
@@ -79,6 +80,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               onChanged: (value) async {
                 await sharedPrefs.setBool(anyCoreLogoAnimationKey, value);
                 if (mounted) setState(() => _animateLogo = value);
+                anyCoreSettingsRevision.value++;
               },
             ),
           ),

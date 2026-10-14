@@ -232,7 +232,7 @@ class _TrackerSearchSheetState extends ConsumerState<TrackerSearchSheet> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: CachedNetworkImage(
-                      imageUrl: media.coverImage.medium ?? '',
+                      imageUrl: media.highResCoverImage,
                       width: 52,
                       height: 72,
                       fit: BoxFit.cover,

@@ -168,9 +168,10 @@ class MediaTracker extends _$MediaTracker {
         }
       }
 
-      final updatedBindings = List<TrackerBinding>.from(currentState.bindings)
-        ..removeWhere((b) => b.type == type)
-        ..add(newBinding);
+      final updatedBindings =
+          List<TrackerBinding>.from(currentState.bindings)
+            ..removeWhere((b) => b.type == type)
+            ..add(newBinding);
 
       final updatedEntries = Map<TrackerType, UniversalMediaListEntry>.from(
         currentState.entries,
@@ -291,10 +292,14 @@ class MediaTracker extends _$MediaTracker {
         final id = int.tryParse(binding.remoteId!);
         if (id != null) {
           if (type == TrackerType.anilist) {
-            final fetched = await ref.read(anilistServiceProvider).getAnimeEntry(id);
+            final fetched = await ref
+                .read(anilistServiceProvider)
+                .getAnimeEntry(id);
             if (fetched != null) updatedEntries[type] = fetched;
           } else if (type == TrackerType.mal) {
-            final fetched = await ref.read(malServiceProvider).getAnimeEntry(id);
+            final fetched = await ref
+                .read(malServiceProvider)
+                .getAnimeEntry(id);
             if (fetched != null) updatedEntries[type] = fetched;
           }
         }
@@ -319,7 +324,9 @@ class MediaTracker extends _$MediaTracker {
     final currentState = state;
     state = currentState.copyWith(isLoading: true);
     try {
-      var binding = currentState.bindings.firstWhereOrNull((b) => b.type == type);
+      var binding = currentState.bindings.firstWhereOrNull(
+        (b) => b.type == type,
+      );
       final targetRemoteId = binding?.remoteId ?? mediaId;
       final id = int.tryParse(targetRemoteId);
       if (id != null) {
@@ -328,21 +335,25 @@ class MediaTracker extends _$MediaTracker {
         }
         UniversalMediaListEntry? newEntry;
         if (type == TrackerType.anilist) {
-          newEntry = await ref.read(anilistServiceProvider).updateUserAnimeList(
-            mediaId: id,
-            status: 'CURRENT',
-          );
+          newEntry = await ref
+              .read(anilistServiceProvider)
+              .updateUserAnimeList(mediaId: id, status: 'CURRENT');
         } else if (type == TrackerType.mal) {
-          newEntry = await ref.read(malServiceProvider).updateUserAnimeList(
-            mediaId: id,
-            status: 'CURRENT',
+          newEntry = await ref
+              .read(malServiceProvider)
+              .updateUserAnimeList(mediaId: id, status: 'CURRENT');
+        }
+        final updatedBindings = List<TrackerBinding>.from(
+          currentState.bindings,
+        );
+        if (binding == null) {
+          updatedBindings.add(
+            TrackerBinding(type: type, remoteId: targetRemoteId),
           );
         }
-        final updatedBindings = List<TrackerBinding>.from(currentState.bindings);
-        if (binding == null) {
-          updatedBindings.add(TrackerBinding(type: type, remoteId: targetRemoteId));
-        }
-        final updatedEntries = Map<TrackerType, UniversalMediaListEntry>.from(state.entries);
+        final updatedEntries = Map<TrackerType, UniversalMediaListEntry>.from(
+          state.entries,
+        );
         if (newEntry != null) {
           updatedEntries[type] = newEntry;
         }
@@ -367,11 +378,13 @@ class MediaTracker extends _$MediaTracker {
   ) async {
     try {
       final authState = ref.read(authProvider);
-      final activeType = authState.activePlatform == AuthPlatform.anilist
-          ? TrackerType.anilist
-          : TrackerType.mal;
+      final activeType =
+          authState.activePlatform == AuthPlatform.anilist
+              ? TrackerType.anilist
+              : TrackerType.mal;
 
-      final entry = entries[activeType] ??
+      final entry =
+          entries[activeType] ??
           entries[TrackerType.anilist] ??
           entries[TrackerType.mal];
       if (entry == null) return;
@@ -385,7 +398,8 @@ class MediaTracker extends _$MediaTracker {
 
       if (parsedNotes != null) {
         targetProgress = parsedNotes.episode;
-      } else if (isCompleted && (media.episodes != null && media.episodes! > 0)) {
+      } else if (isCompleted &&
+          (media.episodes != null && media.episodes! > 0)) {
         targetProgress = media.episodes!;
       } else {
         targetProgress = entry.progress;
@@ -396,8 +410,9 @@ class MediaTracker extends _$MediaTracker {
       final repo = ref.read(watchProgressRepositoryProvider);
       final local = repo.getProgress(mediaId);
 
-      final episodesMap =
-          Map<int, EpisodeProgress>.from(local?.episodesProgress ?? {});
+      final episodesMap = Map<int, EpisodeProgress>.from(
+        local?.episodesProgress ?? {},
+      );
 
       if (savedSeconds != null && savedSeconds > 0) {
         // Episodes before targetProgress were finished
@@ -408,12 +423,13 @@ class MediaTracker extends _$MediaTracker {
               episodeNumber: i,
               episodeTitle: existing?.episodeTitle ?? 'Episode $i',
               episodeThumbnail: existing?.episodeThumbnail,
-              progressInSeconds: existing?.progressInSeconds ??
+              progressInSeconds:
+                  existing?.progressInSeconds ??
                   (existing?.durationInSeconds ?? 1440),
               durationInSeconds: existing?.durationInSeconds ?? 1440,
               isCompleted: true,
-              watchedAt: existing?.watchedAt ??
-                  DateTime.fromMillisecondsSinceEpoch(0),
+              watchedAt:
+                  existing?.watchedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
             );
           }
         }
@@ -437,12 +453,13 @@ class MediaTracker extends _$MediaTracker {
               episodeNumber: i,
               episodeTitle: existing?.episodeTitle ?? 'Episode $i',
               episodeThumbnail: existing?.episodeThumbnail,
-              progressInSeconds: existing?.progressInSeconds ??
+              progressInSeconds:
+                  existing?.progressInSeconds ??
                   (existing?.durationInSeconds ?? 1440),
               durationInSeconds: existing?.durationInSeconds ?? 1440,
               isCompleted: true,
-              watchedAt: existing?.watchedAt ??
-                  DateTime.fromMillisecondsSinceEpoch(0),
+              watchedAt:
+                  existing?.watchedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
             );
           }
         }
@@ -450,27 +467,31 @@ class MediaTracker extends _$MediaTracker {
 
       final statusLower = entry.status.toLowerCase();
       final totalEps = media.episodes ?? 0;
-      final nextUpEpisode = (totalEps > 0 && targetProgress >= totalEps)
-          ? totalEps
-          : (targetProgress + 1);
+      final nextUpEpisode =
+          (totalEps > 0 && targetProgress >= totalEps)
+              ? totalEps
+              : (targetProgress + 1);
       final isRemoteAhead =
           local == null || targetProgress >= local.currentEpisode;
-      final resolvedCurrentEpisode = (savedSeconds != null && savedSeconds > 0)
-          ? targetProgress
-          : (isRemoteAhead ? nextUpEpisode : local.currentEpisode);
+      final resolvedCurrentEpisode =
+          (savedSeconds != null && savedSeconds > 0)
+              ? targetProgress
+              : (isRemoteAhead ? nextUpEpisode : local.currentEpisode);
       final effectiveLastPlayedAt =
-          isRemoteAhead ? DateTime.now() : (local.lastPlayedAt ?? DateTime.now());
+          isRemoteAhead
+              ? DateTime.now()
+              : (local.lastPlayedAt ?? DateTime.now());
 
       final updated = (local ??
               AnimeWatchProgressEntry(
                 animeId: mediaId,
-                animeTitle: media.title.english ??
+                animeTitle:
+                    media.title.english ??
                     media.title.romaji ??
                     media.title.native ??
                     '',
                 animeFormat: media.format,
-                animeCover:
-                    media.coverImage.large ?? media.coverImage.medium ?? '',
+                animeCover: media.highResCoverImage,
                 totalEpisodes: totalEps,
                 episodesProgress: episodesMap,
                 lastUpdated: DateTime.now(),

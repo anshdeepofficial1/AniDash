@@ -122,11 +122,6 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (widget.onEpisodePressed != null)
-                              _ToolbarIcon(
-                                icon: Icons.video_library_rounded,
-                                onTap: widget.onEpisodePressed,
-                              ),
                             _ToolbarIcon(
                               icon: Icons.fullscreen_rounded,
                               onTap: widget.onFullScreenPressed,

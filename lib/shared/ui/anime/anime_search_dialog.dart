@@ -59,11 +59,7 @@ class _AnimeSearchDialogState extends ConsumerState<AnimeSearchDialog> {
         animeId: anime.id!,
         animeName: anime.name ?? 'Unknown',
         animeFormat: widget.media.format ?? '',
-        animeCover:
-            anime.poster ??
-            widget.media.coverImage.large ??
-            widget.media.coverImage.medium ??
-            '',
+        animeCover: anime.poster ?? widget.media.highResCoverImage,
         episodes: const [],
         currentEpisode: widget.startAt ?? 1,
       );
@@ -174,12 +170,13 @@ class _AnimeSearchDialogState extends ConsumerState<AnimeSearchDialog> {
         width: 50,
         height: 70,
         fit: BoxFit.cover,
-        errorWidget: (_, _, _) => Container(
-          width: 50,
-          height: 70,
-          color: Colors.grey[800],
-          child: const Icon(Iconsax.image, size: 20),
-        ),
+        errorWidget:
+            (_, _, _) => Container(
+              width: 50,
+              height: 70,
+              color: Colors.grey[800],
+              child: const Icon(Iconsax.image, size: 20),
+            ),
       ),
     );
   }
@@ -197,4 +194,3 @@ class _AnimeSearchDialogState extends ConsumerState<AnimeSearchDialog> {
     );
   }
 }
-

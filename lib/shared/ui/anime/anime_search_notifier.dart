@@ -106,7 +106,7 @@ class AnimeSearchNotifier extends _$AnimeSearchNotifier {
               .read(sourcePreferenceRepositoryProvider)
               .saveSourcePreference(
                 media.id.toString(),
-                (media.coverImage.medium ?? media.coverImage.large)!,
+                media.highResCoverImage,
                 selection,
               );
         }
@@ -125,7 +125,7 @@ class AnimeSearchNotifier extends _$AnimeSearchNotifier {
               .read(sourcePreferenceRepositoryProvider)
               .saveSourcePreference(
                 media.id.toString(),
-                (media.coverImage.medium ?? media.coverImage.large)!,
+                media.highResCoverImage,
                 selection,
               );
         }

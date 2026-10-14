@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:commentum_client/commentum_client.dart';
 import 'package:ani_dash/core/commentum/commentum_client.dart';
 import 'package:ani_dash/core/models/anime/episode_model.dart';
+import 'package:ani_dash/core/models/universal/universal_media.dart';
 import 'package:ani_dash/core/utils/html_parser.dart';
 import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart';
 import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
@@ -108,14 +109,17 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final keyLiked = 'like_${widget.mediaId}_ep_${widget.episodeNumber}';
-      final keyDisliked = 'dislike_${widget.mediaId}_ep_${widget.episodeNumber}';
-      final keyCount = 'likes_count_${widget.mediaId}_ep_${widget.episodeNumber}';
+      final keyDisliked =
+          'dislike_${widget.mediaId}_ep_${widget.episodeNumber}';
+      final keyCount =
+          'likes_count_${widget.mediaId}_ep_${widget.episodeNumber}';
 
       final userLiked = prefs.getBool(keyLiked) ?? false;
       final userDisliked = prefs.getBool(keyDisliked) ?? false;
 
       // Realistic base likes seeded from anime ID and episode number
-      final seed = (widget.mediaId.hashCode.abs() % 1500) + (widget.episodeNumber * 23);
+      final seed =
+          (widget.mediaId.hashCode.abs() % 1500) + (widget.episodeNumber * 23);
       final storedCount = prefs.getInt(keyCount) ?? (500 + seed);
 
       if (!mounted) return;
@@ -123,7 +127,8 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
         _isLiked = userLiked;
         _isDisliked = userDisliked;
         _likeCount = storedCount + (userLiked ? 1 : 0);
-        _dislikeCount = 8 + (widget.episodeNumber % 12) + (userDisliked ? 1 : 0);
+        _dislikeCount =
+            8 + (widget.episodeNumber % 12) + (userDisliked ? 1 : 0);
       });
     } catch (_) {}
   }
@@ -228,11 +233,7 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
 
     try {
       final targetId = _currentDiscussionArticleId;
-      await commentumClient.createComment(
-        targetId,
-        "anilist",
-        text,
-      );
+      await commentumClient.createComment(targetId, "anilist", text);
       await _loadComments();
     } catch (_) {
     } finally {
@@ -269,10 +270,17 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
   }
 
   String _cleanEpisodeTitle(String? raw, {bool isMovie = false}) {
-    final title = (raw ?? '').trim().replaceFirst(
-      RegExp(r'^(?:(?:episode|ep)|e)\s*#?\s*\d+(?:\.\d+)?\s*(?:[-:—|/]+\s*)?', caseSensitive: false),
-      '',
-    ).trim();
+    final title =
+        (raw ?? '')
+            .trim()
+            .replaceFirst(
+              RegExp(
+                r'^(?:(?:episode|ep)|e)\s*#?\s*\d+(?:\.\d+)?\s*(?:[-:—|/]+\s*)?',
+                caseSensitive: false,
+              ),
+              '',
+            )
+            .trim();
     if (isMovie) {
       if (title.isEmpty || title.toLowerCase().startsWith('episode')) {
         return widget.animeTitle;
@@ -291,11 +299,17 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
     final isDub = streamState.selectedServer?.isDub == true;
     final audioLabel = isDub ? 'Dub English | Sub' : 'Sub Japanese | Dub';
 
-    final detailsFormat = ref.watch(detailsPageProvider(widget.mediaId)).details.value?.format;
-    final progressFormat = ref.watch(watchProgressRepositoryProvider).getProgress(widget.mediaId)?.animeFormat;
+    final detailsFormat =
+        ref.watch(detailsPageProvider(widget.mediaId)).details.value?.format;
+    final progressFormat =
+        ref
+            .watch(watchProgressRepositoryProvider)
+            .getProgress(widget.mediaId)
+            ?.animeFormat;
     final epListState = ref.watch(episodeListProvider);
     final titleLower = widget.animeTitle.toLowerCase();
-    final isMovie = (widget.animeFormat?.trim().toUpperCase() == 'MOVIE') ||
+    final isMovie =
+        (widget.animeFormat?.trim().toUpperCase() == 'MOVIE') ||
         (detailsFormat?.trim().toUpperCase() == 'MOVIE') ||
         (progressFormat?.trim().toUpperCase() == 'MOVIE') ||
         epListState.isMovie ||
@@ -306,7 +320,10 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
             (widget.animeFormat?.trim().toUpperCase() == 'MOVIE' ||
                 detailsFormat?.trim().toUpperCase() == 'MOVIE'));
 
-    final cleanTitle = _cleanEpisodeTitle(widget.episodeTitle, isMovie: isMovie);
+    final cleanTitle = _cleanEpisodeTitle(
+      widget.episodeTitle,
+      isMovie: isMovie,
+    );
     final nextEp = _nextEpisode;
 
     return Container(
@@ -319,7 +336,22 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
           // 1. Clickable Anime Title (Navigates to Full Anime Details Screen)
           InkWell(
             onTap: () {
-              context.push('/details/${widget.mediaId}');
+              context.push(
+                '/details/${widget.mediaId}',
+                extra: UniversalMedia(
+                  id: widget.mediaId,
+                  title: UniversalTitle(
+                    english: widget.animeTitle,
+                    romaji: widget.animeTitle,
+                    native: widget.animeTitle,
+                  ),
+                  format: widget.animeFormat,
+                  coverImage: UniversalCoverImage(
+                    large: widget.animeCover,
+                    medium: widget.animeCover,
+                  ),
+                ),
+              );
             },
             borderRadius: BorderRadius.circular(6),
             child: Padding(
@@ -355,7 +387,8 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
           // 2. Bold Title (Adapts to Movie vs Series)
           Text(
             isMovie
-                ? (cleanTitle.isNotEmpty && !cleanTitle.toLowerCase().startsWith('episode')
+                ? (cleanTitle.isNotEmpty &&
+                        !cleanTitle.toLowerCase().startsWith('episode')
                     ? cleanTitle
                     : widget.animeTitle)
                 : 'E${widget.episodeNumber} - $cleanTitle',
@@ -384,7 +417,8 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                 child: Text(
                   isMovie
                       ? 'MOVIE'
-                      : ((widget.animeFormat != null && widget.animeFormat!.trim().isNotEmpty)
+                      : ((widget.animeFormat != null &&
+                              widget.animeFormat!.trim().isNotEmpty)
                           ? widget.animeFormat!
                           : 'U/A 16+'),
                   style: TextStyle(
@@ -420,11 +454,15 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                 onTap: _toggleLike,
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: _isLiked
-                        ? colorScheme.primary.withValues(alpha: 0.15)
-                        : colorScheme.surfaceContainerHigh,
+                    color:
+                        _isLiked
+                            ? colorScheme.primary.withValues(alpha: 0.15)
+                            : colorScheme.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -433,13 +471,19 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                       Icon(
                         _isLiked ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
                         size: 19,
-                        color: _isLiked ? colorScheme.primary : colorScheme.onSurface,
+                        color:
+                            _isLiked
+                                ? colorScheme.primary
+                                : colorScheme.onSurface,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         _formatCount(_likeCount),
                         style: TextStyle(
-                          color: _isLiked ? colorScheme.primary : colorScheme.onSurface,
+                          color:
+                              _isLiked
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurface,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -455,26 +499,38 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                 onTap: _toggleDislike,
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: _isDisliked
-                        ? Colors.redAccent.withValues(alpha: 0.15)
-                        : colorScheme.surfaceContainerHigh,
+                    color:
+                        _isDisliked
+                            ? Colors.redAccent.withValues(alpha: 0.15)
+                            : colorScheme.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _isDisliked ? Icons.thumb_down : Icons.thumb_down_alt_outlined,
+                        _isDisliked
+                            ? Icons.thumb_down
+                            : Icons.thumb_down_alt_outlined,
                         size: 19,
-                        color: _isDisliked ? Colors.redAccent : colorScheme.onSurface,
+                        color:
+                            _isDisliked
+                                ? Colors.redAccent
+                                : colorScheme.onSurface,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         _formatCount(_dislikeCount),
                         style: TextStyle(
-                          color: _isDisliked ? Colors.redAccent : colorScheme.onSurface,
+                          color:
+                              _isDisliked
+                                  ? Colors.redAccent
+                                  : colorScheme.onSurface,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -489,15 +545,16 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
               // Download Button
               IconButton.filledTonal(
                 onPressed: () {
-                  ref.read(episodeDataProvider.notifier).downloadEpisode(
-                    context,
-                    widget.episodeNumber,
-                  );
+                  ref
+                      .read(episodeDataProvider.notifier)
+                      .downloadEpisode(context, widget.episodeNumber);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(isMovie
-                          ? 'Starting download for ${widget.animeTitle}...'
-                          : 'Starting download for Episode ${widget.episodeNumber}...'),
+                      content: Text(
+                        isMovie
+                            ? 'Starting download for ${widget.animeTitle}...'
+                            : 'Starting download for Episode ${widget.episodeNumber}...',
+                      ),
                       behavior: SnackBarBehavior.floating,
                       duration: const Duration(seconds: 2),
                     ),
@@ -527,9 +584,13 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
           const SizedBox(height: 14),
 
           // 5. Episode Synopsis / Description (Collapsible)
-          if (widget.episodeDescription != null && widget.episodeDescription!.isNotEmpty)
+          if (widget.episodeDescription != null &&
+              widget.episodeDescription!.isNotEmpty)
             GestureDetector(
-              onTap: () => setState(() => _isDescriptionExpanded = !_isDescriptionExpanded),
+              onTap:
+                  () => setState(
+                    () => _isDescriptionExpanded = !_isDescriptionExpanded,
+                  ),
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -578,9 +639,10 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                 color: colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: _isAboutSectionExpanded
-                      ? colorScheme.primary.withValues(alpha: 0.5)
-                      : colorScheme.outlineVariant.withValues(alpha: 0.2),
+                  color:
+                      _isAboutSectionExpanded
+                          ? colorScheme.primary.withValues(alpha: 0.5)
+                          : colorScheme.outlineVariant.withValues(alpha: 0.2),
                 ),
               ),
               child: Column(
@@ -627,14 +689,25 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                   // About / Synopsis accordion expanded right below
                   if (_isAboutSectionExpanded) ...[
                     const SizedBox(height: 10),
-                    Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 1),
+                    Divider(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      height: 1,
+                    ),
                     const SizedBox(height: 10),
                     Consumer(
                       builder: (context, ref, _) {
-                        final detailsState = ref.watch(detailsPageProvider(widget.mediaId));
+                        final detailsState = ref.watch(
+                          detailsPageProvider(widget.mediaId),
+                        );
                         final media = detailsState.details.value;
-                        final desc = media?.description ?? widget.episodeDescription ?? '';
-                        final cleanDesc = desc.isNotEmpty ? parseHtmlToString(desc) : 'No description available.';
+                        final desc =
+                            media?.description ??
+                            widget.episodeDescription ??
+                            '';
+                        final cleanDesc =
+                            desc.isNotEmpty
+                                ? parseHtmlToString(desc)
+                                : 'No description available.';
 
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -680,7 +753,9 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
             const SizedBox(height: 10),
             InkWell(
               onTap: () {
-                ref.read(episodeDataProvider.notifier).changeEpisode(nextEp.number);
+                ref
+                    .read(episodeDataProvider.notifier)
+                    .changeEpisode(nextEp.number);
               },
               borderRadius: BorderRadius.circular(12),
               child: Container(
@@ -703,33 +778,46 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            if (nextEp.thumbnail != null && nextEp.thumbnail!.isNotEmpty)
+                            if (nextEp.thumbnail != null &&
+                                nextEp.thumbnail!.isNotEmpty)
                               CachedNetworkImage(
                                 imageUrl: nextEp.thumbnail!,
                                 fit: BoxFit.cover,
                                 filterQuality: FilterQuality.high,
-                                errorWidget: (_, _, _) => Container(
-                                  color: colorScheme.surfaceContainerHigh,
-                                  child: const Icon(Icons.movie_creation_outlined),
-                                ),
+                                errorWidget:
+                                    (_, _, _) => Container(
+                                      color: colorScheme.surfaceContainerHigh,
+                                      child: const Icon(
+                                        Icons.movie_creation_outlined,
+                                      ),
+                                    ),
                               )
                             else
                               Container(
                                 color: colorScheme.surfaceContainerHigh,
-                                child: const Icon(Icons.movie_creation_outlined),
+                                child: const Icon(
+                                  Icons.movie_creation_outlined,
+                                ),
                               ),
                             Positioned(
                               bottom: 4,
                               right: 4,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.black87,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text(
                                   '23m',
-                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
@@ -766,14 +854,17 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.download_rounded, color: colorScheme.onSurfaceVariant, size: 20),
+                      icon: Icon(
+                        Icons.download_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                        size: 20,
+                      ),
                       onPressed: () {
                         final epNum = nextEp.number;
                         if (epNum == null) return;
-                        ref.read(episodeDataProvider.notifier).downloadEpisode(
-                          context,
-                          epNum,
-                        );
+                        ref
+                            .read(episodeDataProvider.notifier)
+                            .downloadEpisode(context, epNum);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Downloading Episode $epNum...'),
@@ -795,7 +886,11 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
             Center(
               child: OutlinedButton.icon(
                 onPressed: widget.onAllEpisodesPressed,
-                icon: Icon(Iconsax.menu_1, color: colorScheme.primary, size: 18),
+                icon: Icon(
+                  Iconsax.menu_1,
+                  color: colorScheme.primary,
+                  size: 18,
+                ),
                 label: Text(
                   'All Episodes',
                   style: TextStyle(
@@ -805,9 +900,16 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.6)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  side: BorderSide(
+                    color: colorScheme.primary.withValues(alpha: 0.6),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 10,
+                  ),
                 ),
               ),
             ),
@@ -825,18 +927,28 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                   children: [
                     InkWell(
                       onTap: () {
-                        if (_activeDiscussionMode != DiscussionMode.episodeComments) {
-                          setState(() => _activeDiscussionMode = DiscussionMode.episodeComments);
+                        if (_activeDiscussionMode !=
+                            DiscussionMode.episodeComments) {
+                          setState(
+                            () =>
+                                _activeDiscussionMode =
+                                    DiscussionMode.episodeComments,
+                          );
                           _loadComments();
                         }
                       },
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: _activeDiscussionMode == DiscussionMode.episodeComments
-                              ? colorScheme.primary
-                              : colorScheme.surfaceContainerHigh,
+                          color:
+                              _activeDiscussionMode ==
+                                      DiscussionMode.episodeComments
+                                  ? colorScheme.primary
+                                  : colorScheme.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -844,9 +956,11 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                               ? 'Comments on ${widget.animeTitle}'
                               : 'Episode ${widget.episodeNumber} Comments',
                           style: TextStyle(
-                            color: _activeDiscussionMode == DiscussionMode.episodeComments
-                                ? colorScheme.onPrimary
-                                : colorScheme.onSurface,
+                            color:
+                                _activeDiscussionMode ==
+                                        DiscussionMode.episodeComments
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.onSurface,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -857,17 +971,25 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                     InkWell(
                       onTap: () {
                         if (_activeDiscussionMode != DiscussionMode.worldChat) {
-                          setState(() => _activeDiscussionMode = DiscussionMode.worldChat);
+                          setState(
+                            () =>
+                                _activeDiscussionMode =
+                                    DiscussionMode.worldChat,
+                          );
                           _loadComments();
                         }
                       },
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: _activeDiscussionMode == DiscussionMode.worldChat
-                              ? colorScheme.primary
-                              : colorScheme.surfaceContainerHigh,
+                          color:
+                              _activeDiscussionMode == DiscussionMode.worldChat
+                                  ? colorScheme.primary
+                                  : colorScheme.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -878,9 +1000,11 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                             Text(
                               'World Chat',
                               style: TextStyle(
-                                color: _activeDiscussionMode == DiscussionMode.worldChat
-                                    ? colorScheme.onPrimary
-                                    : colorScheme.onSurface,
+                                color:
+                                    _activeDiscussionMode ==
+                                            DiscussionMode.worldChat
+                                        ? colorScheme.onPrimary
+                                        : colorScheme.onSurface,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -895,51 +1019,66 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
 
               // 3-Dot Discussion Menu
               PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert_rounded, color: colorScheme.onSurfaceVariant, size: 20),
+                icon: Icon(
+                  Icons.more_vert_rounded,
+                  color: colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
                 tooltip: 'Discussion Options',
                 onSelected: (val) {
                   if (val == 'new_world_chat') {
-                    setState(() => _activeDiscussionMode = DiscussionMode.worldChat);
+                    setState(
+                      () => _activeDiscussionMode = DiscussionMode.worldChat,
+                    );
                     _commentFocusNode.requestFocus();
                   } else if (val == 'switch_ep') {
-                    setState(() => _activeDiscussionMode = DiscussionMode.episodeComments);
+                    setState(
+                      () =>
+                          _activeDiscussionMode =
+                              DiscussionMode.episodeComments,
+                    );
                     _loadComments();
                   } else if (val == 'refresh') {
                     _loadComments();
                   }
                 },
-                itemBuilder: (ctx) => [
-                  const PopupMenuItem(
-                    value: 'new_world_chat',
-                    child: Row(
-                      children: [
-                        Icon(Iconsax.global, size: 18),
-                        SizedBox(width: 10),
-                        Text('Create / Join World Chat'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'switch_ep',
-                    child: Row(
-                      children: [
-                        const Icon(Iconsax.messages_1, size: 18),
-                        const SizedBox(width: 10),
-                        Text(isMovie ? 'Comments on Movie' : 'Ep ${widget.episodeNumber} Comments'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'refresh',
-                    child: Row(
-                      children: [
-                        Icon(Icons.refresh_rounded, size: 18),
-                        SizedBox(width: 10),
-                        Text('Refresh Comments'),
-                      ],
-                    ),
-                  ),
-                ],
+                itemBuilder:
+                    (ctx) => [
+                      const PopupMenuItem(
+                        value: 'new_world_chat',
+                        child: Row(
+                          children: [
+                            Icon(Iconsax.global, size: 18),
+                            SizedBox(width: 10),
+                            Text('Create / Join World Chat'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'switch_ep',
+                        child: Row(
+                          children: [
+                            const Icon(Iconsax.messages_1, size: 18),
+                            const SizedBox(width: 10),
+                            Text(
+                              isMovie
+                                  ? 'Comments on Movie'
+                                  : 'Ep ${widget.episodeNumber} Comments',
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'refresh',
+                        child: Row(
+                          children: [
+                            Icon(Icons.refresh_rounded, size: 18),
+                            SizedBox(width: 10),
+                            Text('Refresh Comments'),
+                          ],
+                        ),
+                      ),
+                    ],
               ),
             ],
           ),
@@ -954,12 +1093,18 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                   focusNode: _commentFocusNode,
                   style: TextStyle(color: colorScheme.onSurface, fontSize: 13),
                   decoration: InputDecoration(
-                    hintText: _activeDiscussionMode == DiscussionMode.episodeComments
-                        ? (isMovie
-                            ? 'Comment on ${widget.animeTitle}...'
-                            : 'Comment on Episode ${widget.episodeNumber}...')
-                        : 'Chat with community in World Chat...',
-                    hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6), fontSize: 13),
+                    hintText:
+                        _activeDiscussionMode == DiscussionMode.episodeComments
+                            ? (isMovie
+                                ? 'Comment on ${widget.animeTitle}...'
+                                : 'Comment on Episode ${widget.episodeNumber}...')
+                            : 'Chat with community in World Chat...',
+                    hintStyle: TextStyle(
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.6,
+                      ),
+                      fontSize: 13,
+                    ),
                     isDense: true,
                     filled: true,
                     fillColor: colorScheme.surfaceContainerHigh,
@@ -967,7 +1112,10 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                       borderRadius: BorderRadius.circular(20),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                   ),
                   onSubmitted: (_) => _postComment(),
                 ),
@@ -975,13 +1123,21 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
               const SizedBox(width: 8),
               IconButton(
                 onPressed: _isSubmittingComment ? null : _postComment,
-                icon: _isSubmittingComment
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.primary),
-                      )
-                    : Icon(Icons.send_rounded, color: colorScheme.primary, size: 22),
+                icon:
+                    _isSubmittingComment
+                        ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colorScheme.primary,
+                          ),
+                        )
+                        : Icon(
+                          Icons.send_rounded,
+                          color: colorScheme.primary,
+                          size: 22,
+                        ),
               ),
             ],
           ),
@@ -992,7 +1148,10 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: CircularProgressIndicator(color: colorScheme.primary, strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  color: colorScheme.primary,
+                  strokeWidth: 2,
+                ),
               ),
             )
           else if (_comments.isEmpty)
@@ -1005,11 +1164,16 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                         ? 'No comments on this movie yet. Be the first!'
                         : 'No comments on this episode yet. Be the first!')
                     : 'World Chat is empty. Start the conversation!',
-                style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 13,
+                ),
               ),
             )
           else
-            ..._comments.take(30).map((comment) => _buildCommentTile(comment, colorScheme)),
+            ..._comments
+                .take(30)
+                .map((comment) => _buildCommentTile(comment, colorScheme)),
 
           const SizedBox(height: 40),
         ],
@@ -1034,15 +1198,23 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
           CircleAvatar(
             radius: 16,
             backgroundColor: colorScheme.primaryContainer,
-            backgroundImage: comment.avatarUrl != null && comment.avatarUrl!.isNotEmpty
-                ? CachedNetworkImageProvider(comment.avatarUrl!)
-                : null,
-            child: comment.avatarUrl == null || comment.avatarUrl!.isEmpty
-                ? Text(
-                    comment.username.isNotEmpty ? comment.username[0].toUpperCase() : 'U',
-                    style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold, fontSize: 12),
-                  )
-                : null,
+            backgroundImage:
+                comment.avatarUrl != null && comment.avatarUrl!.isNotEmpty
+                    ? CachedNetworkImageProvider(comment.avatarUrl!)
+                    : null,
+            child:
+                comment.avatarUrl == null || comment.avatarUrl!.isEmpty
+                    ? Text(
+                      comment.username.isNotEmpty
+                          ? comment.username[0].toUpperCase()
+                          : 'U',
+                      style: TextStyle(
+                        color: colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    )
+                    : null,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1062,7 +1234,10 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                     const SizedBox(width: 6),
                     Text(
                       _timeAgo(comment.createdAt),
-                      style: TextStyle(color: colorScheme.outline, fontSize: 11),
+                      style: TextStyle(
+                        color: colorScheme.outline,
+                        fontSize: 11,
+                      ),
                     ),
                     const Spacer(),
                     // Upvote Button
@@ -1070,14 +1245,22 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                       onTap: () => _voteComment(comment, 1),
                       borderRadius: BorderRadius.circular(12),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              comment.userVote == 1 ? Icons.arrow_upward : Icons.arrow_upward_outlined,
+                              comment.userVote == 1
+                                  ? Icons.arrow_upward
+                                  : Icons.arrow_upward_outlined,
                               size: 14,
-                              color: comment.userVote == 1 ? colorScheme.primary : colorScheme.outline,
+                              color:
+                                  comment.userVote == 1
+                                      ? colorScheme.primary
+                                      : colorScheme.outline,
                             ),
                             if (comment.score > 0) ...[
                               const SizedBox(width: 2),
@@ -1085,7 +1268,10 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                                 '${comment.score}',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: comment.userVote == 1 ? colorScheme.primary : colorScheme.outline,
+                                  color:
+                                      comment.userVote == 1
+                                          ? colorScheme.primary
+                                          : colorScheme.outline,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -1099,7 +1285,11 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                 const SizedBox(height: 4),
                 Text(
                   comment.content,
-                  style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13, height: 1.3),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),

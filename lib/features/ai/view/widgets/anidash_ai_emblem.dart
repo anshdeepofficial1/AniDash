@@ -6,6 +6,11 @@ import 'package:flutter/material.dart';
 const anyCoreLogoAnimationKey = 'anycore_logo_animation';
 const anyCoreEnabledKey = 'anycore_enabled';
 
+/// Broadcasts AnyCore preference changes to already-mounted shortcuts and
+/// emblems. SharedPreferences persists the setting; this notifier makes the
+/// same change visible immediately without restarting AniDash.
+final ValueNotifier<int> anyCoreSettingsRevision = ValueNotifier<int>(0);
+
 /// The shared AniDash AI mark used everywhere AI is surfaced in AniDash.
 /// Features a modern, sleek AI sparkle constellation that seamlessly blends
 /// with the app's Iconsax design language.
@@ -48,7 +53,12 @@ class _AniDashAiEmblemState extends State<AniDashAiEmblem>
   @override
   void initState() {
     super.initState();
+    anyCoreSettingsRevision.addListener(_handleSettingsChanged);
     if (_shouldAnimate) _controller.repeat();
+  }
+
+  void _handleSettingsChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -63,6 +73,7 @@ class _AniDashAiEmblemState extends State<AniDashAiEmblem>
 
   @override
   void dispose() {
+    anyCoreSettingsRevision.removeListener(_handleSettingsChanged);
     _controller.dispose();
     super.dispose();
   }

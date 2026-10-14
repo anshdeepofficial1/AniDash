@@ -76,6 +76,7 @@ class EpisodeListState {
     bool? isAdult,
     bool? isMovie,
     bool clearMalId = false,
+    bool clearError = false,
   }) {
     return EpisodeListState(
       mediaId: mediaId ?? this.mediaId,
@@ -88,7 +89,7 @@ class EpisodeListState {
       jikanMatches: jikanMatches ?? this.jikanMatches,
       isLoading: isLoading ?? this.isLoading,
       isJikanSyncing: isJikanSyncing ?? this.isJikanSyncing,
-      error: error ?? this.error,
+      error: clearError ? null : (error ?? this.error),
       isAdult: isAdult ?? this.isAdult,
       isMovie: isMovie ?? this.isMovie,
     );
@@ -254,7 +255,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
 
     state = state.copyWith(
       isLoading: true,
-      error: null,
+      clearError: true,
       mediaId: mediaId ?? state.mediaId,
       animeId: animeId,
       animeTitle: animeTitle,
@@ -382,7 +383,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       animeTitle: animeTitle,
       malId: malId,
       isLoading: false,
-      error: null,
+      clearError: true,
     );
   }
 
@@ -455,6 +456,11 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             );
             return directEps;
           }
+          // The direct ID already exercised the selected JustAnime source.
+          // Do not run the same request loop a second time below: that made a
+          // down source look frozen for roughly 20 seconds before showing an
+          // actionable error.
+          return const [];
         }
       }
 
@@ -468,6 +474,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
 
       // Multi-Source Fallback: If 0 episodes returned, search active and fallback sources by title
       if (eps.isEmpty &&
+          currentKey == null &&
           state.animeTitle != null &&
           state.animeTitle!.isNotEmpty) {
         final candidateKeys = <String>[
@@ -625,14 +632,14 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     AppLogger.d(
       'Fetching episodes via Legacy Provider: $provider (id: $targetId)',
     );
-    for (var attempt = 1; attempt <= 3; attempt++) {
+    for (var attempt = 1; attempt <= 2; attempt++) {
       // Episode metadata retries are deliberately silent. A playback-style
       // snackbar here made users think a video was failing before Play.
       try {
         final episodes =
             (await provider
                 .getEpisodes(targetId)
-                .timeout(const Duration(milliseconds: 2800))).episodes ??
+                .timeout(const Duration(seconds: 3))).episodes ??
             [];
         if (episodes.isNotEmpty) return episodes;
       } catch (e) {
@@ -858,7 +865,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
           final image = episode['image'];
           if (image is Map) {
             final url =
-                image['medium']?.toString() ?? image['original']?.toString();
+                image['original']?.toString() ?? image['medium']?.toString();
             if (url != null && url.isNotEmpty) {
               thumbnails[absoluteNumber] = url;
             }

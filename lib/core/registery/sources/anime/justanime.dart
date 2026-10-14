@@ -319,6 +319,32 @@ class JustAnimeProvider extends AnimeProvider {
       return parent.resolve(value);
     }
 
+    Future<bool> probeMedia(Uri uri, Map<String, String>? headers) async {
+      if (!await resolves(uri.toString())) return false;
+      final client =
+          HttpClient()..connectionTimeout = const Duration(seconds: 3);
+      try {
+        final request = await client
+            .getUrl(uri)
+            .timeout(const Duration(seconds: 4));
+        request.followRedirects = true;
+        request.maxRedirects = 3;
+        request.headers.set(HttpHeaders.rangeHeader, 'bytes=0-1');
+        for (final entry in (headers ?? const <String, String>{}).entries) {
+          request.headers.set(entry.key, entry.value);
+        }
+        final response = await request.close().timeout(
+          const Duration(seconds: 4),
+        );
+        return response.statusCode == HttpStatus.ok ||
+            response.statusCode == HttpStatus.partialContent;
+      } catch (_) {
+        return false;
+      } finally {
+        client.close(force: true);
+      }
+    }
+
     Future<bool> validate(Source source) async {
       final value = source.url;
       final uri = Uri.tryParse(value ?? '');
@@ -327,7 +353,9 @@ class JustAnimeProvider extends AnimeProvider {
       }
 
       final isHls = source.isM3U8 || uri.path.toLowerCase().contains('.m3u8');
-      if (!isHls) return true;
+      if (!isHls) {
+        return probeMedia(uri, source.headers ?? model.headers);
+      }
 
       final key = 'hls:${uri.toString()}';
       return checks.putIfAbsent(key, () async {
@@ -335,7 +363,7 @@ class JustAnimeProvider extends AnimeProvider {
           var current = uri;
           // A master playlist can point to a variant playlist which then points
           // to the media segment host. Two hops cover that common HLS layout.
-          for (var depth = 0; depth < 2; depth++) {
+          for (var depth = 0; depth < 3; depth++) {
             final response = await UniversalHttpClient.instance
                 .get(current, headers: source.headers ?? model.headers)
                 .timeout(const Duration(seconds: 5));
@@ -353,7 +381,9 @@ class JustAnimeProvider extends AnimeProvider {
                 );
             final next = childUri(current, nextLine);
             if (next == null || !await resolves(next.toString())) return false;
-            if (!next.path.toLowerCase().contains('.m3u8')) return true;
+            if (!next.path.toLowerCase().contains('.m3u8')) {
+              return probeMedia(next, source.headers ?? model.headers);
+            }
             current = next;
           }
           return true;
@@ -396,8 +426,10 @@ class JustAnimeProvider extends AnimeProvider {
     final cacheKey = '$animeId:$episode:$serverName:$requestedAudio';
     final cached = _sourcesCache[cacheKey];
     if (cached != null &&
-        DateTime.now().difference(cached.time) < const Duration(minutes: 20)) {
-      return cached.data;
+        DateTime.now().difference(cached.time) < const Duration(seconds: 45)) {
+      final stillPlayable = await _keepPlayableStreams(cached.data);
+      if (stillPlayable != null) return stillPlayable;
+      _sourcesCache.remove(cacheKey);
     }
 
     Future<Map<String, dynamic>?> request(String path) async {
@@ -698,6 +730,7 @@ class JustAnimeProvider extends AnimeProvider {
   @override
   Future<BaseServerModel> getSupportedServers({dynamic metadata}) async {
     final subServers = [
+      ServerData(name: "Automatic (Best available)", id: "auto", isDub: false),
       ServerData(name: "Momo (HLS)", id: "megaplay", isDub: false),
       ServerData(name: "Zoko (HLS)", id: "zokoanime", isDub: false),
       ServerData(name: "Gigi (MP4)", id: "animegg", isDub: false),
@@ -705,6 +738,7 @@ class JustAnimeProvider extends AnimeProvider {
     ];
 
     final dubServers = [
+      ServerData(name: "Automatic (Best available)", id: "auto", isDub: true),
       ServerData(name: "Momo (HLS)", id: "megaplay", isDub: true),
       ServerData(name: "Zoko (HLS)", id: "zokoanime", isDub: true),
       ServerData(name: "Gigi (MP4)", id: "animegg", isDub: true),

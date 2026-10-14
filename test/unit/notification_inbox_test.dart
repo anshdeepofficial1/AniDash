@@ -12,29 +12,32 @@ void main() {
       await NotificationInboxService().clear();
     });
 
-    test('Adding notification correctly tracks unread count and properties', () async {
-      final inbox = NotificationInboxService();
-      await inbox.load();
-      expect(await inbox.unreadCount(), 0);
+    test(
+      'Adding notification correctly tracks unread count and properties',
+      () async {
+        final inbox = NotificationInboxService();
+        await inbox.load();
+        expect(await inbox.unreadCount(), 0);
 
-      await inbox.add(
-        dedupeKey: 'notif_1',
-        title: 'New Episode Released',
-        body: 'Episode 5 is now available!',
-        route: '/details/12345',
-        mediaId: '12345',
-        systemNotificationId: 101,
-      );
+        await inbox.add(
+          dedupeKey: 'notif_1',
+          title: 'New Episode Released',
+          body: 'Episode 5 is now available!',
+          route: '/details/12345',
+          mediaId: '12345',
+          systemNotificationId: 101,
+        );
 
-      expect(await inbox.unreadCount(), 1);
-      final items = await inbox.load();
-      final item = items.first;
-      expect(item.id, 'notif_1');
-      expect(item.isRead, false);
-      expect(item.systemNotificationId, 101);
-      expect(item.route, '/details/12345');
-      expect(item.mediaId, '12345');
-    });
+        expect(await inbox.unreadCount(), 1);
+        final items = await inbox.load();
+        final item = items.first;
+        expect(item.id, 'notif_1');
+        expect(item.isRead, false);
+        expect(item.systemNotificationId, 101);
+        expect(item.route, '/details/12345');
+        expect(item.mediaId, '12345');
+      },
+    );
 
     test('markRead updates read status and unread count', () async {
       final inbox = NotificationInboxService();
@@ -63,28 +66,31 @@ void main() {
       expect(items.firstWhere((n) => n.id == 'notif_2').isRead, false);
     });
 
-    test('markReadByRouteOrMedia marks matching notifications automatically', () async {
-      final inbox = NotificationInboxService();
-      await inbox.load();
+    test(
+      'markReadByRouteOrMedia marks matching notifications automatically',
+      () async {
+        final inbox = NotificationInboxService();
+        await inbox.load();
 
-      await inbox.add(
-        dedupeKey: 'notif_anime',
-        title: 'Jujutsu Kaisen',
-        body: 'Episode 24 out',
-        route: '/details/999',
-        mediaId: '999',
-        systemNotificationId: 201,
-      );
+        await inbox.add(
+          dedupeKey: 'notif_anime',
+          title: 'Jujutsu Kaisen',
+          body: 'Episode 24 out',
+          route: '/details/999',
+          mediaId: '999',
+          systemNotificationId: 201,
+        );
 
-      expect(await inbox.unreadCount(), 1);
+        expect(await inbox.unreadCount(), 1);
 
-      // Navigate to /details/999
-      await inbox.markReadByRouteOrMedia('/details/999', '999');
+        // Navigate to /details/999
+        await inbox.markReadByRouteOrMedia('/details/999', '999');
 
-      expect(await inbox.unreadCount(), 0);
-      final items = await inbox.load();
-      expect(items.first.isRead, true);
-    });
+        expect(await inbox.unreadCount(), 0);
+        final items = await inbox.load();
+        expect(items.first.isRead, true);
+      },
+    );
 
     test('markAllRead marks all items read', () async {
       final inbox = NotificationInboxService();
@@ -117,16 +123,16 @@ void main() {
   });
 
   group('JustAnime Provider Tests', () {
-    test('Momo (Megaplay - with intro/outro) is prioritized first in server list', () async {
+    test('automatic selection precedes concrete JustAnime servers', () async {
       final provider = JustAnimeProvider();
       final servers = await provider.getSupportedServers();
       expect(servers.sub.isNotEmpty, true);
-      expect(servers.sub.first.id, 'megaplay');
-      expect(servers.sub.first.name?.contains('Momo'), true);
+      expect(servers.sub.first.id, 'auto');
+      expect(servers.sub.any((server) => server.id == 'megaplay'), true);
 
       expect(servers.dub.isNotEmpty, true);
-      expect(servers.dub.first.id, 'megaplay');
-      expect(servers.dub.first.name?.contains('Momo'), true);
+      expect(servers.dub.first.id, 'auto');
+      expect(servers.dub.any((server) => server.id == 'megaplay'), true);
     });
   });
 }

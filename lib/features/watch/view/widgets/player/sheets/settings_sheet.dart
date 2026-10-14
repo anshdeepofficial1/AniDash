@@ -13,6 +13,7 @@ import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 import 'package:ani_dash/core/services/share_link_service.dart';
 import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 import 'package:ani_dash/helpers/show_subtitle_sidebar.dart';
+import 'package:ani_dash/shared/providers/anime_source_provider.dart';
 
 class SettingsSheetContent extends ConsumerWidget {
   final VoidCallback onDismiss;
@@ -40,6 +41,12 @@ class SettingsSheetContent extends ConsumerWidget {
     final playerSettings = ref.watch(playerSettingsProvider);
     final playerNotifier = ref.read(playerSettingsProvider.notifier);
     final episodeList = ref.watch(episodeListProvider);
+    final sourceRegistry = ref.watch(animeSourceRegistryProvider);
+    final selectedProviderKey = ref.watch(selectedProviderKeyProvider);
+    final selectedProvider =
+        selectedProviderKey == null
+            ? null
+            : sourceRegistry.get(selectedProviderKey);
 
     final currentQuality =
         streamData.selectedQualityIdx != null &&
@@ -66,6 +73,22 @@ class SettingsSheetContent extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("More", style: Theme.of(context).textTheme.headlineSmall),
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.share_rounded),
+                  title: const Text('Share episode'),
+                  onTap:
+                      episodeList.mediaId == null ||
+                              streamData.selectedEpisode == null
+                          ? null
+                          : () async {
+                            await ShareLinkService.shareEpisode(
+                              animeId: episodeList.mediaId!,
+                              animeTitle: episodeList.animeTitle ?? 'Anime',
+                              episode: streamData.selectedEpisode!,
+                            );
+                          },
+                ),
                 if (onSubtitlesPressed != null)
                   ListTile(
                     leading: const Icon(Icons.subtitles_rounded),
@@ -179,6 +202,52 @@ class SettingsSheetContent extends ConsumerWidget {
                           ),
                     );
                   },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.hub_rounded),
+                  title: const Text('Content source'),
+                  trailing: Text(
+                    selectedProvider?.providerName ??
+                        selectedProviderKey?.toUpperCase() ??
+                        'Not selected',
+                  ),
+                  onTap:
+                      sourceRegistry.keys.isEmpty
+                          ? null
+                          : () => _showDialog(
+                            context,
+                            builder:
+                                (ctx) => AlertDialog(
+                                  title: const Text('Select Content Source'),
+                                  content: SingleChildScrollView(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children:
+                                          sourceRegistry.keys.map((key) {
+                                            final provider = sourceRegistry.get(
+                                              key,
+                                            );
+                                            return ListTile(
+                                              title: Text(
+                                                provider?.providerName ??
+                                                    key.toUpperCase(),
+                                              ),
+                                              trailing:
+                                                  selectedProviderKey == key
+                                                      ? const Icon(Icons.check)
+                                                      : null,
+                                              onTap: () {
+                                                Navigator.pop(ctx);
+                                                streamNotifier.changeProvider(
+                                                  key,
+                                                );
+                                              },
+                                            );
+                                          }).toList(),
+                                    ),
+                                  ),
+                                ),
+                          ),
                 ),
                 ListTile(
                   leading: const Icon(Icons.dns_rounded),
@@ -398,22 +467,6 @@ class SettingsSheetContent extends ConsumerWidget {
                 ),
                 ListTile(
                   dense: true,
-                  leading: const Icon(Icons.share_rounded),
-                  title: const Text('Share episode'),
-                  onTap:
-                      episodeList.mediaId == null ||
-                              streamData.selectedEpisode == null
-                          ? null
-                          : () async {
-                            await ShareLinkService.shareEpisode(
-                              animeId: episodeList.mediaId!,
-                              animeTitle: episodeList.animeTitle ?? 'Anime',
-                              episode: streamData.selectedEpisode!,
-                            );
-                          },
-                ),
-                ListTile(
-                  dense: true,
                   leading: const Icon(Icons.info_outline_rounded),
                   title: const Text('Video info'),
                   onTap: () {
@@ -456,7 +509,10 @@ class SettingsSheetContent extends ConsumerWidget {
                 const Divider(),
                 ListTile(
                   dense: true,
-                  leading: const Icon(Icons.favorite_rounded, color: Colors.pinkAccent),
+                  leading: const Icon(
+                    Icons.favorite_rounded,
+                    color: Colors.pinkAccent,
+                  ),
                   title: const Text('Sponsor AniDash 💖'),
                   subtitle: const Text('Keep AniDash 100% free & ad-free'),
                   onTap: () {
