@@ -33,6 +33,8 @@ import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/next_episode_prompt_provider.dart';
 import 'package:ani_dash/core/utils/extractors.dart' as extractor;
 import 'package:ani_dash/helpers/matcher.dart';
+import 'package:ani_dash/shared/providers/anime_match_service.dart';
+import 'package:ani_dash/core/models/universal/universal_media.dart';
 
 part 'episode_stream_provider.g.dart';
 
@@ -50,7 +52,7 @@ class _CachedSourceEntry {
   _CachedSourceEntry(this.data) : timestamp = DateTime.now();
 
   bool get isExpired =>
-      DateTime.now().difference(timestamp) > const Duration(minutes: 30);
+      DateTime.now().difference(timestamp) > const Duration(seconds: 45);
 }
 
 final Map<String, _CachedSourceEntry> _sourceCache = {};
@@ -96,6 +98,11 @@ class EpisodeDataState {
   final String? languageNotice;
   final String? sourceNotice;
 
+  /// Provider that produced the stream currently opened by the player.
+  /// This is intentionally separate from the global preference because the
+  /// latter can change while a stream request is in flight.
+  final String? activeProviderKey;
+
   const EpisodeDataState({
     this.headers,
     this.sources = const [],
@@ -111,6 +118,7 @@ class EpisodeDataState {
     this.error,
     this.languageNotice,
     this.sourceNotice,
+    this.activeProviderKey,
   });
 
   bool get isLoading => states.isNotEmpty;
@@ -131,6 +139,7 @@ class EpisodeDataState {
     String? error,
     String? languageNotice,
     String? sourceNotice,
+    String? activeProviderKey,
     bool clearError = false,
     bool clearLanguageNotice = false,
     bool clearSourceNotice = false,
@@ -156,6 +165,7 @@ class EpisodeDataState {
           clearLanguageNotice ? null : (languageNotice ?? this.languageNotice),
       sourceNotice:
           clearSourceNotice ? null : (sourceNotice ?? this.sourceNotice),
+      activeProviderKey: activeProviderKey ?? this.activeProviderKey,
     );
   }
 }
@@ -236,12 +246,13 @@ class EpisodeData extends _$EpisodeData {
       return;
     }
 
-    if (state.selectedEpisode != ep) {
+    final episodeChanged =
+        state.selectedEpisode != null && state.selectedEpisode != ep;
+    if (episodeChanged) {
       _failedRuntimeServerIds.clear();
     }
 
     final generation = ++_loadGeneration;
-    _player.setActiveSession(mediaId ?? _epList.animeId, ep);
 
     AppLogger.section('Loading Episode $ep');
     final playerSettings = ref.read(playerSettingsProvider);
@@ -264,8 +275,8 @@ class EpisodeData extends _$EpisodeData {
         );
       }
       currentServer ??= ServerData(
-        id: 'megaplay',
-        name: preferDub ? 'Momo (DUB)' : 'Momo (HLS)',
+        id: 'auto',
+        name: 'Automatic (Best available)',
         isDub: preferDub,
       );
     }
@@ -278,6 +289,14 @@ class EpisodeData extends _$EpisodeData {
       clearLanguageNotice: true,
       clearSourceNotice: true,
     );
+
+    if (episodeChanged) {
+      // Publish the new episode/loading state before awaiting the player. This
+      // makes Next/Mark watched -> Next react immediately instead of leaving
+      // the preceding episode UI apparently stuck while mpv pauses.
+      await _player.pause();
+      if (generation != _loadGeneration) return;
+    }
 
     // Server lists are useful for manual switching, but they must not hold the
     // first frame hostage. Discover servers concurrently in background.
@@ -405,6 +424,98 @@ class EpisodeData extends _$EpisodeData {
     );
   }
 
+  /// Changes both episode metadata and playback to the provider explicitly
+  /// selected by the user. Provider-specific ids must be rematched before a
+  /// stream request; reusing an id from another provider is not valid.
+  Future<void> changeProvider(String providerKey) async {
+    final key = providerKey.trim().toLowerCase();
+    final registry = ref.read(animeSourceRegistryProvider);
+    if (key.isEmpty || !registry.has(key) || key == _effectiveProviderKey) {
+      return;
+    }
+
+    final currentEpisode = state.selectedEpisode;
+    final title = _epList.animeTitle?.trim();
+    if (currentEpisode == null || title == null || title.isEmpty) return;
+
+    final mediaId = _epList.mediaId;
+    final animeCover = _epList.animeCover;
+    final malId = _epList.malId;
+    final isAdult = _epList.isAdult;
+    final isMovie = _epList.isMovie;
+    final resumeAt = ref.read(playerStateProvider).position;
+    final preferDub = ref.read(playerSettingsProvider).preferDub;
+    final generation = ++_loadGeneration;
+
+    // Keep the captured resume point stable during provider rematching.
+    await _player.pause();
+
+    ref.read(selectedProviderKeyProvider.notifier).select(key);
+    _prefetchedEpNum = null;
+    _prefetchedSourceData = null;
+    _prefetchedIsDub = null;
+    _prefetchedRouteKey = null;
+    _failedRuntimeServerIds.clear();
+    state = state.copyWith(
+      servers: const [],
+      sources: const [],
+      subtitles: const [],
+      qualityOptions: const [],
+      selectedServer: ServerData(
+        id: 'auto',
+        name: 'Automatic (Best available)',
+        isDub: preferDub,
+      ),
+      clearError: true,
+      sourceNotice: 'Switching to ${registry.get(key)?.providerName ?? key}',
+    );
+
+    try {
+      final match = await ref
+          .read(animeMatchServiceProvider)
+          .findBestMatch(
+            UniversalTitle(english: title, romaji: title),
+            isAdult: isAdult,
+            mediaId: mediaId,
+            malId: malId?.toString(),
+          );
+      if (generation != _loadGeneration) return;
+      if (match?.id == null || match!.id!.isEmpty) {
+        throw StateError('Anime was not found on the selected source');
+      }
+
+      final episodes = await ref
+          .read(episodeListProvider.notifier)
+          .fetchEpisodes(
+            animeTitle: title,
+            animeId: match.id,
+            mediaId: mediaId,
+            animeCover: animeCover,
+            force: true,
+            malId: malId,
+            isAdult: isAdult,
+            isMovie: isMovie,
+          );
+      if (generation != _loadGeneration) return;
+      if (episodes.isEmpty ||
+          !episodes.any((episode) => episode.number == currentEpisode)) {
+        throw StateError('Episode is unavailable on the selected source');
+      }
+
+      await _fetchServers(currentEpisode, generation);
+      if (generation != _loadGeneration) return;
+      await _playCurrent(resumeAt, generation: generation);
+    } catch (error, stack) {
+      if (generation != _loadGeneration) return;
+      AppLogger.e('Provider switch failed', error, stack);
+      state = state.copyWith(
+        error: 'This episode is unavailable on the selected source.',
+        sourceNotice:
+            'Could not switch to ${registry.get(key)?.providerName ?? key}',
+      );
+    }
+  }
+
   /// Records a runtime stream failure without silently changing the user's
   /// selected server or provider. Recovery is explicitly user-controlled.
   Future<void> recoverFromPlaybackFailure() async {
@@ -418,8 +529,26 @@ class EpisodeData extends _$EpisodeData {
     }
 
     _isRecoveringPlayback = true;
-    final failedServerId = state.selectedServer?.id;
-    if (failedServerId != null) _failedRuntimeServerIds.add(failedServerId);
+    final selectedServer = state.selectedServer;
+    final failedServerId = selectedServer?.id;
+    if (failedServerId != null && failedServerId != 'auto') {
+      _failedRuntimeServerIds.add(failedServerId);
+    }
+    if (failedServerId == 'auto') {
+      final sourceIndex = state.selectedSourceIdx ?? 0;
+      final failedType =
+          sourceIndex >= 0 && sourceIndex < state.sources.length
+              ? state.sources[sourceIndex].type?.toLowerCase()
+              : null;
+      final actualFailedId = switch (failedType) {
+        'momo' => 'megaplay',
+        'zoko' => 'zokoanime',
+        'gigi' => 'animegg',
+        'neko' => 'anineko',
+        _ => null,
+      };
+      if (actualFailedId != null) _failedRuntimeServerIds.add(actualFailedId);
+    }
     ref.read(aniSkipProvider.notifier).clearSourceFallback();
     state = state.copyWith(
       error: 'The selected server could not start this video.',
@@ -582,16 +711,22 @@ class EpisodeData extends _$EpisodeData {
 
       final dlSettings = ref.read(downloadSettingsProvider);
       if (dlSettings.rememberDownloadPreferences) {
-        await _directDownloadSingle(
+        final queued = await _directDownloadSingle(
           context,
           ep,
           dlSettings.preferredLanguage,
           dlSettings.preferredQuality,
+          showUnavailableMessage: false,
         );
-        return;
+        if (queued) return;
+        // A remembered language/server can be unavailable for a newly aired
+        // episode (for example DUB is not released yet). Fall through to the
+        // selector instead of ending with a misleading "no sources" toast,
+        // so the user can choose an actually available server/language.
       }
 
       AppLogger.section('Initializing Download for Ep $epNum');
+      if (!context.mounted) return;
 
       List<ServerData> servers = [];
       _showLoading(context);
@@ -668,12 +803,13 @@ class EpisodeData extends _$EpisodeData {
     }
   }
 
-  Future<void> _directDownloadSingle(
+  Future<bool> _directDownloadSingle(
     BuildContext context,
     EpisodeDataModel ep,
     String language,
-    String quality,
-  ) async {
+    String quality, {
+    bool showUnavailableMessage = true,
+  }) async {
     final epNum = ep.number ?? 0;
     final animeTitle = _epList.animeTitle ?? 'Unknown';
 
@@ -690,11 +826,11 @@ class EpisodeData extends _$EpisodeData {
           preferredServer = servers.firstWhereOrNull(
             (server) => language == 'dub' ? server.isDub : !server.isDub,
           );
-          preferredServer ??= ServerData(
-            name: 'Default',
-            id: 'default',
-            isDub: language == 'dub',
-          );
+          // Do not invent a language-specific server. A synthetic DUB server
+          // made unavailable episodes look downloadable and then fail later.
+          if (preferredServer == null) {
+            return false;
+          }
         }
         data = await _fetchSourceData(ep, server: preferredServer);
       } finally {
@@ -703,13 +839,13 @@ class EpisodeData extends _$EpisodeData {
         }
       }
 
-      if (!context.mounted) return;
+      if (!context.mounted) return false;
 
       if (data == null || data.sources.isEmpty) {
-        return _showSnack(
-          context,
-          "No download sources available for Ep $epNum",
-        );
+        if (showUnavailableMessage) {
+          _showSnack(context, "No download sources available for Ep $epNum");
+        }
+        return false;
       }
 
       Source? matchedSource;
@@ -721,17 +857,23 @@ class EpisodeData extends _$EpisodeData {
         matchedSource = data.sources.firstWhereOrNull((s) => !s.isDub);
       }
       if (matchedSource == null && language == 'dub') {
-        return _showSnack(
-          context,
-          'DUB could not be verified. Check the connection and retry.',
-        );
+        if (showUnavailableMessage) {
+          _showSnack(
+            context,
+            'DUB is not available for this episode. Choose SUB or another server.',
+          );
+        }
+        return false;
       }
       matchedSource ??= data.sources.firstOrNull;
 
       if (matchedSource == null ||
           matchedSource.url == null ||
           matchedSource.url!.isEmpty) {
-        return _showSnack(context, "Could not find stream for Ep $epNum");
+        if (showUnavailableMessage) {
+          _showSnack(context, "Could not find stream for Ep $epNum");
+        }
+        return false;
       }
 
       String downloadUrl = matchedSource.url!;
@@ -804,10 +946,12 @@ class EpisodeData extends _$EpisodeData {
           downloadId: item.id,
         );
       }
+      return true;
     } catch (e) {
       if (context.mounted) {
         _showSnack(context, "Download failed: $e");
       }
+      return false;
     }
   }
 
@@ -843,11 +987,12 @@ class EpisodeData extends _$EpisodeData {
           preferredServer = servers.firstWhereOrNull(
             (server) => targetLang == 'dub' ? server.isDub : !server.isDub,
           );
-          preferredServer ??= ServerData(
-            name: 'Default',
-            id: 'default',
-            isDub: targetLang == 'dub',
-          );
+          if (preferredServer == null) {
+            AppLogger.w(
+              'Batch download: $targetLang server unavailable for Ep $epNum',
+            );
+            continue;
+          }
         }
         final data = await _fetchSourceData(ep, server: preferredServer);
         if (data == null || data.sources.isEmpty) {
@@ -1076,6 +1221,11 @@ class EpisodeData extends _$EpisodeData {
     if (epNum == null) return;
 
     final timing = _PlaybackTiming(episode: epNum);
+    // Snapshot the route used for this request. The global source preference
+    // may be rebuilt or changed later; the player label must describe the
+    // stream that actually opened, not whatever provider is globally active
+    // at paint time.
+    final requestedProviderKey = _streamSourceKey;
 
     state = state.copyWith(
       addState: EpisodeStreamState.SOURCE_LOADING,
@@ -1126,6 +1276,7 @@ class EpisodeData extends _$EpisodeData {
         sources: data.sources,
         subtitles: [Subtitle(lang: 'None'), ...data.tracks],
         headers: data.headers?.cast<String, String>(),
+        activeProviderKey: requestedProviderKey,
       );
       final playerSw = Stopwatch()..start();
       await _loadSourceStream(
@@ -1430,7 +1581,11 @@ class EpisodeData extends _$EpisodeData {
       // Episode 1 into /episode/2 (or an opaque slug) and leave playback on
       // the startup screen after a 404.
       final targetEpId = ep.number?.toString() ?? '1';
-      for (var attempt = 1; attempt <= 3; attempt++) {
+      // The provider already races its internal servers. Do one bounded
+      // request here; retrying the same provider three times only turns a
+      // clear failure into a 30+ second spinner. The UI exposes explicit
+      // Retry and Another server actions.
+      for (var attempt = 1; attempt <= 1; attempt++) {
         try {
           state = state.copyWith(
             sourceNotice:
@@ -1560,7 +1715,9 @@ class EpisodeData extends _$EpisodeData {
     // strategy. Repeating the identical provider call here adds another full
     // timeout window without increasing the chance of finding a source.
     if (effectiveProvider != null && !isJustAnime) {
-      for (var attempt = 1; attempt <= 3; attempt++) {
+      // Keep the user's source authoritative and fail fast enough to offer
+      // explicit retry/recovery instead of silently changing providers.
+      for (var attempt = 1; attempt <= 1; attempt++) {
         try {
           state = state.copyWith(
             sourceNotice:

@@ -74,11 +74,7 @@ Future<BaseAnimeModel?> providerAnimeMatchSearch({
           animeId: match.id!,
           animeName: match.name ?? animeMedia.title.userPreferred,
           animeFormat: animeMedia.format ?? '',
-          animeCover:
-              match.poster ??
-              animeMedia.coverImage.large ??
-              animeMedia.coverImage.medium ??
-              '',
+          animeCover: match.poster ?? animeMedia.highResCoverImage,
           episodes: const [],
           currentEpisode: startAt ?? 1,
           startAtPosition: startAtPosition,

@@ -105,7 +105,8 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
     final permissionsState = ref.watch(permissionsProvider);
     final permissionsNotifier = ref.read(permissionsProvider.notifier);
     final colorScheme = Theme.of(context).colorScheme;
-    final isDesktop = MediaQuery.sizeOf(context).width > 700 ||
+    final isDesktop =
+        MediaQuery.sizeOf(context).width > 700 ||
         Platform.isWindows ||
         Platform.isMacOS ||
         Platform.isLinux;
@@ -115,22 +116,23 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: isDesktop
-          ? null
-          : AppBar(
-              leading: IconButton.filledTonal(
-                onPressed: () {
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/');
-                  }
-                },
-                icon: const Icon(Iconsax.arrow_left_2),
+      appBar:
+          isDesktop
+              ? null
+              : AppBar(
+                leading: IconButton.filledTonal(
+                  onPressed: () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/');
+                    }
+                  },
+                  icon: const Icon(Iconsax.arrow_left_2),
+                ),
+                title: const Text('Check for Updates'),
+                forceMaterialTransparency: true,
               ),
-              title: const Text('Check for Updates'),
-              forceMaterialTransparency: true,
-            ),
       body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: isDesktop ? 960 : 600),
@@ -166,10 +168,14 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primary.withValues(alpha: 0.12),
+                                  color: colorScheme.primary.withValues(
+                                    alpha: 0.12,
+                                  ),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                    color: colorScheme.primary.withValues(alpha: 0.25),
+                                    color: colorScheme.primary.withValues(
+                                      alpha: 0.25,
+                                    ),
                                     width: 1,
                                   ),
                                 ),
@@ -196,16 +202,17 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                       ),
                       FilledButton.icon(
                         onPressed: _isChecking ? null : _checkForUpdate,
-                        icon: _isChecking
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Iconsax.refresh, size: 16),
+                        icon:
+                            _isChecking
+                                ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                                : const Icon(Iconsax.refresh, size: 16),
                         label: Text(
                           _isChecking ? 'Checking...' : 'Check for Updates',
                         ),
@@ -243,11 +250,17 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                   decoration: BoxDecoration(
                     color: Colors.amber.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                    border: Border.all(
+                      color: Colors.amber.withValues(alpha: 0.4),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Iconsax.warning_2, color: Colors.amber, size: 28),
+                      const Icon(
+                        Iconsax.warning_2,
+                        color: Colors.amber,
+                        size: 28,
+                      ),
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Column(
@@ -263,7 +276,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                             SizedBox(height: 2),
                             Text(
                               'Allow notifications so AniDash can alert you when updates are ready.',
-                              style: TextStyle(fontSize: 11, color: Colors.white70),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.white70,
+                              ),
                             ),
                           ],
                         ),
@@ -271,7 +287,8 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                       const SizedBox(width: 8),
                       FilledButton.tonal(
                         onPressed: () async {
-                          await permissionsNotifier.requestNotificationPermission();
+                          await permissionsNotifier
+                              .requestNotificationPermission();
                         },
                         child: const Text('Allow'),
                       ),
@@ -298,11 +315,15 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                       icon: Icon(Iconsax.refresh_2, color: colorScheme.primary),
                       accent: colorScheme.primary,
                       title: 'Auto-Check for Updates',
-                      description: 'Periodically check GitHub releases for new updates',
+                      description:
+                          'Periodically check GitHub releases for new updates',
                       value: settings.autoCheckEnabled,
                       onChanged: (value) async {
-                        if (value && Platform.isAndroid && !permissionsState.notification) {
-                          await permissionsNotifier.requestNotificationPermission();
+                        if (value &&
+                            Platform.isAndroid &&
+                            !permissionsState.notification) {
+                          await permissionsNotifier
+                              .requestNotificationPermission();
                         }
                         notifier.updateSettings(
                           (state) => state.copyWith(autoCheckEnabled: value),
@@ -314,9 +335,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                         icon: Icon(Iconsax.clock, color: colorScheme.primary),
                         accent: colorScheme.primary,
                         title: 'Run 24 Hours',
-                        description: settings.fullDay
-                            ? 'Checking continuously throughout the day (Custom window disabled)'
-                            : 'Continuously check for updates round the clock',
+                        description:
+                            settings.fullDay
+                                ? 'Checking continuously throughout the day (Custom window disabled)'
+                                : 'Continuously check for updates round the clock',
                         value: settings.fullDay,
                         onChanged: (value) {
                           notifier.updateSettings(
@@ -346,8 +368,9 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                         divisions: 11,
                         onChanged: (value) {
                           notifier.updateSettings(
-                            (state) =>
-                                state.copyWith(checkIntervalMinutes: value.toInt()),
+                            (state) => state.copyWith(
+                              checkIntervalMinutes: value.toInt(),
+                            ),
                           );
                         },
                       ),
@@ -357,7 +380,8 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                         title: 'Custom Window: Start Hour',
                         hour: settings.startHour,
                         is24HourMode: settings.fullDay,
-                        onTap: () => _pickStartHour(context, settings, notifier),
+                        onTap:
+                            () => _pickStartHour(context, settings, notifier),
                       ),
                       _buildCustomTimeItem(
                         context: context,
@@ -394,9 +418,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isDark
-                  ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.5)
-                  : colorScheme.surfaceContainerLowest,
+              color:
+                  isDark
+                      ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.5)
+                      : colorScheme.surfaceContainerLowest,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: colorScheme.outlineVariant.withValues(alpha: 0.35),
@@ -436,7 +461,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text(
                     'Auto-Check for Updates',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                    ),
                   ),
                   subtitle: const Text(
                     'Query GitHub releases silently in the background',
@@ -454,7 +482,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text(
                     '24-Hour Continuous Checking',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                    ),
                   ),
                   subtitle: const Text(
                     'Checks stay active round the clock without quiet hours',
@@ -481,30 +512,34 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                     ChoiceChip(
                       label: const Text('15 Min'),
                       selected: settings.checkIntervalMinutes == 15,
-                      onSelected: (_) => notifier.updateSettings(
-                        (s) => s.copyWith(checkIntervalMinutes: 15),
-                      ),
+                      onSelected:
+                          (_) => notifier.updateSettings(
+                            (s) => s.copyWith(checkIntervalMinutes: 15),
+                          ),
                     ),
                     ChoiceChip(
                       label: const Text('1 Hour'),
                       selected: settings.checkIntervalMinutes == 60,
-                      onSelected: (_) => notifier.updateSettings(
-                        (s) => s.copyWith(checkIntervalMinutes: 60),
-                      ),
+                      onSelected:
+                          (_) => notifier.updateSettings(
+                            (s) => s.copyWith(checkIntervalMinutes: 60),
+                          ),
                     ),
                     ChoiceChip(
                       label: const Text('6 Hours'),
                       selected: settings.checkIntervalMinutes == 360,
-                      onSelected: (_) => notifier.updateSettings(
-                        (s) => s.copyWith(checkIntervalMinutes: 360),
-                      ),
+                      onSelected:
+                          (_) => notifier.updateSettings(
+                            (s) => s.copyWith(checkIntervalMinutes: 360),
+                          ),
                     ),
                     ChoiceChip(
                       label: const Text('Daily'),
                       selected: settings.checkIntervalMinutes == 1440,
-                      onSelected: (_) => notifier.updateSettings(
-                        (s) => s.copyWith(checkIntervalMinutes: 1440),
-                      ),
+                      onSelected:
+                          (_) => notifier.updateSettings(
+                            (s) => s.copyWith(checkIntervalMinutes: 1440),
+                          ),
                     ),
                   ],
                 ),
@@ -518,9 +553,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isDark
-                  ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.5)
-                  : colorScheme.surfaceContainerLowest,
+              color:
+                  isDark
+                      ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.5)
+                      : colorScheme.surfaceContainerLowest,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: colorScheme.outlineVariant.withValues(alpha: 0.35),
@@ -595,7 +631,9 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                       Clipboard.setData(ClipboardData(text: diag));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('System diagnostics copied to clipboard!'),
+                          content: Text(
+                            'System diagnostics copied to clipboard!',
+                          ),
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
@@ -628,20 +666,14 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12.5,
-            color: colorScheme.onSurfaceVariant,
-          ),
+          style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant),
         ),
         Flexible(
           child: Text(
             value,
             textAlign: TextAlign.end,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -659,9 +691,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
     return Container(
       padding: EdgeInsets.all(isDesktop ? 22 : 16),
       decoration: BoxDecoration(
-        color: isDark
-            ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.6)
-            : colorScheme.surfaceContainerLowest,
+        color:
+            isDark
+                ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.6)
+                : colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.4),
@@ -693,7 +726,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                   ),
                 ),
                 child: Center(
-                  child: BrandLogo(size: 48, borderRadius: BorderRadius.circular(12)),
+                  child: BrandLogo(
+                    size: 48,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -701,7 +737,9 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
                       children: [
                         Text(
                           'AniDash for ${_getPlatformName()}',
@@ -710,9 +748,11 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                             fontSize: isDesktop ? 18 : 16,
                           ),
                         ),
-                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: colorScheme.primary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
@@ -736,19 +776,21 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
                       children: [
                         Container(
                           width: 8,
                           height: 8,
                           decoration: BoxDecoration(
-                            color: _availableUpdate != null
-                                ? Colors.amber
-                                : Colors.greenAccent.shade700,
+                            color:
+                                _availableUpdate != null
+                                    ? Colors.amber
+                                    : Colors.greenAccent.shade700,
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 6),
                         Text(
                           _availableUpdate != null
                               ? 'Update available (v${_availableUpdate!.version})'
@@ -756,9 +798,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w500,
-                            color: _availableUpdate != null
-                                ? Colors.amber
-                                : Colors.greenAccent.shade700,
+                            color:
+                                _availableUpdate != null
+                                    ? Colors.amber
+                                    : Colors.greenAccent.shade700,
                           ),
                         ),
                         if (_lastCheckedTime != null) ...[
@@ -766,7 +809,9 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                             ' • Checked ${_lastCheckedTime!.hour}:${_lastCheckedTime!.minute.toString().padLeft(2, '0')}',
                             style: TextStyle(
                               fontSize: 11,
-                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                              color: colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.7,
+                              ),
                             ),
                           ),
                         ],
@@ -781,36 +826,65 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
           const Divider(height: 1),
           const SizedBox(height: 14),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              OutlinedButton.icon(
-                onPressed: () => launchUrl(
-                  Uri.parse('https://github.com/anshdeepofficial1/AniDash/releases'),
-                ),
-                icon: const Icon(Icons.code_rounded, size: 16),
-                label: const Text('View Releases on GitHub'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              Expanded(
+                child: SizedBox(
+                  height: 42,
+                  child: OutlinedButton.icon(
+                    onPressed:
+                        () => launchUrl(
+                          Uri.parse(
+                            'https://github.com/anshdeepofficial1/AniDash/releases',
+                          ),
+                        ),
+                    icon: const Icon(Icons.code_rounded, size: 15),
+                    label: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('View Release on GitHub'),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      textStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              FilledButton.icon(
-                onPressed: _isChecking ? null : _checkForUpdate,
-                icon: _isChecking
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Iconsax.refresh_2, size: 16),
-                label: Text(_isChecking ? 'Checking...' : 'Check for Updates'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 42,
+                  child: FilledButton.icon(
+                    onPressed: _isChecking ? null : _checkForUpdate,
+                    icon:
+                        _isChecking
+                            ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Icon(Iconsax.refresh_2, size: 15),
+                    label: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        _isChecking ? 'Checking...' : 'Check for Updates',
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      textStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -821,7 +895,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
     );
   }
 
-  Widget _buildAvailableUpdateCard(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildAvailableUpdateCard(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
     final theme = Theme.of(context);
     final update = _availableUpdate!;
     final isWindows = Platform.isWindows;
@@ -852,7 +929,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: colorScheme.primary,
                   borderRadius: BorderRadius.circular(8),
@@ -890,9 +970,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
             ),
             child: SingleChildScrollView(
               child: MarkdownBody(
-                data: update.releaseNotes.isNotEmpty
-                    ? update.releaseNotes
-                    : 'Performance improvements and bug fixes.',
+                data:
+                    update.releaseNotes.isNotEmpty
+                        ? update.releaseNotes
+                        : 'Performance improvements and bug fixes.',
               ),
             ),
           ),
@@ -919,7 +1000,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                       : 'Install Update Now',
                 ),
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),

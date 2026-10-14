@@ -37,8 +37,7 @@ class FranchiseWatchOrderItem {
   String? get format => media.format;
   int? get episodes => media.episodes;
   int? get year => media.startDate?.year ?? media.seasonYear;
-  String get coverImage =>
-      media.coverImage.large ?? media.coverImage.medium ?? '';
+  String get coverImage => media.highResCoverImage;
   bool get isTv => format == 'TV' || format == 'TV_SHORT';
   bool get isMovie => format == 'MOVIE';
   bool get isOvaOrSpecial =>
@@ -132,6 +131,7 @@ query (\$id: Int) {
       day
     }
     coverImage {
+      extraLarge
       large
       medium
     }
@@ -159,6 +159,7 @@ query (\$id: Int) {
           }
           type
           coverImage {
+            extraLarge
             large
             medium
           }

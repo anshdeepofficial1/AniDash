@@ -29,19 +29,24 @@ class AskNiaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!(sharedPrefs.getBool(anyCoreEnabledKey) ?? true)) {
-      return const SizedBox.shrink();
-    }
-    return compact
-        ? IconButton(
-          tooltip: 'Ask AniDash AI',
-          icon: const AniDashAiEmblem(size: 22),
-          onPressed: () => _open(context),
-        )
-        : FilledButton.tonalIcon(
-          onPressed: () => _open(context),
-          icon: const AniDashAiEmblem(size: 20),
-          label: const Text('Ask AniDash AI'),
-        );
+    return ValueListenableBuilder<int>(
+      valueListenable: anyCoreSettingsRevision,
+      builder: (context, _, __) {
+        if (!(sharedPrefs.getBool(anyCoreEnabledKey) ?? true)) {
+          return const SizedBox.shrink();
+        }
+        return compact
+            ? IconButton(
+              tooltip: 'Ask AnyCore',
+              icon: const AniDashAiEmblem(size: 22),
+              onPressed: () => _open(context),
+            )
+            : FilledButton.tonalIcon(
+              onPressed: () => _open(context),
+              icon: const AniDashAiEmblem(size: 20),
+              label: const Text('Ask AnyCore'),
+            );
+      },
+    );
   }
 }

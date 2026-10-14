@@ -80,13 +80,15 @@ class TopControls extends ConsumerWidget {
       episodeListProvider.select((s) => s.animeTitle),
     );
     final epListState = ref.watch(episodeListProvider);
-    final isMovie = epListState.isMovie ||
+    final isMovie =
+        epListState.isMovie ||
         (animeTitle?.toLowerCase().contains('the very final') == true) ||
         (animeTitle?.toLowerCase().contains('movie') == true) ||
         (animeTitle?.toLowerCase().contains('film') == true) ||
         (epListState.episodes.length <= 1 &&
             (rawEpisodeTitle?.toLowerCase().contains('movie') == true ||
-                rawEpisodeTitle?.toLowerCase().contains('the very final') == true));
+                rawEpisodeTitle?.toLowerCase().contains('the very final') ==
+                    true));
 
     return Container(
       decoration: const BoxDecoration(
@@ -163,100 +165,100 @@ class TopControls extends ConsumerWidget {
                                   Icons.visibility_off_rounded,
                                   size: 11,
                                   color: Colors.purpleAccent,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'INCOGNITO',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
                                   ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'INCOGNITO',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ],
-                      ),
-                      if (titleOverride != null ||
-                          (selectedEp != null && sources.isNotEmpty))
-                        Text(
-                          titleOverride ??
-                              (isMovie
-                                  ? (animeTitle != null && animeTitle.isNotEmpty
-                                      ? animeTitle
-                                      : (episodeTitle?.isNotEmpty == true
-                                          ? episodeTitle!
-                                          : 'Movie'))
-                                  : (episodeTitle?.trim().isNotEmpty == true
-                                      ? 'E$selectedEp — $episodeTitle'
-                                      : 'Episode $selectedEp')),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        ],
+                      ],
+                    ),
+                    if (titleOverride != null ||
+                        (selectedEp != null && sources.isNotEmpty))
+                      Text(
+                        titleOverride ??
+                            (isMovie
+                                ? (animeTitle != null && animeTitle.isNotEmpty
+                                    ? animeTitle
+                                    : (episodeTitle?.isNotEmpty == true
+                                        ? episodeTitle!
+                                        : 'Movie'))
+                                : (episodeTitle?.trim().isNotEmpty == true
+                                    ? 'E$selectedEp — $episodeTitle'
+                                    : 'Episode $selectedEp')),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(width: 12),
-
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (Platform.isAndroid || Platform.isIOS)
-                      Consumer(
-                        builder: (context, ref, _) {
-                          final lockMode = ref.watch(orientationLockProvider);
-                          IconData lockIcon = Icons.screen_rotation_rounded;
-                          Color iconColor = Colors.white;
-                          String tooltipText =
-                              'Auto-Rotate Landscape (Tap to lock)';
-
-                          if (lockMode == OrientationLockMode.lockedLandscape) {
-                            lockIcon = Icons.screen_lock_landscape_rounded;
-                            iconColor = Theme.of(context).colorScheme.primary;
-                            tooltipText = 'Landscape Locked (Tap to unlock)';
-                          }
-
-                          return _TopIconButton(
-                            icon: lockIcon,
-                            color: iconColor,
-                            tooltip: tooltipText,
-                            onTap: () async {
-                              await ref
-                                  .read(orientationLockProvider.notifier)
-                                  .toggle();
-                              onInteraction();
-                            },
-                            onLongPress: () {
-                              _showRotationSheet(context, ref);
-                              onInteraction();
-                            },
-                          );
-                        },
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-
-                    if (!isMovie)
-                      _TopIconButton(
-                        icon: Icons.view_list_rounded,
-                        onTap: _wrap(onEpisodesPressed),
-                      ),
-
-                    if (!Platform.isAndroid && !Platform.isIOS) ...[
-                      const SizedBox(width: 8),
-                      const WindowsCaptionButtons(height: 36, isDark: true),
-                    ],
                   ],
                 ),
-              ],
-            ),
+              ),
+
+              const SizedBox(width: 12),
+
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (Platform.isAndroid || Platform.isIOS)
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final lockMode = ref.watch(orientationLockProvider);
+                        IconData lockIcon = Icons.screen_rotation_rounded;
+                        Color iconColor = Colors.white;
+                        String tooltipText =
+                            'Auto-Rotate Landscape (Tap to lock)';
+
+                        if (lockMode == OrientationLockMode.lockedLandscape) {
+                          lockIcon = Icons.screen_lock_landscape_rounded;
+                          iconColor = Theme.of(context).colorScheme.primary;
+                          tooltipText = 'Landscape Locked (Tap to unlock)';
+                        }
+
+                        return _TopIconButton(
+                          icon: lockIcon,
+                          color: iconColor,
+                          tooltip: tooltipText,
+                          onTap: () async {
+                            await ref
+                                .read(orientationLockProvider.notifier)
+                                .toggle();
+                            onInteraction();
+                          },
+                          onLongPress: () {
+                            _showRotationSheet(context, ref);
+                            onInteraction();
+                          },
+                        );
+                      },
+                    ),
+
+                  if (!isMovie)
+                    _TopIconButton(
+                      icon: Icons.view_list_rounded,
+                      onTap: _wrap(onEpisodesPressed),
+                    ),
+
+                  if (!Platform.isAndroid && !Platform.isIOS) ...[
+                    const SizedBox(width: 8),
+                    const WindowsCaptionButtons(height: 36, isDark: true),
+                  ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -376,6 +378,14 @@ class TopControls extends ConsumerWidget {
   }
 
   String _getSourceName(WidgetRef ref) {
+    final activeKey = ref.watch(
+      episodeDataProvider.select((state) => state.activeProviderKey),
+    );
+    if (activeKey != null && activeKey.isNotEmpty) {
+      final registry = ref.watch(animeSourceRegistryProvider);
+      final normalized = activeKey.replaceFirst('ext:', '');
+      return registry.get(normalized)?.providerName ?? normalized;
+    }
     return ref.watch(selectedAnimeProvider)?.providerName ?? 'AniDash';
   }
 }

@@ -6,9 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:ani_dash/core/models/universal/universal_media.dart';
+import 'package:ani_dash/core/models/anime/episode_model.dart';
 import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
 import 'package:ani_dash/helpers/anime_match_search.dart';
 import 'package:ani_dash/shared/providers/continue_watching_dismissed_provider.dart';
+import 'package:ani_dash/shared/providers/anime_match_service.dart';
+import 'package:ani_dash/shared/providers/anime_source_provider.dart';
 import 'package:ani_dash/features/downloads/view/local_player_screen.dart';
 import 'package:ani_dash/features/downloads/view_model/downloads_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
@@ -19,6 +22,31 @@ import 'package:ani_dash/core/repositories/source_preference_repository.dart';
 import 'package:ani_dash/features/watch/view/widgets/player/dialogs/jump_to_time_dialog.dart';
 
 final Map<String, String> _continueEpisodeThumbnailCache = {};
+
+final _continueEpisodeMetadataProvider = FutureProvider.family<
+  EpisodeDataModel?,
+  ({String animeId, String title, int episode, bool isAdult})
+>((ref, request) async {
+  final match = await ref
+      .read(animeMatchServiceProvider)
+      .findBestMatch(
+        UniversalTitle(
+          english: request.title,
+          romaji: request.title,
+          native: request.title,
+        ),
+        mediaId: request.animeId,
+        isAdult: request.isAdult,
+      );
+  final provider = ref.read(selectedAnimeProvider);
+  if (match?.id == null || provider == null) return null;
+  final episodes = await provider
+      .getEpisodes(match!.id!, anilistId: request.animeId)
+      .timeout(const Duration(seconds: 12));
+  return episodes.episodes
+      ?.where((e) => e.number == request.episode)
+      .firstOrNull;
+});
 
 class ContinueSection extends ConsumerWidget {
   final List<AnimeWatchProgressEntry> allProgress;
@@ -89,7 +117,26 @@ class ContinueSection extends ConsumerWidget {
             separatorBuilder: (_, _) => const SizedBox(width: 16),
             itemBuilder: (context, index) {
               final entry = validEntries[index];
-              final currentEp = entry.episodesProgress[entry.currentEpisode];
+              // A tracker can advance [currentEpisode] before the local
+              // playback write for the preceding episode settles. Prefer the
+              // most recently watched, genuinely unfinished episode so an
+              // 18/23 minute episode keeps appearing as resumable instead of
+              // incorrectly jumping the card to the next episode.
+              final unfinished =
+                  entry.episodesProgress.values.where((item) {
+                      final duration = item.durationInSeconds ?? 0;
+                      final progress = item.progressInSeconds ?? 0;
+                      final ratio = duration > 0 ? progress / duration : 0.0;
+                      return progress > 0 && !item.isCompleted && ratio < 0.90;
+                    }).toList()
+                    ..sort((a, b) {
+                      final aTime = a.watchedAt ?? DateTime(0);
+                      final bTime = b.watchedAt ?? DateTime(0);
+                      return bTime.compareTo(aTime);
+                    });
+              final currentEp =
+                  unfinished.firstOrNull ??
+                  entry.episodesProgress[entry.currentEpisode];
 
               // Keep resuming the current episode unless it is completed or reached the end (within last 45s or >= 90% watched)
               final dur = currentEp?.durationInSeconds ?? 0;
@@ -100,7 +147,8 @@ class ContinueSection extends ConsumerWidget {
                   (dur > 45 && prog >= dur - 45);
 
               final baseEp =
-                  entry.currentEpisode > 0 ? entry.currentEpisode : 1;
+                  currentEp?.episodeNumber ??
+                  (entry.currentEpisode > 0 ? entry.currentEpisode : 1);
               final nextEpisodeNum =
                   isCurrentCompleted &&
                           (entry.totalEpisodes == 0 ||
@@ -111,6 +159,17 @@ class ContinueSection extends ConsumerWidget {
               final displayEp =
                   entry.episodesProgress[nextEpisodeNum] ?? currentEp;
               String? listEpisodeTitle;
+              final remoteEpisode =
+                  ref
+                      .watch(
+                        _continueEpisodeMetadataProvider((
+                          animeId: entry.animeId,
+                          title: entry.animeTitle,
+                          episode: nextEpisodeNum,
+                          isAdult: entry.isAdult,
+                        )),
+                      )
+                      .value;
 
               double progressValue = 0.0;
               if (!isCurrentCompleted && currentEp != null) {
@@ -120,6 +179,18 @@ class ContinueSection extends ConsumerWidget {
               }
 
               String? listThumbnail;
+              final remoteTitle = remoteEpisode?.title?.trim();
+              if (remoteTitle != null &&
+                  remoteTitle.isNotEmpty &&
+                  !RegExp(
+                    r'^(episode|ep\.?)\s*\d+$',
+                    caseSensitive: false,
+                  ).hasMatch(remoteTitle)) {
+                listEpisodeTitle = remoteTitle;
+              }
+              if (remoteEpisode?.thumbnail?.trim().isNotEmpty == true) {
+                listThumbnail = remoteEpisode!.thumbnail!.trim();
+              }
               final listMatchesEntry =
                   activeEpisodeList.mediaId == entry.animeId ||
                   activeEpisodeList.animeId == entry.animeId ||
@@ -157,25 +228,40 @@ class ContinueSection extends ConsumerWidget {
                 }
               }
               final savedEpisodeTitle = displayEp?.episodeTitle.trim() ?? '';
+              if (remoteEpisode != null &&
+                  (listEpisodeTitle != null || listThumbnail != null)) {
+                _persistEpisodeMetadata(
+                  ref,
+                  entry,
+                  nextEpisodeNum,
+                  listEpisodeTitle,
+                  listThumbnail,
+                );
+              }
               final resolvedEpisodeTitle =
                   (listEpisodeTitle?.trim().isNotEmpty ?? false)
                       ? listEpisodeTitle!.trim()
                       : savedEpisodeTitle;
-              final isMovie = entry.animeFormat?.toUpperCase() == 'MOVIE' ||
+              final isMovie =
+                  entry.animeFormat?.toUpperCase() == 'MOVIE' ||
                   entry.animeTitle.toLowerCase().contains('the very final') ||
                   entry.animeTitle.toLowerCase().contains('movie') ||
                   entry.animeTitle.toLowerCase().contains('film') ||
-                  (entry.totalEpisodes == 1 && entry.animeFormat?.toUpperCase() == 'MOVIE');
-              final episodeLabel = isMovie
-                  ? (resolvedEpisodeTitle.isNotEmpty &&
-                          !resolvedEpisodeTitle.toLowerCase().startsWith('episode')
-                      ? resolvedEpisodeTitle
-                      : 'Movie')
-                  : (resolvedEpisodeTitle.isEmpty ||
-                          resolvedEpisodeTitle.toLowerCase() ==
-                              'episode $nextEpisodeNum'
-                      ? 'E$nextEpisodeNum'
-                      : 'E$nextEpisodeNum - $resolvedEpisodeTitle');
+                  (entry.totalEpisodes == 1 &&
+                      entry.animeFormat?.toUpperCase() == 'MOVIE');
+              final episodeLabel =
+                  isMovie
+                      ? (resolvedEpisodeTitle.isNotEmpty &&
+                              !resolvedEpisodeTitle.toLowerCase().startsWith(
+                                'episode',
+                              )
+                          ? resolvedEpisodeTitle
+                          : 'Movie')
+                      : (resolvedEpisodeTitle.isEmpty ||
+                              resolvedEpisodeTitle.toLowerCase() ==
+                                  'episode $nextEpisodeNum'
+                          ? 'E$nextEpisodeNum'
+                          : 'E$nextEpisodeNum - $resolvedEpisodeTitle');
               final watchedSeconds = displayEp?.progressInSeconds ?? 0;
               final totalSeconds = displayEp?.durationInSeconds ?? 0;
               final remainingSeconds =
@@ -273,7 +359,9 @@ class ContinueSection extends ConsumerWidget {
                             animeMedia: UniversalMedia(
                               id: entry.animeId,
                               idMal: entry.animeId,
-                              format: entry.animeFormat ?? (isMovie ? 'MOVIE' : null),
+                              format:
+                                  entry.animeFormat ??
+                                  (isMovie ? 'MOVIE' : null),
                               title: UniversalTitle(
                                 romaji: entry.animeTitle,
                                 english: entry.animeTitle,
@@ -349,7 +437,9 @@ class ContinueSection extends ConsumerWidget {
                                           ),
                                         ),
                                         child: Text(
-                                          isMovie ? 'MOVIE' : 'EP $nextEpisodeNum',
+                                          isMovie
+                                              ? 'MOVIE'
+                                              : 'EP $nextEpisodeNum',
                                           style: TextStyle(
                                             color:
                                                 colorScheme.onPrimaryContainer,
@@ -527,13 +617,17 @@ class ContinueSection extends ConsumerWidget {
           }
         }
 
-        final isMovie = entry.animeFormat?.toUpperCase() == 'MOVIE' ||
+        final isMovie =
+            entry.animeFormat?.toUpperCase() == 'MOVIE' ||
             entry.animeTitle.toLowerCase().contains('the very final') ||
             entry.animeTitle.toLowerCase().contains('movie') ||
             entry.animeTitle.toLowerCase().contains('film') ||
-            (entry.totalEpisodes == 1 && entry.animeFormat?.toUpperCase() == 'MOVIE');
+            (entry.totalEpisodes == 1 &&
+                entry.animeFormat?.toUpperCase() == 'MOVIE');
 
-        if (isMovie && (resolvedTitle.isEmpty || resolvedTitle.toLowerCase().startsWith('episode'))) {
+        if (isMovie &&
+            (resolvedTitle.isEmpty ||
+                resolvedTitle.toLowerCase().startsWith('episode'))) {
           resolvedTitle = 'Movie';
         }
 
@@ -585,8 +679,9 @@ class ContinueSection extends ConsumerWidget {
                       context.push('/details', extra: entry.toUniversalMedia());
                     },
                   ),
-                  if (!isMovie && (entry.totalEpisodes == 0 ||
-                      targetEpNum < entry.totalEpisodes))
+                  if (!isMovie &&
+                      (entry.totalEpisodes == 0 ||
+                          targetEpNum < entry.totalEpisodes))
                     ListTile(
                       leading: Icon(
                         Iconsax.next,
@@ -715,7 +810,10 @@ class ContinueSection extends ConsumerWidget {
                             (dialogCtx) => JumpToTimeDialog(
                               currentPosition: currentPos,
                               totalDuration: totalDur,
-                              title: isMovie ? 'Jump to Time' : 'Jump to Time (Ep $targetEpNum)',
+                              title:
+                                  isMovie
+                                      ? 'Jump to Time'
+                                      : 'Jump to Time (Ep $targetEpNum)',
                               actionLabel: 'Play',
                               onJump: (targetDuration) async {
                                 final localDownload = await ref
@@ -745,7 +843,9 @@ class ContinueSection extends ConsumerWidget {
                                   ref: ref,
                                   animeMedia: UniversalMedia(
                                     id: entry.animeId,
-                                    format: entry.animeFormat ?? (isMovie ? 'MOVIE' : null),
+                                    format:
+                                        entry.animeFormat ??
+                                        (isMovie ? 'MOVIE' : null),
                                     title: UniversalTitle(
                                       romaji: entry.animeTitle,
                                       english: entry.animeTitle,
@@ -774,8 +874,12 @@ class ContinueSection extends ConsumerWidget {
                       Iconsax.document_download,
                       color: theme.colorScheme.primary,
                     ),
-                    title: Text(isMovie ? 'Download movie' : 'Download this episode'),
-                    subtitle: Text(isMovie ? entry.animeTitle : 'Episode $targetEpNum'),
+                    title: Text(
+                      isMovie ? 'Download movie' : 'Download this episode',
+                    ),
+                    subtitle: Text(
+                      isMovie ? entry.animeTitle : 'Episode $targetEpNum',
+                    ),
                     onTap: () async {
                       Navigator.pop(sheetContext);
                       final currentEpList = ref.read(episodeListProvider);

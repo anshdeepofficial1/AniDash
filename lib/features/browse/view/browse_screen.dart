@@ -63,6 +63,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   var _isSearchFocused = false;
   var _isExploreLoading = true;
   var _isSearchSubmitted = false;
+  var _isHeaderCollapsed = false;
   String? _fuzzySuggestion;
   int _searchGeneration = 0;
 
@@ -392,6 +393,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   }
 
   Future<void> _onScroll() async {
+    final shouldCollapse =
+        _scrollController.hasClients && _scrollController.position.pixels > 56;
+    if (shouldCollapse != _isHeaderCollapsed && mounted) {
+      setState(() => _isHeaderCollapsed = shouldCollapse);
+    }
     if (_results.isNotEmpty &&
         _scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 200) {
@@ -604,6 +610,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               onSearchChanged: _onSearchChanged,
               onFilter: _openFilter,
               hasFilter: !_currentFilter.isEmpty,
+              collapsed: _isHeaderCollapsed,
             ),
             Expanded(
               child: Stack(
@@ -612,6 +619,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                     child:
                         (!_isSearchSubmitted && _currentFilter.isEmpty)
                             ? _ExploreView(
+                              scrollController: _scrollController,
                               trending: _trending,
                               popular: _popular,
                               upcoming: _upcoming,
@@ -730,6 +738,7 @@ class _Header extends StatelessWidget {
   final Function(String) onSearchChanged;
   final VoidCallback onFilter;
   final bool hasFilter;
+  final bool collapsed;
 
   const _Header({
     required this.controller,
@@ -740,6 +749,7 @@ class _Header extends StatelessWidget {
     required this.onSearchChanged,
     required this.onFilter,
     required this.hasFilter,
+    required this.collapsed,
   });
 
   @override
@@ -756,28 +766,46 @@ class _Header extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Discover Anime',
-                          style: Theme.of(context).textTheme.headlineLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const AskNiaButton(compact: true),
-                    ],
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    child:
+                        collapsed
+                            ? const SizedBox.shrink()
+                            : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Discover Anime',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.headlineLarge?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const AskNiaButton(compact: true),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Find your next favorite series',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodyLarge?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.7),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+                            ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Find your next favorite series',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
                   _SearchBar(
                     controller: controller,
                     onSearch: onSearch,
@@ -1145,6 +1173,7 @@ class _LoadingIndicator extends StatelessWidget {
 }
 
 class _ExploreView extends StatelessWidget {
+  final ScrollController scrollController;
   final List<UniversalMedia> trending;
   final List<UniversalMedia> popular;
   final List<UniversalMedia> upcoming;
@@ -1152,6 +1181,7 @@ class _ExploreView extends StatelessWidget {
   final VoidCallback onRetry;
 
   const _ExploreView({
+    required this.scrollController,
     required this.trending,
     required this.popular,
     required this.upcoming,
@@ -1185,6 +1215,7 @@ class _ExploreView extends StatelessWidget {
     }
 
     return SingleChildScrollView(
+      controller: scrollController,
       padding: const EdgeInsets.only(bottom: 100),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

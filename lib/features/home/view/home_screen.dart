@@ -164,11 +164,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         final mediaId = media.id;
         final watchedCount = entry.progress > 0 ? entry.progress : 0;
         final totalEpisodes = media.episodes ?? 0;
-        final nextEpisode = (totalEpisodes > 0 && watchedCount >= totalEpisodes)
-            ? totalEpisodes
-            : (watchedCount > 0 ? watchedCount + 1 : 1);
+        final nextEpisode =
+            (totalEpisodes > 0 && watchedCount >= totalEpisodes)
+                ? totalEpisodes
+                : (watchedCount > 0 ? watchedCount + 1 : 1);
 
         final local = progressRepo.getProgress(mediaId);
+
+        // A remote tracker only stores a whole episode number; it cannot
+        // represent an in-progress local playback position. Keep the newest
+        // genuinely unfinished local episode authoritative so a partially
+        // watched E264 (for example 18/23 minutes) is not overwritten as
+        // completed and replaced by E265 during the home-page sync.
+        EpisodeProgress? unfinishedLocalEpisode;
+        if (local != null) {
+          for (final episode in local.episodesProgress.values) {
+            final duration = episode.durationInSeconds ?? 0;
+            final position = episode.progressInSeconds ?? 0;
+            final isUnfinished =
+                position > 0 &&
+                !episode.isCompleted &&
+                (duration <= 0 || position / duration < 0.90) &&
+                (duration <= 45 || position < duration - 45);
+            if (!isUnfinished) continue;
+            final currentTime =
+                unfinishedLocalEpisode?.watchedAt ?? DateTime(0);
+            final candidateTime = episode.watchedAt ?? DateTime(0);
+            if (unfinishedLocalEpisode == null ||
+                candidateTime.isAfter(currentTime)) {
+              unfinishedLocalEpisode = episode;
+            }
+          }
+        }
 
         // If local progress is already ahead of remote tracker, keep local
         if (local != null && local.currentEpisode > nextEpisode) {
@@ -179,8 +206,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         // on or ahead of nextEpisode. If watchedCount >= local.currentEpisode,
         // the user watched ahead on another device (e.g. mobile), so local must advance!
         if (local != null && local.currentEpisode >= nextEpisode) {
-          final localEpisode =
-              local.episodesProgress[local.currentEpisode];
+          final localEpisode = local.episodesProgress[local.currentEpisode];
           final localDuration = localEpisode?.durationInSeconds ?? 0;
           final localPosition = localEpisode?.progressInSeconds ?? 0;
           final hasUnfinishedLocalEpisode =
@@ -199,6 +225,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
         for (int i = 1; i <= watchedCount; i++) {
           final existing = episodesMap[i];
+          final existingDuration = existing?.durationInSeconds ?? 0;
+          final existingPosition = existing?.progressInSeconds ?? 0;
+          final preserveLocalPosition =
+              existing != null &&
+              existingPosition > 0 &&
+              !existing.isCompleted &&
+              (existingDuration <= 0 ||
+                  existingPosition / existingDuration < 0.90) &&
+              (existingDuration <= 45 ||
+                  existingPosition < existingDuration - 45);
+          if (preserveLocalPosition) continue;
           if (existing == null || !existing.isCompleted) {
             episodesMap[i] = EpisodeProgress(
               episodeNumber: i,
@@ -217,15 +254,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             media.title.romaji ??
             media.title.native ??
             '';
-        final cover = media.highResCoverImage.isNotEmpty
-            ? media.highResCoverImage
-            : (media.coverImage.large ?? media.coverImage.medium ?? '');
+        final cover =
+            media.highResCoverImage.isNotEmpty
+                ? media.highResCoverImage
+                : media.highResCoverImage;
 
         final isRemoteAhead =
             local == null || watchedCount >= local.currentEpisode;
         final effectiveLastPlayedAt =
-            isRemoteAhead ? DateTime.now() : (local.lastPlayedAt ?? DateTime.now());
-        final isCompleted = (totalEpisodes > 0 && watchedCount >= totalEpisodes) ||
+            isRemoteAhead
+                ? DateTime.now()
+                : (local.lastPlayedAt ?? DateTime.now());
+        final isCompleted =
+            (totalEpisodes > 0 && watchedCount >= totalEpisodes) ||
             entry.status.toLowerCase() == 'completed';
 
         final updated = (local ??
@@ -243,7 +284,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ))
             .copyWith(
               episodesProgress: episodesMap,
-              currentEpisode: nextEpisode,
+              currentEpisode:
+                  unfinishedLocalEpisode?.episodeNumber ?? nextEpisode,
               lastPlayedAt: effectiveLastPlayedAt,
               lastUpdated: DateTime.now(),
               status: isCompleted ? 'completed' : 'watching',
@@ -593,7 +635,7 @@ class _ContinueWatchingSection extends ConsumerWidget {
         animeCover:
             media.highResCoverImage.isNotEmpty
                 ? media.highResCoverImage
-                : (media.coverImage.large ?? media.coverImage.medium ?? ''),
+                : media.highResCoverImage,
         totalEpisodes: media.episodes ?? 0,
         episodesProgress: {
           targetProgress: EpisodeProgress(
@@ -602,7 +644,7 @@ class _ContinueWatchingSection extends ConsumerWidget {
             episodeThumbnail:
                 media.highResCoverImage.isNotEmpty
                     ? media.highResCoverImage
-                    : (media.coverImage.large ?? media.coverImage.medium),
+                    : media.highResCoverImage,
             progressInSeconds: progressSec,
             durationInSeconds: durationSec,
             isCompleted: false,
@@ -655,7 +697,10 @@ class _ContinueWatchingSection extends ConsumerWidget {
         }
 
         if (cloudWatching.isNotEmpty) {
-          final synthetic = cloudWatching.map<AnimeWatchProgressEntry>(createCloudProgressEntry).toList();
+          final synthetic =
+              cloudWatching
+                  .map<AnimeWatchProgressEntry>(createCloudProgressEntry)
+                  .toList();
           return ContinueSection(allProgress: synthetic.take(15).toList());
         }
         return const SizedBox.shrink();
@@ -676,7 +721,10 @@ class _ContinueWatchingSection extends ConsumerWidget {
         }
 
         if (cloudWatching.isNotEmpty) {
-          final synthetic = cloudWatching.map<AnimeWatchProgressEntry>(createCloudProgressEntry).toList();
+          final synthetic =
+              cloudWatching
+                  .map<AnimeWatchProgressEntry>(createCloudProgressEntry)
+                  .toList();
           return ContinueSection(allProgress: synthetic.take(15).toList());
         }
         return const SizedBox.shrink();
