@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="186" height="28" viewBox="0 0 186 28" role="img" aria-label="Active Users: View live">
-  <title>Active Users: View live</title>
-  <defs><clipPath id="badge"><rect width="186" height="28" rx="6"/></clipPath></defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="152" height="28" viewBox="0 0 152 28" role="img" aria-label="Active Users: 200">
+  <title>Active Users: 200</title>
+  <defs><clipPath id="badge"><rect width="152" height="28" rx="6"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="103" height="28" fill="#202830"/>
-    <rect x="103" width="83" height="28" fill="#10B981"/>
+    <rect x="103" width="49" height="28" fill="#10B981"/>
   </g>
   <g font-family="DejaVu Sans,Verdana,Arial,sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">
     <text x="51.5" y="14" textLength="85" lengthAdjust="spacingAndGlyphs">Active Users</text>
-    <text x="144.5" y="14" textLength="65" lengthAdjust="spacingAndGlyphs">View live</text>
+    <text x="127.5" y="14" textLength="31" lengthAdjust="spacingAndGlyphs">200</text>
   </g>
 </svg>
