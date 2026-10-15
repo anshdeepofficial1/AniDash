@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:install_plugin/install_plugin.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:crypto/crypto.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ani_dash/core/network/http_client.dart';
@@ -227,6 +228,14 @@ class UpdateService {
           throw const FormatException('Downloaded APK integrity check failed.');
         }
 
+        // When the installer reopens AniDash in a new task, clear the stale
+        // previous task from Recents without affecting ordinary navigation.
+        try {
+          await const MethodChannel('anidash/updater')
+              .invokeMethod<bool>('markUpdateInstall');
+        } catch (error) {
+          AppLogger.d('Recents clean-up marker unavailable: $error');
+        }
         await InstallPlugin.install(savePath);
       } else {
         throw 'HTTP status ${streamedResponse.statusCode}';
