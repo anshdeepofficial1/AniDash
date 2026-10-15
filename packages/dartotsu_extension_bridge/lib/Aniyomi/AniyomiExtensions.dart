@@ -63,7 +63,22 @@ class AniyomiExtensions extends Extension {
     }
     isar.writeTxnSync(() => isar.bridgeSettings.putSync(settings));
 
-    final sources = await _loadExtensions(method, repos: repos);
+    // Native AniYomi bridge returns sources from multiple JSON indexes as
+    // one list, losing which repository each item came from. Fetch each index
+    // separately so the repository drawer can correctly filter its children.
+    final sources = <Source>[];
+    for (final repo in (repos ?? <String>[]).toSet()) {
+      if (repo.trim().isEmpty) continue;
+      try {
+        final loaded = await _loadExtensions(method, repos: [repo]);
+        for (final source in loaded) {
+          source.repo = repo;
+          sources.add(source);
+        }
+      } catch (error) {
+        debugPrint('Could not load AniYomi repository $repo: $error');
+      }
+    }
     final installedIds = getInstalledRx(type).value.map((e) => e.id).toSet();
 
     final unmodifiedList =
