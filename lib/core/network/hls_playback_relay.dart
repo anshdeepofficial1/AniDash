@@ -98,7 +98,9 @@ class HlsPlaybackRelay {
       for (final header in _headers.entries) {
         final key = header.key.toLowerCase();
         if (key == 'host' || key == 'content-length' ||
-            key == 'accept-encoding' || key == 'connection') continue;
+            key == 'accept-encoding' || key == 'connection') {
+          continue;
+        }
         request.headers.set(header.key, header.value);
       }
       for (final key in [HttpHeaders.rangeHeader, HttpHeaders.ifRangeHeader]) {
