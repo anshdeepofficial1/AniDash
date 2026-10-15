@@ -106,8 +106,7 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
         // Merge overlapping catalogs in All view without hiding genuine
         // sources filtered by language or search.
         final uniqueKey = '${source.extensionType?.index}:${source.id}';
-        if (source.id?.isNotEmpty == true &&
-            !seenSourceIds.add(uniqueKey)) {
+        if (source.id?.isNotEmpty == true && !seenSourceIds.add(uniqueKey)) {
           continue;
         }
         grouped.putIfAbsent(lang, () => []).add(source);
