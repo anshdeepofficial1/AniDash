@@ -505,8 +505,9 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                             if (url.isNotEmpty) {
                               setState(() => isAdding = true);
                               final messenger = ScaffoldMessenger.of(context);
-                              final sourceContainer =
-                                  ProviderScope.containerOf(context);
+                              final sourceContainer = ProviderScope.containerOf(
+                                context,
+                              );
                               try {
                                 final uri = Uri.tryParse(url);
                                 if (uri == null ||
@@ -583,7 +584,8 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                                   setState(() => _selectedRepository = url);
                                 }
                                 await sourceContainer
-                                    .read(sourceProvider.notifier).initialize();
+                                    .read(sourceProvider.notifier)
+                                    .initialize();
                                 if (!mounted || !context.mounted) return;
                                 Navigator.of(context).pop();
                                 if (selectedType == ItemType.anime) {
