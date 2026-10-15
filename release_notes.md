@@ -1,27 +1,27 @@
-# AniDash v1.19.4 — Fast Stream Resolution, Auto-Skip Recap & Mobile Layout Restoration
+# AniDash v1.20.2 — Playback stability, extension repositories and AniCORE
 
-This release resolves JustAnime stream loading issues, restores instant multi-source failover, recovers the mobile bottom navigation bar on anime details, adds automatic recap skipping, and restores the 100-second video playback readahead buffer.
+This update prioritizes preserving the stable v1.20.1 player and fixing source selection, downloads and extension management.
 
-## What's New & Fixed
+## Playback and downloads
+- Keep the explicitly selected JustAnime, HiAnime or installed extension authoritative throughout episode matching and playback. No silent provider replacement.
+- Retain v1.20.1's direct MPV streaming path, audio synchronization, 100-second ahead readahead policy, intro/outro and recap skipping.
+- Make the authenticated on-device HLS relay an explicit Retry fallback instead of forcing it on streams that already play successfully.
+- Reject missing or malformed episode download URLs before queueing, and do not silently substitute SUB for an unavailable English DUB.
 
-- **Fast JustAnime Stream Resolution**
-  - Prioritized direct high-performance endpoints (`/watch/:id/episode/:ep/megaplay` and `/watch/:id/episode/:ep`) for sub and dub streams.
-  - Eliminated infinite loading spinners with aggressive 6-second timeouts and fast 250ms hedging across stream probes.
+## Extensions and backups
+- Group Anime and Manga extension catalogs by their original JSON repository in the hamburger navigation, with clear catalog names.
+- Prevent duplicate sources during updates and refresh, validate repository loading, and make pull-to-refresh functional.
+- Preserve engine/source selection and include JSON repository lists and MangaYomi extension identities in backup/restore. Android APK-based AniYomi extensions still require Android's installer approval.
 
-- **Non-blocking Multi-Source Failover**
-  - Instant concurrent fallback when primary or external providers (such as HiAnime or AniKoto) are slow or unreachable.
-  - Reduced individual probe timeouts so playback begins in seconds instead of hanging on the loading screen.
+## AniCORE and app experience
+- Add phone-default or user-selected microphone languages and stop stale transcription events from restoring sent text.
+- Add Edit and resend / Resend for user messages, and restore interrupted chat requests after leaving and reopening the chat.
+- Replace the old sparkle emblem with an original animated, theme-colored CoreBall.
+- Improve Recents task clean-up after the in-app APK installer relaunches AniDash.
+- Apply recent-app privacy protection independently of screenshot protection.
 
-- **High-Performance Video Playback & Buffering**
-  - Restored 100-second readahead buffer (`demuxer-readahead-secs: 100`) and 600-second cache time.
-  - Buffer memory clamped to 100MB–256MB with instant startup (`cache-pause-initial: no`), ensuring zero stutter and instant seek response.
+## Validation
+- Flutter static analysis and focused player, HLS, source-header, AI-routing and download tests are run in GitHub Actions.
+- Playback performance still depends on the selected upstream streaming provider, phone hardware and network conditions. No fixed buffering time is guaranteed.
 
-- **Auto-Skip Recap, OP & ED**
-  - Integrated full automatic skipping for "Recap / Previously-on" segments in addition to Opening and Ending themes.
-  - Added dedicated "Skip Recap" floating overlay button and labeled recap markers on the playback seekbar.
-
-- **Mobile Navigation Bar Restored on Details Screen**
-  - Restored 'About', 'Episodes', and 'Characters' navigation tabs to the bottom navigation bar on Android and iOS.
-  - Preserved sticky inline header exclusively for desktop platforms (Windows and macOS).
-
-**Version:** 1.19.4 (128)
+**Version:** 1.20.2 (135)
