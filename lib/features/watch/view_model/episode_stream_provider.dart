@@ -182,6 +182,12 @@ class EpisodeData extends _$EpisodeData {
     final selected =
         ref.read(selectedProviderKeyProvider)?.trim().toLowerCase();
     if (selected != null && selected.isNotEmpty) return selected;
+    // A resolved provider belongs to the old title and must not override
+    // an explicitly selected installed extension.
+    if (_exp.useExtensions &&
+        ref.read(sourceProvider).activeAnimeSource != null) {
+      return null;
+    }
     final resolved = _epList.resolvedProviderKey?.trim().toLowerCase();
     return (resolved == null || resolved.isEmpty) ? null : resolved;
   }
@@ -1566,10 +1572,14 @@ class EpisodeData extends _$EpisodeData {
     final isNative = _isNativeProvider;
     final activeExt =
         ref.read(sourceProvider).activeAnimeSource?.name?.toLowerCase() ?? '';
+    final extensionIsSelected = !isNative &&
+        _exp.useExtensions &&
+        ref.read(sourceProvider).activeAnimeSource != null;
     final isJustAnime =
-        (currentKey == 'justanime' ||
-            (currentKey == null && provider?.providerName == 'justanime')) ||
-        (!isNative && activeExt.contains('justanime'));
+        currentKey == 'justanime' ||
+        (!extensionIsSelected &&
+            currentKey == null &&
+            provider?.providerName == 'justanime');
 
     final effectiveAnimeId =
         (isJustAnime &&
@@ -1709,6 +1719,12 @@ class EpisodeData extends _$EpisodeData {
       } catch (err) {
         AppLogger.e('Selected extension source fetch failed: $err');
       }
+    }
+    if (extensionIsSelected) {
+      // Never switch from an unavailable extension to an unrelated
+      // native stream (such as HiAnime or JustAnime) without user approval.
+      state = state.copyWith(sourceNotice: 'Selected extension unavailable');
+      return null;
     }
 
     final category = isDubRequested ? 'dub' : 'sub';
