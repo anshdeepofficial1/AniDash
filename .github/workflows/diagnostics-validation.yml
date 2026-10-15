@@ -40,6 +40,7 @@ jobs:
             lib/shared/providers/settings/security_notifier.dart \
             lib/features/settings/view/screens/security_settings_screen.dart \
             lib/core/services/download_service.dart \
+            packages/dartotsu_extension_bridge/lib/Aniyomi/AniyomiExtensions.dart \
             packages/dartotsu_extension_bridge/lib/Mangayomi/MangayomiExtensionManager.dart \
             packages/dartotsu_extension_bridge/lib/Mangayomi/MangayomiExtensions.dart \
             packages/dartotsu_extension_bridge/lib/Screen/ExtensionList.dart \
