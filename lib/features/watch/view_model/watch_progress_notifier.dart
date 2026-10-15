@@ -89,7 +89,15 @@ class WatchProgressNotifier extends _$WatchProgressNotifier {
         entry = entry.copyWith(isAdult: true);
       }
 
-      final isCompleted = dur > 0 ? (pos / dur >= 0.90) : false;
+      final previousDuration =
+          entry.episodesProgress[epNum]?.durationInSeconds ?? 0;
+      // Never replace a known full duration with a transient HLS segment
+      // duration while the manifest is reconnecting.
+      final stableDuration = dur > previousDuration ? dur : previousDuration;
+      final isCompleted = isPlaybackEffectivelyComplete(
+        progressInSeconds: pos,
+        durationInSeconds: stableDuration,
+      );
       final normalizedFormat = animeFormat?.toUpperCase();
       final isOneShot =
           normalizedFormat == 'SPECIAL' ||
@@ -111,7 +119,7 @@ class WatchProgressNotifier extends _$WatchProgressNotifier {
         episodeTitle: epTitle ?? 'Episode $epNum',
         episodeThumbnail: currentThumb,
         progressInSeconds: pos,
-        durationInSeconds: dur,
+        durationInSeconds: stableDuration,
         isCompleted: isCompleted,
         watchedAt: now,
       );

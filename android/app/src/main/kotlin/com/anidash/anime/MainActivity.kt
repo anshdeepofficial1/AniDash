@@ -83,13 +83,19 @@ class MainActivity : FlutterFragmentActivity() {
         val am = audioManager ?: (getSystemService(Context.AUDIO_SERVICE) as? AudioManager).also { audioManager = it }
         if (am == null) return false
 
+        // Playback can request focus once when MPV starts and once more after
+        // its audio output is attached. Re-requesting by abandoning the active
+        // request first emits a focus-loss callback on some Android devices,
+        // making AniDash pause its own video after the first second or two.
+        // An already-held focus grant is valid and must be reused.
+        if (hasAudioFocus) return true
+
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
             val playbackAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
                 .build()
-            val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            val request = audioFocusRequest ?: AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(playbackAttributes)
                 .setOnAudioFocusChangeListener(audioFocusChangeListener)
                 .setWillPauseWhenDucked(false)

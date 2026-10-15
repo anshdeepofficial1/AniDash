@@ -49,5 +49,40 @@ void main() {
 
       expect(entry.isCompletedOrFinished, isTrue);
     });
+
+    test('18 of 23 minutes remains on the current episode after refresh', () {
+      final progress = EpisodeProgress(
+        episodeNumber: 1,
+        episodeTitle: 'Episode 1',
+        episodeThumbnail: null,
+        // A legacy build could have stored true at the old 90% threshold.
+        // Known timing data is authoritative and must repair that state.
+        isCompleted: true,
+        progressInSeconds: 18 * 60,
+        durationInSeconds: 23 * 60,
+      );
+
+      expect(isEpisodeProgressEffectivelyComplete(progress), isFalse);
+    });
+
+    test('temporary HLS segment duration cannot complete an episode', () {
+      expect(
+        isPlaybackEffectivelyComplete(
+          progressInSeconds: 8,
+          durationInSeconds: 8,
+        ),
+        isFalse,
+      );
+    });
+
+    test('episode completes only at its real end', () {
+      expect(
+        isPlaybackEffectivelyComplete(
+          progressInSeconds: 22 * 60 + 45,
+          durationInSeconds: 23 * 60,
+        ),
+        isTrue,
+      );
+    });
   });
 }

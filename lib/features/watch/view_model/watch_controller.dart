@@ -102,7 +102,6 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden) {
       if (ref.read(pipProvider)) {
         // App is playing in Picture-in-Picture! Do not pause.

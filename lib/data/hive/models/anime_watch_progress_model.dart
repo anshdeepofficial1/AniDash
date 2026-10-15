@@ -1,5 +1,31 @@
 import 'package:ani_dash/core/models/universal/universal_media.dart';
 
+/// Returns true only when playback has reached the real end of a stable media
+/// duration. HLS can briefly report the duration of a single segment while a
+/// manifest is still opening; treating that value as the episode duration can
+/// incorrectly advance Continue Watching to the next episode.
+bool isPlaybackEffectivelyComplete({
+  required int progressInSeconds,
+  required int durationInSeconds,
+}) {
+  if (progressInSeconds <= 0 || durationInSeconds < 60) return false;
+  final remaining = durationInSeconds - progressInSeconds;
+  final ratio = progressInSeconds / durationInSeconds;
+  return ratio >= 0.97 || (ratio >= 0.90 && remaining <= 20);
+}
+
+bool isEpisodeProgressEffectivelyComplete(EpisodeProgress episode) {
+  final progress = episode.progressInSeconds ?? 0;
+  final duration = episode.durationInSeconds ?? 0;
+  if (progress > 0 && duration > 0) {
+    return isPlaybackEffectivelyComplete(
+      progressInSeconds: progress,
+      durationInSeconds: duration,
+    );
+  }
+  return episode.isCompleted;
+}
+
 class AnimeWatchProgressEntry {
   final String animeId;
   final String animeTitle;
@@ -90,17 +116,15 @@ class AnimeWatchProgressEntry {
       if (currentEpisode > effectiveTotal) return true;
 
       final finalEp = episodesProgress[effectiveTotal];
-      if (finalEp?.isCompleted == true) return true;
-      final finalDur = finalEp?.durationInSeconds ?? 0;
-      final finalProg = finalEp?.progressInSeconds ?? 0;
-      if (finalDur > 0 && finalProg / finalDur >= 0.90) return true;
+      if (finalEp != null && isEpisodeProgressEffectivelyComplete(finalEp)) {
+        return true;
+      }
 
       if (currentEpisode == effectiveTotal) {
         final curEp = episodesProgress[currentEpisode];
-        if (curEp?.isCompleted == true) return true;
-        final curDur = curEp?.durationInSeconds ?? 0;
-        final curProg = curEp?.progressInSeconds ?? 0;
-        if (curDur > 0 && curProg / curDur >= 0.90) return true;
+        if (curEp != null && isEpisodeProgressEffectivelyComplete(curEp)) {
+          return true;
+        }
       }
 
       bool allCompleted = true;
@@ -110,9 +134,7 @@ class AnimeWatchProgressEntry {
           allCompleted = false;
           break;
         }
-        final dur = ep.durationInSeconds ?? 0;
-        final prog = ep.progressInSeconds ?? 0;
-        final finished = ep.isCompleted || (dur > 0 && prog / dur >= 0.90);
+        final finished = isEpisodeProgressEffectivelyComplete(ep);
         if (!finished) {
           allCompleted = false;
           break;
@@ -130,9 +152,7 @@ class AnimeWatchProgressEntry {
 
       bool allKnownCompleted = true;
       for (final ep in episodesProgress.values) {
-        final dur = ep.durationInSeconds ?? 0;
-        final prog = ep.progressInSeconds ?? 0;
-        final finished = ep.isCompleted || (dur > 0 && prog / dur >= 0.90);
+        final finished = isEpisodeProgressEffectivelyComplete(ep);
         if (!finished) {
           allKnownCompleted = false;
           break;

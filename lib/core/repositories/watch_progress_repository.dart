@@ -306,8 +306,9 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
   AnimeWatchProgressEntry? getProgress(String animeId) {
     if (_canUseIsar) {
       try {
-        final isarEntry =
-            isar.isarAnimeWatchProgress.getSync(fastHash(animeId));
+        final isarEntry = isar.isarAnimeWatchProgress.getSync(
+          fastHash(animeId),
+        );
         final isAdult = isAdultAnimeId(animeId);
         final lastPlayed = _getLastPlayed(animeId);
         if (isarEntry != null) {
@@ -438,12 +439,7 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
       episodeThumbnail: episodeProgress.episodeThumbnail ?? existingThumb,
     );
 
-    final isEpCompleted =
-        episodeProgress.isCompleted ||
-        ((episodeProgress.durationInSeconds ?? 0) > 0 &&
-            (episodeProgress.progressInSeconds ?? 0) /
-                    episodeProgress.durationInSeconds! >=
-                0.90);
+    final isEpCompleted = isEpisodeProgressEffectivelyComplete(episodeProgress);
     final format = entry.animeFormat?.toUpperCase();
     final isOneShot =
         format == 'MOVIE' || format == 'SPECIAL' || format == 'OVA';
