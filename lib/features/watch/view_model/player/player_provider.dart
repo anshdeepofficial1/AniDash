@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
@@ -482,7 +481,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       // playback profile in order before every media open.
       await _applyPlaybackProperties();
       final platform = _player.platform as dynamic;
-      // ── Set UA, Referer, and http-header-fields concurrently in 1 roundtrip ──
+      // ── Apply UA, Referer, and HTTP headers for the new stream ──
       final ua =
           effectiveHeaders.entries
               .firstWhereOrNull(
