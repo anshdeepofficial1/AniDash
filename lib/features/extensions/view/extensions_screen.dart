@@ -23,9 +23,16 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
 
   String _repoLabel(String url) {
     final uri = Uri.tryParse(url);
-    final name =
-        uri?.pathSegments.isNotEmpty == true ? uri!.pathSegments.last : url;
-    return Uri.decodeComponent(name);
+    if (uri == null || uri.pathSegments.isEmpty) return url;
+    final segments = uri.pathSegments;
+    final filename = Uri.decodeComponent(segments.last);
+    if (uri.host == 'raw.githubusercontent.com' && segments.length >= 2) {
+      return '${segments[0]}/${segments[1]} · $filename';
+    }
+    if (segments.length >= 2) {
+      return '${Uri.decodeComponent(segments[segments.length - 2])} · $filename';
+    }
+    return '${uri.host} · $filename';
   }
 
   @override
