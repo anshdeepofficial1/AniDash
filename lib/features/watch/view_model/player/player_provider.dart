@@ -122,6 +122,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   String? _lastUrl;
   Map<String, String>? _lastHeaders;
   bool _lastIsHls = false;
+  bool _useRelayForRetry = false;
   HlsPlaybackRelay? _hlsRelay;
   Duration? _pendingSeekTarget;
   Timer? _seekTimeout;
@@ -402,6 +403,9 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         episode != null &&
         mediaId == _activeMediaId &&
         episode == _activeEpisode;
+    if (!isSameSession || (_lastUrl != null && _lastUrl != url)) {
+      _useRelayForRetry = false;
+    }
     final requiresPipelineReset =
         !isSameSession ||
         (_lastUrl != null && _lastUrl != url) ||
@@ -463,8 +467,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     var playbackUrl = url;
     var playbackHeaders = effectiveHeaders;
     final uri = Uri.tryParse(url);
+    // The original MPV path already plays successfully on devices.
+    // Only enable the local relay after a user-initiated Retry.
     final useLocalHlsRelay =
-        Platform.isAndroid &&
+        _useRelayForRetry && Platform.isAndroid &&
         (_lastIsHls || (uri?.path.toLowerCase().endsWith('.m3u8') ?? false));
     if (useLocalHlsRelay) {
       try {
@@ -573,6 +579,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
             : (_lastStablePosition > Duration.zero
                 ? _lastStablePosition
                 : null);
+    _useRelayForRetry = true;
     await open(
       url,
       pos,
@@ -609,6 +616,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     _lastUrl = null;
     _lastHeaders = null;
     _lastIsHls = false;
+    _useRelayForRetry = false;
     _activeMediaId = null;
     _activeEpisode = null;
     _lastStablePosition = Duration.zero;
