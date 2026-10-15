@@ -33,6 +33,9 @@ abstract class ExtensionManagerScreen<T extends StatefulWidget> extends State<T>
     _selectedLanguage.close();
   }
 
+  /// Repository navigator supplied by apps that group extensions by JSON index.
+  Widget? get repositoryDrawer => null;
+
   Text get title;
 
   ExtensionScreenBuilder get extensionScreenBuilder;
@@ -56,6 +59,7 @@ abstract class ExtensionManagerScreen<T extends StatefulWidget> extends State<T>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).colorScheme;
+    manager = Get.find<ExtensionManager>().currentManager;
 
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(
@@ -70,6 +74,7 @@ abstract class ExtensionManagerScreen<T extends StatefulWidget> extends State<T>
       child: DefaultTabController(
         length: 6,
         child: Scaffold(
+          drawer: repositoryDrawer,
           appBar: AppBar(
             elevation: 0,
             backgroundColor: Colors.transparent,
