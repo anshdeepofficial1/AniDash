@@ -79,4 +79,55 @@ void main() {
       }
     },
   );
+
+  test('handles redirects and extensionless HLS quality playlists', () async {
+    final upstream = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final subscription = upstream.listen((request) async {
+      final path = request.uri.path;
+      if (path == '/redirect.m3u8') {
+        request.response.statusCode = HttpStatus.found;
+        request.response.headers.set(HttpHeaders.locationHeader,
+            '/cdn/master.m3u8');
+      } else if (path == '/cdn/master.m3u8') {
+        request.response.headers.contentType =
+            ContentType.parse('application/vnd.apple.mpegurl');
+        request.response.write(
+            '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=500000\n'
+            'levels/720?auth=test\n');
+      } else if (path == '/cdn/levels/720') {
+        request.response.headers.contentType = ContentType.text;
+        request.response.write('#EXTM3U\n#EXTINF:6,\nchunk.ts\n');
+      } else if (path == '/cdn/levels/chunk.ts') {
+        request.response.add([10, 20, 30]);
+      } else {
+        request.response.statusCode = HttpStatus.notFound;
+      }
+      await request.response.close();
+    });
+    final client = HttpClient();
+    final relay = await HlsPlaybackRelay.start(
+      'http://127.0.0.1:${upstream.port}/redirect.m3u8',
+      {'Referer': 'https://anime.example/'},
+    );
+    try {
+      final master = await readText(client, Uri.parse(relay.localUrl));
+      final variant = master.split('\n').firstWhere(
+          (line) => line.contains('720') && !line.startsWith('#'));
+      final nested = await readText(
+          client, Uri.parse(relay.localUrl).resolve(variant));
+      expect(nested, contains('#EXTINF:6,'));
+      final segmentPath =
+          nested.split('\n').firstWhere((line) => line.contains('chunk.ts'));
+      final response = await (await client.getUrl(
+          Uri.parse(relay.localUrl).resolve(segmentPath))).close();
+      expect(response.statusCode, HttpStatus.ok);
+      expect(await response.fold<List<int>>(<int>[],
+          (bytes, chunk) => bytes..addAll(chunk)), [10, 20, 30]);
+    } finally {
+      client.close(force: true);
+      await relay.close();
+      await subscription.cancel();
+      await upstream.close(force: true);
+    }
+  });
 }
