@@ -55,60 +55,73 @@ class MangayomiExtensionManager extends GetxController {
 
     if (repos == null || repos.isEmpty) return sources;
 
+    final seen = <String>{};
     for (final repo in repos) {
       if (repo.trim().isEmpty) continue;
-      final req = await http.get(Uri.parse(repo.trim()));
-      if (req.statusCode != 200) {
-        debugPrint("Failed to fetch sources from $repo: ${req.statusCode}");
-        continue;
+      // A malformed/offline community JSON must not hide all other sources.
+      try {
+        final response = await http
+            .get(Uri.parse(repo.trim()))
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode != 200) {
+          debugPrint('Failed to fetch $repo: HTTP ${response.statusCode}');
+          continue;
+        }
+        final decoded = jsonDecode(response.body);
+        if (decoded is! List) {
+          debugPrint('Ignoring non-array source JSON from $repo');
+          continue;
+        }
+        for (final raw in decoded) {
+          if (raw is! Map) continue;
+          try {
+            final e = Map<String, dynamic>.from(raw);
+            if (e['id'] == null) continue;
+            late MSource source;
+            if (e['id'] is String &&
+                e['name'] != null && e['site'] != null &&
+                e['lang'] != null && e['version'] != null &&
+                e['url'] != null && e['iconUrl'] != null) {
+              source = MSource.fromJson(e)
+                ..sourceId = e['id'].toString()
+                ..apiUrl = ''
+                ..appMinVerReq = ''
+                ..dateFormat = ''
+                ..dateFormatLocale = ''
+                ..hasCloudflare = false
+                ..headers = ''
+                ..isActive = true
+                ..isAdded = false
+                ..isFullData = false
+                ..isNsfw = false
+                ..isPinned = false
+                ..lastUsed = false
+                ..sourceCode = ''
+                ..typeSource = ''
+                ..versionLast = '0.0.1'
+                ..isObsolete = false
+                ..isLocal = false
+                ..lang = _convertLang(e)
+                ..baseUrl = e['site']
+                ..sourceCodeUrl = e['url']
+                ..sourceCodeLanguage = SourceCodeLanguage.lnreader
+                ..itemType = ItemType.novel
+                ..repo = repo;
+            } else {
+              source = MSource.fromJson(e)
+                ..sourceId = e['id'].toString()
+                ..repo = repo;
+            }
+            if (source.itemType != itemType) continue;
+            final uniqueKey = '$repo:${source.sourceId}';
+            if (seen.add(uniqueKey)) sources.add(source);
+          } catch (error) {
+            debugPrint('Skipping malformed source in $repo: $error');
+          }
+        }
+      } catch (error) {
+        debugPrint('Repository unavailable: $repo ($error)');
       }
-      final sourceList =
-          (jsonDecode(req.body) as List)
-              .map((e) {
-                if (e['id'] is String &&
-                    e['name'] != null &&
-                    e['site'] != null &&
-                    e['lang'] != null &&
-                    e['version'] != null &&
-                    e['url'] != null &&
-                    e['iconUrl'] != null) {
-                  final src =
-                      MSource.fromJson(e)
-                        ..sourceId = e['id'].toString()
-                        ..apiUrl = ''
-                        ..appMinVerReq = ''
-                        ..dateFormat = ''
-                        ..dateFormatLocale = ''
-                        ..hasCloudflare = false
-                        ..headers = ''
-                        ..isActive = true
-                        ..isAdded = false
-                        ..isFullData = false
-                        ..isNsfw = false
-                        ..isPinned = false
-                        ..lastUsed = false
-                        ..sourceCode = ''
-                        ..typeSource = ''
-                        ..versionLast = '0.0.1'
-                        ..isObsolete = false
-                        ..isLocal = false
-                        ..lang = _convertLang(e)
-                        ..baseUrl = e['site']
-                        ..sourceCodeUrl = e['url']
-                        ..sourceCodeLanguage = SourceCodeLanguage.lnreader
-                        ..itemType = ItemType.novel
-                        ..repo = repo;
-                  return src;
-                } else {
-                  return MSource.fromJson(e)
-                    ..repo = repo
-                    ..sourceId = e['id'].toString();
-                }
-              })
-              .where((source) => source.itemType == itemType)
-              .toList();
-
-      sources.addAll(sourceList);
     }
     switch (itemType) {
       case ItemType.anime:
