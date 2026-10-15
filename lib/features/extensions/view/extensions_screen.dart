@@ -660,6 +660,13 @@ class _ExtensionListWidgetState extends ExtensionList<ExtensionListWidget> {
         );
         try {
           await manager.installSource(source);
+          final sourceId = source.id;
+          final sourceRepo = source.repo ?? widget.repositoryFilter;
+          if (sourceId != null && sourceId.isNotEmpty &&
+              sourceRepo != null && sourceRepo.isNotEmpty) {
+            await sharedPrefs.setString('extension_source_repo_$sourceId',
+                sourceRepo);
+          }
           if (mounted) {
             await ProviderScope.containerOf(
               context,
@@ -694,6 +701,9 @@ class _ExtensionListWidgetState extends ExtensionList<ExtensionListWidget> {
       },
       onUninstall: () async {
         await manager.uninstallSource(source);
+        if (source.id != null) {
+          await sharedPrefs.remove('extension_source_repo_${source.id}');
+        }
         if (mounted) {
           await ProviderScope.containerOf(
             context,
@@ -719,6 +729,14 @@ class _ExtensionListWidgetState extends ExtensionList<ExtensionListWidget> {
           await (source.extensionType?.getManager() ?? manager).installSource(
             source,
           );
+          final repo = source.repo ?? widget.repositoryFilter;
+          if (source.id != null && repo != null && repo.isNotEmpty) {
+            await sharedPrefs.setString('extension_source_repo_${source.id}', repo);
+          }
+          if (mounted) {
+            await ProviderScope.containerOf(context)
+                .read(sourceProvider.notifier).initialize();
+          }
         }
       },
     );
