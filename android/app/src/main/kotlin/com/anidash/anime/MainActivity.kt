@@ -34,6 +34,8 @@ class MainActivity : FlutterFragmentActivity() {
     private var interceptVolumeKeys = false
     private var shouldInterceptVolumeKeys = false
     private var isScreenshotPrivacyEnabled = false
+    private var isRecentAppsPrivacyEnabled = true
+    private var isInForeground = true
     private var displayListener: DisplayManager.DisplayListener? = null
     private var audioFocusChannel: MethodChannel? = null
     private var pipChannel: MethodChannel? = null
@@ -132,7 +134,9 @@ class MainActivity : FlutterFragmentActivity() {
         val isCasting = displayManager?.displays?.any { it.displayId != Display.DEFAULT_DISPLAY } == true
 
         runOnUiThread {
-            if (isScreenshotPrivacyEnabled && !isCasting) {
+            val inPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPictureInPictureMode
+            val hideFromRecents = isRecentAppsPrivacyEnabled && !isInForeground && !inPip
+            if ((isScreenshotPrivacyEnabled || hideFromRecents) && !isCasting) {
                 window.setFlags(
                     android.view.WindowManager.LayoutParams.FLAG_SECURE,
                     android.view.WindowManager.LayoutParams.FLAG_SECURE
@@ -376,6 +380,11 @@ class MainActivity : FlutterFragmentActivity() {
                         updateSecureFlag()
                         result.success(null)
                     }
+                    "setRecentAppsPrivacy" -> {
+                        isRecentAppsPrivacyEnabled = call.argument<Boolean>("enable") ?: true
+                        updateSecureFlag()
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -533,6 +542,8 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        isInForeground = true
+        updateSecureFlag()
         if (shouldInterceptVolumeKeys) {
             interceptVolumeKeys = true
         }
@@ -546,6 +557,9 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onPause() {
+        isInForeground = false
+        // Set secure before Android captures the Recents task snapshot.
+        updateSecureFlag()
         interceptVolumeKeys = false
         try {
             val lp = window.attributes
