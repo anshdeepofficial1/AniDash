@@ -2,6 +2,7 @@ name: Refresh README badges
 
 on:
   workflow_dispatch:
+  # Badge files update only the dedicated branch. Never commit generated data to main.
   schedule:
     - cron: "17 */6 * * *"
   release:
@@ -25,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: readme-badge-data
       - name: Update badges from actual GitHub API counts
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -39,4 +40,4 @@ jobs:
             exit 0
           fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "docs: refresh README badge counts"
-          git push origin HEAD:main
+          git push origin HEAD:readme-badge-data
