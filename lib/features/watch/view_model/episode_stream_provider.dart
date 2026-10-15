@@ -658,6 +658,7 @@ class EpisodeData extends _$EpisodeData {
       url,
       ref.read(playerStateProvider).position,
       headers: qualityHeaders,
+      isHls: state.qualityOptions[idx]['isHls'] as bool?,
       mediaId: _epList.animeId,
       episode: state.selectedEpisode,
     );
@@ -1364,6 +1365,7 @@ class EpisodeData extends _$EpisodeData {
       allQualities.add({
         'quality': 'Auto',
         'url': primarySrc.url,
+        'isHls': primarySrc.isM3U8,
         'headers': streamHeaders, // primary source headers
       });
 
@@ -1376,6 +1378,7 @@ class EpisodeData extends _$EpisodeData {
           allQualities.add({
             'quality': src.quality ?? 'Default',
             'url': src.url,
+            'isHls': src.isM3U8,
             'headers': srcHeaders,
           });
         }
@@ -1434,6 +1437,7 @@ class EpisodeData extends _$EpisodeData {
         playbackUrl,
         startAt,
         headers: playbackHeaders,
+        isHls: selectedOption['isHls'] as bool?,
         mediaId: _epList.animeId,
         episode: state.selectedEpisode,
       );
