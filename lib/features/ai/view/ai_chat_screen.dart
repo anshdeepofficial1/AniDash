@@ -84,6 +84,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   final List<AiAttachment> _attachments = [];
   StreamSubscription<AiStreamEvent>? _subscription;
   bool _busy = false;
+  int _voiceResetToken = 0;
+  String get _pendingKey => 'anycore_pending_$_conversationId';
   AnimeWatchProgressEntry? _undoProgress;
   final Set<String> _completedActionKeys = <String>{};
   final FlutterTts _tts = FlutterTts();
@@ -120,10 +122,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _tts.setCancelHandler(() {
       if (mounted) setState(() => _speakingMessage = null);
     });
-    unawaited(_tts.setLanguage('en-IN'));
+    final deviceLanguage = WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
+    unawaited(_tts.setLanguage(deviceLanguage));
     unawaited(_tts.setSpeechRate(.46));
     unawaited(_tts.setPitch(1.0));
     if (widget.sharedChatId != null) unawaited(_loadSharedChat());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final pending = sharedPrefs.getString(_pendingKey);
+      if (pending != null && pending.trim().isNotEmpty) {
+        unawaited(_send(pending, resuming: true));
+      }
+    });
   }
 
   Future<void> _loadSharedChat() async {
@@ -258,10 +268,63 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                     _shareMessages([message]);
                   },
                 ),
+                if (message.fromUser) ...[
+                  ListTile(
+                    leading: const Icon(Icons.edit_outlined),
+                    title: const Text('Edit and resend'),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      unawaited(_editAndResend(message));
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.refresh_rounded),
+                    title: const Text('Resend message'),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      unawaited(_send(message.text));
+                    },
+                  ),
+                ],
               ],
             ),
           ),
     );
+  }
+
+  Future<void> _editAndResend(_ChatMessage original) async {
+    if (_busy) return;
+    final editController = TextEditingController(text: original.text);
+    final edited = await showDialog<String>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Edit your message'),
+        content: TextField(
+          controller: editController,
+          autofocus: true,
+          maxLines: 5,
+          minLines: 2,
+          decoration: const InputDecoration(
+            hintText: 'Enter the corrected message',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog),
+            child: const Text('Cancel')),
+          FilledButton(onPressed: () =>
+              Navigator.pop(dialog, editController.text.trim()),
+            child: const Text('Save & resend')),
+        ],
+      ),
+    );
+    editController.dispose();
+    if (!mounted || edited == null || edited.isEmpty) return;
+    final index = _messages.indexOf(original);
+    if (index >= 0) {
+      setState(() => _messages.removeRange(index, _messages.length));
+      await _persistHistory();
+    }
+    await _send(edited);
   }
 
   Future<void> _clearHistory() async {
@@ -312,7 +375,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     await _tts.speak(plainText);
   }
 
-  Future<void> _send([String? preset]) async {
+  Future<void> _send([String? preset, bool resuming = false]) async {
     final text = (preset ?? _controller.text).trim();
     if (text.isEmpty || _busy) return;
     if (text.startsWith('/') &&
@@ -371,12 +434,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       _scrollToEnd();
       return;
     }
+    if (resuming && _messages.isNotEmpty && !_messages.last.fromUser) {
+      // Remove the partial response that was interrupted on navigation.
+      _messages.removeLast();
+    }
     setState(() {
-      _messages.add(_ChatMessage(text: text, fromUser: true));
+      if (!resuming) _messages.add(_ChatMessage(text: text, fromUser: true));
       _messages.add(_ChatMessage(text: '', fromUser: false));
       _controller.clear();
+      _voiceResetToken++;
       _busy = true;
     });
+    await sharedPrefs.setString(_pendingKey, text);
     var accumulated = '';
     final attachments = List<AiAttachment>.from(_attachments);
     _attachments.clear();
@@ -397,6 +466,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               } else if (event.type == AiStreamEventType.error) {
                 _messages.last.text = event.text ?? 'Something went wrong.';
                 _busy = false;
+                unawaited(sharedPrefs.remove(_pendingKey));
                 unawaited(_persistHistory());
               } else if (event.type == AiStreamEventType.done &&
                   event.response != null) {
@@ -461,6 +531,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                   ),
                 );
                 _busy = false;
+                unawaited(sharedPrefs.remove(_pendingKey));
                 unawaited(_persistHistory());
               }
             });
@@ -475,6 +546,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 }
                 _busy = false;
               });
+              unawaited(sharedPrefs.remove(_pendingKey));
               unawaited(_persistHistory());
             }
           },
@@ -487,6 +559,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               }
               _busy = false;
             });
+            unawaited(sharedPrefs.remove(_pendingKey));
             unawaited(_persistHistory());
           },
         );
@@ -1411,6 +1484,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                     ),
                   ),
                   VoiceTextButton(
+                        resetToken: _voiceResetToken,
                     controller: _controller,
                     tooltip: 'Speak your message',
                   ),
