@@ -86,14 +86,18 @@ void main() {
       final path = request.uri.path;
       if (path == '/redirect.m3u8') {
         request.response.statusCode = HttpStatus.found;
-        request.response.headers.set(HttpHeaders.locationHeader,
-            '/cdn/master.m3u8');
+        request.response.headers.set(
+          HttpHeaders.locationHeader,
+          '/cdn/master.m3u8',
+        );
       } else if (path == '/cdn/master.m3u8') {
-        request.response.headers.contentType =
-            ContentType.parse('application/vnd.apple.mpegurl');
+        request.response.headers.contentType = ContentType.parse(
+          'application/vnd.apple.mpegurl',
+        );
         request.response.write(
-            '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=500000\n'
-            'levels/720?auth=test\n');
+          '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=500000\n'
+          'levels/720?auth=test\n',
+        );
       } else if (path == '/cdn/levels/720') {
         request.response.headers.contentType = ContentType.text;
         request.response.write('#EXTM3U\n#EXTINF:6,\nchunk.ts\n');
@@ -111,18 +115,29 @@ void main() {
     );
     try {
       final master = await readText(client, Uri.parse(relay.localUrl));
-      final variant = master.split('\n').firstWhere(
-          (line) => line.contains('720') && !line.startsWith('#'));
+      final variant = master
+          .split('\n')
+          .firstWhere((line) => line.contains('720') && !line.startsWith('#'));
       final nested = await readText(
-          client, Uri.parse(relay.localUrl).resolve(variant));
+        client,
+        Uri.parse(relay.localUrl).resolve(variant),
+      );
       expect(nested, contains('#EXTINF:6,'));
-      final segmentPath =
-          nested.split('\n').firstWhere((line) => line.contains('chunk.ts'));
-      final response = await (await client.getUrl(
-          Uri.parse(relay.localUrl).resolve(segmentPath))).close();
+      final segmentPath = nested
+          .split('\n')
+          .firstWhere((line) => line.contains('chunk.ts'));
+      final response =
+          await (await client.getUrl(
+            Uri.parse(relay.localUrl).resolve(segmentPath),
+          )).close();
       expect(response.statusCode, HttpStatus.ok);
-      expect(await response.fold<List<int>>(<int>[],
-          (bytes, chunk) => bytes..addAll(chunk)), [10, 20, 30]);
+      expect(
+        await response.fold<List<int>>(
+          <int>[],
+          (bytes, chunk) => bytes..addAll(chunk),
+        ),
+        [10, 20, 30],
+      );
     } finally {
       client.close(force: true);
       await relay.close();
