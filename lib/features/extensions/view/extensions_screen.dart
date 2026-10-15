@@ -29,16 +29,17 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
 
   @override
   Widget get repositoryDrawer {
-    final manager = Get.find<ExtensionManager>().currentManager;
-    final anime = _getSavedAnimeRepos(manager);
-    final manga = _getSavedMangaRepos(manager);
     final theme = Theme.of(context);
 
-    Widget group(String title, List<String> urls) => Column(
+    Widget group(
+      String title,
+      List<String> urls,
+      ExtensionType engine,
+    ) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 5),
           child: Text(title, style: theme.textTheme.labelLarge),
         ),
         for (final url in urls)
@@ -49,14 +50,26 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                 overflow: TextOverflow.ellipsis),
             subtitle: Text(Uri.tryParse(url)?.host ?? url,
                 maxLines: 1, overflow: TextOverflow.ellipsis),
-            onTap: () {
-              setState(() => _selectedRepository = url);
+            onTap: () async {
               Navigator.of(context).pop();
+              final extensionManager = Get.find<ExtensionManager>();
+              if (ExtensionType.fromManager(extensionManager.currentManager) !=
+                  engine) {
+                extensionManager.setCurrentManager(engine);
+                manager = extensionManager.currentManager;
+                await ProviderScope.containerOf(context)
+                    .read(sourceProvider.notifier).initialize();
+              }
+              if (!mounted) return;
+              setState(() => _selectedRepository = url);
+              await _refreshRepositories();
             },
           ),
       ],
     );
 
+    final mangayomi = ExtensionType.mangayomi.getManager();
+    final aniyomi = ExtensionType.aniyomi.getManager();
     return Drawer(
       child: SafeArea(
         child: ListView(children: [
@@ -74,8 +87,14 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
               Navigator.of(context).pop();
             },
           ),
-          group('Anime JSON files', anime),
-          group('Manga JSON files', manga),
+          group('Mangayomi • Anime',
+              _getSavedAnimeRepos(mangayomi), ExtensionType.mangayomi),
+          group('Mangayomi • Manga',
+              _getSavedMangaRepos(mangayomi), ExtensionType.mangayomi),
+          group('Aniyomi • Anime',
+              _getSavedAnimeRepos(aniyomi), ExtensionType.aniyomi),
+          group('Aniyomi • Manga',
+              _getSavedMangaRepos(aniyomi), ExtensionType.aniyomi),
         ]),
       ),
     );
@@ -458,22 +477,19 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                                 final isAniyomiRepository =
                                     url.contains('index.min.json') ||
                                     url.contains('aniyomi');
-                                final targetManager =
-                                    isAniyomiRepository
-                                        ? ExtensionType.aniyomi.getManager()
-                                        : Get.find<ExtensionManager>()
-                                            .currentManager;
+                                final targetType = isAniyomiRepository
+                                    ? ExtensionType.aniyomi
+                                    : ExtensionType.mangayomi;
+                                final targetManager = targetType.getManager();
                                 final currentRepos =
                                     isManga
                                         ? _getSavedMangaRepos(targetManager)
                                         : _getSavedAnimeRepos(targetManager);
                                 if (currentRepos.contains(url)) {
-                                  if (isAniyomiRepository) {
-                                    Get.find<ExtensionManager>()
-                                        .setCurrentManager(
-                                          ExtensionType.aniyomi,
-                                        );
-                                  }
+                                  Get.find<ExtensionManager>()
+                                      .setCurrentManager(targetType);
+                                  manager = Get.find<ExtensionManager>()
+                                      .currentManager;
                                   await targetManager.onRepoSaved(
                                     currentRepos,
                                     selectedType,
@@ -537,12 +553,27 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                                     ),
                                   );
                                 } else {
-                                  await onRepoSaved(updated, selectedType);
+                                  Get.find<ExtensionManager>()
+                                      .setCurrentManager(targetType);
+                                  manager = Get.find<ExtensionManager>()
+                                      .currentManager;
+                                  await targetManager.onRepoSaved(
+                                    updated, selectedType,
+                                  );
+                                  if (!_repositoryLoaded(
+                                      targetManager, selectedType, url)) {
+                                    throw StateError(
+                                      'Repository JSON did not load any usable sources.',
+                                    );
+                                  }
+                                  if (mounted) {
+                                    setState(() => _selectedRepository = url);
+                                  }
                                   if (context.mounted) Navigator.pop(context);
                                   messenger.showSnackBar(
                                     const SnackBar(
                                       content: Text(
-                                        'Repository added. Open Available to install a source.',
+                                        'Repository added. Select its JSON in the menu to browse sources.',
                                       ),
                                     ),
                                   );
