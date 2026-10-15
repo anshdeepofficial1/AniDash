@@ -121,6 +121,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   final List<StreamSubscription> _subs = [];
   String? _lastUrl;
   Map<String, String>? _lastHeaders;
+  bool _lastIsHls = false;
   HlsPlaybackRelay? _hlsRelay;
   Duration? _pendingSeekTarget;
   Timer? _seekTimeout;
@@ -393,6 +394,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     Map<String, String>? headers,
     String? mediaId,
     int? episode,
+    bool? isHls,
   }) async {
     final openGeneration = ++_openGeneration;
     final isSameSession =
@@ -422,6 +424,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     final effectiveHeaders = normalizeStreamHeaders(url, headers);
     _lastUrl = url;
     _lastHeaders = effectiveHeaders;
+    _lastIsHls = isHls ?? Uri.tryParse(url)?.path.toLowerCase().endsWith('.m3u8') ?? false;
     state = state.copyWith(
       isOpening: true,
       clearPlaybackError: true,
@@ -457,7 +460,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     var playbackHeaders = effectiveHeaders;
     final uri = Uri.tryParse(url);
     final useLocalHlsRelay = Platform.isAndroid &&
-        (uri?.path.toLowerCase().endsWith('.m3u8') ?? false);
+        (_lastIsHls || (uri?.path.toLowerCase().endsWith('.m3u8') ?? false));
     if (useLocalHlsRelay) {
       try {
         final relay = await HlsPlaybackRelay.start(url, effectiveHeaders);
@@ -566,6 +569,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       url,
       pos,
       headers: _lastHeaders,
+      isHls: _lastIsHls,
       mediaId: _activeMediaId,
       episode: _activeEpisode,
     );
@@ -596,6 +600,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     _pendingSeekTarget = null;
     _lastUrl = null;
     _lastHeaders = null;
+    _lastIsHls = false;
     _activeMediaId = null;
     _activeEpisode = null;
     _lastStablePosition = Duration.zero;
