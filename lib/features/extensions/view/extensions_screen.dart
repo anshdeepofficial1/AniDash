@@ -519,35 +519,46 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                                 final isAniyomiRepository =
                                     url.contains('index.min.json') ||
                                     url.toLowerCase().contains('aniyomi');
-                                if (isAniyomiRepository && !Platform.isAndroid) {
+                                if (isAniyomiRepository &&
+                                    !Platform.isAndroid) {
                                   throw StateError(
                                     'AniYomi APK repositories require Android.',
                                   );
                                 }
-                                final targetType = isAniyomiRepository
-                                    ? ExtensionType.aniyomi
-                                    : ExtensionType.mangayomi;
+                                final targetType =
+                                    isAniyomiRepository
+                                        ? ExtensionType.aniyomi
+                                        : ExtensionType.mangayomi;
                                 final targetManager = targetType.getManager();
-                                final currentRepos = isManga
-                                    ? _getSavedMangaRepos(targetManager)
-                                    : _getSavedAnimeRepos(targetManager);
+                                final currentRepos =
+                                    isManga
+                                        ? _getSavedMangaRepos(targetManager)
+                                        : _getSavedAnimeRepos(targetManager);
                                 final updated = {...currentRepos, url}.toList();
                                 final previousRepositories =
-                                    sharedPrefs.getStringList(isManga
-                                      ? 'saved_manga_repos'
-                                      : 'saved_anime_repos') ?? <String>[];
+                                    sharedPrefs.getStringList(
+                                      isManga
+                                          ? 'saved_manga_repos'
+                                          : 'saved_anime_repos',
+                                    ) ??
+                                    <String>[];
 
                                 // Do not announce a successful add because
                                 // another repository returned some extensions.
                                 await targetManager.onRepoSaved(
-                                  updated, selectedType,
+                                  updated,
+                                  selectedType,
                                 );
                                 if (!_repositoryLoaded(
-                                    targetManager, selectedType, url)) {
+                                  targetManager,
+                                  selectedType,
+                                  url,
+                                )) {
                                   // Failed JSON should not be kept in saved
                                   // repositories or the visible source list.
                                   await targetManager.onRepoSaved(
-                                    currentRepos, selectedType,
+                                    currentRepos,
+                                    selectedType,
                                   );
                                   throw StateError(
                                     'This JSON returned no usable sources. '
@@ -556,8 +567,9 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                                 }
                                 if (!previousRepositories.contains(url)) {
                                   await sharedPrefs.setStringList(
-                                    isManga ? 'saved_manga_repos'
-                                      : 'saved_anime_repos',
+                                    isManga
+                                        ? 'saved_manga_repos'
+                                        : 'saved_anime_repos',
                                     {...previousRepositories, url}.toList(),
                                   );
                                 }
@@ -568,19 +580,22 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                                 if (mounted) {
                                   setState(() => _selectedRepository = url);
                                 }
-                                await ProviderScope.containerOf(context)
-                                    .read(sourceProvider.notifier).initialize();
+                                await ProviderScope.containerOf(
+                                  context,
+                                ).read(sourceProvider.notifier).initialize();
                                 if (!mounted || !context.mounted) return;
                                 Navigator.of(context).pop();
                                 if (selectedType == ItemType.anime) {
                                   tabController.animateTo(1);
                                 }
-                                messenger.showSnackBar(SnackBar(
-                                  content: Text(
-                                    '${currentRepos.contains(url) ? 'Repository refreshed' : 'Repository added'}: '
-                                    '${_repoLabel(url)}. Browse sources from the menu.',
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      '${currentRepos.contains(url) ? 'Repository refreshed' : 'Repository added'}: '
+                                      '${_repoLabel(url)}. Browse sources from the menu.',
+                                    ),
                                   ),
-                                ));
+                                );
                               } catch (error) {
                                 if (context.mounted) {
                                   setState(() => isAdding = false);
@@ -621,13 +636,13 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
             ? manager.installedAnimeExtensions.value
             : manager.installedMangaExtensions.value;
     final sources = [...available, ...installed];
-    return sources.any((source) =>
-        source.repo == repositoryUrl ||
-        (source.id != null &&
-            sharedPrefs.getString(
-                  'extension_source_repo_${source.id}',
-                ) == repositoryUrl));
-
+    return sources.any(
+      (source) =>
+          source.repo == repositoryUrl ||
+          (source.id != null &&
+              sharedPrefs.getString('extension_source_repo_${source.id}') ==
+                  repositoryUrl),
+    );
   }
 }
 
