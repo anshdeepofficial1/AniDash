@@ -470,7 +470,8 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     // The original MPV path already plays successfully on devices.
     // Only enable the local relay after a user-initiated Retry.
     final useLocalHlsRelay =
-        _useRelayForRetry && Platform.isAndroid &&
+        _useRelayForRetry &&
+        Platform.isAndroid &&
         (_lastIsHls || (uri?.path.toLowerCase().endsWith('.m3u8') ?? false));
     if (useLocalHlsRelay) {
       try {
