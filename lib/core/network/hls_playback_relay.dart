@@ -144,9 +144,11 @@ class HlsPlaybackRelay {
         await output.addStream(upstream);
       }
     } catch (e) {
-      if (!output.headersSent) {
+      try {
         output.statusCode = HttpStatus.badGateway;
         output.write('Media relay unavailable');
+      } catch (_) {
+        // The upstream may fail after part of a segment was already sent.
       }
     } finally {
       try { await output.close(); } catch (_) {}
