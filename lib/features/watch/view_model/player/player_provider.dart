@@ -403,7 +403,8 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         mediaId == _activeMediaId &&
         episode == _activeEpisode;
     final requiresPipelineReset =
-        !isSameSession || (_lastUrl != null && _lastUrl != url) ||
+        !isSameSession ||
+        (_lastUrl != null && _lastUrl != url) ||
         _hlsRelay != null;
 
     // If startAt is explicitly provided, use it. Otherwise, if reopening the same media & episode,
@@ -424,7 +425,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     final effectiveHeaders = normalizeStreamHeaders(url, headers);
     _lastUrl = url;
     _lastHeaders = effectiveHeaders;
-    _lastIsHls = isHls ?? Uri.tryParse(url)?.path.toLowerCase().endsWith('.m3u8') ?? false;
+    _lastIsHls =
+        isHls ??
+        Uri.tryParse(url)?.path.toLowerCase().endsWith('.m3u8') ??
+        false;
     state = state.copyWith(
       isOpening: true,
       clearPlaybackError: true,
@@ -459,7 +463,8 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     var playbackUrl = url;
     var playbackHeaders = effectiveHeaders;
     final uri = Uri.tryParse(url);
-    final useLocalHlsRelay = Platform.isAndroid &&
+    final useLocalHlsRelay =
+        Platform.isAndroid &&
         (_lastIsHls || (uri?.path.toLowerCase().endsWith('.m3u8') ?? false));
     if (useLocalHlsRelay) {
       try {
@@ -523,8 +528,11 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     });
     try {
       await _player.open(
-        Media(playbackUrl,
-            httpHeaders: playbackHeaders, start: effectiveStartAt),
+        Media(
+          playbackUrl,
+          httpHeaders: playbackHeaders,
+          start: effectiveStartAt,
+        ),
         play: true,
       );
     } catch (_) {

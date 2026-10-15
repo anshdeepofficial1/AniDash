@@ -267,9 +267,10 @@ class SourceNotifier extends _$SourceNotifier {
             if (!isAniyomi)
               'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime_index.json',
             ...savedList.where(
-              (url) => isAniyomi
-                  ? url.contains('index.min.json')
-                  : !url.contains('index.min.json'),
+              (url) =>
+                  isAniyomi
+                      ? url.contains('index.min.json')
+                      : !url.contains('index.min.json'),
             ),
           }.toList();
       await manager.fetchAvailableAnimeExtensions(repos);
@@ -280,9 +281,12 @@ class SourceNotifier extends _$SourceNotifier {
               'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
             ...?sharedPrefs
                 .getStringList('saved_manga_repos')
-                ?.where((url) => isAniyomi
-                    ? url.contains('index.min.json')
-                    : !url.contains('index.min.json')),
+                ?.where(
+                  (url) =>
+                      isAniyomi
+                          ? url.contains('index.min.json')
+                          : !url.contains('index.min.json'),
+                ),
           }.toList();
       await manager.fetchAvailableMangaExtensions(repos);
     } else {

@@ -1015,7 +1015,9 @@ class EpisodeData extends _$EpisodeData {
         }
         source ??= data.sources.firstOrNull;
 
-        if (source == null || source.url == null || source.url!.isEmpty ||
+        if (source == null ||
+            source.url == null ||
+            source.url!.isEmpty ||
             Uri.tryParse(source.url!)?.hasAuthority != true) {
           continue;
         }

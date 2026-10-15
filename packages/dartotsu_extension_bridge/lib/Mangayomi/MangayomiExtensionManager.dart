@@ -79,38 +79,43 @@ class MangayomiExtensionManager extends GetxController {
             if (e['id'] == null) continue;
             late MSource source;
             if (e['id'] is String &&
-                e['name'] != null && e['site'] != null &&
-                e['lang'] != null && e['version'] != null &&
-                e['url'] != null && e['iconUrl'] != null) {
-              source = MSource.fromJson(e)
-                ..sourceId = e['id'].toString()
-                ..apiUrl = ''
-                ..appMinVerReq = ''
-                ..dateFormat = ''
-                ..dateFormatLocale = ''
-                ..hasCloudflare = false
-                ..headers = ''
-                ..isActive = true
-                ..isAdded = false
-                ..isFullData = false
-                ..isNsfw = false
-                ..isPinned = false
-                ..lastUsed = false
-                ..sourceCode = ''
-                ..typeSource = ''
-                ..versionLast = '0.0.1'
-                ..isObsolete = false
-                ..isLocal = false
-                ..lang = _convertLang(e)
-                ..baseUrl = e['site']
-                ..sourceCodeUrl = e['url']
-                ..sourceCodeLanguage = SourceCodeLanguage.lnreader
-                ..itemType = ItemType.novel
-                ..repo = repo;
+                e['name'] != null &&
+                e['site'] != null &&
+                e['lang'] != null &&
+                e['version'] != null &&
+                e['url'] != null &&
+                e['iconUrl'] != null) {
+              source =
+                  MSource.fromJson(e)
+                    ..sourceId = e['id'].toString()
+                    ..apiUrl = ''
+                    ..appMinVerReq = ''
+                    ..dateFormat = ''
+                    ..dateFormatLocale = ''
+                    ..hasCloudflare = false
+                    ..headers = ''
+                    ..isActive = true
+                    ..isAdded = false
+                    ..isFullData = false
+                    ..isNsfw = false
+                    ..isPinned = false
+                    ..lastUsed = false
+                    ..sourceCode = ''
+                    ..typeSource = ''
+                    ..versionLast = '0.0.1'
+                    ..isObsolete = false
+                    ..isLocal = false
+                    ..lang = _convertLang(e)
+                    ..baseUrl = e['site']
+                    ..sourceCodeUrl = e['url']
+                    ..sourceCodeLanguage = SourceCodeLanguage.lnreader
+                    ..itemType = ItemType.novel
+                    ..repo = repo;
             } else {
-              source = MSource.fromJson(e)
-                ..sourceId = e['id'].toString()
-                ..repo = repo;
+              source =
+                  MSource.fromJson(e)
+                    ..sourceId = e['id'].toString()
+                    ..repo = repo;
             }
             if (source.itemType != itemType) continue;
             final uniqueKey = '$repo:${source.sourceId}';
@@ -215,16 +220,21 @@ class MangayomiExtensionManager extends GetxController {
     }
     final response = await http.get(Uri.parse(codeUrl));
     if (response.statusCode != 200 || response.body.trim().isEmpty) {
-      throw StateError('Could not download extension: HTTP ${response.statusCode}');
+      throw StateError(
+        'Could not download extension: HTTP ${response.statusCode}',
+      );
     }
 
-    final installed = isar.mSources
-        .where()
-        .findAllSync()
-        .where((row) =>
-            row.sourceId == candidate.sourceId &&
-            row.itemType == source.itemType)
-        .toList();
+    final installed =
+        isar.mSources
+            .where()
+            .findAllSync()
+            .where(
+              (row) =>
+                  row.sourceId == candidate.sourceId &&
+                  row.itemType == source.itemType,
+            )
+            .toList();
     final existing = installed.isEmpty ? null : installed.last;
     candidate.id = existing?.id;
     candidate.sourceCode = response.body;

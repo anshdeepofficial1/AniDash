@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart' as bridge;
+import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart'
+    as bridge;
 import 'package:isar_community/isar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
@@ -97,8 +98,8 @@ class BackupService {
         for (final source in installedSources) {
           final id = source.sourceId;
           if (id == null || id.isEmpty) continue;
-          final repo = sharedPrefs.getString('extension_source_repo_$id') ??
-              source.repo;
+          final repo =
+              sharedPrefs.getString('extension_source_repo_$id') ?? source.repo;
           if (repo != null && repo.isNotEmpty) {
             sourceAssignments['extension_source_repo_$id'] = repo;
           }
@@ -109,14 +110,17 @@ class BackupService {
           'mangaRepositories':
               sharedPrefs.getStringList('saved_manga_repos') ?? <String>[],
           'sourceAssignments': sourceAssignments,
-          'installedMangayomi': installedSources
-              .where((source) => source.sourceId?.isNotEmpty == true)
-              .map((source) => {
-                    'id': source.sourceId,
-                    'type': source.itemType.index,
-                    'repo': source.repo,
-                  })
-              .toList(),
+          'installedMangayomi':
+              installedSources
+                  .where((source) => source.sourceId?.isNotEmpty == true)
+                  .map(
+                    (source) => {
+                      'id': source.sourceId,
+                      'type': source.itemType.index,
+                      'repo': source.repo,
+                    },
+                  )
+                  .toList(),
         };
       }
 
@@ -264,27 +268,39 @@ class BackupService {
       }
 
       if (data['extensions'] is Map) {
-        final extensionData =
-            Map<String, dynamic>.from(data['extensions'] as Map);
+        final extensionData = Map<String, dynamic>.from(
+          data['extensions'] as Map,
+        );
         List<String> validRepositories(dynamic value) {
           if (value is! List) return [];
-          return value.whereType<String>().where((url) {
-            final uri = Uri.tryParse(url);
-            return uri != null && uri.hasAuthority &&
-                (uri.scheme == 'http' || uri.scheme == 'https');
-          }).toSet().take(100).toList();
+          return value
+              .whereType<String>()
+              .where((url) {
+                final uri = Uri.tryParse(url);
+                return uri != null &&
+                    uri.hasAuthority &&
+                    (uri.scheme == 'http' || uri.scheme == 'https');
+              })
+              .toSet()
+              .take(100)
+              .toList();
         }
-        final animeRepos = <String>{
-          'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
-          'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime_index.json',
-          ...validRepositories(extensionData['animeRepositories'])
-              .where((url) => !url.contains('index.min.json'))
-        }.toList();
-        final mangaRepos = <String>{
-          'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
-          ...validRepositories(extensionData['mangaRepositories'])
-              .where((url) => !url.contains('index.min.json'))
-        }.toList();
+
+        final animeRepos =
+            <String>{
+              'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
+              'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime_index.json',
+              ...validRepositories(
+                extensionData['animeRepositories'],
+              ).where((url) => !url.contains('index.min.json')),
+            }.toList();
+        final mangaRepos =
+            <String>{
+              'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
+              ...validRepositories(
+                extensionData['mangaRepositories'],
+              ).where((url) => !url.contains('index.min.json')),
+            }.toList();
         await sharedPrefs.setStringList(
           'saved_anime_repos',
           validRepositories(extensionData['animeRepositories']),
@@ -294,8 +310,8 @@ class BackupService {
           validRepositories(extensionData['mangaRepositories']),
         );
         if (extensionData['sourceAssignments'] is Map) {
-          for (final pair in
-              (extensionData['sourceAssignments'] as Map).entries) {
+          for (final pair
+              in (extensionData['sourceAssignments'] as Map).entries) {
             final key = pair.key.toString();
             final value = pair.value.toString();
             if (key.startsWith('extension_source_repo_') &&
@@ -313,14 +329,14 @@ class BackupService {
         if (installedData is List) {
           try {
             final manager = bridge.ExtensionType.mangayomi.getManager();
-            final installedAnime =
-                await manager.getInstalledAnimeExtensions();
-            final installedManga =
-                await manager.getInstalledMangaExtensions();
-            final availableAnime =
-                await manager.fetchAvailableAnimeExtensions(animeRepos);
-            final availableManga =
-                await manager.fetchAvailableMangaExtensions(mangaRepos);
+            final installedAnime = await manager.getInstalledAnimeExtensions();
+            final installedManga = await manager.getInstalledMangaExtensions();
+            final availableAnime = await manager.fetchAvailableAnimeExtensions(
+              animeRepos,
+            );
+            final availableManga = await manager.fetchAvailableMangaExtensions(
+              mangaRepos,
+            );
             for (final entry in installedData) {
               if (entry is! Map) continue;
               final id = entry['id']?.toString();
@@ -350,7 +366,8 @@ class BackupService {
           }
         }
         await sharedPrefs.setString(
-          'pending_extension_restore', jsonEncode(pending),
+          'pending_extension_restore',
+          jsonEncode(pending),
         );
       }
     } catch (e, s) {
