@@ -48,8 +48,13 @@ class AnimeMatchService {
     double bestSimilarity = 0.0;
 
     final nativeKey = _ref.read(selectedProviderKeyProvider)?.toLowerCase();
-    // Fast Path for JustAnime: JustAnime anime ID is exactly the AniList media ID!
-    if ((nativeKey == null || nativeKey == 'justanime' || nativeKey.isEmpty) &&
+    // Fast ID lookup must not select JustAnime while an extension is active.
+    final userSelectedExtension =
+        _ref.read(experimentalProvider).useExtensions &&
+        nativeKey == null &&
+        _ref.read(sourceProvider).activeAnimeSource != null;
+    if (!userSelectedExtension &&
+        (nativeKey == null || nativeKey == 'justanime' || nativeKey.isEmpty) &&
         mediaId != null &&
         int.tryParse(mediaId) != null) {
       try {
@@ -229,6 +234,12 @@ class AnimeMatchService {
           final targetSourceKey = selection.sourceId ?? 'justanime';
           final registry = _ref.read(animeSourceRegistryProvider);
           final selectedKey = _ref.read(selectedProviderKeyProvider);
+          // A saved native match must never override an active extension.
+          if (selectedKey == null &&
+              _ref.read(experimentalProvider).useExtensions &&
+              _ref.read(sourceProvider).activeAnimeSource != null) {
+            return null;
+          }
           if (selectedKey != null && targetSourceKey != selectedKey) {
             AppLogger.d(
               'Ignoring saved $targetSourceKey match; user selected $selectedKey',
