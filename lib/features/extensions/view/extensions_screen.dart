@@ -506,118 +506,81 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                               setState(() => isAdding = true);
                               final messenger = ScaffoldMessenger.of(context);
                               try {
+                                final uri = Uri.tryParse(url);
+                                if (uri == null ||
+                                    !uri.hasAuthority ||
+                                    (uri.scheme != 'https' &&
+                                        uri.scheme != 'http')) {
+                                  throw FormatException(
+                                    'Please enter a valid JSON repository URL.',
+                                  );
+                                }
                                 final isManga = selectedType == ItemType.manga;
                                 final isAniyomiRepository =
                                     url.contains('index.min.json') ||
-                                    url.contains('aniyomi');
-                                final targetType =
-                                    isAniyomiRepository
-                                        ? ExtensionType.aniyomi
-                                        : ExtensionType.mangayomi;
+                                    url.toLowerCase().contains('aniyomi');
+                                if (isAniyomiRepository && !Platform.isAndroid) {
+                                  throw StateError(
+                                    'AniYomi APK repositories require Android.',
+                                  );
+                                }
+                                final targetType = isAniyomiRepository
+                                    ? ExtensionType.aniyomi
+                                    : ExtensionType.mangayomi;
                                 final targetManager = targetType.getManager();
-                                final currentRepos =
-                                    isManga
-                                        ? _getSavedMangaRepos(targetManager)
-                                        : _getSavedAnimeRepos(targetManager);
-                                if (currentRepos.contains(url)) {
-                                  Get.find<ExtensionManager>()
-                                      .setCurrentManager(targetType);
-                                  manager =
-                                      Get.find<ExtensionManager>()
-                                          .currentManager;
-                                  await targetManager.onRepoSaved(
-                                    currentRepos,
-                                    selectedType,
-                                  );
-                                  if (!_repositoryLoaded(
-                                    targetManager,
-                                    selectedType,
-                                    url,
-                                  )) {
-                                    throw StateError(
-                                      'The repository was saved but its source list could not be loaded. Check the connection and retry.',
-                                    );
-                                  }
-                                  if (context.mounted) Navigator.pop(context);
-                                  if (selectedType == ItemType.anime) {
-                                    tabController.animateTo(1);
-                                  }
-                                  if (mounted) setState(() {});
-                                  messenger.showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Repository refreshed. Open Available Anime and search for the full source name, for example “hanime”.',
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
+                                final currentRepos = isManga
+                                    ? _getSavedMangaRepos(targetManager)
+                                    : _getSavedAnimeRepos(targetManager);
                                 final updated = {...currentRepos, url}.toList();
-                                await sharedPrefs.setStringList(
-                                  isManga
+                                final previousRepositories =
+                                    sharedPrefs.getStringList(isManga
                                       ? 'saved_manga_repos'
-                                      : 'saved_anime_repos',
-                                  updated,
+                                      : 'saved_anime_repos') ?? <String>[];
+
+                                // Do not announce a successful add because
+                                // another repository returned some extensions.
+                                await targetManager.onRepoSaved(
+                                  updated, selectedType,
                                 );
-                                if (isAniyomiRepository) {
-                                  Get.find<ExtensionManager>()
-                                      .setCurrentManager(ExtensionType.aniyomi);
+                                if (!_repositoryLoaded(
+                                    targetManager, selectedType, url)) {
+                                  // Failed JSON should not be kept in saved
+                                  // repositories or the visible source list.
                                   await targetManager.onRepoSaved(
-                                    updated,
-                                    selectedType,
+                                    currentRepos, selectedType,
                                   );
-                                  if (!_repositoryLoaded(
-                                    targetManager,
-                                    selectedType,
-                                    url,
-                                  )) {
-                                    throw StateError(
-                                      'Repository index did not return any usable sources.',
-                                    );
-                                  }
-                                  if (context.mounted) Navigator.pop(context);
-                                  if (selectedType == ItemType.anime) {
-                                    tabController.animateTo(1);
-                                  }
-                                  if (mounted) setState(() {});
-                                  messenger.showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '${isManga ? 'Manga' : 'Anime'} repository added. Open Available to install a source.',
-                                      ),
-                                    ),
-                                  );
-                                } else {
-                                  Get.find<ExtensionManager>()
-                                      .setCurrentManager(targetType);
-                                  manager =
-                                      Get.find<ExtensionManager>()
-                                          .currentManager;
-                                  await targetManager.onRepoSaved(
-                                    updated,
-                                    selectedType,
-                                  );
-                                  if (!_repositoryLoaded(
-                                    targetManager,
-                                    selectedType,
-                                    url,
-                                  )) {
-                                    throw StateError(
-                                      'Repository JSON did not load any usable sources.',
-                                    );
-                                  }
-                                  if (mounted) {
-                                    setState(() => _selectedRepository = url);
-                                  }
-                                  if (context.mounted) Navigator.pop(context);
-                                  messenger.showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Repository added. Select its JSON in the menu to browse sources.',
-                                      ),
-                                    ),
+                                  throw StateError(
+                                    'This JSON returned no usable sources. '
+                                    'Check the repository URL and format.',
                                   );
                                 }
+                                if (!previousRepositories.contains(url)) {
+                                  await sharedPrefs.setStringList(
+                                    isManga ? 'saved_manga_repos'
+                                      : 'saved_anime_repos',
+                                    {...previousRepositories, url}.toList(),
+                                  );
+                                }
+                                final extensionManager =
+                                    Get.find<ExtensionManager>();
+                                extensionManager.setCurrentManager(targetType);
+                                manager = extensionManager.currentManager;
+                                if (mounted) {
+                                  setState(() => _selectedRepository = url);
+                                }
+                                await ProviderScope.containerOf(context)
+                                    .read(sourceProvider.notifier).initialize();
+                                if (!mounted || !context.mounted) return;
+                                Navigator.of(context).pop();
+                                if (selectedType == ItemType.anime) {
+                                  tabController.animateTo(1);
+                                }
+                                messenger.showSnackBar(SnackBar(
+                                  content: Text(
+                                    '${currentRepos.contains(url) ? 'Repository refreshed' : 'Repository added'}: '
+                                    '${_repoLabel(url)}. Browse sources from the menu.',
+                                  ),
+                                ));
                               } catch (error) {
                                 if (context.mounted) {
                                   setState(() => isAdding = false);
@@ -658,13 +621,13 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
             ? manager.installedAnimeExtensions.value
             : manager.installedMangaExtensions.value;
     final sources = [...available, ...installed];
-    if (repositoryUrl.contains('yuzono/anime-repo')) {
-      return sources.any(
-        (source) =>
-            source.name?.toString().toLowerCase().contains('hanime') == true,
-      );
-    }
-    return sources.isNotEmpty;
+    return sources.any((source) =>
+        source.repo == repositoryUrl ||
+        (source.id != null &&
+            sharedPrefs.getString(
+                  'extension_source_repo_${source.id}',
+                ) == repositoryUrl));
+
   }
 }
 
