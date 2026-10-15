@@ -275,13 +275,21 @@ class BackupService {
           'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
           'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime_index.json',
           ...validRepositories(extensionData['animeRepositories'])
+              .where((url) => !url.contains('index.min.json'))
         }.toList();
         final mangaRepos = <String>{
           'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
           ...validRepositories(extensionData['mangaRepositories'])
+              .where((url) => !url.contains('index.min.json'))
         }.toList();
-        await sharedPrefs.setStringList('saved_anime_repos', animeRepos);
-        await sharedPrefs.setStringList('saved_manga_repos', mangaRepos);
+        await sharedPrefs.setStringList(
+          'saved_anime_repos',
+          validRepositories(extensionData['animeRepositories']),
+        );
+        await sharedPrefs.setStringList(
+          'saved_manga_repos',
+          validRepositories(extensionData['mangaRepositories']),
+        );
         if (extensionData['sourceAssignments'] is Map) {
           for (final pair in
               (extensionData['sourceAssignments'] as Map).entries) {
