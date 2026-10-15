@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:ani_dash/main.dart';
+
+const voiceInputLocaleKey = 'voice_input_locale';
+
+class VoiceTextController {
+  Future<void> Function()? _stop;
+
+  Future<void> stop() async => _stop?.call();
+}
 
 class VoiceTextButton extends StatefulWidget {
   const VoiceTextButton({
     super.key,
     required this.controller,
+    this.voiceController,
     this.onChanged,
-    this.resetToken = 0,
     this.tooltip = 'Type with your voice',
   });
   final TextEditingController controller;
+  final VoiceTextController? voiceController;
   final ValueChanged<String>? onChanged;
-  final int resetToken;
   final String tooltip;
   @override
   State<VoiceTextButton> createState() => _VoiceTextButtonState();
@@ -21,60 +30,24 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _listening = false;
   String _prefix = '';
-  String? _preferredLocaleId;
   int _speechGeneration = 0;
 
   @override
-  void didUpdateWidget(covariant VoiceTextButton oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.resetToken != widget.resetToken) {
-      _speechGeneration++;
-      _prefix = '';
-      _speech.cancel();
-      if (_listening) setState(() => _listening = false);
-    }
+  void initState() {
+    super.initState();
+    widget.voiceController?._stop = _stopListening;
   }
 
-  Future<void> _chooseLanguage() async {
-    final isAvailable = await _speech.initialize();
-    if (!isAvailable || !mounted) return;
-    final options = await _speech.locales();
-    if (!mounted) return;
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder:
-          (ctx) => SafeArea(
-            child: SizedBox(
-              height: MediaQuery.sizeOf(ctx).height * .58,
-              child: ListView(
-                children: [
-                  const ListTile(title: Text('Voice input language')),
-                  ListTile(
-                    title: const Text('Phone default language'),
-                    onTap: () => Navigator.pop(ctx, ''),
-                  ),
-                  ...options.map(
-                    (locale) => ListTile(
-                      title: Text(locale.name),
-                      subtitle: Text(locale.localeId),
-                      onTap: () => Navigator.pop(ctx, locale.localeId),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-    );
-    if (selected == null || !mounted) return;
-    setState(() => _preferredLocaleId = selected.isEmpty ? null : selected);
+  Future<void> _stopListening() async {
+    _speechGeneration++;
+    _listening = false;
+    await _speech.stop();
+    if (mounted) setState(() {});
   }
 
   Future<void> _toggle() async {
     if (_listening) {
-      await _speech.stop();
-      if (mounted) setState(() => _listening = false);
+      await _stopListening();
       return;
     }
     final available = await _speech.initialize(
@@ -104,19 +77,14 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
     final generation = ++_speechGeneration;
     _prefix = widget.controller.text.trimRight();
     setState(() => _listening = true);
-    final locales = await _speech.locales();
-    final systemLocale = await _speech.systemLocale();
-    stt.LocaleName? preferredLocale;
-    for (final locale in locales) {
-      if (locale.localeId == (_preferredLocaleId ?? systemLocale?.localeId)) {
-        preferredLocale = locale;
-        break;
-      }
-    }
+    final selectedLocale = sharedPrefs.getString(voiceInputLocaleKey);
     await _speech.listen(
       onResult: (result) {
         final spoken = _normalizeAnimeNames(result.recognizedWords.trim());
-        if (!mounted || generation != _speechGeneration || spoken.isEmpty) {
+        if (!mounted ||
+            !_listening ||
+            generation != _speechGeneration ||
+            spoken.isEmpty) {
           return;
         }
         final value = _prefix.isEmpty ? spoken : '$_prefix $spoken';
@@ -132,7 +100,10 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
         listenMode: stt.ListenMode.dictation,
         listenFor: const Duration(minutes: 1),
         pauseFor: const Duration(seconds: 5),
-        localeId: preferredLocale?.localeId,
+        localeId:
+            selectedLocale == null || selectedLocale.isEmpty
+                ? null
+                : selectedLocale,
         contextualPhrases: const [
           'One Piece',
           'AniList',
@@ -145,6 +116,70 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
         ],
       ),
     );
+  }
+
+  Future<void> _chooseLanguage() async {
+    final available = await _speech.initialize();
+    if (!available || !mounted) return;
+    final locales = await _speech.locales();
+    locales.sort((a, b) => a.name.compareTo(b.name));
+    if (!mounted) return;
+    final selected = await showModalBottomSheet<String?>(
+      context: context,
+      showDragHandle: true,
+      builder:
+          (context) => SafeArea(
+            child: SizedBox(
+              height: MediaQuery.sizeOf(context).height * .65,
+              child: Column(
+                children: [
+                  const ListTile(
+                    title: Text('Voice input language'),
+                    subtitle: Text(
+                      'Choose any language installed on this device.',
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.language_rounded),
+                    title: const Text('Automatic (device language)'),
+                    onTap: () => Navigator.pop(context, ''),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: locales.length,
+                      itemBuilder: (context, index) {
+                        final locale = locales[index];
+                        return ListTile(
+                          title: Text(locale.name),
+                          subtitle: Text(locale.localeId),
+                          onTap: () => Navigator.pop(context, locale.localeId),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+    if (selected == null) return;
+    if (selected.isEmpty) {
+      await sharedPrefs.remove(voiceInputLocaleKey);
+    } else {
+      await sharedPrefs.setString(voiceInputLocaleKey, selected);
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            selected.isEmpty
+                ? 'Voice input will use the device language.'
+                : 'Voice input language updated.',
+          ),
+        ),
+      );
+    }
   }
 
   String _normalizeAnimeNames(String value) {
@@ -160,11 +195,12 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
     for (final entry in replacements.entries) {
       normalized = normalized.replaceAll(entry.key, entry.value);
     }
-    // Android dictation can omit small connective words in common anime
-    // queries. Repair only narrow high-confidence phrases.
-    normalized = normalized.replaceFirst(
-      RegExp(r'\btell\s+me\s+watch\s+order\s+of\b', caseSensitive: false),
-      'Tell me the watch order of',
+    normalized = normalized.replaceAllMapped(
+      RegExp(
+        r'\b(tell me(?: the)?|exact)\s+watch\s+(?:of\s+)?(One Piece|Black Clover|Re:Zero|Mushoku Tensei|SPY x FAMILY)\b',
+        caseSensitive: false,
+      ),
+      (match) => '${match.group(1)} watch order of ${match.group(2)}',
     );
     return normalized;
   }
@@ -172,6 +208,7 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
   @override
   void dispose() {
     _speechGeneration++;
+    widget.voiceController?._stop = null;
     _speech.cancel();
     super.dispose();
   }

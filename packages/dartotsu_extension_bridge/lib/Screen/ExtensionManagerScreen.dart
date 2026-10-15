@@ -56,6 +56,14 @@ abstract class ExtensionManagerScreen<T extends StatefulWidget> extends State<T>
     void Function() onChanged,
   );
 
+  Widget emptyExtensionsState(
+    BuildContext context,
+    ItemType type,
+    bool isInstalled,
+    String message,
+    ColorScheme theme,
+  ) => _emptyMessage(message, theme);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).colorScheme;
@@ -174,12 +182,24 @@ abstract class ExtensionManagerScreen<T extends StatefulWidget> extends State<T>
     void addViews(ItemType type, List installed, List available) {
       views.add(
         installed.isEmpty
-            ? _emptyMessage('No installed ${type.name} extensions', theme)
+            ? emptyExtensionsState(
+              context,
+              type,
+              true,
+              'No installed ${type.name} extensions',
+              theme,
+            )
             : builder(type, true, query, lang),
       );
       views.add(
         available.isEmpty
-            ? _emptyMessage('No available ${type.name} extensions', theme)
+            ? emptyExtensionsState(
+              context,
+              type,
+              false,
+              'No available ${type.name} extensions',
+              theme,
+            )
             : builder(type, false, query, lang),
       );
     }

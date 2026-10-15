@@ -9,6 +9,7 @@ import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/shared/providers/incognito_provider.dart';
 import 'package:ani_dash/features/watch/view_model/player/orientation_lock_provider.dart';
 import 'package:ani_dash/router/desktop/windows_caption_buttons.dart';
+import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 
 class TopControls extends ConsumerWidget {
   final VoidCallback onInteraction;
@@ -384,7 +385,10 @@ class TopControls extends ConsumerWidget {
     if (activeKey != null && activeKey.isNotEmpty) {
       final registry = ref.watch(animeSourceRegistryProvider);
       final normalized = activeKey.replaceFirst('ext:', '');
-      return registry.get(normalized)?.providerName ?? normalized;
+      final nativeName = registry.get(normalized)?.providerName;
+      if (nativeName != null) return nativeName;
+      final extension = ref.watch(sourceProvider).activeAnimeSource;
+      if (extension != null) return extension.name ?? 'AniDash';
     }
     return ref.watch(selectedAnimeProvider)?.providerName ?? 'AniDash';
   }

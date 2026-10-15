@@ -22,6 +22,7 @@ import 'package:ani_dash/core/services/notification_service.dart';
 import 'package:ani_dash/core/services/aniskip_service.dart';
 import 'package:ani_dash/core/models/aniskip/aniskip_result.dart';
 import 'package:ani_dash/storage_provider.dart';
+import 'package:ani_dash/core/utils/video_utils.dart';
 
 class DownloadService {
   final Ref ref;
@@ -139,6 +140,13 @@ class DownloadService {
   }
 
   Future<void> startDownload(DownloadItem item) async {
+    if (!VideoUtils.isValidNetworkUrl(item.downloadUrl)) {
+      return _fail(
+        item,
+        'Download source is unavailable. Choose another language or server.',
+      );
+    }
+
     List<ConnectivityResult>? connectivity;
     try {
       connectivity = await Connectivity().checkConnectivity();

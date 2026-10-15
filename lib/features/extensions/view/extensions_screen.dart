@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart'
     hide Extension;
+import 'package:dartotsu_extension_bridge/Mangayomi/MangayomiExtensions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
@@ -20,6 +21,7 @@ class ExtensionScreen extends StatefulWidget {
 
 class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
   String? _selectedRepository;
+  bool _restoringDefaults = false;
 
   String _repoLabel(String url) {
     final uri = Uri.tryParse(url);
@@ -91,38 +93,40 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
           children: [
             const ListTile(
               title: Text(
-                'Extension repositories',
+                'Source collections',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              subtitle: Text('Choose a JSON file to browse its sources'),
+              subtitle: Text(
+                'Choose a ready-made collection. No JSON knowledge is needed.',
+              ),
             ),
             ListTile(
               selected: _selectedRepository == null,
               leading: const Icon(Icons.apps),
-              title: const Text('All repositories'),
+              title: const Text('All source collections'),
               onTap: () {
                 setState(() => _selectedRepository = null);
                 Navigator.of(context).pop();
               },
             ),
             group(
-              'Mangayomi • Anime',
+              'Built-in sources • Anime',
               _getSavedAnimeRepos(mangayomi),
               ExtensionType.mangayomi,
             ),
             group(
-              'Mangayomi • Manga',
+              'Built-in sources • Manga',
               _getSavedMangaRepos(mangayomi),
               ExtensionType.mangayomi,
             ),
             if (aniyomi != null) ...[
               group(
-                'Aniyomi • Anime',
+                'Android plug-in sources • Anime',
                 _getSavedAnimeRepos(aniyomi),
                 ExtensionType.aniyomi,
               ),
               group(
-                'Aniyomi • Manga',
+                'Android plug-in sources • Manga',
                 _getSavedMangaRepos(aniyomi),
                 ExtensionType.aniyomi,
               ),
@@ -150,6 +154,88 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
   @override
   Text get title =>
       const Text('Extensions', style: TextStyle(fontWeight: FontWeight.bold));
+
+  @override
+  Widget emptyExtensionsState(
+    BuildContext context,
+    ItemType type,
+    bool isInstalled,
+    String message,
+    ColorScheme theme,
+  ) {
+    if (!isInstalled || type != ItemType.anime) {
+      return Center(child: Text(message));
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.extension_off_outlined, size: 48),
+            const SizedBox(height: 12),
+            Text(message, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 6),
+            const Text(
+              'Restore AniDash\'s verified anime sources whenever you need them.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _restoringDefaults ? null : _restoreDefaultSources,
+              icon:
+                  _restoringDefaults
+                      ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.restore),
+              label: Text(
+                _restoringDefaults ? 'Restoring…' : 'Restore Default Sources',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _restoreDefaultSources() async {
+    if (_restoringDefaults) return;
+    setState(() => _restoringDefaults = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final extensionManager = Get.find<ExtensionManager>();
+      extensionManager.setCurrentManager(ExtensionType.mangayomi);
+      final defaults = ExtensionType.mangayomi.getManager();
+      manager = defaults;
+      await defaults.fetchAvailableAnimeExtensions(
+        _getSavedAnimeRepos(defaults),
+      );
+      final restored =
+          await (defaults as MangayomiExtensions).restoreDefaultAnimeSources();
+      if (!mounted) return;
+      await ProviderScope.containerOf(
+        context,
+      ).read(sourceProvider.notifier).initialize();
+      setState(() {});
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            restored == 0
+                ? 'Default sources are already installed.'
+                : '$restored default source${restored == 1 ? '' : 's'} restored.',
+          ),
+        ),
+      );
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not restore sources: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _restoringDefaults = false);
+    }
+  }
 
   @override
   ExtensionScreenBuilder get extensionScreenBuilder => (
@@ -221,10 +307,10 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
         onPressed:
             () => _showAddRepoDialog(context, tabController, onRepoSaved),
         icon: const Icon(Iconsax.add),
-        tooltip: 'Add Repository',
+        tooltip: 'Add source link (advanced)',
       ),
       IconButton(
-        tooltip: 'Backup or restore extension JSON repositories',
+        tooltip: 'Backup or restore source collections',
         icon: const Icon(Icons.settings_backup_restore),
         onPressed: () => context.push('/settings/data'),
       ),
@@ -236,11 +322,11 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
               context: context,
               builder:
                   (context) => AlertDialog(
-                    title: const Text('Extension engines'),
+                    title: const Text('How sources work'),
                     content: const Text(
-                      'AniDash uses MangaYomi-compatible source files that run inside AniDash.\n\n'
-                      'On Android, AniYomi repositories are also supported. Their APK plug-ins use Android\'s secure package installer, so the system may ask you to approve the installation.\n\n'
-                      'Adding a repository does not install every source inside it. After adding it, open Available Anime or Available Manga and install the source you want.',
+                      'For normal use, choose Built-in sources and install the source you want. You do not need a JSON link.\n\n'
+                      'Android plug-in sources add compatibility with external source packs; Android may ask you to approve their installation.\n\n'
+                      'Repository links are an advanced option for adding a source collection supplied by a trusted developer. If sources are missing, use Restore Default Sources.',
                     ),
                     actions: [
                       TextButton(

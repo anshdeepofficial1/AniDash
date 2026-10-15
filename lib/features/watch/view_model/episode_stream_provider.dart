@@ -22,6 +22,7 @@ import 'package:ani_dash/features/watch/view_model/aniskip_notifier.dart';
 import 'package:ani_dash/shared/providers/anime_source_provider.dart';
 import 'package:ani_dash/core/registery/sources/anime/anime_provider.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
+import 'package:ani_dash/core/utils/video_utils.dart';
 import 'package:ani_dash/features/watch/view/widgets/download_source_selector.dart';
 import 'package:ani_dash/core/registery/sources/anime/justanime.dart';
 import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
@@ -216,16 +217,10 @@ class EpisodeData extends _$EpisodeData {
   AnimeProvider? get _effectiveProvider {
     final registry = ref.read(animeSourceRegistryProvider);
     final currentKey = _effectiveProviderKey;
-    if (currentKey != null &&
-        currentKey.isNotEmpty &&
-        registry.has(currentKey)) {
-      return registry.get(currentKey);
+    if (currentKey != null && currentKey.isNotEmpty) {
+      return registry.has(currentKey) ? registry.get(currentKey) : null;
     }
-    return ref.read(selectedAnimeProvider) ??
-        registry.get('hianime') ??
-        registry.get('anikoto') ??
-        registry.get('justanime') ??
-        JustAnimeProvider();
+    return registry.get('justanime');
   }
 
   String get _justAnimeId {
@@ -875,8 +870,7 @@ class EpisodeData extends _$EpisodeData {
       matchedSource ??= data.sources.firstOrNull;
 
       if (matchedSource == null ||
-          matchedSource.url == null ||
-          matchedSource.url!.isEmpty) {
+          !VideoUtils.isValidNetworkUrl(matchedSource.url)) {
         if (showUnavailableMessage) {
           _showSnack(context, "Could not find stream for Ep $epNum");
         }
@@ -900,11 +894,18 @@ class EpisodeData extends _$EpisodeData {
             (q) => (q['quality'] as String).contains(quality),
           );
           if (target != null &&
-              target['url'] != null &&
-              (target['url'] as String).isNotEmpty) {
+              VideoUtils.isValidNetworkUrl(target['url']?.toString())) {
             downloadUrl = target['url'] as String;
           }
         } catch (_) {}
+      }
+
+      if (!context.mounted) return false;
+      if (!VideoUtils.isValidNetworkUrl(downloadUrl)) {
+        if (showUnavailableMessage) {
+          _showSnack(context, 'This server returned an invalid download link.');
+        }
+        return false;
       }
 
       final ext = isM3U8 ? 'ts' : 'mp4';
@@ -1021,10 +1022,7 @@ class EpisodeData extends _$EpisodeData {
         }
         source ??= data.sources.firstOrNull;
 
-        if (source == null ||
-            source.url == null ||
-            source.url!.isEmpty ||
-            Uri.tryParse(source.url!)?.hasAuthority != true) {
+        if (source == null || !VideoUtils.isValidNetworkUrl(source.url)) {
           continue;
         }
 
@@ -1041,12 +1039,13 @@ class EpisodeData extends _$EpisodeData {
               (q) => (q['quality'] as String).contains(targetQuality),
             );
             if (target != null &&
-                target['url'] != null &&
-                (target['url'] as String).isNotEmpty) {
+                VideoUtils.isValidNetworkUrl(target['url']?.toString())) {
               downloadUrl = target['url'] as String;
             }
           } catch (_) {}
         }
+
+        if (!VideoUtils.isValidNetworkUrl(downloadUrl)) continue;
 
         final ext = isM3U8 ? 'ts' : 'mp4';
         final sanitizedTitle = animeTitle.replaceAll(

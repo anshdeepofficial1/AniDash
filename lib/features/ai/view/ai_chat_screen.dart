@@ -18,6 +18,7 @@ import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
 import 'package:ani_dash/features/ai/data/ai_state_repository.dart';
 import 'package:ani_dash/features/ai/application/ai_action_executor.dart';
 import 'package:ani_dash/features/ai/view/widgets/assistant_avatar.dart';
+import 'package:ani_dash/features/ai/view/widgets/anidash_ai_emblem.dart';
 import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
 import 'package:ani_dash/shared/ui/voice_text_button.dart';
 
@@ -76,6 +77,8 @@ class _ChatMessage {
 
 class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   final _controller = TextEditingController();
+  final _composerFocus = FocusNode();
+  final _voiceController = VoiceTextController();
   final _scroll = ScrollController();
   final _orchestrator = AiOrchestrator();
   final _registry = AssistantRegistry();
@@ -84,8 +87,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   final List<AiAttachment> _attachments = [];
   StreamSubscription<AiStreamEvent>? _subscription;
   bool _busy = false;
-  int _voiceResetToken = 0;
-  String get _pendingKey => 'anycore_pending_$_conversationId';
   AnimeWatchProgressEntry? _undoProgress;
   final Set<String> _completedActionKeys = <String>{};
   final FlutterTts _tts = FlutterTts();
@@ -129,12 +130,25 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     unawaited(_tts.setPitch(1.0));
     if (widget.sharedChatId != null) unawaited(_loadSharedChat());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final pending = sharedPrefs.getString(_pendingKey);
-      if (pending != null && pending.trim().isNotEmpty) {
-        unawaited(_send(pending, true));
-      }
+      unawaited(_resumePendingRequest());
     });
+  }
+
+  Future<void> _resumePendingRequest() async {
+    final pending = _stateRepository.pendingRequest;
+    if (!mounted || pending == null || _busy) return;
+    if (pending['conversationId']?.toString() != _conversationId) return;
+    final message = pending['message']?.toString().trim() ?? '';
+    if (message.isEmpty) {
+      await _stateRepository.clearPendingRequest();
+      return;
+    }
+    if (_messages.isNotEmpty &&
+        _messages.last.fromUser &&
+        _messages.last.text.trim() == message) {
+      setState(() => _messages.removeLast());
+    }
+    await _send(message);
   }
 
   Future<void> _loadSharedChat() async {
@@ -263,6 +277,36 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                     if (sheetContext.mounted) Navigator.pop(sheetContext);
                   },
                 ),
+                if (message.fromUser)
+                  ListTile(
+                    leading: const Icon(Icons.edit_rounded),
+                    title: const Text('Edit and resend'),
+                    onTap: () async {
+                      Navigator.pop(sheetContext);
+                      final index = _messages.indexOf(message);
+                      if (index < 0 || !mounted) return;
+                      setState(() {
+                        _messages.removeRange(index, _messages.length);
+                        _controller.value = TextEditingValue(
+                          text: message.text,
+                          selection: TextSelection.collapsed(
+                            offset: message.text.length,
+                          ),
+                        );
+                      });
+                      await _persistHistory();
+                      _composerFocus.requestFocus();
+                    },
+                  ),
+                if (message.fromUser)
+                  ListTile(
+                    leading: const Icon(Icons.refresh_rounded),
+                    title: const Text('Resend'),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _send(message.text);
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.share_rounded),
                   title: const Text('Share message'),
@@ -361,6 +405,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _subscription?.cancel();
     _controller.removeListener(_composerChanged);
     _controller.dispose();
+    _composerFocus.dispose();
     _scroll.dispose();
     _tts.stop();
     super.dispose();
@@ -379,13 +424,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             .replaceAll(RegExp(r'\((https?://[^)]+)\)'), '')
             .trim();
     if (plainText.isEmpty) return;
+    final voiceLocale = sharedPrefs.getString(voiceInputLocaleKey);
+    if (voiceLocale != null && voiceLocale.isNotEmpty) {
+      await _tts.setLanguage(voiceLocale.replaceAll('_', '-'));
+    }
     if (mounted) setState(() => _speakingMessage = index);
     await _tts.speak(plainText);
   }
 
-  Future<void> _send([String? preset, bool resuming = false]) async {
+  Future<void> _send([String? preset]) async {
     final text = (preset ?? _controller.text).trim();
     if (text.isEmpty || _busy) return;
+    await _voiceController.stop();
     if (text.startsWith('/') &&
         !text.toLowerCase().startsWith('/edit ') &&
         !(sharedPrefs.getBool('ai_command_education_seen') ?? false)) {
@@ -442,18 +492,17 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       _scrollToEnd();
       return;
     }
-    if (resuming && _messages.isNotEmpty && !_messages.last.fromUser) {
-      // Remove the partial response that was interrupted on navigation.
-      _messages.removeLast();
-    }
     setState(() {
-      if (!resuming) _messages.add(_ChatMessage(text: text, fromUser: true));
+      _messages.add(_ChatMessage(text: text, fromUser: true));
       _messages.add(_ChatMessage(text: '', fromUser: false));
       _controller.clear();
-      _voiceResetToken++;
       _busy = true;
     });
-    await sharedPrefs.setString(_pendingKey, text);
+    await _stateRepository.savePendingRequest(
+      conversationId: _conversationId,
+      message: text,
+    );
+    await _persistHistory();
     var accumulated = '';
     final attachments = List<AiAttachment>.from(_attachments);
     _attachments.clear();
@@ -474,8 +523,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               } else if (event.type == AiStreamEventType.error) {
                 _messages.last.text = event.text ?? 'Something went wrong.';
                 _busy = false;
-                unawaited(sharedPrefs.remove(_pendingKey));
                 unawaited(_persistHistory());
+                unawaited(_stateRepository.clearPendingRequest());
               } else if (event.type == AiStreamEventType.done &&
                   event.response != null) {
                 final response = event.response!;
@@ -539,8 +588,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                   ),
                 );
                 _busy = false;
-                unawaited(sharedPrefs.remove(_pendingKey));
                 unawaited(_persistHistory());
+                unawaited(_stateRepository.clearPendingRequest());
               }
             });
             _scrollToEnd();
@@ -554,8 +603,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 }
                 _busy = false;
               });
-              unawaited(sharedPrefs.remove(_pendingKey));
               unawaited(_persistHistory());
+              unawaited(_stateRepository.clearPendingRequest());
             }
           },
           onError: (_) {
@@ -567,8 +616,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               }
               _busy = false;
             });
-            unawaited(sharedPrefs.remove(_pendingKey));
             unawaited(_persistHistory());
+            unawaited(_stateRepository.clearPendingRequest());
           },
         );
   }
@@ -607,7 +656,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   _ChatMessage? _localReadResponse(String input) {
     final normalized = input.trim().toLowerCase();
     if (RegExp(
-      r'^(hi|hey|hello|hiya|yo|namaste|good morning|good afternoon|good evening)[!. ]*$',
+      r'^(hi|hey|hello|hiya|yo|namaste)( there)?[!. ]*$|^(good morning|good afternoon|good evening)[!. ]*$',
     ).hasMatch(normalized)) {
       return _ChatMessage(
         text:
@@ -1062,16 +1111,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            const AssistantAvatar(
-              assistantId: 'anime_text',
-              size: 42,
-              showStatus: true,
-            ),
+            const AniDashAiEmblem(size: 42),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Ask ${_registry.byId('anime_text').displayName}'),
+                const Text('Ask AnyCore'),
                 const Text(
                   '4 specialists, one conversation',
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.normal),
@@ -1481,6 +1526,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                   Expanded(
                     child: TextField(
                       controller: _controller,
+                      focusNode: _composerFocus,
                       minLines: 1,
                       maxLines: 4,
                       textInputAction: TextInputAction.send,
@@ -1492,8 +1538,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                     ),
                   ),
                   VoiceTextButton(
-                    resetToken: _voiceResetToken,
                     controller: _controller,
+                    voiceController: _voiceController,
                     tooltip: 'Speak your message',
                   ),
                   const SizedBox(width: 8),

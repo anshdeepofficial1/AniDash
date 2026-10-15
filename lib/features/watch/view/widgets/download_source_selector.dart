@@ -11,6 +11,7 @@ import 'package:ani_dash/features/downloads/model/download_status.dart';
 import 'package:ani_dash/features/downloads/view_model/downloads_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/download_settings_notifier.dart';
 import 'package:ani_dash/core/utils/extractors.dart' as extractor;
+import 'package:ani_dash/core/utils/video_utils.dart';
 
 class DownloadSourceSelector extends ConsumerStatefulWidget {
   final String animeTitle;
@@ -191,35 +192,38 @@ class _DownloadSourceSelectorState
 
     if (_sources.isNotEmpty) {
       if (_selectedLanguage == 'dub') {
-        matchedSource = _sources.firstWhere(
-          (s) => s.isDub,
-          orElse: () => _sources.first,
-        );
+        for (final source in _sources) {
+          if (source.isDub) {
+            matchedSource = source;
+            break;
+          }
+        }
       } else {
-        matchedSource = _sources.firstWhere(
-          (s) => !s.isDub,
-          orElse: () => _sources.first,
-        );
+        for (final source in _sources) {
+          if (!source.isDub) {
+            matchedSource = source;
+            break;
+          }
+        }
       }
     }
 
     if (matchedSource == null ||
+        !VideoUtils.isValidNetworkUrl(matchedSource.url) ||
         (_selectedLanguage == 'dub' &&
             !matchedSource.isDub &&
             _selectedServer?.isDub != true)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'No playable source for the selected language/server.',
-            ),
-          ),
-        );
-      }
+      if (!mounted) return;
+      setState(() {
+        _error =
+            _selectedLanguage == 'dub'
+                ? 'English DUB is unavailable from this server. Choose SUB or another server.'
+                : 'This server did not provide a valid download. Choose another server.';
+      });
       return;
     }
 
-    String downloadUrl = matchedSource.url ?? '';
+    String downloadUrl = matchedSource.url!;
     final isM3U8 = matchedSource.isM3U8 || downloadUrl.contains('.m3u8');
 
     // If source is M3U8, try to extract matching quality sub-playlist
@@ -237,23 +241,18 @@ class _DownloadSourceSelectorState
           (q) => (q['quality'] as String).contains(_selectedQuality),
           orElse: () => extracted.first,
         );
-        if (target['url'] != null && (target['url'] as String).isNotEmpty) {
+        if (VideoUtils.isValidNetworkUrl(target['url']?.toString())) {
           downloadUrl = target['url'] as String;
         }
       } catch (_) {}
     }
 
-    final resolvedUrl = Uri.tryParse(downloadUrl);
-    if (resolvedUrl == null ||
-        !resolvedUrl.hasAuthority ||
-        (resolvedUrl.scheme != 'https' && resolvedUrl.scheme != 'http')) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Server did not supply a valid download URL.'),
-          ),
-        );
-      }
+    if (!VideoUtils.isValidNetworkUrl(downloadUrl)) {
+      if (!mounted) return;
+      setState(() {
+        _error =
+            'This server returned an invalid download link. Try another server.';
+      });
       return;
     }
 
