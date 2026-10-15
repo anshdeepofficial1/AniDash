@@ -196,6 +196,11 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
         tooltip: 'Add Repository',
       ),
       IconButton(
+        tooltip: 'Backup or restore extension JSON repositories',
+        icon: const Icon(Icons.settings_backup_restore),
+        onPressed: () => context.push('/settings/data'),
+      ),
+      IconButton(
         tooltip: 'Extension engines explained',
         icon: const Icon(Icons.info_outline),
         onPressed:
