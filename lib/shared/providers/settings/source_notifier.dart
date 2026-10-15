@@ -9,6 +9,7 @@ import 'package:ani_dash/core/repositories/source_repository.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/core/models/settings/source_model.dart';
 import 'package:ani_dash/main.dart';
+import 'package:ani_dash/shared/providers/anime_source_provider.dart';
 
 part 'source_notifier.g.dart';
 
@@ -205,6 +206,9 @@ class SourceNotifier extends _$SourceNotifier {
     }
     switch (source.itemType) {
       case ItemType.anime:
+        // An explicitly chosen extension must override the persisted native
+        // JustAnime key, including across future application launches.
+        ref.read(selectedProviderKeyProvider.notifier).clear();
         state = state.copyWith(
           activeAnimeSource: source,
           lastUpdatedSourceType: 'ANIME',
