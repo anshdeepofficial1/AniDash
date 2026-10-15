@@ -40,6 +40,10 @@ jobs:
             lib/shared/providers/settings/security_notifier.dart \
             lib/features/settings/view/screens/security_settings_screen.dart \
             lib/core/services/download_service.dart \
+            lib/core/services/update_service.dart \
+            lib/shared/ui/voice_text_button.dart \
+            lib/features/ai/view/ai_chat_screen.dart \
+            lib/features/ai/view/widgets/anidash_ai_emblem.dart \
             packages/dartotsu_extension_bridge/lib/Aniyomi/AniyomiExtensions.dart \
             packages/dartotsu_extension_bridge/lib/Mangayomi/MangayomiExtensionManager.dart \
             packages/dartotsu_extension_bridge/lib/Mangayomi/MangayomiExtensions.dart \
@@ -61,3 +65,6 @@ jobs:
         run: |
           flutter test test/unit/hls_playback_relay_test.dart
           flutter test test/unit/stream_headers_test.dart
+          flutter test test/unit/player_buffer_policy_test.dart
+          flutter test test/unit/ai_policy_router_test.dart
+          flutter test test/unit/download_progress_test.dart
