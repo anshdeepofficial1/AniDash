@@ -475,7 +475,8 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       // Only auto-discover a native fallback when the user did not explicitly
       // select an installed extension. Otherwise a failing extension must
       // show its error rather than silently switching to JustAnime.
-      final selectedExtension = _exp.useExtensions &&
+      final selectedExtension =
+          _exp.useExtensions &&
           ref.read(sourceProvider).activeAnimeSource != null;
       if (eps.isEmpty &&
           currentKey == null &&

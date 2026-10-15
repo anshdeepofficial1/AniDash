@@ -208,9 +208,13 @@ class _DownloadSourceSelectorState
             !matchedSource.isDub &&
             _selectedServer?.isDub != true)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('No playable source for the selected language/server.'),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No playable source for the selected language/server.',
+            ),
+          ),
+        );
       }
       return;
     }
@@ -240,12 +244,15 @@ class _DownloadSourceSelectorState
     }
 
     final resolvedUrl = Uri.tryParse(downloadUrl);
-    if (resolvedUrl == null || !resolvedUrl.hasAuthority ||
+    if (resolvedUrl == null ||
+        !resolvedUrl.hasAuthority ||
         (resolvedUrl.scheme != 'https' && resolvedUrl.scheme != 'http')) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Server did not supply a valid download URL.'),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Server did not supply a valid download URL.'),
+          ),
+        );
       }
       return;
     }

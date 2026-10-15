@@ -37,8 +37,7 @@ class SelectedProviderKeyNotifier extends Notifier<String?> {
     } catch (_) {}
 
     // A user-selected extension must remain selected after app restart.
-    if (sharedPrefs.getString('selected_playback_source_kind') ==
-        'extension') {
+    if (sharedPrefs.getString('selected_playback_source_kind') == 'extension') {
       return null;
     }
     final selectedKey =

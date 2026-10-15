@@ -384,7 +384,9 @@ class DownloadService {
       }
 
       await metaFile.writeAsString(jsonEncode(data), flush: true);
-      AppLogger.i('Saved offline sidecar metadata for ${item.animeTitle} Ep ${item.episodeNumber}');
+      AppLogger.i(
+        'Saved offline sidecar metadata for ${item.animeTitle} Ep ${item.episodeNumber}',
+      );
     } catch (e) {
       AppLogger.w('Failed to save download sidecar metadata: $e');
     }
@@ -538,9 +540,12 @@ Future<DownloadItem> _processFile(
 
   final existing = await file.exists() ? await file.length() : 0;
   final mediaUri = Uri.tryParse(task.item.downloadUrl);
-  if (mediaUri == null || !mediaUri.hasAuthority ||
+  if (mediaUri == null ||
+      !mediaUri.hasAuthority ||
       (mediaUri.scheme != 'http' && mediaUri.scheme != 'https')) {
-    throw FormatException('Cannot download: server returned an invalid media URL');
+    throw FormatException(
+      'Cannot download: server returned an invalid media URL',
+    );
   }
   final req = http.Request('GET', mediaUri);
   req.headers.addAll(task.item.headers.cast());
@@ -606,7 +611,8 @@ Future<DownloadItem> _processM3U8(
   await tempDir.create(recursive: true);
 
   final playlistUri = Uri.tryParse(task.item.downloadUrl);
-  if (playlistUri == null || !playlistUri.hasAuthority ||
+  if (playlistUri == null ||
+      !playlistUri.hasAuthority ||
       (playlistUri.scheme != 'http' && playlistUri.scheme != 'https')) {
     throw FormatException('Cannot download: no valid HLS playlist URL');
   }

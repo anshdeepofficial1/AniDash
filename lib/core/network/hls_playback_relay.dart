@@ -13,10 +13,11 @@ class HlsPlaybackRelay {
 
   final Map<String, String> _headers;
   final _targets = <String, Uri>{};
-  final HttpClient _client = HttpClient()
-    ..connectionTimeout = const Duration(seconds: 20)
-    ..idleTimeout = const Duration(seconds: 30)
-    ..autoUncompress = false;
+  final HttpClient _client =
+      HttpClient()
+        ..connectionTimeout = const Duration(seconds: 20)
+        ..idleTimeout = const Duration(seconds: 30)
+        ..autoUncompress = false;
   HttpServer? _server;
   StreamSubscription<HttpRequest>? _subscription;
   int _nextId = 0;
@@ -29,7 +30,8 @@ class HlsPlaybackRelay {
     Map<String, String> headers,
   ) async {
     final uri = Uri.tryParse(streamUrl);
-    if (uri == null || !uri.hasAuthority ||
+    if (uri == null ||
+        !uri.hasAuthority ||
         (uri.scheme != 'http' && uri.scheme != 'https')) {
       throw ArgumentError.value(streamUrl, 'streamUrl', 'Expected HTTP(S)');
     }
@@ -49,8 +51,10 @@ class HlsPlaybackRelay {
     if (uri.scheme != 'http' && uri.scheme != 'https') {
       throw FormatException('Unexpected URI scheme: ${uri.scheme}');
     }
-    final file = uri.pathSegments.isEmpty ? 'playlist.m3u8'
-        : uri.pathSegments.last.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    final file =
+        uri.pathSegments.isEmpty
+            ? 'playlist.m3u8'
+            : uri.pathSegments.last.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
     final path = '/media/${_nextId++}/${file.isEmpty ? 'stream' : file}';
     _targets[path] = uri;
     return path;
@@ -66,15 +70,20 @@ class HlsPlaybackRelay {
 
   String _rewritePlaylist(String playlist, Uri base) {
     final attributes = RegExp(r'URI="([^"]+)"');
-    return playlist.split(RegExp(r'\r?\n')).map((line) {
-      if (line.startsWith('#')) {
-        return line.replaceAllMapped(attributes, (m) =>
-          'URI="${_relayReference(m.group(1)!, base)}"');
-      }
-      final reference = line.trim();
-      if (reference.isEmpty) return line;
-      return _relayReference(reference, base);
-    }).join('\n');
+    return playlist
+        .split(RegExp(r'\r?\n'))
+        .map((line) {
+          if (line.startsWith('#')) {
+            return line.replaceAllMapped(
+              attributes,
+              (m) => 'URI="${_relayReference(m.group(1)!, base)}"',
+            );
+          }
+          final reference = line.trim();
+          if (reference.isEmpty) return line;
+          return _relayReference(reference, base);
+        })
+        .join('\n');
   }
 
   Future<void> _serve(HttpRequest incoming) async {
@@ -90,15 +99,18 @@ class HlsPlaybackRelay {
         return;
       }
 
-      final request = await _client.openUrl(incoming.method, uri)
+      final request = await _client
+          .openUrl(incoming.method, uri)
           .timeout(const Duration(seconds: 25));
       request.followRedirects = true;
       request.maxRedirects = 5;
       request.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
       for (final header in _headers.entries) {
         final key = header.key.toLowerCase();
-        if (key == 'host' || key == 'content-length' ||
-            key == 'accept-encoding' || key == 'connection') {
+        if (key == 'host' ||
+            key == 'content-length' ||
+            key == 'accept-encoding' ||
+            key == 'connection') {
           continue;
         }
         request.headers.set(header.key, header.value);
@@ -112,7 +124,8 @@ class HlsPlaybackRelay {
       );
       output.statusCode = upstream.statusCode;
       final mime = upstream.headers.contentType?.mimeType.toLowerCase() ?? '';
-      final isPlaylist = uri.path.toLowerCase().endsWith('.m3u8') ||
+      final isPlaylist =
+          uri.path.toLowerCase().endsWith('.m3u8') ||
           uri.path.toLowerCase().endsWith('.m3u') ||
           mime.contains('mpegurl');
       if (incoming.method == 'HEAD') {
@@ -126,10 +139,11 @@ class HlsPlaybackRelay {
       if (isPlaylist && upstream.statusCode == HttpStatus.ok) {
         final text = await utf8.decoder.bind(upstream).join();
         // Redirects can change the base URL of relative segment references.
-        final base = upstream.redirects.isEmpty
-            ? uri : upstream.redirects.last.location;
+        final base =
+            upstream.redirects.isEmpty ? uri : upstream.redirects.last.location;
         output.headers.set(
-          HttpHeaders.contentTypeHeader, 'application/vnd.apple.mpegurl',
+          HttpHeaders.contentTypeHeader,
+          'application/vnd.apple.mpegurl',
         );
         output.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
         output.write(_rewritePlaylist(text, base));
@@ -155,7 +169,9 @@ class HlsPlaybackRelay {
         // The upstream may fail after part of a segment was already sent.
       }
     } finally {
-      try { await output.close(); } catch (_) {}
+      try {
+        await output.close();
+      } catch (_) {}
     }
   }
 

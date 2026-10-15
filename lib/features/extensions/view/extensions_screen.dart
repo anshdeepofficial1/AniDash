@@ -23,9 +23,8 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
 
   String _repoLabel(String url) {
     final uri = Uri.tryParse(url);
-    final name = uri?.pathSegments.isNotEmpty == true
-        ? uri!.pathSegments.last
-        : url;
+    final name =
+        uri?.pathSegments.isNotEmpty == true ? uri!.pathSegments.last : url;
     return Uri.decodeComponent(name);
   }
 
@@ -33,74 +32,96 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
   Widget get repositoryDrawer {
     final theme = Theme.of(context);
 
-    Widget group(
-      String title,
-      List<String> urls,
-      ExtensionType engine,
-    ) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 5),
-          child: Text(title, style: theme.textTheme.labelLarge),
-        ),
-        for (final url in urls)
-          ListTile(
-            selected: _selectedRepository == url,
-            leading: const Icon(Icons.data_object),
-            title: Text(_repoLabel(url), maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-            subtitle: Text(Uri.tryParse(url)?.host ?? url,
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-            onTap: () async {
-              Navigator.of(context).pop();
-              final extensionManager = Get.find<ExtensionManager>();
-              if (ExtensionType.fromManager(extensionManager.currentManager) !=
-                  engine) {
-                extensionManager.setCurrentManager(engine);
-                manager = extensionManager.currentManager;
-                await ProviderScope.containerOf(context)
-                    .read(sourceProvider.notifier).initialize();
-              }
-              if (!mounted) return;
-              setState(() => _selectedRepository = url);
-              await _refreshRepositories();
-            },
-          ),
-      ],
-    );
+    Widget group(String title, List<String> urls, ExtensionType engine) =>
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 5),
+              child: Text(title, style: theme.textTheme.labelLarge),
+            ),
+            for (final url in urls)
+              ListTile(
+                selected: _selectedRepository == url,
+                leading: const Icon(Icons.data_object),
+                title: Text(
+                  _repoLabel(url),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  Uri.tryParse(url)?.host ?? url,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  final extensionManager = Get.find<ExtensionManager>();
+                  if (ExtensionType.fromManager(
+                        extensionManager.currentManager,
+                      ) !=
+                      engine) {
+                    extensionManager.setCurrentManager(engine);
+                    manager = extensionManager.currentManager;
+                    await ProviderScope.containerOf(
+                      context,
+                    ).read(sourceProvider.notifier).initialize();
+                  }
+                  if (!mounted) return;
+                  setState(() => _selectedRepository = url);
+                  await _refreshRepositories();
+                },
+              ),
+          ],
+        );
 
     final mangayomi = ExtensionType.mangayomi.getManager();
     final aniyomi =
         Platform.isAndroid ? ExtensionType.aniyomi.getManager() : null;
     return Drawer(
       child: SafeArea(
-        child: ListView(children: [
-          const ListTile(
-            title: Text('Extension repositories',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Choose a JSON file to browse its sources'),
-          ),
-          ListTile(
-            selected: _selectedRepository == null,
-            leading: const Icon(Icons.apps),
-            title: const Text('All repositories'),
-            onTap: () {
-              setState(() => _selectedRepository = null);
-              Navigator.of(context).pop();
-            },
-          ),
-          group('Mangayomi • Anime',
-              _getSavedAnimeRepos(mangayomi), ExtensionType.mangayomi),
-          group('Mangayomi • Manga',
-              _getSavedMangaRepos(mangayomi), ExtensionType.mangayomi),
-          if (aniyomi != null) ...[
-            group('Aniyomi • Anime',
-                _getSavedAnimeRepos(aniyomi), ExtensionType.aniyomi),
-            group('Aniyomi • Manga',
-                _getSavedMangaRepos(aniyomi), ExtensionType.aniyomi),
+        child: ListView(
+          children: [
+            const ListTile(
+              title: Text(
+                'Extension repositories',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text('Choose a JSON file to browse its sources'),
+            ),
+            ListTile(
+              selected: _selectedRepository == null,
+              leading: const Icon(Icons.apps),
+              title: const Text('All repositories'),
+              onTap: () {
+                setState(() => _selectedRepository = null);
+                Navigator.of(context).pop();
+              },
+            ),
+            group(
+              'Mangayomi • Anime',
+              _getSavedAnimeRepos(mangayomi),
+              ExtensionType.mangayomi,
+            ),
+            group(
+              'Mangayomi • Manga',
+              _getSavedMangaRepos(mangayomi),
+              ExtensionType.mangayomi,
+            ),
+            if (aniyomi != null) ...[
+              group(
+                'Aniyomi • Anime',
+                _getSavedAnimeRepos(aniyomi),
+                ExtensionType.aniyomi,
+              ),
+              group(
+                'Aniyomi • Manga',
+                _getSavedMangaRepos(aniyomi),
+                ExtensionType.aniyomi,
+              ),
+            ],
           ],
-        ]),
+        ),
       ),
     );
   }
@@ -489,9 +510,10 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                                 final isAniyomiRepository =
                                     url.contains('index.min.json') ||
                                     url.contains('aniyomi');
-                                final targetType = isAniyomiRepository
-                                    ? ExtensionType.aniyomi
-                                    : ExtensionType.mangayomi;
+                                final targetType =
+                                    isAniyomiRepository
+                                        ? ExtensionType.aniyomi
+                                        : ExtensionType.mangayomi;
                                 final targetManager = targetType.getManager();
                                 final currentRepos =
                                     isManga
@@ -500,8 +522,9 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                                 if (currentRepos.contains(url)) {
                                   Get.find<ExtensionManager>()
                                       .setCurrentManager(targetType);
-                                  manager = Get.find<ExtensionManager>()
-                                      .currentManager;
+                                  manager =
+                                      Get.find<ExtensionManager>()
+                                          .currentManager;
                                   await targetManager.onRepoSaved(
                                     currentRepos,
                                     selectedType,
@@ -567,13 +590,18 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                                 } else {
                                   Get.find<ExtensionManager>()
                                       .setCurrentManager(targetType);
-                                  manager = Get.find<ExtensionManager>()
-                                      .currentManager;
+                                  manager =
+                                      Get.find<ExtensionManager>()
+                                          .currentManager;
                                   await targetManager.onRepoSaved(
-                                    updated, selectedType,
+                                    updated,
+                                    selectedType,
                                   );
                                   if (!_repositoryLoaded(
-                                      targetManager, selectedType, url)) {
+                                    targetManager,
+                                    selectedType,
+                                    url,
+                                  )) {
                                     throw StateError(
                                       'Repository JSON did not load any usable sources.',
                                     );
@@ -669,7 +697,6 @@ class ExtensionListWidget extends StatefulWidget implements ExtensionConfig {
 }
 
 class _ExtensionListWidgetState extends ExtensionList<ExtensionListWidget> {
-
   @override
   Widget build(BuildContext context) {
     manager = Get.find<ExtensionManager>().currentManager;
@@ -705,10 +732,14 @@ class _ExtensionListWidgetState extends ExtensionList<ExtensionListWidget> {
           await manager.installSource(source);
           final sourceId = source.id;
           final sourceRepo = source.repo ?? widget.repositoryFilter;
-          if (sourceId != null && sourceId.isNotEmpty &&
-              sourceRepo != null && sourceRepo.isNotEmpty) {
-            await sharedPrefs.setString('extension_source_repo_$sourceId',
-                sourceRepo);
+          if (sourceId != null &&
+              sourceId.isNotEmpty &&
+              sourceRepo != null &&
+              sourceRepo.isNotEmpty) {
+            await sharedPrefs.setString(
+              'extension_source_repo_$sourceId',
+              sourceRepo,
+            );
           }
           if (mounted) {
             await ProviderScope.containerOf(
@@ -774,11 +805,15 @@ class _ExtensionListWidgetState extends ExtensionList<ExtensionListWidget> {
           );
           final repo = source.repo ?? widget.repositoryFilter;
           if (source.id != null && repo != null && repo.isNotEmpty) {
-            await sharedPrefs.setString('extension_source_repo_${source.id}', repo);
+            await sharedPrefs.setString(
+              'extension_source_repo_${source.id}',
+              repo,
+            );
           }
           if (mounted) {
-            await ProviderScope.containerOf(context)
-                .read(sourceProvider.notifier).initialize();
+            await ProviderScope.containerOf(
+              context,
+            ).read(sourceProvider.notifier).initialize();
           }
         }
       },

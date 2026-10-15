@@ -301,7 +301,8 @@ class SecurityNotifier extends Notifier<SecurityState> {
   void _applyRecentAppsPrivacy(bool enable) {
     if (!Platform.isAndroid) return;
     try {
-      _channel.invokeMethod('setRecentAppsPrivacy', {'enable': enable})
+      _channel
+          .invokeMethod('setRecentAppsPrivacy', {'enable': enable})
           .catchError((_) {});
     } catch (_) {}
   }
@@ -315,7 +316,9 @@ class SecurityNotifier extends Notifier<SecurityState> {
   void _applySecureFlag(bool enable) {
     if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
-      _channel.invokeMethod('setSecureFlag', {'enable': enable}).catchError((_) {});
+      _channel
+          .invokeMethod('setSecureFlag', {'enable': enable})
+          .catchError((_) {});
     } catch (_) {}
   }
 
