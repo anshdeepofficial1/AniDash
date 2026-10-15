@@ -124,10 +124,9 @@ class ContinueSection extends ConsumerWidget {
               // incorrectly jumping the card to the next episode.
               final unfinished =
                   entry.episodesProgress.values.where((item) {
-                      final duration = item.durationInSeconds ?? 0;
                       final progress = item.progressInSeconds ?? 0;
-                      final ratio = duration > 0 ? progress / duration : 0.0;
-                      return progress > 0 && !item.isCompleted && ratio < 0.90;
+                      return progress > 0 &&
+                          !isEpisodeProgressEffectivelyComplete(item);
                     }).toList()
                     ..sort((a, b) {
                       final aTime = a.watchedAt ?? DateTime(0);
@@ -138,13 +137,11 @@ class ContinueSection extends ConsumerWidget {
                   unfinished.firstOrNull ??
                   entry.episodesProgress[entry.currentEpisode];
 
-              // Keep resuming the current episode unless it is completed or reached the end (within last 45s or >= 90% watched)
-              final dur = currentEp?.durationInSeconds ?? 0;
-              final prog = currentEp?.progressInSeconds ?? 0;
+              // Advance only after the actual end. A partially watched
+              // episode must remain selected after refresh or tracker sync.
               final isCurrentCompleted =
-                  (currentEp?.isCompleted == true) ||
-                  (dur > 0 && (prog / dur) >= 0.90) ||
-                  (dur > 45 && prog >= dur - 45);
+                  currentEp != null &&
+                  isEpisodeProgressEffectivelyComplete(currentEp);
 
               final baseEp =
                   currentEp?.episodeNumber ??

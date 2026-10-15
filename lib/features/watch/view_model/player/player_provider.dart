@@ -213,11 +213,11 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
 
       // ── Instant playback + underrun protection ────────────────────────────
       'cache-pause': 'yes', // Pause gracefully on underrun
-      'cache-pause-wait': '2',
-      // Do not block the very first decoded frame behind an opaque initial
-      // cache threshold. MPV still keeps the 100-second read-ahead above and
-      // pauses cleanly if the network later falls behind.
-      'cache-pause-initial': 'no',
+      // Starting or resuming with only two seconds buffered caused a visible
+      // play/pause loop on segmented HLS hosts. Build a useful reserve first,
+      // then keep the 100-second forward cache filling in the background.
+      'cache-pause-wait': '8',
+      'cache-pause-initial': 'yes',
       // ── Network & Reconnect ───────────────────────────────────────────────
       'network-timeout': '30',
       'stream-lavf-o': 'reconnect=1,reconnect_streamed=1,reconnect_delay_max=5',
@@ -339,42 +339,19 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     // leaving a frozen frame with no feedback.
     state = state.copyWith(isBuffering: true);
     try {
-      // HLS commonly emits a transient segment warning while MPV reconnects.
-      // Escalating after 1.5 seconds caused the source manager to reopen media
-      // during ordinary buffering, producing the exact play-2s/restart loop.
-      await Future<void>.delayed(const Duration(seconds: 6));
-      if (urlAtError == null || urlAtError != _lastUrl) return;
-
-      var currentPosition = _player.state.position;
-      if (currentPosition > positionAtError + const Duration(seconds: 1)) {
-        AppLogger.d('Ignoring recoverable player stream warning: $error');
-        state = state.copyWith(isBuffering: false, clearPlaybackError: true);
-        return;
-      }
-
-      // If MPV is visibly buffering, let its configured reconnect/cache path
-      // finish before considering another server. Switching while buffering
-      // discards the cache and is worse on weak connections.
-      if (_player.state.buffering) {
-        await Future<void>.delayed(const Duration(seconds: 6));
-        if (urlAtError != _lastUrl) return;
+      // HLS may report one failed segment while FFmpeg reconnects. Poll actual
+      // position progress instead of treating a transient error or the
+      // `playing` flag as proof of failure/recovery.
+      var currentPosition = positionAtError;
+      for (var attempt = 0; attempt < 10; attempt++) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (urlAtError == null || urlAtError != _lastUrl) return;
         currentPosition = _player.state.position;
         if (currentPosition > positionAtError + const Duration(seconds: 1)) {
-          AppLogger.d('Stream recovered after extended buffering: $error');
+          AppLogger.d('Stream recovered after segment warning: $error');
           state = state.copyWith(isBuffering: false, clearPlaybackError: true);
           return;
         }
-      }
-
-      // Re-check once after the recovery grace period. A stream which resumed
-      // at the boundary must not receive an error overlay while frames flow.
-      await Future<void>.delayed(const Duration(seconds: 1));
-      if (urlAtError != _lastUrl) return;
-      currentPosition = _player.state.position;
-      if (_player.state.playing ||
-          currentPosition > positionAtError + const Duration(seconds: 1)) {
-        state = state.copyWith(isBuffering: false, clearPlaybackError: true);
-        return;
       }
 
       AppLogger.w('Player stream failure after recovery grace period: $error');
@@ -499,7 +476,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       AppLogger.w('Could not apply stream headers before playback: $error');
     }
     if (openGeneration != _openGeneration) return;
-    _startupTimer = Timer(const Duration(seconds: 15), () {
+    _startupTimer = Timer(const Duration(seconds: 35), () {
       if (openGeneration == _openGeneration &&
           state.isOpening &&
           _player.state.position == Duration.zero) {
