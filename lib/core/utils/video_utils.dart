@@ -2,6 +2,14 @@ import 'package:path/path.dart' as p;
 import 'package:ani_dash/core/network/http_client.dart';
 
 class VideoUtils {
+  static bool isValidNetworkUrl(String? value) {
+    if (value == null || value.trim().isEmpty) return false;
+    final uri = Uri.tryParse(value.trim());
+    return uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty;
+  }
+
   static const List<String> _commonVideoExtensions = [
     '.mp4',
     '.mkv',

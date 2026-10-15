@@ -186,7 +186,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 !episode.isCompleted &&
                 (duration <= 0 || position / duration < 0.90) &&
                 (duration <= 45 || position < duration - 45);
-            if (!isUnfinished) continue;
+            // A tracker value of 4 means episodes 1-4 are completed. A stale
+            // partial E1/E2 must therefore not override the tracker. Only a
+            // partial episode at or beyond the tracker's next episode is
+            // eligible to remain authoritative.
+            if (!isUnfinished || episode.episodeNumber < nextEpisode) continue;
             final currentTime =
                 unfinishedLocalEpisode?.watchedAt ?? DateTime(0);
             final candidateTime = episode.watchedAt ?? DateTime(0);
@@ -225,17 +229,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
         for (int i = 1; i <= watchedCount; i++) {
           final existing = episodesMap[i];
-          final existingDuration = existing?.durationInSeconds ?? 0;
-          final existingPosition = existing?.progressInSeconds ?? 0;
-          final preserveLocalPosition =
-              existing != null &&
-              existingPosition > 0 &&
-              !existing.isCompleted &&
-              (existingDuration <= 0 ||
-                  existingPosition / existingDuration < 0.90) &&
-              (existingDuration <= 45 ||
-                  existingPosition < existingDuration - 45);
-          if (preserveLocalPosition) continue;
+          // Remote progress is authoritative for every completed episode.
+          // Keeping an older local partial here caused EP1/EP2 to reappear
+          // after another device had already advanced the tracker to EP4.
           if (existing == null || !existing.isCompleted) {
             episodesMap[i] = EpisodeProgress(
               episodeNumber: i,
@@ -619,9 +615,15 @@ class _ContinueWatchingSection extends ConsumerWidget {
     ) {
       final media = cloudItem.media;
       final parsed = CloudWatchProgressSync.parseNotes(cloudItem.notes);
-      final targetProgress =
-          parsed?.episode ?? (cloudItem.progress > 0 ? cloudItem.progress : 1);
-      final progressSec = parsed?.seconds ?? 0;
+      final targetProgress = CloudWatchProgressSync.resolveContinueEpisode(
+        trackerProgress: cloudItem.progress,
+        notesEpisode: parsed?.episode,
+        notesSeconds: parsed?.seconds ?? 0,
+        notesDuration: parsed?.duration ?? 0,
+        totalEpisodes: media.episodes ?? 0,
+      );
+      final notesBelongToTarget = parsed?.episode == targetProgress;
+      final progressSec = notesBelongToTarget ? (parsed?.seconds ?? 0) : 0;
       final durationSec = parsed?.duration ?? 1440;
 
       return AnimeWatchProgressEntry(
@@ -666,11 +668,15 @@ class _ContinueWatchingSection extends ConsumerWidget {
           }
         }
 
-        // Merge cloud watching items
+        // Merge cloud watching items. Tracker progress wins over stale local
+        // episodes, while a genuinely later local partial session stays.
         for (final cloudItem in cloudWatching) {
           final media = cloudItem.media;
-          if (!merged.containsKey(media.id)) {
-            merged[media.id] = createCloudProgressEntry(cloudItem);
+          final cloudEntry = createCloudProgressEntry(cloudItem);
+          final local = merged[media.id];
+          if (local == null ||
+              local.currentEpisode < cloudEntry.currentEpisode) {
+            merged[media.id] = cloudEntry;
           }
         }
 

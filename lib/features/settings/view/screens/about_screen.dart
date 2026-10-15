@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:ani_dash/shared/ui/brand_logo.dart';
 import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 
@@ -157,7 +161,11 @@ class AboutScreen extends StatelessWidget {
                               color: Colors.pinkAccent.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.favorite_rounded, color: Colors.pinkAccent, size: 24),
+                            child: const Icon(
+                              Icons.favorite_rounded,
+                              color: Colors.pinkAccent,
+                              size: 24,
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -305,10 +313,7 @@ class AboutScreen extends StatelessWidget {
                         context,
                         icon: Iconsax.message,
                         label: 'Report Issue',
-                        onTap:
-                            () => _launchUrl(
-                              'https://github.com/anshdeepofficial1/AniDash/issues',
-                            ),
+                        onTap: () => _showReportOptions(context),
                       ),
                     ),
                   ],
@@ -634,5 +639,89 @@ class AboutScreen extends StatelessWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }
+  }
+
+  Future<void> _showReportOptions(BuildContext context) async {
+    final info = await PackageInfo.fromPlatform();
+    if (!context.mounted) return;
+    final report = '''AniDash issue report
+
+Version: ${info.version} (${info.buildNumber})
+Platform: ${Platform.operatingSystem}
+
+What happened:
+
+Steps to reproduce:
+
+Expected result:
+''';
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder:
+          (sheetContext) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Report an issue',
+                    style: Theme.of(sheetContext).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Use GitHub for tracked reports, or share a prepared report through any app—no GitHub account needed.',
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    leading: const Icon(Iconsax.code),
+                    title: const Text('Report on GitHub'),
+                    subtitle: const Text(
+                      'Best for updates and follow-up replies',
+                    ),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _launchUrl(
+                        'https://github.com/anshdeepofficial1/AniDash/issues/new/choose',
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Iconsax.share),
+                    title: const Text('Share report'),
+                    subtitle: const Text(
+                      'Send through email, messaging, or another app',
+                    ),
+                    onTap: () async {
+                      Navigator.pop(sheetContext);
+                      await SharePlus.instance.share(
+                        ShareParams(
+                          text: report,
+                          subject: 'AniDash issue report',
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Iconsax.copy),
+                    title: const Text('Copy report template'),
+                    onTap: () async {
+                      await Clipboard.setData(ClipboardData(text: report));
+                      if (!sheetContext.mounted) return;
+                      Navigator.pop(sheetContext);
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Issue template copied.')),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
   }
 }

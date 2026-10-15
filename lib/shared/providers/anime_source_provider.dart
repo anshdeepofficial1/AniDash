@@ -68,15 +68,7 @@ final selectedAnimeProvider = Provider<AnimeProvider?>((ref) {
   final registry = ref.watch(animeSourceRegistryProvider);
   final key = ref.watch(selectedProviderKeyProvider);
   if (key != null && key.isNotEmpty) {
-    final p = registry.get(key.trim().toLowerCase());
-    if (p != null) return p;
+    return registry.get(key.trim().toLowerCase());
   }
-  // A stale/deleted selection must not silently pin playback back to
-  // JustAnime. Prefer the fast fallback chain instead.
-  return registry.get('hianime') ??
-      registry.get('anikoto') ??
-      registry.get('justanime') ??
-      registry.get('aniwatch') ??
-      registry.get('gojo') ??
-      registry.values.firstOrNull;
+  return registry.get('justanime');
 });

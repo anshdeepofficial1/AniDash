@@ -33,6 +33,7 @@ class AiStateRepository {
   static const _chatHistoryKey = 'ai_chat_history_v1';
   static const _conversationsKey = 'ai_conversations_v2';
   static const _activeConversationKey = 'ai_active_conversation_v2';
+  static const _pendingRequestKey = 'ai_pending_request_v1';
 
   List<Map<String, Object?>> get plans => _readList(_plansKey);
   List<Map<String, Object?>> get jobs => _readList(_jobsKey);
@@ -80,6 +81,26 @@ class AiStateRepository {
 
   Future<void> setActiveConversation(String id) =>
       sharedPrefs.setString(_activeConversationKey, id);
+
+  Map<String, Object?>? get pendingRequest {
+    try {
+      final raw = sharedPrefs.getString(_pendingRequestKey);
+      if (raw == null || raw.isEmpty) return null;
+      return Map<String, Object?>.from(jsonDecode(raw) as Map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> savePendingRequest({
+    required String conversationId,
+    required String message,
+  }) => sharedPrefs.setString(
+    _pendingRequestKey,
+    jsonEncode({'conversationId': conversationId, 'message': message}),
+  );
+
+  Future<void> clearPendingRequest() => sharedPrefs.remove(_pendingRequestKey);
 
   Future<String> createShareLink(
     List<Map<String, Object?>> messages, {

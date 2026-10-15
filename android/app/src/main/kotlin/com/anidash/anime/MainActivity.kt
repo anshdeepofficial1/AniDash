@@ -6,6 +6,8 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.hardware.display.DisplayManager
 import android.view.Display
@@ -469,6 +471,9 @@ class MainActivity : FlutterFragmentActivity() {
 
                                 startActivity(intent)
                                 result.success(true)
+                                Handler(Looper.getMainLooper()).postDelayed({
+                                    if (!isFinishing) finishAndRemoveTask()
+                                }, 250L)
                             } catch (e: Exception) {
                                 result.error("INSTALL_FAILED", e.localizedMessage, null)
                             }

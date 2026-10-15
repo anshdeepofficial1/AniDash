@@ -122,7 +122,6 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   String? _lastUrl;
   Map<String, String>? _lastHeaders;
   bool _lastIsHls = false;
-  bool _useRelayForRetry = false;
   HlsPlaybackRelay? _hlsRelay;
   Duration? _pendingSeekTarget;
   Timer? _seekTimeout;
@@ -166,6 +165,19 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     final settings = ref.read(playerSettingsProvider);
     final mpvSettings = settings.mpvSettings;
     final vo = mpvSettings['vo'];
+    final configuredHwdec = mpvSettings['hwdec']?.trim().toLowerCase();
+    // Direct MediaCodec surfaces can repeatedly flush/corrupt frames on some
+    // Samsung Exynos devices while HLS audio keeps advancing. Copy mode keeps
+    // hardware decoding but moves decoded frames through MPV's stable render
+    // path. Honour explicit software/copy choices; make Auto device-safe.
+    final effectiveHwdec =
+        Platform.isAndroid &&
+                (configuredHwdec == null ||
+                    configuredHwdec.isEmpty ||
+                    configuredHwdec == 'auto' ||
+                    configuredHwdec == 'auto-safe')
+            ? 'mediacodec-copy'
+            : (configuredHwdec ?? 'auto-safe');
     final bufferSize = ref.read(
       playerSettingsProvider.select((s) => s.bufferSize),
     );
@@ -188,9 +200,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     );
 
     _playbackProperties = <String, String>{
-      // Hardware acceleration via GPU (DirectX D3D11VA on Windows)
-      // relieves CPU and memory bandwidth during high system consumption.
-      'hwdec': 'auto-safe',
+      'hwdec': effectiveHwdec,
 
       // ── High Performance & Anti-Stutter (Low-Latency Profile) ─────────────
       // Automatically drop video frames if presentation falls behind audio clock,
@@ -369,7 +379,8 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       state = state.copyWith(
         isOpening: false,
         isBuffering: false,
-        playbackError: 'Playback failed: $error',
+        playbackError:
+            'This server stopped responding. Retry this server or try another server.',
       );
     } finally {
       _automaticRetryInFlight = false;
@@ -403,9 +414,6 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         episode != null &&
         mediaId == _activeMediaId &&
         episode == _activeEpisode;
-    if (!isSameSession || (_lastUrl != null && _lastUrl != url)) {
-      _useRelayForRetry = false;
-    }
     final requiresPipelineReset =
         !isSameSession ||
         (_lastUrl != null && _lastUrl != url) ||
@@ -467,10 +475,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     var playbackUrl = url;
     var playbackHeaders = effectiveHeaders;
     final uri = Uri.tryParse(url);
-    // The original MPV path already plays successfully on devices.
-    // Only enable the local relay after a user-initiated Retry.
+    // Android MPV/FFmpeg can lose provider headers or time out on HLS
+    // segments even after its manifest loaded. Keep every HLS request on the
+    // same authenticated Dart HTTP stack from the first attempt.
     final useLocalHlsRelay =
-        _useRelayForRetry &&
         Platform.isAndroid &&
         (_lastIsHls || (uri?.path.toLowerCase().endsWith('.m3u8') ?? false));
     if (useLocalHlsRelay) {
@@ -580,7 +588,6 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
             : (_lastStablePosition > Duration.zero
                 ? _lastStablePosition
                 : null);
-    _useRelayForRetry = true;
     await open(
       url,
       pos,
@@ -617,7 +624,6 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     _lastUrl = null;
     _lastHeaders = null;
     _lastIsHls = false;
-    _useRelayForRetry = false;
     _activeMediaId = null;
     _activeEpisode = null;
     _lastStablePosition = Duration.zero;

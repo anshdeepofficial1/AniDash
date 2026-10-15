@@ -8,8 +8,8 @@ const anyCoreEnabledKey = 'anycore_enabled';
 
 final ValueNotifier<int> anyCoreSettingsRevision = ValueNotifier<int>(0);
 
-/// Original two-tone CoreBall emblem. The colors follow the app theme.
-/// Rotation is used by the same component for AniCORE thinking and search.
+/// The shared AnyCore mark used everywhere AI is surfaced in AniDash.
+/// It is an original split core-ball whose accent follows the app theme.
 class AniDashAiEmblem extends StatefulWidget {
   const AniDashAiEmblem({super.key, this.size = 24, this.animate});
 
@@ -78,7 +78,7 @@ class _AniDashAiEmblemState extends State<AniDashAiEmblem>
       ),
     );
     return Semantics(
-      label: 'AniCORE',
+      label: 'AnyCore',
       image: true,
       child:
           _shouldAnimate

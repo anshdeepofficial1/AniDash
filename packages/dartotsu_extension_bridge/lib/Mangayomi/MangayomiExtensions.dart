@@ -10,6 +10,7 @@ class MangayomiExtensions extends Extension {
   }
 
   final _manager = Get.put(MangayomiExtensionManager());
+  Future<int>? _restoreDefaultsFuture;
 
   @override
   Future<void> initialize() async {
@@ -27,10 +28,18 @@ class MangayomiExtensions extends Extension {
       fetchAvailableNovelExtensions(settings.mangayomiNovelExtensions),
     ]);
 
-    _autoInstallDefaults();
+    // Defaults are restored explicitly from the Extensions screen. This
+    // respects a user's decision to uninstall a source and avoids duplicate
+    // startup installs racing each other.
   }
 
-  Future<void> _autoInstallDefaults() async {
+  Future<int> restoreDefaultAnimeSources() {
+    return _restoreDefaultsFuture ??= _restoreDefaultAnimeSources()
+        .whenComplete(() => _restoreDefaultsFuture = null);
+  }
+
+  Future<int> _restoreDefaultAnimeSources() async {
+    var installedCount = 0;
     try {
       final installedNames =
           getInstalledRx(ItemType.anime).value
@@ -81,42 +90,17 @@ class MangayomiExtensions extends Extension {
               '[EXT_AUTO_INSTALL] Installing default anime extension: ${match.name} (${match.version})',
             );
             await installSource(match);
-          }
-        }
-      }
-
-      // Auto-install default verified Manga extensions
-      final installedManga =
-          getInstalledRx(
-            ItemType.manga,
-          ).value.map((e) => e.name?.toLowerCase() ?? '').toSet();
-      final availableManga = getAvailableRx(ItemType.manga).value;
-      const targetManga = ['mangadex'];
-
-      for (final target in targetManga) {
-        if (!installedManga.contains(target)) {
-          final match =
-              availableManga.firstWhereOrNull(
-                (s) =>
-                    s.name?.toLowerCase() == target &&
-                    (s.lang == 'en' || s.lang == 'all'),
-              ) ??
-              availableManga.firstWhereOrNull(
-                (s) => s.name?.toLowerCase() == target,
-              );
-
-          if (match != null) {
-            match.itemType = ItemType.manga;
-            debugPrint(
-              '[EXT_AUTO_INSTALL] Installing default manga extension: ${match.name} (${match.version})',
-            );
-            await installSource(match);
+            installedNames.add(target);
+            installedCount++;
           }
         }
       }
     } catch (e) {
       debugPrint('[EXT_AUTO_INSTALL] Error installing defaults: $e');
+      rethrow;
     }
+    await getInstalledAnimeExtensions();
+    return installedCount;
   }
 
   @override

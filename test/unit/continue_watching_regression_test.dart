@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
+import 'package:ani_dash/core/utils/cloud_watch_progress_sync.dart';
 
 void main() {
   group('Continue Watching regressions', () {
@@ -82,6 +83,42 @@ void main() {
           durationInSeconds: 23 * 60,
         ),
         isTrue,
+      );
+    });
+
+    test('remote EP4 progress advances stale local notes to EP5', () {
+      expect(
+        CloudWatchProgressSync.resolveContinueEpisode(
+          trackerProgress: 4,
+          notesEpisode: 2,
+          notesSeconds: 600,
+          notesDuration: 1440,
+          totalEpisodes: 12,
+        ),
+        5,
+      );
+    });
+
+    test('partial next episode from tracker notes is preserved', () {
+      expect(
+        CloudWatchProgressSync.resolveContinueEpisode(
+          trackerProgress: 4,
+          notesEpisode: 5,
+          notesSeconds: 600,
+          notesDuration: 1440,
+          totalEpisodes: 12,
+        ),
+        5,
+      );
+    });
+
+    test('completed tracker series does not advance beyond final episode', () {
+      expect(
+        CloudWatchProgressSync.resolveContinueEpisode(
+          trackerProgress: 12,
+          totalEpisodes: 12,
+        ),
+        12,
       );
     });
   });
