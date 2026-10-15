@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart'
     hide Extension;
@@ -69,7 +71,8 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
     );
 
     final mangayomi = ExtensionType.mangayomi.getManager();
-    final aniyomi = ExtensionType.aniyomi.getManager();
+    final aniyomi =
+        Platform.isAndroid ? ExtensionType.aniyomi.getManager() : null;
     return Drawer(
       child: SafeArea(
         child: ListView(children: [
@@ -91,10 +94,12 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
               _getSavedAnimeRepos(mangayomi), ExtensionType.mangayomi),
           group('Mangayomi • Manga',
               _getSavedMangaRepos(mangayomi), ExtensionType.mangayomi),
-          group('Aniyomi • Anime',
-              _getSavedAnimeRepos(aniyomi), ExtensionType.aniyomi),
-          group('Aniyomi • Manga',
-              _getSavedMangaRepos(aniyomi), ExtensionType.aniyomi),
+          if (aniyomi != null) ...[
+            group('Aniyomi • Anime',
+                _getSavedAnimeRepos(aniyomi), ExtensionType.aniyomi),
+            group('Aniyomi • Manga',
+                _getSavedMangaRepos(aniyomi), ExtensionType.aniyomi),
+          ],
         ]),
       ),
     );
@@ -139,10 +144,12 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
         ExtensionType.fromManager(manager) == ExtensionType.aniyomi;
     final saved = sharedPrefs.getStringList('saved_anime_repos') ?? const [];
     if (isAniyomi) {
-      return saved
-          .where((url) => url.contains('index.min.json'))
-          .toSet()
-          .toList();
+      return <String>{
+        'https://kohiden.xyz/Kohi-den/extensions/raw/branch/main/index.min.json',
+        'https://raw.githubusercontent.com/yuzono/anime-repo/repo/index.min.json',
+        'https://raw.githubusercontent.com/Secozzi/aniyomi-extensions/refs/heads/repo/index.min.json',
+        ...saved.where((url) => url.contains('index.min.json')),
+      }.toList();
     }
     final repos = <String>{
       'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
@@ -159,10 +166,10 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
         ExtensionType.fromManager(manager) == ExtensionType.aniyomi;
     final saved = sharedPrefs.getStringList('saved_manga_repos') ?? const [];
     if (isAniyomi) {
-      return saved
-          .where((url) => url.contains('index.min.json'))
-          .toSet()
-          .toList();
+      return <String>{
+        'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json',
+        ...saved.where((url) => url.contains('index.min.json')),
+      }.toList();
     }
     final repos = <String>{
       'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
