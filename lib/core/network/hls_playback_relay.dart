@@ -116,7 +116,9 @@ class HlsPlaybackRelay {
       if (incoming.method == 'HEAD') {
         final length = upstream.contentLength;
         if (length >= 0) output.contentLength = length;
-        if (mime.isNotEmpty) output.headers.set(HttpHeaders.contentTypeHeader, mime);
+        if (mime.isNotEmpty) {
+          output.headers.set(HttpHeaders.contentTypeHeader, mime);
+        }
         return;
       }
       if (isPlaylist && upstream.statusCode == HttpStatus.ok) {
