@@ -1,0 +1,39 @@
+name: Diagnose streaming and extension fixes
+
+on:
+  push:
+    branches:
+      - fix/streaming-extension-repositories-20261015
+
+permissions:
+  contents: read
+
+jobs:
+  static-analysis-and-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          cache: true
+      - name: Resolve Flutter packages
+        run: flutter pub get
+      - name: Check changed Dart files
+        continue-on-error: true
+        run: |
+          dart format --output=none --set-exit-if-changed \
+            lib/core/network/hls_playback_relay.dart \
+            lib/core/services/backup_service.dart \
+            lib/features/extensions/view/extensions_screen.dart \
+            lib/features/watch/view_model/player/player_provider.dart \
+            packages/dartotsu_extension_bridge/lib/Mangayomi/MangayomiExtensionManager.dart \
+            test/unit/hls_playback_relay_test.dart
+      - name: Analyze Dart code
+        continue-on-error: true
+        run: flutter analyze --no-pub
+      - name: Run streaming regression tests (no APK build)
+        run: |
+          flutter test test/unit/hls_playback_relay_test.dart
+          flutter test test/unit/stream_headers_test.dart
