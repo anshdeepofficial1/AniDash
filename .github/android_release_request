@@ -1,3 +1,4 @@
-v1.15.9
-reason=playback-buffering-header-hotfix
-attempt=6-signing-alias-autodetect
+v1.20.2
+reason=streaming-source-consistency-extension-repositories-anycore-voice-and-update-recents
+build=android-signed-universal
+run=1
