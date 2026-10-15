@@ -6,14 +6,10 @@ import 'package:flutter/material.dart';
 const anyCoreLogoAnimationKey = 'anycore_logo_animation';
 const anyCoreEnabledKey = 'anycore_enabled';
 
-/// Broadcasts AnyCore preference changes to already-mounted shortcuts and
-/// emblems. SharedPreferences persists the setting; this notifier makes the
-/// same change visible immediately without restarting AniDash.
 final ValueNotifier<int> anyCoreSettingsRevision = ValueNotifier<int>(0);
 
-/// The shared AniDash AI mark used everywhere AI is surfaced in AniDash.
-/// Features a modern, sleek AI sparkle constellation that seamlessly blends
-/// with the app's Iconsax design language.
+/// Original two-tone CoreBall emblem. The colors follow the app theme.
+/// Rotation is used by the same component for AniCORE thinking and search.
 class AniDashAiEmblem extends StatefulWidget {
   const AniDashAiEmblem({super.key, this.size = 24, this.animate});
 
@@ -28,24 +24,8 @@ class _AniDashAiEmblemState extends State<AniDashAiEmblem>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2400),
+    duration: const Duration(milliseconds: 1900),
   );
-  late final Animation<double> _scaleAnimation = TweenSequence<double>([
-    TweenSequenceItem(
-      tween: Tween<double>(
-        begin: 1.0,
-        end: 1.08,
-      ).chain(CurveTween(curve: Curves.easeInOut)),
-      weight: 50,
-    ),
-    TweenSequenceItem(
-      tween: Tween<double>(
-        begin: 1.08,
-        end: 1.0,
-      ).chain(CurveTween(curve: Curves.easeInOut)),
-      weight: 50,
-    ),
-  ]).animate(_controller);
 
   bool get _shouldAnimate =>
       widget.animate ?? (sharedPrefs.getBool(anyCoreLogoAnimationKey) ?? true);
@@ -53,17 +33,17 @@ class _AniDashAiEmblemState extends State<AniDashAiEmblem>
   @override
   void initState() {
     super.initState();
-    anyCoreSettingsRevision.addListener(_handleSettingsChanged);
-    if (_shouldAnimate) _controller.repeat();
+    anyCoreSettingsRevision.addListener(_settingsChanged);
+    _updateAnimation();
   }
 
-  void _handleSettingsChanged() {
-    if (mounted) setState(() {});
+  void _settingsChanged() {
+    if (!mounted) return;
+    setState(() {});
+    _updateAnimation();
   }
 
-  @override
-  void didUpdateWidget(covariant AniDashAiEmblem oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  void _updateAnimation() {
     if (_shouldAnimate && !_controller.isAnimating) {
       _controller.repeat();
     } else if (!_shouldAnimate && _controller.isAnimating) {
@@ -72,121 +52,113 @@ class _AniDashAiEmblemState extends State<AniDashAiEmblem>
   }
 
   @override
+  void didUpdateWidget(covariant AniDashAiEmblem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _updateAnimation();
+  }
+
+  @override
   void dispose() {
-    anyCoreSettingsRevision.removeListener(_handleSettingsChanged);
+    anyCoreSettingsRevision.removeListener(_settingsChanged);
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_shouldAnimate && !_controller.isAnimating) _controller.repeat();
-    if (!_shouldAnimate && _controller.isAnimating) _controller.stop();
     final scheme = Theme.of(context).colorScheme;
-
-    Widget child = SizedBox.square(
+    final ball = SizedBox.square(
       dimension: widget.size,
       child: CustomPaint(
-        painter: _AniDashAiSparklePainter(
-          primaryColor: scheme.primary,
-          secondaryColor: scheme.tertiary,
+        painter: _CoreBallPainter(
+          accent: scheme.primary,
+          surface: scheme.surfaceContainerHighest,
+          border: scheme.onSurface,
         ),
       ),
     );
-
-    if (_shouldAnimate) {
-      child = ScaleTransition(scale: _scaleAnimation, child: child);
-    }
-
-    return Semantics(label: 'AniDash AI', image: true, child: child);
+    return Semantics(
+      label: 'AniCORE',
+      image: true,
+      child: _shouldAnimate
+          ? RotationTransition(turns: _controller, child: ball)
+          : ball,
+    );
   }
 }
 
-class _AniDashAiSparklePainter extends CustomPainter {
-  const _AniDashAiSparklePainter({
-    required this.primaryColor,
-    required this.secondaryColor,
+class _CoreBallPainter extends CustomPainter {
+  const _CoreBallPainter({
+    required this.accent,
+    required this.surface,
+    required this.border,
   });
 
-  final Color primaryColor;
-  final Color secondaryColor;
+  final Color accent;
+  final Color surface;
+  final Color border;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    if (w <= 0 || h <= 0) return;
+    final diameter = math.min(size.width, size.height);
+    if (diameter <= 0) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = diameter * .45;
+    final circle = Path()
+      ..addOval(Rect.fromCircle(center: center, radius: radius));
+    canvas.save();
+    canvas.clipPath(circle);
 
-    final center = Offset(w * 0.44, h * 0.54);
-    final mainRadius = math.min(w, h) * 0.38;
-
-    final paint =
-        Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color.lerp(primaryColor, Colors.white, 0.35)!,
-              primaryColor,
-              secondaryColor,
-            ],
-          ).createShader(Rect.fromLTWH(0, 0, w, h))
-          ..style = PaintingStyle.fill
-          ..isAntiAlias = true;
-
-    // 1. Primary 4-pointed curved star in center
-    final mainStar = _createSparklePath(center, mainRadius, 0.22);
-    canvas.drawPath(mainStar, paint);
-
-    // 2. Secondary satellite sparkle at top-right
-    final secCenter = Offset(w * 0.80, h * 0.24);
-    final secRadius = mainRadius * 0.46;
-    final secStar = _createSparklePath(secCenter, secRadius, 0.24);
-    canvas.drawPath(secStar, paint);
-
-    // 3. Subtle tertiary sparkle at bottom-left
-    final tertCenter = Offset(w * 0.16, h * 0.82);
-    final tertRadius = mainRadius * 0.22;
-    final tertStar = _createSparklePath(tertCenter, tertRadius, 0.26);
-    canvas.drawPath(tertStar, paint);
-  }
-
-  Path _createSparklePath(Offset center, double radius, double insetFactor) {
-    final path = Path();
-    final r = radius;
-    final inset = r * insetFactor;
-
-    path.moveTo(center.dx, center.dy - r);
-    path.quadraticBezierTo(
-      center.dx + inset,
-      center.dy - inset,
-      center.dx + r,
-      center.dy,
+    canvas.drawRect(
+      Rect.fromLTRB(
+        center.dx - radius, center.dy - radius,
+        center.dx + radius, center.dy,
+      ),
+      Paint()..color = accent,
     );
-    path.quadraticBezierTo(
-      center.dx + inset,
-      center.dy + inset,
-      center.dx,
-      center.dy + r,
+    canvas.drawRect(
+      Rect.fromLTRB(
+        center.dx - radius, center.dy,
+        center.dx + radius, center.dy + radius,
+      ),
+      Paint()..color = surface,
     );
-    path.quadraticBezierTo(
-      center.dx - inset,
-      center.dy + inset,
-      center.dx - r,
-      center.dy,
+    canvas.drawLine(
+      Offset(center.dx - radius, center.dy),
+      Offset(center.dx + radius, center.dy),
+      Paint()
+        ..color = border
+        ..strokeWidth = diameter * .092
+        ..strokeCap = StrokeCap.round,
     );
-    path.quadraticBezierTo(
-      center.dx - inset,
-      center.dy - inset,
-      center.dx,
-      center.dy - r,
+    canvas.restore();
+
+    final outline = Paint()
+      ..color = border
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = diameter * .085;
+    canvas.drawCircle(center, radius, outline);
+    canvas.drawCircle(
+      center, radius * .26,
+      Paint()..color = surface,
     );
-    path.close();
-    return path;
+    canvas.drawCircle(
+      center, radius * .26,
+      Paint()
+        ..color = border
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = diameter * .07,
+    );
+    canvas.drawCircle(
+      Offset(center.dx - radius * .46, center.dy - radius * .46),
+      radius * .12,
+      Paint()..color = Colors.white.withValues(alpha: .45),
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _AniDashAiSparklePainter oldDelegate) =>
-      oldDelegate.primaryColor != primaryColor ||
-      oldDelegate.secondaryColor != secondaryColor;
+  bool shouldRepaint(covariant _CoreBallPainter other) =>
+      other.accent != accent ||
+      other.surface != surface ||
+      other.border != border;
 }
