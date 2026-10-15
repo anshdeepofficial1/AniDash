@@ -1572,7 +1572,8 @@ class EpisodeData extends _$EpisodeData {
     final isNative = _isNativeProvider;
     final activeExt =
         ref.read(sourceProvider).activeAnimeSource?.name?.toLowerCase() ?? '';
-    final extensionIsSelected = !isNative &&
+    final extensionIsSelected =
+        !isNative &&
         _exp.useExtensions &&
         ref.read(sourceProvider).activeAnimeSource != null;
     final isJustAnime =
