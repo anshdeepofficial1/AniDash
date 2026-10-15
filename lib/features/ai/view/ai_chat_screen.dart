@@ -131,7 +131,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       if (!mounted) return;
       final pending = sharedPrefs.getString(_pendingKey);
       if (pending != null && pending.trim().isNotEmpty) {
-        unawaited(_send(pending, resuming: true));
+        unawaited(_send(pending, true));
       }
     });
   }
