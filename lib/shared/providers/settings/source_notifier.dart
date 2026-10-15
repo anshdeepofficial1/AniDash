@@ -129,11 +129,7 @@ class SourceNotifier extends _$SourceNotifier {
     switch (type) {
       case ItemType.anime:
         final merged = <String, Source>{};
-        for (final s in [
-          ...state.installedAnimeExtensions,
-          ...state.installedAdultAnimeExtensions,
-          ...extensions,
-        ]) {
+        for (final s in extensions) {
           final key = s.id ?? s.name ?? '';
           if (key.isNotEmpty) merged[key] = s;
         }
@@ -146,11 +142,7 @@ class SourceNotifier extends _$SourceNotifier {
         break;
       case ItemType.manga:
         final merged = <String, Source>{};
-        for (final s in [
-          ...state.installedMangaExtensions,
-          ...state.installedAdultMangaExtensions,
-          ...extensions,
-        ]) {
+        for (final s in extensions) {
           final key = s.id ?? s.name ?? '';
           if (key.isNotEmpty) merged[key] = s;
         }
@@ -170,14 +162,18 @@ class SourceNotifier extends _$SourceNotifier {
 
   void _restoreActiveSources() {
     final savedAnimeId = _repo.getActiveAnimeSourceId();
+    // An explicit saved selection must not silently fall back to JustAnime
+    // when switching extension engines or while a repository is still loading.
     final activeAnime =
         state.installedAnimeExtensions.firstWhereOrNull(
           (s) => s.id == savedAnimeId && !_isAdultSource(s),
         ) ??
-        state.installedAnimeExtensions.firstWhereOrNull(
-          (s) => (s.name ?? '').toLowerCase().contains('justanime'),
-        ) ??
-        state.installedAnimeExtensions.firstOrNull;
+        (savedAnimeId == null
+            ? (state.installedAnimeExtensions.firstWhereOrNull(
+                  (s) => (s.name ?? '').toLowerCase().contains('justanime'),
+                ) ??
+                state.installedAnimeExtensions.firstOrNull)
+            : null);
 
     final activeAdult = state.installedAdultAnimeExtensions.firstOrNull;
 
@@ -253,27 +249,36 @@ class SourceNotifier extends _$SourceNotifier {
 
   Future<void> fetchSources(ItemType mediaType) async {
     final extensionManager = Get.find<ExtensionManager>();
-    if (ExtensionType.fromManager(extensionManager.currentManager) !=
-        ExtensionType.mangayomi) {
-      extensionManager.setCurrentManager(ExtensionType.mangayomi);
-    }
+    // Loading available repositories must not change the user's selected
+    // AniYomi/MangaYomi engine as a side effect.
     final manager = extensionManager.currentManager;
+    final isAniyomi =
+        ExtensionType.fromManager(manager) == ExtensionType.aniyomi;
     if (mediaType == ItemType.anime) {
       final savedList = sharedPrefs.getStringList('saved_anime_repos') ?? [];
       final repos =
           <String>{
-            'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
-            'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime_index.json',
-            ...savedList.where((url) => !url.contains('index.min.json')),
+            if (!isAniyomi)
+              'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
+            if (!isAniyomi)
+              'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime_index.json',
+            ...savedList.where(
+              (url) => isAniyomi
+                  ? url.contains('index.min.json')
+                  : !url.contains('index.min.json'),
+            ),
           }.toList();
       await manager.fetchAvailableAnimeExtensions(repos);
     } else if (mediaType == ItemType.manga) {
       final repos =
           <String>{
-            'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
+            if (!isAniyomi)
+              'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
             ...?sharedPrefs
                 .getStringList('saved_manga_repos')
-                ?.where((url) => !url.contains('index.min.json')),
+                ?.where((url) => isAniyomi
+                    ? url.contains('index.min.json')
+                    : !url.contains('index.min.json')),
           }.toList();
       await manager.fetchAvailableMangaExtensions(repos);
     } else {
