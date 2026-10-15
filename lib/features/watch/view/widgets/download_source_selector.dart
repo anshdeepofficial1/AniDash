@@ -219,7 +219,7 @@ class _DownloadSourceSelectorState
     final isM3U8 = matchedSource.isM3U8 || downloadUrl.contains('.m3u8');
 
     // If source is M3U8, try to extract matching quality sub-playlist
-    if (matchedSource != null && isM3U8) {
+    if (isM3U8) {
       try {
         final extracted = await extractor
             .extractQualities(
@@ -285,7 +285,7 @@ class _DownloadSourceSelectorState
       headers: {
         'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        ...?matchedSource?.headers,
+        ...?matchedSource.headers,
       },
       isAdult: widget.isAdult,
       audioLanguage:
