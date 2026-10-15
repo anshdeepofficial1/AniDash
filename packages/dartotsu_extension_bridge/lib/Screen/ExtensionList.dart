@@ -86,11 +86,19 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
               : selectedLanguage;
 
       final Map<String, List<Source>> grouped = {};
+      final seenSourceIds = <String>{};
       for (final source in fullList) {
         final repoFilter = config.repositoryFilter;
         if (repoFilter != null &&
             (source.repo ?? config.assignedRepoFor(source.id ?? '')) !=
                 repoFilter) {
+          continue;
+        }
+        // A source can occur in multiple JSON catalogs. Keep each catalog's
+        // own entries when filtered, but avoid duplicate clones in "All".
+        final uniqueKey = '${source.extensionType?.index}:${source.id}';
+        if (source.id?.isNotEmpty == true &&
+            !seenSourceIds.add(uniqueKey)) {
           continue;
         }
         final lang = source.lang ?? 'Unknown';
