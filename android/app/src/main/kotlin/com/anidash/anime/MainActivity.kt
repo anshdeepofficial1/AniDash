@@ -20,6 +20,7 @@ import android.content.ComponentName
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.app.ActivityManager
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
@@ -42,6 +43,26 @@ class MainActivity : FlutterFragmentActivity() {
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     private var hasAudioFocus = false
+    private val updateTaskPrefs by lazy {
+        getSharedPreferences("anidash_updater", Context.MODE_PRIVATE)
+    }
+
+    private fun removeOldUpdateTasks() {
+        if (!updateTaskPrefs.getBoolean("deduplicate_after_install", false)) return
+        updateTaskPrefs.edit().remove("deduplicate_after_install").apply()
+        try {
+            val manager = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            manager?.appTasks?.forEach { appTask ->
+                val info = appTask.taskInfo
+                if (info.taskId != taskId &&
+                    info.baseActivity?.packageName == packageName) {
+                    appTask.finishAndRemoveTask()
+                }
+            }
+        } catch (_: Exception) {
+            // OEMs can restrict task enumeration; do not interrupt startup.
+        }
+    }
     private var pipIsPlaying = true
 
     companion object {
@@ -392,6 +413,12 @@ class MainActivity : FlutterFragmentActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "anidash/updater")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "markUpdateInstall" -> {
+                        updateTaskPrefs.edit()
+                            .putBoolean("deduplicate_after_install", true)
+                            .apply()
+                        result.success(true)
+                    }
                     "canInstallPackages" -> result.success(
                         Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
                             packageManager.canRequestPackageInstalls()
@@ -544,6 +571,7 @@ class MainActivity : FlutterFragmentActivity() {
         super.onResume()
         isInForeground = true
         updateSecureFlag()
+        removeOldUpdateTasks()
         if (shouldInterceptVolumeKeys) {
             interceptVolumeKeys = true
         }
