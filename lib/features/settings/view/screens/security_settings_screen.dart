@@ -261,9 +261,9 @@ class SecuritySettingsScreen extends ConsumerWidget {
                 ToggleableSettingsItem(
                   icon: Icon(Icons.blur_on_rounded, color: colorScheme.primary),
                   accent: colorScheme.primary,
-                  title: 'Recent Apps Privacy Blur',
+                  title: 'Recent Apps Privacy',
                   description:
-                      'Blurs app content in Android app switcher preview thumbnail',
+                      'Hides the Android Recents preview while the app is in background',
                   value: security.recentAppsPrivacy,
                   onChanged: notifier.toggleRecentAppsPrivacy,
                 ),
