@@ -116,8 +116,9 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
     await _speech.listen(
       onResult: (result) {
         final spoken = _normalizeAnimeNames(result.recognizedWords.trim());
-        if (!mounted || generation != _speechGeneration || spoken.isEmpty)
+        if (!mounted || generation != _speechGeneration || spoken.isEmpty) {
           return;
+        }
         final value = _prefix.isEmpty ? spoken : '$_prefix $spoken';
         widget.controller.value = TextEditingValue(
           text: value,
