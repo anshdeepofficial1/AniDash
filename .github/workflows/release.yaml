@@ -161,8 +161,13 @@ jobs:
           EOF
 
       - run: flutter pub get
-      - name: Run playback regression tests
-        run: flutter test test/unit/stream_headers_test.dart
+      - name: Run playback and AI regression tests
+        run: |
+          flutter test test/unit/stream_headers_test.dart
+          flutter test test/unit/hls_playback_relay_test.dart
+          flutter test test/unit/player_buffer_policy_test.dart
+          flutter test test/unit/ai_policy_router_test.dart
+          flutter test test/unit/download_progress_test.dart
       - name: Build signed universal APK
         run: |
           flutter build apk --release --no-tree-shake-icons --obfuscate --split-debug-info=build/app/outputs/symbols --dart-define-from-file=keys.json

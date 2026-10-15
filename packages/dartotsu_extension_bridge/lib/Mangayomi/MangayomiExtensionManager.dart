@@ -31,7 +31,20 @@ class MangayomiExtensionManager extends GetxController {
         .sourceIdIsNotNull()
         .and()
         .itemTypeEqualTo(itemType)
-        .watch(fireImmediately: true);
+        .watch(fireImmediately: true)
+        .map((rows) {
+          // Historic update code inserted a fresh Isar ID every time.
+          final unique = <String, MSource>{};
+          for (final source in rows) {
+            final key = source.sourceId;
+            if (key == null || key.isEmpty) continue;
+            final current = unique[key];
+            if (current == null || (source.id ?? -1) > (current.id ?? -1)) {
+              unique[key] = source;
+            }
+          }
+          return unique.values.toList();
+        });
   }
 
   Future<List<MSource>> fetchAvailableExtensionsStream(
@@ -42,59 +55,78 @@ class MangayomiExtensionManager extends GetxController {
 
     if (repos == null || repos.isEmpty) return sources;
 
+    final seen = <String>{};
     for (final repo in repos) {
       if (repo.trim().isEmpty) continue;
-      final req = await http.get(Uri.parse(repo.trim()));
-      if (req.statusCode != 200) {
-        debugPrint("Failed to fetch sources from $repo: ${req.statusCode}");
-        continue;
+      // A malformed/offline community JSON must not hide all other sources.
+      try {
+        final response = await http
+            .get(Uri.parse(repo.trim()))
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode != 200) {
+          debugPrint('Failed to fetch $repo: HTTP ${response.statusCode}');
+          continue;
+        }
+        final decoded = jsonDecode(response.body);
+        if (decoded is! List) {
+          debugPrint('Ignoring non-array source JSON from $repo');
+          continue;
+        }
+        for (final raw in decoded) {
+          if (raw is! Map) continue;
+          try {
+            final e = Map<String, dynamic>.from(raw);
+            if (e['id'] == null) continue;
+            late MSource source;
+            if (e['id'] is String &&
+                e['name'] != null &&
+                e['site'] != null &&
+                e['lang'] != null &&
+                e['version'] != null &&
+                e['url'] != null &&
+                e['iconUrl'] != null) {
+              source =
+                  MSource.fromJson(e)
+                    ..sourceId = e['id'].toString()
+                    ..apiUrl = ''
+                    ..appMinVerReq = ''
+                    ..dateFormat = ''
+                    ..dateFormatLocale = ''
+                    ..hasCloudflare = false
+                    ..headers = ''
+                    ..isActive = true
+                    ..isAdded = false
+                    ..isFullData = false
+                    ..isNsfw = false
+                    ..isPinned = false
+                    ..lastUsed = false
+                    ..sourceCode = ''
+                    ..typeSource = ''
+                    ..versionLast = '0.0.1'
+                    ..isObsolete = false
+                    ..isLocal = false
+                    ..lang = _convertLang(e)
+                    ..baseUrl = e['site']
+                    ..sourceCodeUrl = e['url']
+                    ..sourceCodeLanguage = SourceCodeLanguage.lnreader
+                    ..itemType = ItemType.novel
+                    ..repo = repo;
+            } else {
+              source =
+                  MSource.fromJson(e)
+                    ..sourceId = e['id'].toString()
+                    ..repo = repo;
+            }
+            if (source.itemType != itemType) continue;
+            final uniqueKey = '$repo:${source.sourceId}';
+            if (seen.add(uniqueKey)) sources.add(source);
+          } catch (error) {
+            debugPrint('Skipping malformed source in $repo: $error');
+          }
+        }
+      } catch (error) {
+        debugPrint('Repository unavailable: $repo ($error)');
       }
-      final sourceList =
-          (jsonDecode(req.body) as List)
-              .map((e) {
-                if (e['id'] is String &&
-                    e['name'] != null &&
-                    e['site'] != null &&
-                    e['lang'] != null &&
-                    e['version'] != null &&
-                    e['url'] != null &&
-                    e['iconUrl'] != null) {
-                  final src =
-                      MSource.fromJson(e)
-                        ..sourceId = e['id'].toString()
-                        ..apiUrl = ''
-                        ..appMinVerReq = ''
-                        ..dateFormat = ''
-                        ..dateFormatLocale = ''
-                        ..hasCloudflare = false
-                        ..headers = ''
-                        ..isActive = true
-                        ..isAdded = false
-                        ..isFullData = false
-                        ..isNsfw = false
-                        ..isPinned = false
-                        ..lastUsed = false
-                        ..sourceCode = ''
-                        ..typeSource = ''
-                        ..versionLast = '0.0.1'
-                        ..isObsolete = false
-                        ..isLocal = false
-                        ..lang = _convertLang(e)
-                        ..baseUrl = e['site']
-                        ..sourceCodeUrl = e['url']
-                        ..sourceCodeLanguage = SourceCodeLanguage.lnreader
-                        ..itemType = ItemType.novel;
-                  return src;
-                } else {
-                  return MSource.fromJson(e)
-                    ..repo = repo
-                    ..sourceId = e['id'].toString();
-                }
-              })
-              .where((source) => source.itemType == itemType)
-              .toList();
-
-      sources.addAll(sourceList);
     }
     switch (itemType) {
       case ItemType.anime:
@@ -171,22 +203,51 @@ class MangayomiExtensionManager extends GetxController {
 
   Future<void> installSource(Source source) async {
     try {
-      var mSource = await getAvailable(source.itemType!, source.id);
-      final req = await http.get(Uri.parse(mSource.sourceCodeUrl!));
-      final headers =
-          getExtensionService(mSource..sourceCode = req.body).getHeaders();
-
-      var s =
-          mSource
-            ..id = null
-            ..sourceCode = req.body
-            ..headers = jsonEncode(headers);
-
-      isar.writeTxnSync(() => isar.mSources.putSync(s));
+      await _saveSource(source);
     } catch (e) {
-      debugPrint("Error installing source: $e");
+      debugPrint('Error installing source: $e');
       return Future.error(e);
     }
+  }
+
+  // Source IDs, not Isar's auto-increment IDs, identify installed extensions.
+  // Preserve the existing database record while installing/updating code.
+  Future<void> _saveSource(Source source) async {
+    final candidate = await getAvailable(source.itemType!, source.id);
+    final codeUrl = candidate.sourceCodeUrl;
+    if (codeUrl == null || codeUrl.isEmpty) {
+      throw StateError('Extension has no source-code URL');
+    }
+    final response = await http.get(Uri.parse(codeUrl));
+    if (response.statusCode != 200 || response.body.trim().isEmpty) {
+      throw StateError(
+        'Could not download extension: HTTP ${response.statusCode}',
+      );
+    }
+
+    final installed =
+        isar.mSources
+            .where()
+            .findAllSync()
+            .where(
+              (row) =>
+                  row.sourceId == candidate.sourceId &&
+                  row.itemType == source.itemType,
+            )
+            .toList();
+    final existing = installed.isEmpty ? null : installed.last;
+    candidate.id = existing?.id;
+    candidate.sourceCode = response.body;
+    candidate.headers = jsonEncode(getExtensionService(candidate).getHeaders());
+    isar.writeTxnSync(() {
+      isar.mSources.putSync(candidate);
+      // Remove clones made by previous versions without losing the valid row.
+      for (final duplicate in installed) {
+        if (duplicate.id != null && duplicate.id != candidate.id) {
+          isar.mSources.deleteSync(duplicate.id!);
+        }
+      }
+    });
   }
 
   Future<void> uninstallSource(Source source) async {
@@ -201,20 +262,9 @@ class MangayomiExtensionManager extends GetxController {
 
   Future<void> updateSource(Source source) async {
     try {
-      var mSource = await getAvailable(source.itemType!, source.id);
-      final req = await http.get(Uri.parse(mSource.sourceCodeUrl!));
-      final headers =
-          getExtensionService(mSource..sourceCode = req.body).getHeaders();
-
-      var s =
-          mSource
-            ..sourceCode = req.body
-            ..version = source.version
-            ..headers = jsonEncode(headers);
-
-      isar.writeTxnSync(() => isar.mSources.putSync(s));
+      await _saveSource(source);
     } catch (e) {
-      debugPrint("Error updating source: $e");
+      debugPrint('Error updating source: $e');
       return Future.error(e);
     }
   }

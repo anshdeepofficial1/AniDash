@@ -472,9 +472,15 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         state = state.copyWith(resolvedProviderKey: currentKey);
       }
 
-      // Multi-Source Fallback: If 0 episodes returned, search active and fallback sources by title
+      // Only auto-discover a native fallback when the user did not explicitly
+      // select an installed extension. Otherwise a failing extension must
+      // show its error rather than silently switching to JustAnime.
+      final selectedExtension =
+          _exp.useExtensions &&
+          ref.read(sourceProvider).activeAnimeSource != null;
       if (eps.isEmpty &&
           currentKey == null &&
+          !selectedExtension &&
           state.animeTitle != null &&
           state.animeTitle!.isNotEmpty) {
         final candidateKeys = <String>[
