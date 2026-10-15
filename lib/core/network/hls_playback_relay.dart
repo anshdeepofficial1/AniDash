@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 /// Device-local relay for HLS playlists and media chunks.
 ///
@@ -12,7 +13,11 @@ class HlsPlaybackRelay {
   HlsPlaybackRelay._(this._headers);
 
   final Map<String, String> _headers;
-  final _targets = <String, Uri>{};
+  final _targets = <String, ({Uri uri, bool playlist})>{};
+  final String _secret =
+      List<int>.generate(16, (_) => Random.secure().nextInt(256))
+          .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+          .join();
   final HttpClient _client =
       HttpClient()
         ..connectionTimeout = const Duration(seconds: 20)
@@ -38,7 +43,7 @@ class HlsPlaybackRelay {
     final relay = HlsPlaybackRelay._(Map.of(headers));
     try {
       relay._server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      relay._initialPath = relay._addTarget(uri);
+      relay._initialPath = relay._addTarget(uri, playlist: true);
       relay._subscription = relay._server!.listen(relay._serve);
       return relay;
     } catch (_) {
@@ -47,43 +52,51 @@ class HlsPlaybackRelay {
     }
   }
 
-  String _addTarget(Uri uri) {
+  String _addTarget(Uri uri, {bool playlist = false}) {
     if (uri.scheme != 'http' && uri.scheme != 'https') {
       throw FormatException('Unexpected URI scheme: ${uri.scheme}');
     }
-    final file =
-        uri.pathSegments.isEmpty
-            ? 'playlist.m3u8'
-            : uri.pathSegments.last.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-    final path = '/media/${_nextId++}/${file.isEmpty ? 'stream' : file}';
-    _targets[path] = uri;
+    final file = uri.pathSegments.isEmpty
+        ? 'playlist.m3u8'
+        : uri.pathSegments.last.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    final path = '/media/$_secret/${_nextId++}/${file.isEmpty ? 'stream' : file}';
+    _targets[path] = (
+      uri: uri,
+      playlist: playlist ||
+          uri.path.toLowerCase().endsWith('.m3u8') ||
+          uri.path.toLowerCase().endsWith('.m3u'),
+    );
     return path;
   }
 
-  String _relayReference(String reference, Uri base) {
+  String _relayReference(String reference, Uri base, {bool playlist = false}) {
     final resolved = base.resolve(reference.trim());
     if (resolved.scheme != 'http' && resolved.scheme != 'https') {
       return reference;
     }
-    return _addTarget(resolved);
+    return _addTarget(resolved, playlist: playlist);
   }
 
   String _rewritePlaylist(String playlist, Uri base) {
     final attributes = RegExp(r'URI="([^"]+)"');
-    return playlist
-        .split(RegExp(r'\r?\n'))
-        .map((line) {
-          if (line.startsWith('#')) {
-            return line.replaceAllMapped(
-              attributes,
-              (m) => 'URI="${_relayReference(m.group(1)!, base)}"',
-            );
-          }
-          final reference = line.trim();
-          if (reference.isEmpty) return line;
-          return _relayReference(reference, base);
-        })
-        .join('\n');
+    var nextIsVariant = false;
+    return playlist.split(RegExp(r'\r?\n')).map((line) {
+      if (line.startsWith('#')) {
+        nextIsVariant = line.startsWith('#EXT-X-STREAM-INF');
+        final attributeIsPlaylist =
+            line.startsWith('#EXT-X-I-FRAME-STREAM-INF') ||
+            line.startsWith('#EXT-X-MEDIA:TYPE=AUDIO');
+        return line.replaceAllMapped(
+          attributes,
+          (m) => 'URI="${_relayReference(m.group(1)!, base, playlist: attributeIsPlaylist)}"',
+        );
+      }
+      final reference = line.trim();
+      if (reference.isEmpty) return line;
+      final local = _relayReference(reference, base, playlist: nextIsVariant);
+      nextIsVariant = false;
+      return local;
+    }).join('\n');
   }
 
   Future<void> _serve(HttpRequest incoming) async {
@@ -93,11 +106,12 @@ class HlsPlaybackRelay {
         output.statusCode = HttpStatus.methodNotAllowed;
         return;
       }
-      final uri = _targets[incoming.uri.path];
-      if (uri == null) {
+      final target = _targets[incoming.uri.path];
+      if (target == null) {
         output.statusCode = HttpStatus.notFound;
         return;
       }
+      final uri = target.uri;
 
       final request = await _client
           .openUrl(incoming.method, uri)
@@ -124,10 +138,7 @@ class HlsPlaybackRelay {
       );
       output.statusCode = upstream.statusCode;
       final mime = upstream.headers.contentType?.mimeType.toLowerCase() ?? '';
-      final isPlaylist =
-          uri.path.toLowerCase().endsWith('.m3u8') ||
-          uri.path.toLowerCase().endsWith('.m3u') ||
-          mime.contains('mpegurl');
+      final isPlaylist = target.playlist || mime.contains('mpegurl');
       if (incoming.method == 'HEAD') {
         final length = upstream.contentLength;
         if (length >= 0) output.contentLength = length;
@@ -139,8 +150,10 @@ class HlsPlaybackRelay {
       if (isPlaylist && upstream.statusCode == HttpStatus.ok) {
         final text = await utf8.decoder.bind(upstream).join();
         // Redirects can change the base URL of relative segment references.
-        final base =
-            upstream.redirects.isEmpty ? uri : upstream.redirects.last.location;
+        var base = uri;
+        for (final redirect in upstream.redirects) {
+          base = base.resolveUri(redirect.location);
+        }
         output.headers.set(
           HttpHeaders.contentTypeHeader,
           'application/vnd.apple.mpegurl',
