@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart' as bridge;
+import 'package:isar_community/isar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path_provider/path_provider.dart';
@@ -91,11 +92,15 @@ class BackupService {
         dataPayload['settings'] = settingsData;
         // Export repository indexes and source identities, not executable code
         // or downloaded APK files. Each source can be re-fetched safely.
+        final installedSources = bridge.isar.mSources.where().findAllSync();
         final sourceAssignments = <String, String>{};
-        for (final key in sharedPrefs.getKeys()) {
-          if (key.startsWith('extension_source_repo_')) {
-            final repo = sharedPrefs.getString(key);
-            if (repo != null) sourceAssignments[key] = repo;
+        for (final source in installedSources) {
+          final id = source.sourceId;
+          if (id == null || id.isEmpty) continue;
+          final repo = sharedPrefs.getString('extension_source_repo_$id') ??
+              source.repo;
+          if (repo != null && repo.isNotEmpty) {
+            sourceAssignments['extension_source_repo_$id'] = repo;
           }
         }
         dataPayload['extensions'] = {
@@ -104,9 +109,7 @@ class BackupService {
           'mangaRepositories':
               sharedPrefs.getStringList('saved_manga_repos') ?? <String>[],
           'sourceAssignments': sourceAssignments,
-          'installedMangayomi': bridge.isar.mSources
-              .where()
-              .findAllSync()
+          'installedMangayomi': installedSources
               .where((source) => source.sourceId?.isNotEmpty == true)
               .map((source) => {
                     'id': source.sourceId,
