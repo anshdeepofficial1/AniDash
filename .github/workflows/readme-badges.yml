@@ -1,0 +1,42 @@
+name: Refresh README badges
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+  release:
+    types: [published, edited, deleted]
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/readme-badges.yml"
+      - ".github/scripts/update_readme_badges.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: readme-badges
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Update badges from actual GitHub API counts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/update_readme_badges.py
+      - name: Commit changed badge SVGs
+        shell: bash
+        run: |
+          git add assets/badges/
+          if git diff --cached --quiet; then
+            echo "Badges are already current"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "docs: refresh README badge counts"
+          git push origin HEAD:main
