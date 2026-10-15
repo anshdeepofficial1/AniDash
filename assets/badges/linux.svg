@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="28" viewBox="0 0 144 28" role="img" aria-label="Linux: Supported">
+  <title>Linux: Supported</title>
+  <defs><clipPath id="badge"><rect width="144" height="28" rx="6"/></clipPath></defs>
+  <g clip-path="url(#badge)">
+    <rect width="59" height="28" fill="#202830"/>
+    <rect x="59" width="85" height="28" fill="#A16207"/>
+  </g>
+  <g font-family="DejaVu Sans,Verdana,Arial,sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">
+    <text x="29.5" y="14" textLength="41" lengthAdjust="spacingAndGlyphs">Linux</text>
+    <text x="101.5" y="14" textLength="67" lengthAdjust="spacingAndGlyphs">Supported</text>
+  </g>
+</svg>

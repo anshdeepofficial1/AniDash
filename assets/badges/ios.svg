@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="136" height="28" viewBox="0 0 136 28" role="img" aria-label="iOS: Test Build">
+  <title>iOS: Test Build</title>
+  <defs><clipPath id="badge"><rect width="136" height="28" rx="6"/></clipPath></defs>
+  <g clip-path="url(#badge)">
+    <rect width="46" height="28" fill="#202830"/>
+    <rect x="46" width="90" height="28" fill="#475569"/>
+  </g>
+  <g font-family="DejaVu Sans,Verdana,Arial,sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">
+    <text x="23.0" y="14" textLength="28" lengthAdjust="spacingAndGlyphs">iOS</text>
+    <text x="91.0" y="14" textLength="72" lengthAdjust="spacingAndGlyphs">Test Build</text>
+  </g>
+</svg>

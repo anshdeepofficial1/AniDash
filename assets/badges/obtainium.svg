@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="149" height="28" viewBox="0 0 149 28" role="img" aria-label="Add to: Obtainium">
+  <title>Add to: Obtainium</title>
+  <defs><clipPath id="badge"><rect width="149" height="28" rx="6"/></clipPath></defs>
+  <g clip-path="url(#badge)">
+    <rect width="64" height="28" fill="#202830"/>
+    <rect x="64" width="85" height="28" fill="#7C3AED"/>
+  </g>
+  <g font-family="DejaVu Sans,Verdana,Arial,sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">
+    <text x="32.0" y="14" textLength="46" lengthAdjust="spacingAndGlyphs">Add to</text>
+    <text x="106.5" y="14" textLength="67" lengthAdjust="spacingAndGlyphs">Obtainium</text>
+  </g>
+</svg>

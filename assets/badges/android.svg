@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="123" height="28" viewBox="0 0 123 28" role="img" aria-label="Android: 6.0+">
+  <title>Android: 6.0+</title>
+  <defs><clipPath id="badge"><rect width="123" height="28" rx="6"/></clipPath></defs>
+  <g clip-path="url(#badge)">
+    <rect width="72" height="28" fill="#202830"/>
+    <rect x="72" width="51" height="28" fill="#3DDC84"/>
+  </g>
+  <g font-family="DejaVu Sans,Verdana,Arial,sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">
+    <text x="36.0" y="14" textLength="54" lengthAdjust="spacingAndGlyphs">Android</text>
+    <text x="97.5" y="14" textLength="33" lengthAdjust="spacingAndGlyphs">6.0+</text>
+  </g>
+</svg>
