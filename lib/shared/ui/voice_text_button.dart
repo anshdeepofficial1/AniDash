@@ -44,19 +44,28 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (ctx) => SafeArea(child: SizedBox(
-        height: MediaQuery.sizeOf(ctx).height * .58,
-        child: ListView(children: [
-          const ListTile(title: Text('Voice input language')),
-          ListTile(title: const Text('Phone default language'),
-            onTap: () => Navigator.pop(ctx, '')),
-          ...options.map((locale) => ListTile(
-            title: Text(locale.name),
-            subtitle: Text(locale.localeId),
-            onTap: () => Navigator.pop(ctx, locale.localeId),
-          )),
-        ]),
-      )),
+      builder:
+          (ctx) => SafeArea(
+            child: SizedBox(
+              height: MediaQuery.sizeOf(ctx).height * .58,
+              child: ListView(
+                children: [
+                  const ListTile(title: Text('Voice input language')),
+                  ListTile(
+                    title: const Text('Phone default language'),
+                    onTap: () => Navigator.pop(ctx, ''),
+                  ),
+                  ...options.map(
+                    (locale) => ListTile(
+                      title: Text(locale.name),
+                      subtitle: Text(locale.localeId),
+                      onTap: () => Navigator.pop(ctx, locale.localeId),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
     );
     if (selected == null || !mounted) return;
     setState(() => _preferredLocaleId = selected.isEmpty ? null : selected);
@@ -107,7 +116,8 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
     await _speech.listen(
       onResult: (result) {
         final spoken = _normalizeAnimeNames(result.recognizedWords.trim());
-        if (!mounted || generation != _speechGeneration || spoken.isEmpty) return;
+        if (!mounted || generation != _speechGeneration || spoken.isEmpty)
+          return;
         final value = _prefix.isEmpty ? spoken : '$_prefix $spoken';
         widget.controller.value = TextEditingValue(
           text: value,
@@ -171,15 +181,18 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
     return GestureDetector(
       onLongPress: _chooseLanguage,
       child: IconButton(
-      tooltip: _listening ? 'Listening… tap to stop' : '${widget.tooltip} (hold to choose language)',
-      onPressed: _toggle,
-      style: IconButton.styleFrom(
-        backgroundColor:
-            _listening ? scheme.primaryContainer : Colors.transparent,
-        foregroundColor:
-            _listening ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
-      ),
-      icon: Icon(_listening ? Icons.stop_rounded : Icons.mic_none_rounded),
+        tooltip:
+            _listening
+                ? 'Listening… tap to stop'
+                : '${widget.tooltip} (hold to choose language)',
+        onPressed: _toggle,
+        style: IconButton.styleFrom(
+          backgroundColor:
+              _listening ? scheme.primaryContainer : Colors.transparent,
+          foregroundColor:
+              _listening ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+        ),
+        icon: Icon(_listening ? Icons.stop_rounded : Icons.mic_none_rounded),
       ),
     );
   }

@@ -80,9 +80,10 @@ class _AniDashAiEmblemState extends State<AniDashAiEmblem>
     return Semantics(
       label: 'AniCORE',
       image: true,
-      child: _shouldAnimate
-          ? RotationTransition(turns: _controller, child: ball)
-          : ball,
+      child:
+          _shouldAnimate
+              ? RotationTransition(turns: _controller, child: ball)
+              : ball,
     );
   }
 }
@@ -104,22 +105,26 @@ class _CoreBallPainter extends CustomPainter {
     if (diameter <= 0) return;
     final center = Offset(size.width / 2, size.height / 2);
     final radius = diameter * .45;
-    final circle = Path()
-      ..addOval(Rect.fromCircle(center: center, radius: radius));
+    final circle =
+        Path()..addOval(Rect.fromCircle(center: center, radius: radius));
     canvas.save();
     canvas.clipPath(circle);
 
     canvas.drawRect(
       Rect.fromLTRB(
-        center.dx - radius, center.dy - radius,
-        center.dx + radius, center.dy,
+        center.dx - radius,
+        center.dy - radius,
+        center.dx + radius,
+        center.dy,
       ),
       Paint()..color = accent,
     );
     canvas.drawRect(
       Rect.fromLTRB(
-        center.dx - radius, center.dy,
-        center.dx + radius, center.dy + radius,
+        center.dx - radius,
+        center.dy,
+        center.dx + radius,
+        center.dy + radius,
       ),
       Paint()..color = surface,
     );
@@ -133,17 +138,16 @@ class _CoreBallPainter extends CustomPainter {
     );
     canvas.restore();
 
-    final outline = Paint()
-      ..color = border
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = diameter * .085;
+    final outline =
+        Paint()
+          ..color = border
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = diameter * .085;
     canvas.drawCircle(center, radius, outline);
+    canvas.drawCircle(center, radius * .26, Paint()..color = surface);
     canvas.drawCircle(
-      center, radius * .26,
-      Paint()..color = surface,
-    );
-    canvas.drawCircle(
-      center, radius * .26,
+      center,
+      radius * .26,
       Paint()
         ..color = border
         ..style = PaintingStyle.stroke
