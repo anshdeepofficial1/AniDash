@@ -11,6 +11,11 @@ abstract class ExtensionConfig {
 
   bool get isInstalled;
 
+  /// Null shows all repositories; a URL scopes this list to one JSON index.
+  String? get repositoryFilter;
+
+  String? assignedRepoFor(String sourceId);
+
   String get searchQuery;
 
   String get selectedLanguage;
@@ -82,6 +87,12 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
 
       final Map<String, List<Source>> grouped = {};
       for (final source in fullList) {
+        final repoFilter = config.repositoryFilter;
+        if (repoFilter != null &&
+            (source.repo ?? config.assignedRepoFor(source.id ?? '')) !=
+                repoFilter) {
+          continue;
+        }
         final lang = source.lang ?? 'Unknown';
         if (filterLang != null && lang != filterLang) continue;
         if (search.isNotEmpty &&
