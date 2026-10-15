@@ -15,9 +15,10 @@ class HlsPlaybackRelay {
   final Map<String, String> _headers;
   final _targets = <String, ({Uri uri, bool playlist})>{};
   final String _secret =
-      List<int>.generate(16, (_) => Random.secure().nextInt(256))
-          .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
-          .join();
+      List<int>.generate(
+        16,
+        (_) => Random.secure().nextInt(256),
+      ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
   final HttpClient _client =
       HttpClient()
         ..connectionTimeout = const Duration(seconds: 20)
@@ -56,13 +57,16 @@ class HlsPlaybackRelay {
     if (uri.scheme != 'http' && uri.scheme != 'https') {
       throw FormatException('Unexpected URI scheme: ${uri.scheme}');
     }
-    final file = uri.pathSegments.isEmpty
-        ? 'playlist.m3u8'
-        : uri.pathSegments.last.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-    final path = '/media/$_secret/${_nextId++}/${file.isEmpty ? 'stream' : file}';
+    final file =
+        uri.pathSegments.isEmpty
+            ? 'playlist.m3u8'
+            : uri.pathSegments.last.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    final path =
+        '/media/$_secret/${_nextId++}/${file.isEmpty ? 'stream' : file}';
     _targets[path] = (
       uri: uri,
-      playlist: playlist ||
+      playlist:
+          playlist ||
           uri.path.toLowerCase().endsWith('.m3u8') ||
           uri.path.toLowerCase().endsWith('.m3u'),
     );
@@ -80,23 +84,31 @@ class HlsPlaybackRelay {
   String _rewritePlaylist(String playlist, Uri base) {
     final attributes = RegExp(r'URI="([^"]+)"');
     var nextIsVariant = false;
-    return playlist.split(RegExp(r'\r?\n')).map((line) {
-      if (line.startsWith('#')) {
-        nextIsVariant = line.startsWith('#EXT-X-STREAM-INF');
-        final attributeIsPlaylist =
-            line.startsWith('#EXT-X-I-FRAME-STREAM-INF') ||
-            line.startsWith('#EXT-X-MEDIA:TYPE=AUDIO');
-        return line.replaceAllMapped(
-          attributes,
-          (m) => 'URI="${_relayReference(m.group(1)!, base, playlist: attributeIsPlaylist)}"',
-        );
-      }
-      final reference = line.trim();
-      if (reference.isEmpty) return line;
-      final local = _relayReference(reference, base, playlist: nextIsVariant);
-      nextIsVariant = false;
-      return local;
-    }).join('\n');
+    return playlist
+        .split(RegExp(r'\r?\n'))
+        .map((line) {
+          if (line.startsWith('#')) {
+            nextIsVariant = line.startsWith('#EXT-X-STREAM-INF');
+            final attributeIsPlaylist =
+                line.startsWith('#EXT-X-I-FRAME-STREAM-INF') ||
+                line.startsWith('#EXT-X-MEDIA:TYPE=AUDIO');
+            return line.replaceAllMapped(
+              attributes,
+              (m) =>
+                  'URI="${_relayReference(m.group(1)!, base, playlist: attributeIsPlaylist)}"',
+            );
+          }
+          final reference = line.trim();
+          if (reference.isEmpty) return line;
+          final local = _relayReference(
+            reference,
+            base,
+            playlist: nextIsVariant,
+          );
+          nextIsVariant = false;
+          return local;
+        })
+        .join('\n');
   }
 
   Future<void> _serve(HttpRequest incoming) async {
