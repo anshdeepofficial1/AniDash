@@ -17,6 +17,70 @@ class ExtensionScreen extends StatefulWidget {
 }
 
 class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
+  String? _selectedRepository;
+
+  String _repoLabel(String url) {
+    final uri = Uri.tryParse(url);
+    final name = uri?.pathSegments.isNotEmpty == true
+        ? uri!.pathSegments.last
+        : url;
+    return Uri.decodeComponent(name);
+  }
+
+  @override
+  Widget get repositoryDrawer {
+    final manager = Get.find<ExtensionManager>().currentManager;
+    final anime = _getSavedAnimeRepos(manager);
+    final manga = _getSavedMangaRepos(manager);
+    final theme = Theme.of(context);
+
+    Widget group(String title, List<String> urls) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
+          child: Text(title, style: theme.textTheme.labelLarge),
+        ),
+        for (final url in urls)
+          ListTile(
+            selected: _selectedRepository == url,
+            leading: const Icon(Icons.data_object),
+            title: Text(_repoLabel(url), maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            subtitle: Text(Uri.tryParse(url)?.host ?? url,
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+            onTap: () {
+              setState(() => _selectedRepository = url);
+              Navigator.of(context).pop();
+            },
+          ),
+      ],
+    );
+
+    return Drawer(
+      child: SafeArea(
+        child: ListView(children: [
+          const ListTile(
+            title: Text('Extension repositories',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Choose a JSON file to browse its sources'),
+          ),
+          ListTile(
+            selected: _selectedRepository == null,
+            leading: const Icon(Icons.apps),
+            title: const Text('All repositories'),
+            onTap: () {
+              setState(() => _selectedRepository = null);
+              Navigator.of(context).pop();
+            },
+          ),
+          group('Anime JSON files', anime),
+          group('Manga JSON files', manga),
+        ]),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +111,7 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
       isInstalled: isInstalled,
       searchQuery: searchQuery,
       selectedLanguage: selectedLanguage,
+      repositoryFilter: _selectedRepository,
     );
   };
 
@@ -538,6 +603,8 @@ class ExtensionListWidget extends StatefulWidget implements ExtensionConfig {
   @override
   final bool isInstalled;
   @override
+  final String? repositoryFilter;
+  @override
   final String searchQuery;
   @override
   final String selectedLanguage;
@@ -545,15 +612,21 @@ class ExtensionListWidget extends StatefulWidget implements ExtensionConfig {
     super.key,
     required this.itemType,
     required this.isInstalled,
+    this.repositoryFilter,
     required this.searchQuery,
     required this.selectedLanguage,
   });
+
+  @override
+  String? assignedRepoFor(String sourceId) =>
+      sharedPrefs.getString('extension_source_repo_$sourceId');
 
   @override
   State<ExtensionListWidget> createState() => _ExtensionListWidgetState();
 }
 
 class _ExtensionListWidgetState extends ExtensionList<ExtensionListWidget> {
+
   @override
   Widget build(BuildContext context) {
     manager = Get.find<ExtensionManager>().currentManager;
