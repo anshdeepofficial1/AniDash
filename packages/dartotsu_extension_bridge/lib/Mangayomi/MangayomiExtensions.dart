@@ -246,11 +246,11 @@ class MangayomiExtensions extends Extension {
   }
 
   Future<void> checkForUpdates(ItemType type) async {
-    final availableMap = {for (var s in _getAvailableList(type)) s.id: s};
+    final availableMap = {for (var s in _getAvailableList(type)) s.sourceId: s};
 
     final updated =
         getInstalledRx(type).value.map((installed) {
-          final avail = availableMap[int.tryParse(installed.id ?? '')];
+          final avail = availableMap[installed.id];
           if (avail != null &&
               installed.version != null &&
               avail.version != null &&
