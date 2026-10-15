@@ -122,7 +122,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _tts.setCancelHandler(() {
       if (mounted) setState(() => _speakingMessage = null);
     });
-    final deviceLanguage = WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
+    final deviceLanguage =
+        WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
     unawaited(_tts.setLanguage(deviceLanguage));
     unawaited(_tts.setSpeechRate(.46));
     unawaited(_tts.setPitch(1.0));
@@ -221,10 +222,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         ShareParams(text: link, subject: 'Shared from AnyCore'),
       );
     } catch (_) {
-      final textContent = messages.map((message) {
-        final prefix = message.fromUser ? 'You: ' : 'AniDash AI: ';
-        return '$prefix${message.text}';
-      }).join('\n\n');
+      final textContent = messages
+          .map((message) {
+            final prefix = message.fromUser ? 'You: ' : 'AniDash AI: ';
+            return '$prefix${message.text}';
+          })
+          .join('\n\n');
       if (textContent.trim().isNotEmpty) {
         await SharePlus.instance.share(
           ShareParams(
@@ -297,25 +300,30 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final editController = TextEditingController(text: original.text);
     final edited = await showDialog<String>(
       context: context,
-      builder: (dialog) => AlertDialog(
-        title: const Text('Edit your message'),
-        content: TextField(
-          controller: editController,
-          autofocus: true,
-          maxLines: 5,
-          minLines: 2,
-          decoration: const InputDecoration(
-            hintText: 'Enter the corrected message',
+      builder:
+          (dialog) => AlertDialog(
+            title: const Text('Edit your message'),
+            content: TextField(
+              controller: editController,
+              autofocus: true,
+              maxLines: 5,
+              minLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'Enter the corrected message',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialog),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed:
+                    () => Navigator.pop(dialog, editController.text.trim()),
+                child: const Text('Save & resend'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialog),
-            child: const Text('Cancel')),
-          FilledButton(onPressed: () =>
-              Navigator.pop(dialog, editController.text.trim()),
-            child: const Text('Save & resend')),
-        ],
-      ),
     );
     editController.dispose();
     if (!mounted || edited == null || edited.isEmpty) return;
@@ -1484,7 +1492,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                     ),
                   ),
                   VoiceTextButton(
-                        resetToken: _voiceResetToken,
+                    resetToken: _voiceResetToken,
                     controller: _controller,
                     tooltip: 'Speak your message',
                   ),

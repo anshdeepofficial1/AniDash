@@ -50,9 +50,10 @@ class UpdateService {
           final tagName = data['tag_name'] as String? ?? '';
           final releaseNotes = data['body'] as String? ?? '';
           final publishedAtStr = data['published_at'] as String?;
-          final publishedAt = publishedAtStr != null
-              ? DateTime.parse(publishedAtStr)
-              : DateTime.now();
+          final publishedAt =
+              publishedAtStr != null
+                  ? DateTime.parse(publishedAtStr)
+                  : DateTime.now();
 
           final assets = data['assets'] as List? ?? [];
           if (assets.isEmpty) continue;
@@ -60,32 +61,23 @@ class UpdateService {
           dynamic matchedAsset;
           if (Platform.isAndroid) {
             // Android strictly requires a valid .apk file
-            matchedAsset = assets.firstWhere(
-              (asset) {
-                final name = asset['name'].toString().toLowerCase();
-                return name.endsWith('.apk');
-              },
-              orElse: () => null,
-            );
+            matchedAsset = assets.firstWhere((asset) {
+              final name = asset['name'].toString().toLowerCase();
+              return name.endsWith('.apk');
+            }, orElse: () => null);
           } else if (Platform.isWindows) {
             // Strictly require .exe installer
-            matchedAsset = assets.firstWhere(
-              (asset) {
-                final name = asset['name'].toString().toLowerCase();
-                return name.endsWith('.exe');
-              },
-              orElse: () => null,
-            );
+            matchedAsset = assets.firstWhere((asset) {
+              final name = asset['name'].toString().toLowerCase();
+              return name.endsWith('.exe');
+            }, orElse: () => null);
           } else if (Platform.isMacOS) {
             // Strictly require .dmg installer so macOS users are only notified
             // when a valid DMG is present on the release.
-            matchedAsset = assets.firstWhere(
-              (asset) {
-                final name = asset['name'].toString().toLowerCase();
-                return name.endsWith('.dmg');
-              },
-              orElse: () => null,
-            );
+            matchedAsset = assets.firstWhere((asset) {
+              final name = asset['name'].toString().toLowerCase();
+              return name.endsWith('.dmg');
+            }, orElse: () => null);
           } else if (Platform.isLinux) {
             matchedAsset = assets.firstWhere(
               (asset) =>
@@ -231,8 +223,9 @@ class UpdateService {
         // When the installer reopens AniDash in a new task, clear the stale
         // previous task from Recents without affecting ordinary navigation.
         try {
-          await const MethodChannel('anidash/updater')
-              .invokeMethod<bool>('markUpdateInstall');
+          await const MethodChannel(
+            'anidash/updater',
+          ).invokeMethod<bool>('markUpdateInstall');
         } catch (error) {
           AppLogger.d('Recents clean-up marker unavailable: $error');
         }
