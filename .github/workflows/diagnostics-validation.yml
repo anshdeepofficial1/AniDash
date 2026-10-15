@@ -1,0 +1,70 @@
+name: Diagnose streaming and extension fixes
+
+on:
+  push:
+    branches:
+      - fix/streaming-extension-repositories-20261015
+
+concurrency:
+  group: anidash-diagnostics-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  static-analysis-and-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          cache: true
+      - name: Resolve Flutter packages
+        run: flutter pub get
+      - name: Format changed Dart files
+        run: |
+          dart format \
+            lib/core/network/hls_playback_relay.dart \
+            lib/core/services/backup_service.dart \
+            lib/features/extensions/view/extensions_screen.dart \
+            lib/features/watch/view_model/player/player_provider.dart \
+            lib/features/watch/view_model/episode_stream_provider.dart \
+            lib/features/watch/view_model/episode_list_provider.dart \
+            lib/features/watch/view/widgets/download_source_selector.dart \
+            lib/shared/providers/anime_source_provider.dart \
+            lib/shared/providers/anime_match_service.dart \
+            lib/shared/providers/settings/source_notifier.dart \
+            lib/shared/providers/settings/security_notifier.dart \
+            lib/features/settings/view/screens/security_settings_screen.dart \
+            lib/core/services/download_service.dart \
+            lib/core/services/update_service.dart \
+            lib/shared/ui/voice_text_button.dart \
+            lib/features/ai/view/ai_chat_screen.dart \
+            lib/features/ai/view/widgets/anidash_ai_emblem.dart \
+            packages/dartotsu_extension_bridge/lib/Aniyomi/AniyomiExtensions.dart \
+            packages/dartotsu_extension_bridge/lib/Mangayomi/MangayomiExtensionManager.dart \
+            packages/dartotsu_extension_bridge/lib/Mangayomi/MangayomiExtensions.dart \
+            packages/dartotsu_extension_bridge/lib/Screen/ExtensionList.dart \
+            packages/dartotsu_extension_bridge/lib/Screen/ExtensionManagerScreen.dart \
+            test/unit/hls_playback_relay_test.dart
+      - name: Commit formatter-only changes to working branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- '*.dart'
+          if ! git diff --cached --quiet; then
+            git commit -m "style: apply Dart formatting to working branch"
+            git push origin HEAD:fix/streaming-extension-repositories-20261015
+          fi
+      - name: Analyze Dart code
+        run: flutter analyze --no-pub
+      - name: Run streaming regression tests (no APK build)
+        run: |
+          flutter test test/unit/hls_playback_relay_test.dart
+          flutter test test/unit/stream_headers_test.dart
+          flutter test test/unit/player_buffer_policy_test.dart
+          flutter test test/unit/ai_policy_router_test.dart
+          flutter test test/unit/download_progress_test.dart

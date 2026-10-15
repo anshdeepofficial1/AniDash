@@ -11,6 +11,11 @@ abstract class ExtensionConfig {
 
   bool get isInstalled;
 
+  /// Null shows all repositories; a URL scopes this list to one JSON index.
+  String? get repositoryFilter;
+
+  String? assignedRepoFor(String sourceId);
+
   String get searchQuery;
 
   String get selectedLanguage;
@@ -52,7 +57,31 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
     super.dispose();
   }
 
-  Future<void> _refreshData() async {}
+  Future<void> _refreshData() async {
+    final settings = isar.bridgeSettings.getSync(26) ?? BridgeSettings();
+    final aniyomi = ExtensionType.fromManager(manager) == ExtensionType.aniyomi;
+    switch (itemType) {
+      case ItemType.anime:
+        await manager.fetchAvailableAnimeExtensions(
+          aniyomi
+              ? settings.aniyomiAnimeExtensions
+              : settings.mangayomiAnimeExtensions,
+        );
+        break;
+      case ItemType.manga:
+        await manager.fetchAvailableMangaExtensions(
+          aniyomi
+              ? settings.aniyomiMangaExtensions
+              : settings.mangayomiMangaExtensions,
+        );
+        break;
+      case ItemType.novel:
+        await manager.fetchAvailableNovelExtensions(
+          settings.mangayomiNovelExtensions,
+        );
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +110,14 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
               : selectedLanguage;
 
       final Map<String, List<Source>> grouped = {};
+      final seenSourceIds = <String>{};
       for (final source in fullList) {
+        final repoFilter = config.repositoryFilter;
+        if (repoFilter != null &&
+            (source.repo ?? config.assignedRepoFor(source.id ?? '')) !=
+                repoFilter) {
+          continue;
+        }
         final lang = source.lang ?? 'Unknown';
         if (filterLang != null && lang != filterLang) continue;
         if (search.isNotEmpty &&
@@ -91,6 +127,12 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
           continue;
         }
 
+        // Merge overlapping catalogs in All view without hiding genuine
+        // sources filtered by language or search.
+        final uniqueKey = '${source.extensionType?.index}:${source.id}';
+        if (source.id?.isNotEmpty == true && !seenSourceIds.add(uniqueKey)) {
+          continue;
+        }
         grouped.putIfAbsent(lang, () => []).add(source);
       }
 
@@ -109,6 +151,49 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
         for (final source in entry.value) {
           flattenedList.add((isHeader: false, lang: entry.key, source: source));
         }
+      }
+
+      if (flattenedList.isEmpty) {
+        return RefreshIndicator(
+          onRefresh: _refreshData,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.extension_off_outlined,
+                          size: 48,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No extensions found',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          config.repositoryFilter == null
+                              ? 'Add a JSON repository or pull down to refresh.'
+                              : 'No sources in this JSON. Pull down to refresh '
+                                  'or choose another repository from the menu.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
       }
 
       return RefreshIndicator(

@@ -36,6 +36,10 @@ class SelectedProviderKeyNotifier extends Notifier<String?> {
       }
     } catch (_) {}
 
+    // A user-selected extension must remain selected after app restart.
+    if (sharedPrefs.getString('selected_playback_source_kind') == 'extension') {
+      return null;
+    }
     final selectedKey =
         sharedPrefs.getString(selectedProvider)?.trim().toLowerCase();
     AppLogger.w("[Registry] Selected $selectedKey");
@@ -49,11 +53,13 @@ class SelectedProviderKeyNotifier extends Notifier<String?> {
   void select(String key) {
     final lowerKey = key.trim().toLowerCase();
     sharedPrefs.setString(selectedProvider, lowerKey);
+    sharedPrefs.setString('selected_playback_source_kind', 'native');
     state = lowerKey;
   }
 
   void clear() {
     sharedPrefs.remove(selectedProvider);
+    sharedPrefs.setString('selected_playback_source_kind', 'extension');
     state = null;
   }
 }

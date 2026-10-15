@@ -125,6 +125,7 @@ class SecurityNotifier extends Notifier<SecurityState> {
     final initial =
         raw != null ? SecurityState.fromJson(raw) : const SecurityState();
     _applySecureFlag(initial.screenshotPrivacy);
+    _applyRecentAppsPrivacy(initial.recentAppsPrivacy);
     Future.microtask(_loadSecureCredentials);
     return initial;
   }
@@ -293,7 +294,17 @@ class SecurityNotifier extends Notifier<SecurityState> {
 
   void toggleRecentAppsPrivacy(bool val) {
     state = state.copyWith(recentAppsPrivacy: val);
+    _applyRecentAppsPrivacy(val);
     _save();
+  }
+
+  void _applyRecentAppsPrivacy(bool enable) {
+    if (!Platform.isAndroid) return;
+    try {
+      _channel
+          .invokeMethod('setRecentAppsPrivacy', {'enable': enable})
+          .catchError((_) {});
+    } catch (_) {}
   }
 
   void toggleScreenshotPrivacy(bool val) {
@@ -305,7 +316,9 @@ class SecurityNotifier extends Notifier<SecurityState> {
   void _applySecureFlag(bool enable) {
     if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
-      _channel.invokeMethod('setSecureFlag', {'enable': enable}).catchError((_) {});
+      _channel
+          .invokeMethod('setSecureFlag', {'enable': enable})
+          .catchError((_) {});
     } catch (_) {}
   }
 

@@ -203,11 +203,27 @@ class _DownloadSourceSelectorState
       }
     }
 
-    String downloadUrl = matchedSource?.url ?? '';
-    final isM3U8 = matchedSource?.isM3U8 ?? downloadUrl.contains('.m3u8');
+    if (matchedSource == null ||
+        (_selectedLanguage == 'dub' &&
+            !matchedSource.isDub &&
+            _selectedServer?.isDub != true)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No playable source for the selected language/server.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    String downloadUrl = matchedSource.url ?? '';
+    final isM3U8 = matchedSource.isM3U8 || downloadUrl.contains('.m3u8');
 
     // If source is M3U8, try to extract matching quality sub-playlist
-    if (matchedSource != null && isM3U8) {
+    if (isM3U8) {
       try {
         final extracted = await extractor
             .extractQualities(
@@ -225,6 +241,20 @@ class _DownloadSourceSelectorState
           downloadUrl = target['url'] as String;
         }
       } catch (_) {}
+    }
+
+    final resolvedUrl = Uri.tryParse(downloadUrl);
+    if (resolvedUrl == null ||
+        !resolvedUrl.hasAuthority ||
+        (resolvedUrl.scheme != 'https' && resolvedUrl.scheme != 'http')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Server did not supply a valid download URL.'),
+          ),
+        );
+      }
+      return;
     }
 
     final ext = isM3U8 ? 'ts' : 'mp4';
@@ -262,7 +292,7 @@ class _DownloadSourceSelectorState
       headers: {
         'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        ...?matchedSource?.headers,
+        ...?matchedSource.headers,
       },
       isAdult: widget.isAdult,
       audioLanguage:

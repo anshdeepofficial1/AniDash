@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
@@ -8,6 +10,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:ani_dash/shared/providers/settings/player_notifier.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/core/utils/stream_headers.dart';
+import 'package:ani_dash/core/network/hls_playback_relay.dart';
 
 part 'player_provider.g.dart';
 
@@ -118,6 +121,9 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   final List<StreamSubscription> _subs = [];
   String? _lastUrl;
   Map<String, String>? _lastHeaders;
+  bool _lastIsHls = false;
+  bool _useRelayForRetry = false;
+  HlsPlaybackRelay? _hlsRelay;
   Duration? _pendingSeekTarget;
   Timer? _seekTimeout;
   Timer? _startupTimer;
@@ -376,6 +382,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     for (final s in _subs) {
       s.cancel();
     }
+    if (_hlsRelay != null) {
+      unawaited(_hlsRelay!.close());
+      _hlsRelay = null;
+    }
     _player.dispose();
   }
 
@@ -385,6 +395,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     Map<String, String>? headers,
     String? mediaId,
     int? episode,
+    bool? isHls,
   }) async {
     final openGeneration = ++_openGeneration;
     final isSameSession =
@@ -392,8 +403,13 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         episode != null &&
         mediaId == _activeMediaId &&
         episode == _activeEpisode;
+    if (!isSameSession || (_lastUrl != null && _lastUrl != url)) {
+      _useRelayForRetry = false;
+    }
     final requiresPipelineReset =
-        !isSameSession || (_lastUrl != null && _lastUrl != url);
+        !isSameSession ||
+        (_lastUrl != null && _lastUrl != url) ||
+        _hlsRelay != null;
 
     // If startAt is explicitly provided, use it. Otherwise, if reopening the same media & episode,
     // preserve the last stable playback position so we don't restart from beginning on stream recovery/reload.
@@ -413,6 +429,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     final effectiveHeaders = normalizeStreamHeaders(url, headers);
     _lastUrl = url;
     _lastHeaders = effectiveHeaders;
+    _lastIsHls =
+        isHls ??
+        Uri.tryParse(url)?.path.toLowerCase().endsWith('.m3u8') ??
+        false;
     state = state.copyWith(
       isOpening: true,
       clearPlaybackError: true,
@@ -435,6 +455,40 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       }
       if (openGeneration != _openGeneration) return;
     }
+    // Close the previous relay only after MPV has stopped reading from it.
+    final oldRelay = _hlsRelay;
+    _hlsRelay = null;
+    if (oldRelay != null) await oldRelay.close();
+    if (openGeneration != _openGeneration) return;
+
+    // HLS segment requests use the same Dart network stack as downloads.
+    // This handles providers whose playlists load in MPV but whose segment
+    // requests fail due to missing cookies/referer across redirects.
+    var playbackUrl = url;
+    var playbackHeaders = effectiveHeaders;
+    final uri = Uri.tryParse(url);
+    // The original MPV path already plays successfully on devices.
+    // Only enable the local relay after a user-initiated Retry.
+    final useLocalHlsRelay =
+        _useRelayForRetry &&
+        Platform.isAndroid &&
+        (_lastIsHls || (uri?.path.toLowerCase().endsWith('.m3u8') ?? false));
+    if (useLocalHlsRelay) {
+      try {
+        final relay = await HlsPlaybackRelay.start(url, effectiveHeaders);
+        if (openGeneration != _openGeneration) {
+          await relay.close();
+          return;
+        }
+        _hlsRelay = relay;
+        playbackUrl = relay.localUrl;
+        playbackHeaders = const {};
+        AppLogger.i('Using authenticated device-local HLS relay');
+      } catch (error) {
+        AppLogger.w('HLS relay unavailable; opening original URL: $error');
+      }
+    }
+
     try {
       // setProperty is asynchronous. The previous fire-and-forget setup raced
       // the first manifest request, so later episodes could open with stale
@@ -442,7 +496,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       // playback profile in order before every media open.
       await _applyPlaybackProperties();
       final platform = _player.platform as dynamic;
-      // ── Set UA, Referer, and http-header-fields concurrently in 1 roundtrip ──
+      // ── Apply UA, Referer, and HTTP headers for the new stream ──
       final ua =
           effectiveHeaders.entries
               .firstWhereOrNull(
@@ -461,17 +515,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
           .map((e) => '${e.key}: ${e.value}')
           .join(',');
 
-      final headerFutures = <Future>[];
-      headerFutures.add(platform.setProperty('user-agent', ua));
-      if (refValue.isNotEmpty) {
-        headerFutures.add(platform.setProperty('referrer', refValue));
-      }
-      if (forwardedHeaders.isNotEmpty) {
-        headerFutures.add(
-          platform.setProperty('http-header-fields', forwardedHeaders),
-        );
-      }
-      await Future.wait(headerFutures);
+      // Clear stale headers when switching between servers/providers too.
+      await platform.setProperty('user-agent', ua);
+      await platform.setProperty('referrer', refValue);
+      await platform.setProperty('http-header-fields', forwardedHeaders);
     } catch (error) {
       AppLogger.w('Could not apply stream headers before playback: $error');
     }
@@ -486,10 +533,23 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         );
       }
     });
-    await _player.open(
-      Media(url, httpHeaders: effectiveHeaders, start: effectiveStartAt),
-      play: true,
-    );
+    try {
+      await _player.open(
+        Media(
+          playbackUrl,
+          httpHeaders: playbackHeaders,
+          start: effectiveStartAt,
+        ),
+        play: true,
+      );
+    } catch (_) {
+      if (openGeneration == _openGeneration) {
+        final relay = _hlsRelay;
+        _hlsRelay = null;
+        if (relay != null) await relay.close();
+      }
+      rethrow;
+    }
   }
 
   Future<void> _applyPlaybackProperties() async {
@@ -520,10 +580,12 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
             : (_lastStablePosition > Duration.zero
                 ? _lastStablePosition
                 : null);
+    _useRelayForRetry = true;
     await open(
       url,
       pos,
       headers: _lastHeaders,
+      isHls: _lastIsHls,
       mediaId: _activeMediaId,
       episode: _activeEpisode,
     );
@@ -554,11 +616,16 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     _pendingSeekTarget = null;
     _lastUrl = null;
     _lastHeaders = null;
+    _lastIsHls = false;
+    _useRelayForRetry = false;
     _activeMediaId = null;
     _activeEpisode = null;
     _lastStablePosition = Duration.zero;
     await _player.setPlaylistMode(PlaylistMode.none);
     await _player.stop();
+    final relay = _hlsRelay;
+    _hlsRelay = null;
+    if (relay != null) await relay.close();
     state = PlayerState.initial();
   }
 

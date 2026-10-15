@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart'
+    as bridge;
+import 'package:isar_community/isar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path_provider/path_provider.dart';
@@ -88,6 +91,37 @@ class BackupService {
         );
 
         dataPayload['settings'] = settingsData;
+        // Export repository indexes and source identities, not executable code
+        // or downloaded APK files. Each source can be re-fetched safely.
+        final installedSources = bridge.isar.mSources.where().findAllSync();
+        final sourceAssignments = <String, String>{};
+        for (final source in installedSources) {
+          final id = source.sourceId;
+          if (id == null || id.isEmpty) continue;
+          final repo =
+              sharedPrefs.getString('extension_source_repo_$id') ?? source.repo;
+          if (repo != null && repo.isNotEmpty) {
+            sourceAssignments['extension_source_repo_$id'] = repo;
+          }
+        }
+        dataPayload['extensions'] = {
+          'animeRepositories':
+              sharedPrefs.getStringList('saved_anime_repos') ?? <String>[],
+          'mangaRepositories':
+              sharedPrefs.getStringList('saved_manga_repos') ?? <String>[],
+          'sourceAssignments': sourceAssignments,
+          'installedMangayomi':
+              installedSources
+                  .where((source) => source.sourceId?.isNotEmpty == true)
+                  .map(
+                    (source) => {
+                      'id': source.sourceId,
+                      'type': source.itemType.index,
+                      'repo': source.repo,
+                    },
+                  )
+                  .toList(),
+        };
       }
 
       final Map<String, dynamic> backupData = {
@@ -230,6 +264,110 @@ class BackupService {
           'content',
           'content_settings',
           (m) => ContentSettingsModel.fromMap(m),
+        );
+      }
+
+      if (data['extensions'] is Map) {
+        final extensionData = Map<String, dynamic>.from(
+          data['extensions'] as Map,
+        );
+        List<String> validRepositories(dynamic value) {
+          if (value is! List) return [];
+          return value
+              .whereType<String>()
+              .where((url) {
+                final uri = Uri.tryParse(url);
+                return uri != null &&
+                    uri.hasAuthority &&
+                    (uri.scheme == 'http' || uri.scheme == 'https');
+              })
+              .toSet()
+              .take(100)
+              .toList();
+        }
+
+        final animeRepos =
+            <String>{
+              'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
+              'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime_index.json',
+              ...validRepositories(
+                extensionData['animeRepositories'],
+              ).where((url) => !url.contains('index.min.json')),
+            }.toList();
+        final mangaRepos =
+            <String>{
+              'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
+              ...validRepositories(
+                extensionData['mangaRepositories'],
+              ).where((url) => !url.contains('index.min.json')),
+            }.toList();
+        await sharedPrefs.setStringList(
+          'saved_anime_repos',
+          validRepositories(extensionData['animeRepositories']),
+        );
+        await sharedPrefs.setStringList(
+          'saved_manga_repos',
+          validRepositories(extensionData['mangaRepositories']),
+        );
+        if (extensionData['sourceAssignments'] is Map) {
+          for (final pair
+              in (extensionData['sourceAssignments'] as Map).entries) {
+            final key = pair.key.toString();
+            final value = pair.value.toString();
+            if (key.startsWith('extension_source_repo_') &&
+                Uri.tryParse(value)?.hasAuthority == true) {
+              await sharedPrefs.setString(key, value);
+            }
+          }
+        }
+
+        // MangaYomi extensions run inside the app and can be restored from
+        // their repository JSON. AniYomi APKs need the Android installer
+        // confirmation and are intentionally never side-loaded from backup.
+        final pending = <Map<String, dynamic>>[];
+        final installedData = extensionData['installedMangayomi'];
+        if (installedData is List) {
+          try {
+            final manager = bridge.ExtensionType.mangayomi.getManager();
+            final installedAnime = await manager.getInstalledAnimeExtensions();
+            final installedManga = await manager.getInstalledMangaExtensions();
+            final availableAnime = await manager.fetchAvailableAnimeExtensions(
+              animeRepos,
+            );
+            final availableManga = await manager.fetchAvailableMangaExtensions(
+              mangaRepos,
+            );
+            for (final entry in installedData) {
+              if (entry is! Map) continue;
+              final id = entry['id']?.toString();
+              final kind = entry['type'];
+              if (id == null || id.isEmpty) continue;
+              final manga = kind == bridge.ItemType.manga.index;
+              final installed = manga ? installedManga : installedAnime;
+              if (installed.any((source) => source.id == id)) continue;
+              final available = manga ? availableManga : availableAnime;
+              final match = available.where((source) => source.id == id);
+              if (match.isEmpty) {
+                pending.add(Map<String, dynamic>.from(entry));
+                continue;
+              }
+              try {
+                await manager.installSource(match.first);
+              } catch (error) {
+                pending.add(Map<String, dynamic>.from(entry));
+                AppLogger.w('Could not restore extension $id: $error');
+              }
+            }
+          } catch (error) {
+            AppLogger.w('Extension restore deferred: $error');
+            for (final entry in installedData) {
+              if (entry is Map) pending.add(Map<String, dynamic>.from(entry));
+            }
+          }
+        }
+        await sharedPrefs.setString(
+          'pending_extension_restore',
+          jsonEncode(pending),
         );
       }
     } catch (e, s) {
