@@ -57,7 +57,29 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
     super.dispose();
   }
 
-  Future<void> _refreshData() async {}
+  Future<void> _refreshData() async {
+    final settings = isar.bridgeSettings.getSync(26) ?? BridgeSettings();
+    final aniyomi = ExtensionType.fromManager(manager) == ExtensionType.aniyomi;
+    switch (itemType) {
+      case ItemType.anime:
+        await manager.fetchAvailableAnimeExtensions(
+          aniyomi ? settings.aniyomiAnimeExtensions
+              : settings.mangayomiAnimeExtensions,
+        );
+        break;
+      case ItemType.manga:
+        await manager.fetchAvailableMangaExtensions(
+          aniyomi ? settings.aniyomiMangaExtensions
+              : settings.mangayomiMangaExtensions,
+        );
+        break;
+      case ItemType.novel:
+        await manager.fetchAvailableNovelExtensions(
+          settings.mangayomiNovelExtensions,
+        );
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -127,6 +149,44 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
         for (final source in entry.value) {
           flattenedList.add((isHeader: false, lang: entry.key, source: source));
         }
+      }
+
+      if (flattenedList.isEmpty) {
+        return RefreshIndicator(
+          onRefresh: _refreshData,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.extension_off_outlined,
+                            size: 48, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(height: 12),
+                        Text('No extensions found',
+                            style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 6),
+                        Text(
+                          config.repositoryFilter == null
+                              ? 'Add a JSON repository or pull down to refresh.'
+                              : 'No sources in this JSON. Pull down to refresh '
+                                'or choose another repository from the menu.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
       }
 
       return RefreshIndicator(
