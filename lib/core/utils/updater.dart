@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ani_dash/core/network/http_client.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
+import 'package:ani_dash/core/utils/apk_variant.dart';
 import 'package:ani_dash/main.dart';
 import 'package:ani_dash/core/utils/update_dialog.dart';
 
@@ -138,23 +139,16 @@ Future<void> checkForUpdates(
   }
 
   if (Platform.isAndroid) {
-    // 1. First look for arm64-v8a specific apk if available
-    for (final a in assets) {
-      final name = (a['name'] as String).toLowerCase();
-      if (name.contains('arm64') && name.endsWith('.apk')) return value(a);
-    }
-    // 2. Fallback to any apk (such as app-release.apk)
-    for (final a in assets) {
-      final name = (a['name'] as String).toLowerCase();
-      if (name.endsWith('.apk')) return value(a);
-    }
+    final selected = selectAndroidApkAsset(assets);
+    return selected == null ? null : value(selected);
   }
 
   if (Platform.isWindows) {
     // 1. Prefer Setup installer exe
     for (final a in assets) {
       final name = (a['name'] as String).toLowerCase();
-      if (name.endsWith('-setup.exe') || (name.endsWith('.exe') && !name.contains('portable'))) {
+      if (name.endsWith('-setup.exe') ||
+          (name.endsWith('.exe') && !name.contains('portable'))) {
         return value(a);
       }
     }

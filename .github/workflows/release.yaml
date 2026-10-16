@@ -168,11 +168,17 @@ jobs:
           flutter test test/unit/player_buffer_policy_test.dart
           flutter test test/unit/ai_policy_router_test.dart
           flutter test test/unit/download_progress_test.dart
-      - name: Build signed universal APK
+      - name: Build signed Android APK variants
         run: |
-          flutter build apk --release --no-tree-shake-icons --obfuscate --split-debug-info=build/app/outputs/symbols --dart-define-from-file=keys.json
           VERSION=$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml)
+          flutter build apk --release --no-tree-shake-icons --obfuscate --split-debug-info=build/app/outputs/symbols/universal --dart-define-from-file=keys.json --dart-define=ANIDASH_APK_VARIANT=universal
           mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/AniDash-v${VERSION}-Universal.apk"
+          flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons --obfuscate --split-debug-info=build/app/outputs/symbols/arm64 --dart-define-from-file=keys.json --dart-define=ANIDASH_APK_VARIANT=arm64-v8a
+          mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/AniDash-v${VERSION}-arm64-v8a.apk"
+          flutter build apk --release --target-platform android-arm --no-tree-shake-icons --obfuscate --split-debug-info=build/app/outputs/symbols/armv7 --dart-define-from-file=keys.json --dart-define=ANIDASH_APK_VARIANT=armeabi-v7a
+          mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/AniDash-v${VERSION}-armeabi-v7a.apk"
+          flutter build apk --release --target-platform android-x64 --no-tree-shake-icons --obfuscate --split-debug-info=build/app/outputs/symbols/x86_64 --dart-define-from-file=keys.json --dart-define=ANIDASH_APK_VARIANT=x86_64
+          mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/AniDash-v${VERSION}-x86_64.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: android-apks

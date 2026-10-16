@@ -9,6 +9,7 @@ import 'package:crypto/crypto.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ani_dash/core/network/http_client.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
+import 'package:ani_dash/core/utils/apk_variant.dart';
 
 class UpdateInfo {
   final String version;
@@ -60,11 +61,7 @@ class UpdateService {
 
           dynamic matchedAsset;
           if (Platform.isAndroid) {
-            // Android strictly requires a valid .apk file
-            matchedAsset = assets.firstWhere((asset) {
-              final name = asset['name'].toString().toLowerCase();
-              return name.endsWith('.apk');
-            }, orElse: () => null);
+            matchedAsset = selectAndroidApkAsset(assets);
           } else if (Platform.isWindows) {
             // Strictly require .exe installer
             matchedAsset = assets.firstWhere((asset) {
