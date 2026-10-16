@@ -8,46 +8,63 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('Release notification watch-progress window', () {
-    test('suppresses a release when the viewer is far behind', () {
-      expect(isReleaseWithinWatchWindow(160, 1180), isFalse);
+  group('Release notification eligibility', () {
+    test('allows a release even when the viewer is far behind', () {
+      expect(isReleaseWithinWatchWindow(160, 1180), isTrue);
     });
 
-    test('allows releases only within the next 12 episodes', () {
+    test('allows every valid release episode', () {
       expect(isReleaseWithinWatchWindow(1168, 1180), isTrue);
-      expect(isReleaseWithinWatchWindow(1167, 1180), isFalse);
-      expect(isReleaseWithinWatchWindow(1180, 1180), isFalse);
+      expect(isReleaseWithinWatchWindow(1167, 1180), isTrue);
+      expect(isReleaseWithinWatchWindow(1180, 1180), isTrue);
+      expect(isReleaseWithinWatchWindow(0, 0), isFalse);
     });
 
-    test(
-      'planning titles receive first-cour releases without long-show spam',
-      () {
-        expect(
-          isReleaseRelevantForStatus(
-            currentEpisode: 0,
-            releaseEpisode: 1,
-            status: 'PLANNING',
-          ),
-          isTrue,
-        );
-        expect(
-          isReleaseRelevantForStatus(
-            currentEpisode: 0,
-            releaseEpisode: 12,
-            status: 'planning',
-          ),
-          isTrue,
-        );
-        expect(
-          isReleaseRelevantForStatus(
-            currentEpisode: 0,
-            releaseEpisode: 1100,
-            status: 'planning',
-          ),
-          isFalse,
-        );
-      },
-    );
+    test('planning titles are not restricted to a twelve-episode window', () {
+      expect(
+        isReleaseRelevantForStatus(
+          currentEpisode: 0,
+          releaseEpisode: 1,
+          status: 'PLANNING',
+        ),
+        isTrue,
+      );
+      expect(
+        isReleaseRelevantForStatus(
+          currentEpisode: 0,
+          releaseEpisode: 12,
+          status: 'planning',
+        ),
+        isTrue,
+      );
+      expect(
+        isReleaseRelevantForStatus(
+          currentEpisode: 0,
+          releaseEpisode: 1100,
+          status: 'planning',
+        ),
+        isTrue,
+      );
+    });
+
+    test('completed and dropped titles do not produce release alerts', () {
+      expect(
+        isReleaseRelevantForStatus(
+          currentEpisode: 12,
+          releaseEpisode: 13,
+          status: 'completed',
+        ),
+        isFalse,
+      );
+      expect(
+        isReleaseRelevantForStatus(
+          currentEpisode: 4,
+          releaseEpisode: 5,
+          status: 'dropped',
+        ),
+        isFalse,
+      );
+    });
   });
 
   group('NotificationInboxService Deserialization & Backward Compatibility', () {

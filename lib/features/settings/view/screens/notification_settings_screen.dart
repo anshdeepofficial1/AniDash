@@ -86,7 +86,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
               icon: Icon(Iconsax.translate, color: colors.primary),
               accent: colors.primary,
               title: 'Dub Releases',
-              description: 'English dub releases for relevant titles',
+              description: 'English dub releases for your anime',
               value: settings.enableDubReleases,
               onChanged:
                   (value) => notifier.updateSettings(
@@ -97,7 +97,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
               icon: Icon(Icons.subtitles_rounded, color: colors.primary),
               accent: colors.primary,
               title: 'Sub Releases',
-              description: 'Japanese audio with subtitle releases',
+              description: 'All subtitle releases for your anime',
               value: settings.enableSubReleases,
               onChanged:
                   (value) => notifier.updateSettings(
@@ -112,7 +112,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
               icon: Icon(Iconsax.clock, color: colors.primary),
               accent: colors.primary,
               title: 'Continue Watching',
-              description: 'Occasional reminders for unfinished episodes',
+              description: 'Reminders for episodes you left unfinished',
               value: settings.enableContinueWatching,
               onChanged:
                   (value) => notifier.updateSettings(

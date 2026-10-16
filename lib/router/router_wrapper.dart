@@ -777,14 +777,19 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final width = MediaQuery.sizeOf(context).width;
 
     final content = Container(
       padding: EdgeInsets.all(compact ? 4 : 6),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: blur ? 0.72 : 1),
+        color: colorScheme.surface.withValues(
+          alpha: blur ? (isDark ? 0.56 : 0.72) : 1,
+        ),
         borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.8)),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: isDark ? 0.28 : 0.42),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -835,7 +840,7 @@ class _BottomNav extends StatelessWidget {
         child:
             blur
                 ? BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                   child: content,
                 )
                 : content,

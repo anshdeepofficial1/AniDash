@@ -846,6 +846,15 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
               // Video Layer
               videoView,
 
+              // Never expose the previous episode's final frame while the
+              // replacement stream is resolving/opening.
+              if (!isPlaying &&
+                  (isOpening ||
+                      episodeStreamState.contains(
+                        EpisodeStreamState.SOURCE_LOADING,
+                      )))
+                const ColoredBox(color: Colors.black),
+
               if (isPiP)
                 const Positioned.fill(child: PiPControlsOverlay())
               else ...[

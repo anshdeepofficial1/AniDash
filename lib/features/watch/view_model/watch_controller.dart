@@ -478,17 +478,24 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
     ref.listen(playerStateProvider, (prev, next) {
       if (_isDisposed || _isAppInBackground) return;
 
-      _pos = next.position.inSeconds;
-      _dur = next.duration.inSeconds;
-
       // `selectedEpisode` changes before the new stream is opened. Ignore the
       // previous episode's final position until the replacement open begins;
       // otherwise its 95% state immediately re-shows the prompt as Ep N+2.
-      if (_episodeTransitionInProgress &&
-          next.isOpening &&
-          ref.read(playerStateProvider.notifier).activeEpisode == _epNum) {
-        _episodeTransitionInProgress = false;
+      if (_episodeTransitionInProgress) {
+        if (next.isOpening &&
+            ref.read(playerStateProvider.notifier).activeEpisode == _epNum) {
+          _episodeTransitionInProgress = false;
+          _pos = 0;
+          _dur = 0;
+        }
+        // A pause/EOF event from the old media can arrive after the episode
+        // selector has already moved. Never persist that old final position
+        // under the new episode number.
+        return;
       }
+
+      _pos = next.position.inSeconds;
+      _dur = next.duration.inSeconds;
 
       if (next.playbackError != null &&
           next.playbackError != prev?.playbackError &&
@@ -667,6 +674,10 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
   }) async {
     if (_mediaId == null || _epNum == null) return;
 
+    final savedEpisode = _epNum!;
+    final savedTitle = _epTitle;
+    final savedThumb = _epThumb;
+    final savedDuration = _dur;
     final savePos = targetPos ?? _pos;
 
     final newThumb = await ref
@@ -677,17 +688,17 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           animeFormat: _animeFormat,
           animeCover: _animeCover!,
           totalEps: _totalEps,
-          epNum: _epNum!,
-          epTitle: _epTitle,
-          epThumb: _epThumb,
+          epNum: savedEpisode,
+          epTitle: savedTitle,
+          epThumb: savedThumb,
           pos: savePos,
-          dur: _dur,
+          dur: savedDuration,
           takeScreenshot: takeScreenshot,
           isAdult: _fromHentaiHub,
           force: force,
         );
 
-    if (newThumb != null) _epThumb = newThumb;
+    if (newThumb != null && _epNum == savedEpisode) _epThumb = newThumb;
   }
 
   Future<void> saveProgressManual({

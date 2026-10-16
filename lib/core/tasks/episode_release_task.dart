@@ -13,11 +13,8 @@ import 'package:ani_dash/core/registery/sources/anime/aniwatch/hianime.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
 
-const int releaseNotificationEpisodeWindow = 12;
-
 bool isReleaseWithinWatchWindow(int currentEpisode, int releaseEpisode) {
-  final distance = releaseEpisode - currentEpisode;
-  return distance > 0 && distance <= releaseNotificationEpisodeWindow;
+  return releaseEpisode > 0;
 }
 
 bool isReleaseRelevantForStatus({
@@ -27,14 +24,10 @@ bool isReleaseRelevantForStatus({
 }) {
   final normalized = status.toLowerCase().trim();
   if (normalized == 'completed' || normalized == 'dropped') return false;
-  // A newly planned show has no watched episode yet. Notify for its normal
-  // first cour (EP1-12), but do not spam users about very late episodes of a
-  // long-running title they have not started.
-  if (normalized == 'planning' || currentEpisode <= 0) {
-    return releaseEpisode > 0 &&
-        releaseEpisode <= releaseNotificationEpisodeWindow;
-  }
-  return isReleaseWithinWatchWindow(currentEpisode, releaseEpisode);
+  // Release alerts follow the user's category switch, not their distance from
+  // the latest episode. This keeps long-running shows useful (for example, a
+  // viewer on episode 260 can still learn that a new One Piece episode aired).
+  return releaseEpisode > 0;
 }
 
 class NotificationCheckResult {
@@ -472,7 +465,7 @@ class EpisodeReleaseTask {
       }
 
       // -------------------------------------------------------------
-      // 4. Continue Watching Reminders (cooldown of 7 days)
+      // 4. Continue Watching Reminders
       // -------------------------------------------------------------
       if (enableContinueWatching) {
         for (final entry in relevantEntries) {
@@ -480,7 +473,7 @@ class EpisodeReleaseTask {
               entry.status.toLowerCase() == 'completed' ||
               entry.isOnHoldOrPaused ||
               entry.isDropped ||
-              entry.isPlanning) {
+              (entry.isPlanning && !entry.hasAnyWatchProgress)) {
             continue;
           }
           final currentEpProgress =
@@ -493,16 +486,18 @@ class EpisodeReleaseTask {
               reminderEpisode > entry.totalEpisodes) {
             continue;
           }
-          final lastWatched = entry.lastUpdated ?? entry.lastPlayedAt;
-          if (lastWatched != null &&
-              DateTime.now().difference(lastWatched) >=
-                  const Duration(hours: 24)) {
+          // Remote tracker refreshes can update lastUpdated without the user
+          // playing anything. Use actual local playback activity first so a
+          // background sync cannot indefinitely postpone this reminder.
+          final lastWatched = entry.effectiveLastPlayedTime;
+          if (DateTime.now().difference(lastWatched) >=
+              const Duration(hours: 12)) {
             final reminderKey =
                 'continue_reminder_${entry.animeId}_$reminderEpisode';
             final lastReminder = pref.getInt(reminderKey) ?? 0;
             final isCooldownActive =
                 DateTime.now().millisecondsSinceEpoch - lastReminder <
-                const Duration(days: 7).inMilliseconds;
+                const Duration(days: 3).inMilliseconds;
 
             if (!isCooldownActive) {
               sentCount++;

@@ -12,6 +12,7 @@ import 'package:ani_dash/shared/providers/tracker/media_tracker_notifier.dart';
 import 'package:ani_dash/shared/providers/incognito_provider.dart';
 
 import 'package:ani_dash/core/utils/cloud_watch_progress_sync.dart';
+import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
 
 part 'watch_sync_notifier.g.dart';
 
@@ -89,25 +90,32 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
 
       final bindings = await repo.getBindings(mediaId);
 
-      final activeBindings = bindings
-          .where(
-            (b) =>
-                (b.type == TrackerType.anilist &&
-                    syncNotifier.shouldSyncAnilist) ||
-                (b.type == TrackerType.mal && syncNotifier.shouldSyncMal),
-          )
-          .toList();
+      final activeBindings =
+          bindings
+              .where(
+                (b) =>
+                    (b.type == TrackerType.anilist &&
+                        syncNotifier.shouldSyncAnilist) ||
+                    (b.type == TrackerType.mal && syncNotifier.shouldSyncMal),
+              )
+              .toList();
 
       final progressEntry = watchProgressRepo.getProgress(mediaId);
-      final totalEpisodes = progressEntry?.totalEpisodes;
-      final isCompleted = totalEpisodes != null &&
-          totalEpisodes > 0 &&
-          episodeNum >= totalEpisodes;
-      final trackingStatus = isCompleted ? 'COMPLETED' : 'CURRENT';
-
       final epProgress = progressEntry?.episodesProgress[episodeNum];
       final sec = progressInSeconds ?? epProgress?.progressInSeconds ?? 0;
       final dur = durationInSeconds ?? epProgress?.durationInSeconds ?? 1440;
+      final trackerProgress = completedEpisodeCountForPlayback(
+        episodeNumber: episodeNum,
+        progressInSeconds: sec,
+        durationInSeconds: dur,
+        explicitlyCompleted: epProgress?.isCompleted == true,
+      );
+      final totalEpisodes = progressEntry?.totalEpisodes;
+      final isCompleted =
+          totalEpisodes != null &&
+          totalEpisodes > 0 &&
+          trackerProgress >= totalEpisodes;
+      final trackingStatus = isCompleted ? 'COMPLETED' : 'CURRENT';
       final localEntry = await trackerNotifier.getLocalEntry();
       final notesTag = CloudWatchProgressSync.formatNotes(
         existingNotes: localEntry?.notes,
@@ -118,7 +126,7 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
 
       if (syncSettings.syncMode == 'background') {
         final inputData = <String, dynamic>{
-          'progress': episodeNum,
+          'progress': trackerProgress,
           'status': trackingStatus,
           'notes': notesTag,
         };
@@ -146,7 +154,7 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
           trackerNotifier.syncTrackers(
             bindings: activeBindings,
             status: trackingStatus,
-            progress: episodeNum,
+            progress: trackerProgress,
             notes: notesTag,
           ),
         );
@@ -166,7 +174,7 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
               episodes: entry?.totalEpisodes,
             ),
             status: trackingStatus,
-            progress: episodeNum,
+            progress: trackerProgress,
             score: localEntry?.score ?? 0.0,
             repeat: localEntry?.repeat ?? 0,
             notes: notesTag,
@@ -181,14 +189,24 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
       AppLogger.e('Tracking update failed; queuing for offline sync: $e');
       final watchProgressRepo = ref.read(watchProgressRepositoryProvider);
       final progressEntry = watchProgressRepo.getProgress(mediaId);
+      final epProgress = progressEntry?.episodesProgress[episodeNum];
+      final sec = progressInSeconds ?? epProgress?.progressInSeconds ?? 0;
+      final dur = durationInSeconds ?? epProgress?.durationInSeconds ?? 1440;
+      final trackerProgress = completedEpisodeCountForPlayback(
+        episodeNumber: episodeNum,
+        progressInSeconds: sec,
+        durationInSeconds: dur,
+        explicitlyCompleted: epProgress?.isCompleted == true,
+      );
       final totalEpisodes = progressEntry?.totalEpisodes;
-      final isCompleted = totalEpisodes != null &&
+      final isCompleted =
+          totalEpisodes != null &&
           totalEpisodes > 0 &&
-          episodeNum >= totalEpisodes;
+          trackerProgress >= totalEpisodes;
       final fallbackStatus = isCompleted ? 'COMPLETED' : 'CURRENT';
       await OfflineSyncQueueService.enqueue(
         mediaId: mediaId,
-        episodeNum: episodeNum,
+        episodeNum: trackerProgress,
         status: fallbackStatus,
       );
     }
