@@ -312,7 +312,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                   titleColor: colorScheme.primary,
                   children: [
                     ToggleableSettingsItem(
-                      icon: Icon(Iconsax.refresh_2, color: colorScheme.primary),
+                      icon: Icon(
+                        Icons.system_update_alt_rounded,
+                        color: colorScheme.primary,
+                      ),
                       accent: colorScheme.primary,
                       title: 'Auto-Check for Updates',
                       description:

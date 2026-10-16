@@ -313,17 +313,9 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     ref.read(playerUIControllerProvider.notifier).setVolume(newV);
     if (Platform.isAndroid || Platform.isIOS) {
       FlutterVolumeController.setVolume(newV);
-      ref
-          .read(playerStateProvider.notifier)
-          .videoController
-          .player
-          .setVolume(100.0);
+      ref.read(playerStateProvider.notifier).setVolume(100.0);
     } else {
-      ref
-          .read(playerStateProvider.notifier)
-          .videoController
-          .player
-          .setVolume(newV * 100.0);
+      ref.read(playerStateProvider.notifier).setVolume(newV * 100.0);
     }
   }
 

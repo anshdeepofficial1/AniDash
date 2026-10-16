@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
+import 'package:flutter/material.dart';
+import 'package:better_player_plus/better_player_plus.dart';
 import 'package:go_router/go_router.dart';
 
 class CustomVideoPlayerScreen extends StatefulWidget {
@@ -9,24 +8,29 @@ class CustomVideoPlayerScreen extends StatefulWidget {
   const CustomVideoPlayerScreen({super.key, required this.url});
 
   @override
-  State<CustomVideoPlayerScreen> createState() => _CustomVideoPlayerScreenState();
+  State<CustomVideoPlayerScreen> createState() =>
+      _CustomVideoPlayerScreenState();
 }
 
 class _CustomVideoPlayerScreenState extends State<CustomVideoPlayerScreen> {
-  late final Player player;
-  late final VideoController controller;
+  late final BetterPlayerController controller;
 
   @override
   void initState() {
     super.initState();
-    player = Player();
-    controller = VideoController(player);
-    player.open(Media(widget.url));
+    controller = BetterPlayerController(
+      const BetterPlayerConfiguration(
+        autoPlay: true,
+        fit: BoxFit.contain,
+        allowedScreenSleep: false,
+      ),
+      betterPlayerDataSource: BetterPlayerDataSource.file(widget.url),
+    );
   }
 
   @override
   void dispose() {
-    player.dispose();
+    controller.dispose(forceDispose: true);
     super.dispose();
   }
 
@@ -36,9 +40,7 @@ class _CustomVideoPlayerScreenState extends State<CustomVideoPlayerScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Center(
-            child: Video(controller: controller),
-          ),
+          Center(child: BetterPlayer(controller: controller)),
           Positioned(
             top: 40,
             left: 20,

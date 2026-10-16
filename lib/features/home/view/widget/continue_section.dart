@@ -23,6 +23,19 @@ import 'package:ani_dash/features/watch/view/widgets/player/dialogs/jump_to_time
 
 final Map<String, String> _continueEpisodeThumbnailCache = {};
 
+int _credibleEpisodeDurationSeconds(int savedDuration, String? animeFormat) {
+  if (savedDuration <= 0) return 0;
+  final format = animeFormat?.toUpperCase();
+  // Old native-player failures could persist a raw transport timestamp as the
+  // episode duration. A regular TV episode cannot have 50+ minutes remaining;
+  // use the standard 24-minute runtime until ExoPlayer writes the real value.
+  if ((format == null || format == 'TV' || format == 'TV_SHORT') &&
+      savedDuration > const Duration(minutes: 45).inSeconds) {
+    return const Duration(minutes: 24).inSeconds;
+  }
+  return savedDuration;
+}
+
 final _continueEpisodeMetadataProvider = FutureProvider.family<
   EpisodeDataModel?,
   ({String animeId, String title, int episode, bool isAdult})
@@ -171,7 +184,11 @@ class ContinueSection extends ConsumerWidget {
               double progressValue = 0.0;
               if (!isCurrentCompleted && currentEp != null) {
                 final p = currentEp.progressInSeconds?.toDouble() ?? 0.0;
-                final d = currentEp.durationInSeconds?.toDouble() ?? 0.0;
+                final d =
+                    _credibleEpisodeDurationSeconds(
+                      currentEp.durationInSeconds ?? 0,
+                      entry.animeFormat,
+                    ).toDouble();
                 if (d > 0) progressValue = (p / d).clamp(0.0, 1.0);
               }
 
@@ -260,7 +277,10 @@ class ContinueSection extends ConsumerWidget {
                           ? 'E$nextEpisodeNum'
                           : 'E$nextEpisodeNum - $resolvedEpisodeTitle');
               final watchedSeconds = displayEp?.progressInSeconds ?? 0;
-              final totalSeconds = displayEp?.durationInSeconds ?? 0;
+              final totalSeconds = _credibleEpisodeDurationSeconds(
+                displayEp?.durationInSeconds ?? 0,
+                entry.animeFormat,
+              );
               final remainingSeconds =
                   totalSeconds > watchedSeconds
                       ? totalSeconds - watchedSeconds
@@ -372,9 +392,9 @@ class ContinueSection extends ConsumerWidget {
                             ),
                             startAt: nextEpisodeNum,
                             startAtPosition:
-                                (nextEpisodeNum == entry.currentEpisode &&
-                                        (currentEp?.progressInSeconds ?? 0) > 0)
-                                    ? currentEp?.progressInSeconds
+                                !isCurrentCompleted &&
+                                        (displayEp?.progressInSeconds ?? 0) > 0
+                                    ? displayEp?.progressInSeconds
                                     : null,
                             withAnimeMatch: true,
                             directAutoMatch: true,

@@ -11,6 +11,7 @@ import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
 import 'package:ani_dash/core/services/audio_focus_service.dart';
 import 'package:ani_dash/core/services/notification_service.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
+import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
 import 'package:ani_dash/features/watch/view_model/aniskip_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart';
@@ -62,11 +63,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       (action) {
         if (_isDisposed) return;
         if (action == 'play_pause') {
-          ref
-              .read(playerStateProvider.notifier)
-              .videoController
-              .player
-              .playOrPause();
+          ref.read(playerStateProvider.notifier).togglePlay();
         } else if (action == 'prev') {
           ref.read(episodeDataProvider.notifier).changeEpisode(null, by: -1);
         } else if (action == 'next') {
@@ -296,7 +293,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
     ref
         .read(continueWatchingDismissedProvider.notifier)
         .restoreIfWatched(mediaId);
-    ref
+    await ref
         .read(watchProgressRepositoryProvider)
         .updateCurrentEpisode(
           mediaId,
@@ -319,8 +316,8 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         '⚡ Instant-resuming active session for $mediaId Ep $initialEpisode (buffer & demuxer preserved)',
       );
       _isPlayerReady = true;
-      _pos = playerNotifier.player.state.position.inSeconds;
-      _dur = playerNotifier.player.state.duration.inSeconds;
+      _pos = playerNotifier.currentPosition.inSeconds;
+      _dur = playerNotifier.currentDuration.inSeconds;
 
       // If a custom jump position was requested, seek to it immediately
       if (startAtPosition != null && startAtPosition > 0) {
@@ -365,7 +362,10 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       final savedSeconds = saved?.progressInSeconds ?? 0;
       final savedDuration = saved?.durationInSeconds ?? 0;
       if (savedSeconds > 0 &&
-          !(savedDuration > 0 && savedSeconds >= savedDuration - 20)) {
+          !isPlaybackEffectivelyComplete(
+            progressInSeconds: savedSeconds,
+            durationInSeconds: savedDuration,
+          )) {
         startAt = Duration(seconds: savedSeconds);
         AppLogger.i(
           'Resuming episode $initialEpisode at ${startAt.inSeconds}s',
@@ -455,10 +455,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
     _completedSubscription?.cancel();
     _completedSubscription = ref
         .read(playerStateProvider.notifier)
-        .videoController
-        .player
-        .stream
-        .completed
+        .completedStream
         .distinct()
         .listen((completed) {
           if (!completed) {

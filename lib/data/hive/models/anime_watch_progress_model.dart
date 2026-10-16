@@ -10,8 +10,10 @@ bool isPlaybackEffectivelyComplete({
 }) {
   if (progressInSeconds <= 0 || durationInSeconds < 60) return false;
   final remaining = durationInSeconds - progressInSeconds;
-  final ratio = progressInSeconds / durationInSeconds;
-  return ratio >= 0.97 || (ratio >= 0.90 && remaining <= 20);
+  // Continue Watching advances only in the final 90 seconds. A percentage
+  // threshold made short episodes advance too early and long episodes wait
+  // too long, while transient HLS durations could make both cases worse.
+  return remaining <= 90;
 }
 
 bool isEpisodeProgressEffectivelyComplete(EpisodeProgress episode) {

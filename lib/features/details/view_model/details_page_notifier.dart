@@ -466,7 +466,11 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
       "Fetching episodes for: ${mediaTitle.english ?? mediaTitle.romaji}",
     );
 
-    if (force && state.animeIdForSource == null) {
+    // A forced retry is used after richer AniList/Jikan details arrive. The
+    // first lightweight relation object may have matched the wrong season;
+    // retaining that stale source id makes season chips show "No episodes"
+    // even though opening the same season from Search works.
+    if (force) {
       state = state.copyWith(setBestMatchNull: true);
     }
 
@@ -505,10 +509,7 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
                 mediaId: animeId,
                 malId: state.details.value?.idMal,
               )
-              .timeout(
-                const Duration(seconds: 14),
-                onTimeout: () => null,
-              );
+              .timeout(const Duration(seconds: 14), onTimeout: () => null);
 
           if (!ref.mounted) return;
 

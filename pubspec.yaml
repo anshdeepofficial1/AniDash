@@ -7,7 +7,7 @@ description: >
 
 publish_to: "none"
 
-version: 1.20.3+136
+version: 1.20.4+137
 
 environment:
   sdk: ">=3.7.0 <4.0.0"
@@ -76,6 +76,7 @@ dependencies:
   media_kit: any
   media_kit_video: any
   media_kit_libs_video: any
+  better_player_plus: 1.1.5
 
   package_info_plus: ^9.0.1
   onesignal_flutter: ^5.7.0

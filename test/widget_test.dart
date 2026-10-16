@@ -18,5 +18,9 @@ void main() {
 
     expect(find.bySemanticsLabel('AniDash application'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    // The onboarding source-health probe has a nine-second network timeout.
+    // Advance fake time so its defensive timer is settled before disposal.
+    await tester.pump(const Duration(seconds: 10));
   });
 }
