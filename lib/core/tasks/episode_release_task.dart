@@ -20,6 +20,23 @@ bool isReleaseWithinWatchWindow(int currentEpisode, int releaseEpisode) {
   return distance > 0 && distance <= releaseNotificationEpisodeWindow;
 }
 
+bool isReleaseRelevantForStatus({
+  required int currentEpisode,
+  required int releaseEpisode,
+  required String status,
+}) {
+  final normalized = status.toLowerCase().trim();
+  if (normalized == 'completed' || normalized == 'dropped') return false;
+  // A newly planned show has no watched episode yet. Notify for its normal
+  // first cour (EP1-12), but do not spam users about very late episodes of a
+  // long-running title they have not started.
+  if (normalized == 'planning' || currentEpisode <= 0) {
+    return releaseEpisode > 0 &&
+        releaseEpisode <= releaseNotificationEpisodeWindow;
+  }
+  return isReleaseWithinWatchWindow(currentEpisode, releaseEpisode);
+}
+
 class NotificationCheckResult {
   final bool success;
   final int schedulesReturned;
@@ -85,6 +102,7 @@ class EpisodeReleaseTask {
       final relevantMediaIds = <int>{};
       final mediaTitlesById = <int, String>{};
       final currentEpisodeByMediaId = <int, int>{};
+      final statusByMediaId = <int, String>{};
 
       // 1. SharedPreferences cache (most reliable across background isolates without DB locks)
       try {
@@ -101,10 +119,13 @@ class EpisodeReleaseTask {
                     cachedValue['title']?.toString() ?? 'Anime';
                 currentEpisodeByMediaId[id] =
                     (cachedValue['currentEpisode'] as num?)?.toInt() ?? 0;
+                statusByMediaId[id] =
+                    cachedValue['status']?.toString() ?? 'planning';
               } else {
                 // Backward compatibility with the old {id: title} cache.
                 mediaTitlesById[id] = cachedValue.toString();
                 currentEpisodeByMediaId.putIfAbsent(id, () => 0);
+                statusByMediaId.putIfAbsent(id, () => 'planning');
               }
             }
           }
@@ -148,6 +169,7 @@ class EpisodeReleaseTask {
           relevantMediaIds.add(id);
           mediaTitlesById[id] = e.animeTitle;
           currentEpisodeByMediaId[id] = e.currentEpisode;
+          statusByMediaId[id] = e.status;
         }
       }
 
@@ -162,6 +184,7 @@ class EpisodeReleaseTask {
             relevantMediaIds.add(sequelId);
             mediaTitlesById[sequelId] = sequel.$2;
             currentEpisodeByMediaId.putIfAbsent(sequelId, () => 0);
+            statusByMediaId.putIfAbsent(sequelId, () => 'planning');
           }
         } catch (e) {
           AppLogger.w('[NotificationWorker] sequel expansion failed: $e');
@@ -214,9 +237,10 @@ class EpisodeReleaseTask {
                   return mId != null &&
                       releasedEpisode != null &&
                       currentEpisode != null &&
-                      isReleaseWithinWatchWindow(
-                        currentEpisode,
-                        releasedEpisode,
+                      isReleaseRelevantForStatus(
+                        currentEpisode: currentEpisode,
+                        releaseEpisode: releasedEpisode,
+                        status: statusByMediaId[mId] ?? 'watching',
                       );
                 }).toList();
           } else {
@@ -297,9 +321,10 @@ class EpisodeReleaseTask {
                   return mId != null &&
                       upcomingEpisode != null &&
                       currentEpisode != null &&
-                      isReleaseWithinWatchWindow(
-                        currentEpisode,
-                        upcomingEpisode,
+                      isReleaseRelevantForStatus(
+                        currentEpisode: currentEpisode,
+                        releaseEpisode: upcomingEpisode,
+                        status: statusByMediaId[mId] ?? 'watching',
                       );
                 }).toList();
           } else {
@@ -418,9 +443,10 @@ class EpisodeReleaseTask {
                       ? latestEnglishDubEp > currentEpisode
                       : latestEnglishDubEp > previousEnglishDub;
               if (isNewAvailability &&
-                  isReleaseWithinWatchWindow(
-                    currentEpisode,
-                    latestEnglishDubEp,
+                  isReleaseRelevantForStatus(
+                    currentEpisode: currentEpisode,
+                    releaseEpisode: latestEnglishDubEp,
+                    status: statusByMediaId[mediaId] ?? 'watching',
                   )) {
                 sentCount++;
                 AppLogger.i(

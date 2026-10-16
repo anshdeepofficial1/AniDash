@@ -76,13 +76,20 @@ void main() {
       );
     });
 
-    test('episode completes only at its real end', () {
+    test('episode advances only inside the final 90 seconds', () {
       expect(
         isPlaybackEffectivelyComplete(
           progressInSeconds: 22 * 60 + 45,
           durationInSeconds: 23 * 60,
         ),
         isTrue,
+      );
+      expect(
+        isPlaybackEffectivelyComplete(
+          progressInSeconds: 21 * 60 + 29,
+          durationInSeconds: 23 * 60,
+        ),
+        isFalse,
       );
     });
 

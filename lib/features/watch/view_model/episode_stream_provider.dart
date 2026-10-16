@@ -11,7 +11,6 @@ import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart'
     hide Source;
 import 'package:flutter/material.dart';
 import 'package:ani_dash/router/router_config.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:ani_dash/core/models/anime/episode_model.dart';
@@ -673,7 +672,7 @@ class EpisodeData extends _$EpisodeData {
 
     if (idx <= 0 || idx >= state.subtitles.length) {
       AppLogger.d('Disabling Subtitles');
-      await _player.setSubtitle(SubtitleTrack.no());
+      await _player.setSubtitle(null);
       state = state.copyWith(
         selectedSubtitleIdx: 0,
         removeState: EpisodeStreamState.SUBTITLE_LOADING,
@@ -684,7 +683,7 @@ class EpisodeData extends _$EpisodeData {
     final sub = state.subtitles[idx];
     AppLogger.infoPair('Applying Subtitle', sub.lang);
 
-    if (sub.url != null) await _player.setSubtitle(SubtitleTrack.uri(sub.url!));
+    if (sub.url != null) await _player.setSubtitle(sub.url!);
 
     state = state.copyWith(
       selectedSubtitleIdx: idx,

@@ -261,10 +261,11 @@ class AniSkipNotifier extends _$AniSkipNotifier {
       final end = intro.end!.toDouble();
       final duration = end - start;
 
-      // Strict validation for Intro:
-      // An anime OP MUST start in the first 5 minutes (<= 300s) and last 15s to 180s.
-      // Anything starting after 300s (e.g. at 10-15 minutes) is a chapter marker/ad break, not an intro!
-      if (start >= 0 && start <= 300 && duration >= 15 && duration <= 180) {
+      // These markers came from the exact stream response for this episode.
+      // Do not replace them with an averaged placement: some episodes move or
+      // omit their opening intentionally. Only reject structurally impossible
+      // intervals.
+      if (start >= 0 && duration >= 3 && duration <= 360) {
         newSourceItems.add(
           AniSkipResultItem(
             interval: AniSkipInterval(startTime: start, endTime: end),
@@ -275,9 +276,7 @@ class AniSkipNotifier extends _$AniSkipNotifier {
           ),
         );
       } else {
-        AppLogger.w(
-          'AniSkip: Rejected invalid source intro ($start -> $end). An anime intro must start within first 5 minutes!',
-        );
+        AppLogger.w('AniSkip: Rejected invalid source intro ($start -> $end).');
       }
     }
 
@@ -289,9 +288,9 @@ class AniSkipNotifier extends _$AniSkipNotifier {
       final end = outro.end!.toDouble();
       final duration = end - start;
 
-      // Strict validation for Outro:
-      // An anime ED MUST start after 300s and last 15s to 180s.
-      if (start >= 300 && duration >= 15 && duration <= 180) {
+      // Trust the episode-specific stream marker even when an unusual episode
+      // places its ending earlier than the series average.
+      if (start >= 0 && duration >= 3 && duration <= 360) {
         newSourceItems.add(
           AniSkipResultItem(
             interval: AniSkipInterval(startTime: start, endTime: end),
@@ -302,9 +301,7 @@ class AniSkipNotifier extends _$AniSkipNotifier {
           ),
         );
       } else {
-        AppLogger.w(
-          'AniSkip: Rejected invalid source outro ($start -> $end). An anime outro must start after 300s!',
-        );
+        AppLogger.w('AniSkip: Rejected invalid source outro ($start -> $end).');
       }
     }
 

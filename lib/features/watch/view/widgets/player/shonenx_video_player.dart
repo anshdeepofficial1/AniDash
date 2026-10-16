@@ -3,11 +3,10 @@ import 'dart:io';
 
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit_video/media_kit_video.dart';
+import 'package:better_player_plus/better_player_plus.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:ani_dash/core/models/anime/source_model.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
@@ -229,17 +228,9 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
 
     if (Platform.isAndroid || Platform.isIOS) {
       if (updateSystemVolume) FlutterVolumeController.setVolume(newV);
-      ref
-          .read(playerStateProvider.notifier)
-          .videoController
-          .player
-          .setVolume(100.0);
+      ref.read(playerStateProvider.notifier).setVolume(100.0);
     } else {
-      ref
-          .read(playerStateProvider.notifier)
-          .videoController
-          .player
-          .setVolume(newV * 100.0);
+      ref.read(playerStateProvider.notifier).setVolume(newV * 100.0);
     }
 
     if (showOverlay) {
@@ -291,17 +282,9 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
 
       if (Platform.isAndroid || Platform.isIOS) {
         FlutterVolumeController.setVolume(newV);
-        ref
-            .read(playerStateProvider.notifier)
-            .videoController
-            .player
-            .setVolume(100.0);
+        ref.read(playerStateProvider.notifier).setVolume(100.0);
       } else {
-        ref
-            .read(playerStateProvider.notifier)
-            .videoController
-            .player
-            .setVolume(newV * 100.0);
+        ref.read(playerStateProvider.notifier).setVolume(newV * 100.0);
       }
     }
   }
@@ -780,16 +763,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                 )));
 
     Widget videoView = RepaintBoundary(
-      child: Video(
-        controller: notifier.videoController,
-        fit: fit,
-        wakelock: true,
-        filterQuality: kDebugMode ? FilterQuality.none : FilterQuality.low,
-        controls: NoVideoControls,
-        subtitleViewConfiguration: const SubtitleViewConfiguration(
-          visible: false,
-        ),
-      ),
+      child: BetterPlayer(controller: notifier.betterPlayerController),
     );
 
     if (fitMode == VideoFitMode.ratio16x9 || fitMode == VideoFitMode.ratio4x3) {

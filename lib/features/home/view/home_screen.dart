@@ -179,13 +179,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         EpisodeProgress? unfinishedLocalEpisode;
         if (local != null) {
           for (final episode in local.episodesProgress.values) {
-            final duration = episode.durationInSeconds ?? 0;
             final position = episode.progressInSeconds ?? 0;
             final isUnfinished =
-                position > 0 &&
-                !episode.isCompleted &&
-                (duration <= 0 || position / duration < 0.90) &&
-                (duration <= 45 || position < duration - 45);
+                position > 0 && !isEpisodeProgressEffectivelyComplete(episode);
             // A tracker value of 4 means episodes 1-4 are completed. A stale
             // partial E1/E2 must therefore not override the tracker. Only a
             // partial episode at or beyond the tracker's next episode is
@@ -211,13 +207,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         // the user watched ahead on another device (e.g. mobile), so local must advance!
         if (local != null && local.currentEpisode >= nextEpisode) {
           final localEpisode = local.episodesProgress[local.currentEpisode];
-          final localDuration = localEpisode?.durationInSeconds ?? 0;
           final localPosition = localEpisode?.progressInSeconds ?? 0;
           final hasUnfinishedLocalEpisode =
               localEpisode != null &&
               localPosition > 0 &&
-              !localEpisode.isCompleted &&
-              (localDuration <= 0 || localPosition / localDuration < 0.90);
+              !isEpisodeProgressEffectivelyComplete(localEpisode);
           if (hasUnfinishedLocalEpisode) {
             continue;
           }

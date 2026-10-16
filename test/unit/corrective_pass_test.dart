@@ -18,6 +18,36 @@ void main() {
       expect(isReleaseWithinWatchWindow(1167, 1180), isFalse);
       expect(isReleaseWithinWatchWindow(1180, 1180), isFalse);
     });
+
+    test(
+      'planning titles receive first-cour releases without long-show spam',
+      () {
+        expect(
+          isReleaseRelevantForStatus(
+            currentEpisode: 0,
+            releaseEpisode: 1,
+            status: 'PLANNING',
+          ),
+          isTrue,
+        );
+        expect(
+          isReleaseRelevantForStatus(
+            currentEpisode: 0,
+            releaseEpisode: 12,
+            status: 'planning',
+          ),
+          isTrue,
+        );
+        expect(
+          isReleaseRelevantForStatus(
+            currentEpisode: 0,
+            releaseEpisode: 1100,
+            status: 'planning',
+          ),
+          isFalse,
+        );
+      },
+    );
   });
 
   group('NotificationInboxService Deserialization & Backward Compatibility', () {
