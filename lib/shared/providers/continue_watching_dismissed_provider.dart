@@ -8,13 +8,14 @@ const _kDismissedContinueWatchingKey = 'dismissed_continue_watching_ids';
 
 final continueWatchingDismissedProvider =
     NotifierProvider<ContinueWatchingDismissedNotifier, Set<String>>(
-  ContinueWatchingDismissedNotifier.new,
-);
+      ContinueWatchingDismissedNotifier.new,
+    );
 
 class ContinueWatchingDismissedNotifier extends Notifier<Set<String>> {
   @override
   Set<String> build() {
-    final list = sharedPrefs.getStringList(_kDismissedContinueWatchingKey) ?? [];
+    final list =
+        sharedPrefs.getStringList(_kDismissedContinueWatchingKey) ?? [];
     return list.toSet();
   }
 
@@ -57,9 +58,7 @@ void showContinueWatchingUndoSnackBar({
   scaffoldMessenger.removeCurrentSnackBar();
 
   // Stage removal in state immediately
-  ref
-      .read(continueWatchingDismissedProvider.notifier)
-      .stageDismiss(animeId);
+  ref.read(continueWatchingDismissedProvider.notifier).stageDismiss(animeId);
 
   int remainingSeconds = 5;
   Timer? timer;
@@ -129,11 +128,20 @@ void showContinueWatchingUndoSnackBar({
 
   controller.closed.then((reason) {
     timer?.cancel();
-    if (!isActionTaken) {
+    // A route change or an unrelated snackbar can hide/replace this snackbar.
+    // That must never silently delete Continue Watching history. Commit only
+    // when the countdown really expires or the user explicitly swipes it away.
+    final shouldCommit =
+        reason == SnackBarClosedReason.timeout ||
+        reason == SnackBarClosedReason.swipe;
+    if (!isActionTaken && shouldCommit) {
       isActionTaken = true;
       ref
           .read(continueWatchingDismissedProvider.notifier)
           .commitDismiss(animeId, ref);
+    } else if (!isActionTaken) {
+      isActionTaken = true;
+      ref.read(continueWatchingDismissedProvider.notifier).undoDismiss(animeId);
     }
   });
 }

@@ -80,7 +80,7 @@ class AniSkipService {
 
             if (isOpening) {
               return interval.startTime >= 0 &&
-                  interval.startTime <= 300 &&
+                  interval.startTime <= 1200 &&
                   interval.endTime > interval.startTime;
             }
             if (isEnding) {
@@ -110,14 +110,15 @@ class AniSkipService {
 
           switch (item.skipType) {
             case SkipType.op:
-              // An anime opening MUST start within the first 5 minutes (<= 300 seconds).
-              // It can NEVER start at 10-15 minutes into an episode!
-              return start >= 0 && start <= 300;
+              // Recap-heavy and special episodes can place the real opening
+              // much later (One Piece 265 starts around 07:39). AniSkip's
+              // episode-specific marker is safer than a fixed five-minute cap.
+              return start >= 0 && start <= episodeLength * 0.60;
             case SkipType.ed:
               // An anime ending must start in the second half (>= 60%) and after 480 seconds (8 mins).
               return start >= 480 && start >= episodeLength * 0.60;
             case SkipType.mixed:
-              return (start >= 0 && start <= 300) ||
+              return (start >= 0 && start <= episodeLength * 0.60) ||
                   (start >= 480 && start >= episodeLength * 0.60);
             case SkipType.recap:
               return start >= 0 && start <= 360;

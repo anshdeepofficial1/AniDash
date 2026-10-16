@@ -527,7 +527,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 .asData
                 ?.value
             : null;
-    final tvSeasons = franchiseOrder?.tvSeasons ?? [];
+    final franchiseEntries = franchiseOrder?.navigationItems ?? [];
 
     final exposedName = state.bestMatchName;
     final theme = Theme.of(context);
@@ -535,18 +535,17 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         widget.relations.where((relation) {
             final relationType = relation.relationType.toUpperCase();
             final format = relation.media.format?.toUpperCase() ?? '';
-            const excludedFormats = {
-              'MOVIE',
-              'OVA',
-              'ONA',
-              'SPECIAL',
-              'TV_SHORT',
-              'MUSIC',
-              'MANGA',
-              'NOVEL',
-              'ONE_SHOT',
+            const excludedFormats = {'MUSIC', 'MANGA', 'NOVEL', 'ONE_SHOT'};
+            const relevantRelations = {
+              'SEQUEL',
+              'PREQUEL',
+              'PARENT',
+              'SIDE_STORY',
+              'SUMMARY',
+              'SPIN_OFF',
+              'OTHER',
             };
-            return (relationType == 'SEQUEL' || relationType == 'PREQUEL') &&
+            return relevantRelations.contains(relationType) &&
                 !excludedFormats.contains(format);
           }).toList()
           ..sort(
@@ -751,7 +750,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
             ),
           ),
 
-          if (tvSeasons.length > 1)
+          if (franchiseEntries.length > 1)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -759,7 +758,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Seasons',
+                      'Seasons & Specials',
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -769,9 +768,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       height: 38,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
-                        itemCount: tvSeasons.length,
+                        itemCount: franchiseEntries.length,
                         itemBuilder: (context, index) {
-                          final seasonItem = tvSeasons[index];
+                          final seasonItem = franchiseEntries[index];
                           final isCurrent =
                               seasonItem.isCurrent ||
                               seasonItem.id.toString() == widget.mediaId;
@@ -807,7 +806,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Seasons',
+                      'Seasons & Specials',
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -2093,44 +2092,70 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                     isWatched ? 'Mark as Unwatched' : 'Mark as Watched',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  onTap: () {
+                  onTap: () async {
                     final newWatched = !isWatched;
                     final existing = repo.getProgress(widget.mediaId);
-                    if (existing == null) {
-                      repo.saveProgress(
-                        AnimeWatchProgressEntry(
-                          animeId: widget.mediaId,
+                    final totalEpisodes =
+                        (widget.anime?.episodes ?? 0) > 0
+                            ? widget.anime!.episodes!
+                            : (widget.mediaFormat.toUpperCase() == 'MOVIE'
+                                ? 1
+                                : ref
+                                    .read(episodeListProvider)
+                                    .episodes
+                                    .length);
+                    final episodesMap = Map<int, EpisodeProgress>.from(
+                      existing?.episodesProgress ?? const {},
+                    );
+                    episodesMap[epNum] = EpisodeProgress(
+                      episodeNumber: epNum,
+                      episodeTitle:
+                          episode.title ??
+                          (widget.mediaFormat.toUpperCase() == 'MOVIE'
+                              ? animeTitle
+                              : 'Episode $epNum'),
+                      episodeThumbnail: episode.thumbnail ?? widget.mediaCover,
+                      progressInSeconds: newWatched ? 1440 : 0,
+                      durationInSeconds: 1440,
+                      isCompleted: newWatched,
+                      watchedAt: DateTime.now(),
+                    );
+                    final isComplete =
+                        newWatched &&
+                        totalEpisodes > 0 &&
+                        epNum >= totalEpisodes;
+                    final updated = (existing ??
+                            AnimeWatchProgressEntry(
+                              animeId: widget.mediaId,
+                              animeTitle: animeTitle,
+                              animeCover: widget.mediaCover,
+                              animeFormat: widget.mediaFormat,
+                              totalEpisodes: totalEpisodes,
+                            ))
+                        .copyWith(
                           animeTitle: animeTitle,
                           animeCover: widget.mediaCover,
                           animeFormat: widget.mediaFormat,
-                          totalEpisodes: 0,
-                          lastUpdated: DateTime.now(),
+                          totalEpisodes: totalEpisodes,
                           currentEpisode: epNum,
-                          episodesProgress: {},
-                        ),
-                      );
-                    }
-                    repo.updateEpisodeProgress(
-                      widget.mediaId,
-                      EpisodeProgress(
-                        episodeNumber: epNum,
-                        episodeTitle: episode.title ?? 'Episode $epNum',
-                        episodeThumbnail:
-                            episode.thumbnail ?? widget.mediaCover,
-                        progressInSeconds: newWatched ? 1440 : 0,
-                        durationInSeconds: 1440,
-                        isCompleted: newWatched,
-                        watchedAt: DateTime.now(),
-                      ),
-                    );
+                          episodesProgress: episodesMap,
+                          status: isComplete ? 'completed' : 'watching',
+                          lastUpdated: DateTime.now(),
+                          lastPlayedAt: existing?.lastPlayedAt,
+                        );
+                    // Save the complete state atomically. Previously the empty
+                    // shell entry and episode update raced, which could leave
+                    // a one-part movie as a fake "EP 2" Continue card.
+                    await repo.saveProgress(updated);
                     if (newWatched) {
-                      ref
+                      await ref
                           .read(watchSyncProvider.notifier)
                           .handleTrackingUpdate(
                             mediaId: widget.mediaId,
                             episodeNum: epNum,
                           );
                     }
+                    if (!sheetContext.mounted) return;
                     Navigator.pop(sheetContext);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
