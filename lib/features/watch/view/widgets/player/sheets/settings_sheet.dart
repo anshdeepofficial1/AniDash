@@ -9,11 +9,9 @@ import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart'
 import 'package:ani_dash/features/watch/view/widgets/player/dialogs/jump_to_time_dialog.dart';
 import 'package:ani_dash/shared/providers/settings/player_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/player/pip_controller.dart';
-import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
-import 'package:ani_dash/core/services/share_link_service.dart';
 import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 import 'package:ani_dash/helpers/show_subtitle_sidebar.dart';
-import 'package:ani_dash/shared/providers/anime_source_provider.dart';
+import 'package:ani_dash/core/utils/video_quality_label.dart';
 
 class SettingsSheetContent extends ConsumerWidget {
   final VoidCallback onDismiss;
@@ -40,22 +38,15 @@ class SettingsSheetContent extends ConsumerWidget {
     final streamNotifier = ref.read(episodeDataProvider.notifier);
     final playerSettings = ref.watch(playerSettingsProvider);
     final playerNotifier = ref.read(playerSettingsProvider.notifier);
-    final episodeList = ref.watch(episodeListProvider);
-    final sourceRegistry = ref.watch(animeSourceRegistryProvider);
-    final selectedProviderKey = ref.watch(selectedProviderKeyProvider);
-    final selectedProvider =
-        selectedProviderKey == null
-            ? null
-            : sourceRegistry.get(selectedProviderKey);
-
     final currentQuality =
         streamData.selectedQualityIdx != null &&
                 streamData.qualityOptions.isNotEmpty &&
                 streamData.selectedQualityIdx! <
                     streamData.qualityOptions.length
-            ? streamData
-                .qualityOptions[streamData.selectedQualityIdx!]['quality']
-                ?.toString()
+            ? normalizeVideoQualityLabel(
+              streamData.qualityOptions[streamData
+                  .selectedQualityIdx!]['quality'],
+            )
             : 'Auto';
 
     final isDub = streamData.selectedServer?.isDub == true;
@@ -73,22 +64,6 @@ class SettingsSheetContent extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("More", style: Theme.of(context).textTheme.headlineSmall),
-                ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.share_rounded),
-                  title: const Text('Share episode'),
-                  onTap:
-                      episodeList.mediaId == null ||
-                              streamData.selectedEpisode == null
-                          ? null
-                          : () async {
-                            await ShareLinkService.shareEpisode(
-                              animeId: episodeList.mediaId!,
-                              animeTitle: episodeList.animeTitle ?? 'Anime',
-                              episode: streamData.selectedEpisode!,
-                            );
-                          },
-                ),
                 if (onSubtitlesPressed != null)
                   ListTile(
                     leading: const Icon(Icons.subtitles_rounded),
@@ -109,7 +84,7 @@ class SettingsSheetContent extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.high_quality_rounded),
                   title: const Text("Quality"),
-                  trailing: Text(currentQuality ?? 'Auto'),
+                  trailing: Text(currentQuality),
                   onTap: () {
                     if (streamData.qualityOptions.isNotEmpty) {
                       _showDialog(
@@ -130,8 +105,9 @@ class SettingsSheetContent extends ConsumerWidget {
                                           index;
                                       return ListTile(
                                         title: Text(
-                                          opt['quality']?.toString() ??
-                                              'Option $index',
+                                          normalizeVideoQualityLabel(
+                                            opt['quality'],
+                                          ),
                                         ),
                                         trailing:
                                             isSelected
@@ -204,52 +180,6 @@ class SettingsSheetContent extends ConsumerWidget {
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.hub_rounded),
-                  title: const Text('Content source'),
-                  trailing: Text(
-                    selectedProvider?.providerName ??
-                        selectedProviderKey?.toUpperCase() ??
-                        'Not selected',
-                  ),
-                  onTap:
-                      sourceRegistry.keys.isEmpty
-                          ? null
-                          : () => _showDialog(
-                            context,
-                            builder:
-                                (ctx) => AlertDialog(
-                                  title: const Text('Select Content Source'),
-                                  content: SingleChildScrollView(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children:
-                                          sourceRegistry.keys.map((key) {
-                                            final provider = sourceRegistry.get(
-                                              key,
-                                            );
-                                            return ListTile(
-                                              title: Text(
-                                                provider?.providerName ??
-                                                    key.toUpperCase(),
-                                              ),
-                                              trailing:
-                                                  selectedProviderKey == key
-                                                      ? const Icon(Icons.check)
-                                                      : null,
-                                              onTap: () {
-                                                Navigator.pop(ctx);
-                                                streamNotifier.changeProvider(
-                                                  key,
-                                                );
-                                              },
-                                            );
-                                          }).toList(),
-                                    ),
-                                  ),
-                                ),
-                          ),
-                ),
-                ListTile(
                   leading: const Icon(Icons.dns_rounded),
                   title: const Text("Server"),
                   trailing: Text(
@@ -291,56 +221,6 @@ class SettingsSheetContent extends ConsumerWidget {
                                                 ),
                                               )
                                               .toList(),
-                                    ),
-                                  ),
-                                ),
-                          ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.source_rounded),
-                  title: const Text("Source"),
-                  trailing: Text(
-                    streamData.selectedSourceIdx != null &&
-                            streamData.selectedSourceIdx! <
-                                streamData.sources.length
-                        ? (streamData
-                                .sources[streamData.selectedSourceIdx!]
-                                .quality ??
-                            'Auto')
-                        : 'Auto',
-                  ),
-                  onTap:
-                      streamData.sources.isEmpty
-                          ? null
-                          : () => _showDialog(
-                            context,
-                            builder:
-                                (ctx) => AlertDialog(
-                                  title: const Text("Select Source"),
-                                  content: SingleChildScrollView(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: List.generate(
-                                        streamData.sources.length,
-                                        (index) => ListTile(
-                                          title: Text(
-                                            streamData.sources[index].quality ??
-                                                'Source ${index + 1}',
-                                          ),
-                                          trailing:
-                                              streamData.selectedSourceIdx ==
-                                                      index
-                                                  ? const Icon(
-                                                    Icons.check,
-                                                    color: Colors.green,
-                                                  )
-                                                  : null,
-                                          onTap: () {
-                                            Navigator.pop(ctx);
-                                            streamNotifier.changeSource(index);
-                                          },
-                                        ),
-                                      ),
                                     ),
                                   ),
                                 ),
@@ -483,7 +363,7 @@ class SettingsSheetContent extends ConsumerWidget {
                                 Text(
                                   'Audio: ${isDub ? 'English DUB' : 'Japanese SUB'}',
                                 ),
-                                Text('Quality: ${currentQuality ?? 'Auto'}'),
+                                Text('Quality: $currentQuality'),
                                 Text(
                                   'Position: ${_formatDuration(player.position)}',
                                 ),

@@ -98,6 +98,8 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
     final displayedAnime = pageState.details.value ?? _activeMedia;
     final isLoading = pageState.isLoading;
     final isMovie = displayedAnime.format?.toUpperCase() == 'MOVIE';
+    final isUnreleased =
+        displayedAnime.status?.toUpperCase() == 'NOT_YET_RELEASED';
     final isDesktop = !(Platform.isAndroid || Platform.isIOS);
 
     return Scaffold(
@@ -129,9 +131,17 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
                       indicatorColor: colorScheme.primary,
                       indicatorSize: TabBarIndicatorSize.label,
                       indicatorWeight: 3,
-                      labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
-                      dividerColor: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      labelStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      unselectedLabelStyle: const TextStyle(
+                        fontWeight: FontWeight.normal,
+                        fontSize: 14,
+                      ),
+                      dividerColor: colorScheme.outlineVariant.withValues(
+                        alpha: 0.3,
+                      ),
                       tabs: [
                         const Tab(text: 'About'),
                         Tab(text: isMovie ? 'Movie' : 'Episodes'),
@@ -165,21 +175,24 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
                 ),
                 _KeepAliveWrapper(
                   key: ValueKey('episodes-wrap-${displayedAnime.id}'),
-                  child: EpisodesTab(
-                    key: ValueKey('episodes-${displayedAnime.id}'),
-                    anime: displayedAnime,
-                    mediaId: displayedAnime.id.toString(),
-                    malId: int.tryParse(displayedAnime.idMal ?? ''),
-                    mediaTitle: displayedAnime.title,
-                    mediaFormat: displayedAnime.format ?? '',
-                    mediaCover:
-                        displayedAnime.coverImage.large ??
-                        displayedAnime.coverImage.medium ??
-                        '',
-                    fromHentaiHub: widget.fromHentaiHub,
-                    relations: displayedAnime.relations,
-                    onSeasonSelected: _onSeasonSelected,
-                  ),
+                  child:
+                      isUnreleased
+                          ? const _UnreleasedEpisodesNotice()
+                          : EpisodesTab(
+                            key: ValueKey('episodes-${displayedAnime.id}'),
+                            anime: displayedAnime,
+                            mediaId: displayedAnime.id.toString(),
+                            malId: int.tryParse(displayedAnime.idMal ?? ''),
+                            mediaTitle: displayedAnime.title,
+                            mediaFormat: displayedAnime.format ?? '',
+                            mediaCover:
+                                displayedAnime.coverImage.large ??
+                                displayedAnime.coverImage.medium ??
+                                '',
+                            fromHentaiHub: widget.fromHentaiHub,
+                            relations: displayedAnime.relations,
+                            onSeasonSelected: _onSeasonSelected,
+                          ),
                 ),
                 _KeepAliveWrapper(
                   key: ValueKey('chars-wrap-${displayedAnime.id}'),
@@ -188,10 +201,10 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
                     characters: displayedAnime.characters,
                     isLoading: isLoading,
                     onRetry:
-                      () =>
-                          ref
-                              .read(detailsPageProvider(id).notifier)
-                              .fetchDetails(),
+                        () =>
+                            ref
+                                .read(detailsPageProvider(id).notifier)
+                                .fetchDetails(),
                   ),
                 ),
               ],
@@ -199,35 +212,70 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
           ),
         ),
       ),
-      bottomNavigationBar: isDesktop
-          ? null
-          : Material(
-              color: colorScheme.surface,
-              elevation: 8,
-              child: SafeArea(
-                child: SizedBox(
-                  height: 60,
-                  child: TabBar(
-                    controller: _tabController,
-                    labelColor: colorScheme.primary,
-                    unselectedLabelColor: colorScheme.onSurface.withValues(
-                      alpha: 0.6,
+      bottomNavigationBar:
+          isDesktop
+              ? null
+              : Material(
+                color: colorScheme.surface,
+                elevation: 8,
+                child: SafeArea(
+                  child: SizedBox(
+                    height: 60,
+                    child: TabBar(
+                      controller: _tabController,
+                      labelColor: colorScheme.primary,
+                      unselectedLabelColor: colorScheme.onSurface.withValues(
+                        alpha: 0.6,
+                      ),
+                      indicatorColor: colorScheme.primary,
+                      indicatorSize: TabBarIndicatorSize.label,
+                      dividerColor: Colors.transparent,
+                      tabs: [
+                        const Tab(text: 'About'),
+                        Tab(text: isMovie ? 'Movie' : 'Episodes'),
+                        const Tab(text: 'Characters'),
+                      ],
                     ),
-                    indicatorColor: colorScheme.primary,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    dividerColor: Colors.transparent,
-                    tabs: [
-                      const Tab(text: 'About'),
-                      Tab(text: isMovie ? 'Movie' : 'Episodes'),
-                      const Tab(text: 'Characters'),
-                    ],
                   ),
                 ),
               ),
-            ),
       floatingActionButton:
           !useExtensions ? _WatchFab(anime: displayedAnime) : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+}
+
+class _UnreleasedEpisodesNotice extends StatelessWidget {
+  const _UnreleasedEpisodesNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.calendar_month_rounded, size: 54, color: colors.primary),
+            const SizedBox(height: 16),
+            Text(
+              'Episodes are not available yet',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This anime has not started releasing. AniDash will show its episodes after the first official release.',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -262,7 +310,8 @@ class _DetailsTabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _DetailsTabBarDelegate oldDelegate) {
-    return oldDelegate.tabBar != tabBar || oldDelegate.backgroundColor != backgroundColor;
+    return oldDelegate.tabBar != tabBar ||
+        oldDelegate.backgroundColor != backgroundColor;
   }
 }
 
@@ -321,10 +370,10 @@ class _WatchFabState extends ConsumerState<_WatchFab> {
         _isWatchLoading
             ? 'Loading...'
             : (widget.anime.format?.toUpperCase() == 'MOVIE')
-                ? 'Watch Movie'
-                : progress?.currentEpisode != null
-                ? 'EP ${progress?.currentEpisode}'
-                : 'Watch Now',
+            ? 'Watch Movie'
+            : progress?.currentEpisode != null
+            ? 'EP ${progress?.currentEpisode}'
+            : 'Watch Now',
         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
     );

@@ -1,27 +1,35 @@
-# AniDash v1.20.2 — Playback stability, extension repositories and AniCORE
+# AniDash v1.20.5 — Reliable progress, notifications and cleaner playback controls
 
-This update prioritizes preserving the stable v1.20.1 player and fixing source selection, downloads and extension management.
+This release focuses on preserving stable playback while correcting progress, notification and player-interface edge cases.
 
-## Playback and downloads
-- Keep the explicitly selected JustAnime, HiAnime or installed extension authoritative throughout episode matching and playback. No silent provider replacement.
-- Retain v1.20.1's direct MPV streaming path, audio synchronization, 100-second ahead readahead policy, intro/outro and recap skipping.
-- Make the authenticated on-device HLS relay an explicit Retry fallback instead of forcing it on streams that already play successfully.
-- Reject missing or malformed episode download URLs before queueing, and do not silently substitute SUB for an unavailable English DUB.
+## Playback and progress
+- Keep a 120-second streaming buffer target while retaining a short startup threshold.
+- Prevent the previous episode frame from appearing while a different episode or anime opens.
+- Prevent a completed episode's final position from leaking into the next episode during transitions.
+- Keep partially watched episodes on the current episode until playback reaches the final 90 seconds.
+- Sync only fully completed episode counts to AniList and MyAnimeList while preserving exact local playback position.
 
-## Extensions and backups
-- Group Anime and Manga extension catalogs by their original JSON repository in the hamburger navigation, with clear catalog names.
-- Prevent duplicate sources during updates and refresh, validate repository loading, and make pull-to-refresh functional.
-- Preserve engine/source selection and include JSON repository lists and MangaYomi extension identities in backup/restore. Android APK-based AniYomi extensions still require Android's installer approval.
+## Player interface
+- Simplify the player menu by removing duplicate Share, Content Source and Source entries.
+- Present quality choices as clear resolution labels such as Auto, 1080p and 720p.
+- Keep server selection and playback preferences organized without changing the playback engine.
 
-## AniCORE and app experience
-- Add phone-default or user-selected microphone languages and stop stale transcription events from restoring sent text.
-- Add Edit and resend / Resend for user messages, and restore interrupted chat requests after leaving and reopening the chat.
-- Replace the old sparkle emblem with an original animated, theme-colored CoreBall.
-- Improve Recents task clean-up after the in-app APK installer relaunches AniDash.
-- Apply recent-app privacy protection independently of screenshot protection.
+## Episodes and library
+- Do not request episode data for unreleased anime; show a clear availability message instead.
+- Remove the extra Your Library sorting control and retain the library's established order.
+- Correct the Skypiea arc label and keep long-series grouping consistent.
+
+## Notifications
+- Remove the former 12-episode release restriction. Enabled SUB and DUB alerts now follow active and planned anime regardless of how far behind the viewer is.
+- Keep completed and dropped titles excluded from release alerts.
+- Make Continue Watching reminders depend on real playback activity instead of tracker refresh timestamps.
+- Keep News, SUB, DUB, Continue Watching and Download notification switches independent.
+
+## Interface polish
+- Improve dark-mode navigation blur, translucency and outline contrast.
 
 ## Validation
-- Flutter static analysis and focused player, HLS, source-header, AI-routing and download tests are run in GitHub Actions.
-- Playback performance still depends on the selected upstream streaming provider, phone hardware and network conditions. No fixed buffering time is guaranteed.
+- All 103 Flutter tests pass.
+- Flutter static analysis reports no issues.
 
-**Version:** 1.20.2 (135)
+**Version:** 1.20.5 (138)

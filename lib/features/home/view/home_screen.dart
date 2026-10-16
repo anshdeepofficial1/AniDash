@@ -182,11 +182,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             final position = episode.progressInSeconds ?? 0;
             final isUnfinished =
                 position > 0 && !isEpisodeProgressEffectivelyComplete(episode);
-            // A tracker value of 4 means episodes 1-4 are completed. A stale
-            // partial E1/E2 must therefore not override the tracker. Only a
-            // partial episode at or beyond the tracker's next episode is
-            // eligible to remain authoritative.
-            if (!isUnfinished || episode.episodeNumber < nextEpisode) continue;
+            // Older builds could eagerly send the currently-playing episode
+            // number to the tracker. Keep a fresh local partial for that same
+            // episode authoritative so 10 seconds of E5 cannot become E6.
+            final watchedAt = episode.watchedAt;
+            final isFresh =
+                watchedAt != null &&
+                DateTime.now().difference(watchedAt).abs() <
+                    const Duration(hours: 6);
+            final isEligible =
+                episode.episodeNumber >= nextEpisode ||
+                (episode.episodeNumber == watchedCount && isFresh);
+            if (!isUnfinished || !isEligible) continue;
             final currentTime =
                 unfinishedLocalEpisode?.watchedAt ?? DateTime(0);
             final candidateTime = episode.watchedAt ?? DateTime(0);

@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:ani_dash/features/downloads/model/download_item.dart';
 import 'package:ani_dash/features/downloads/model/download_status.dart';
+import 'package:ani_dash/core/utils/video_quality_label.dart';
 import 'package:ani_dash/features/downloads/view_model/downloads_notifier.dart';
 import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart'
     hide Source;
@@ -1375,14 +1376,19 @@ class EpisodeData extends _$EpisodeData {
         'headers': streamHeaders, // primary source headers
       });
 
+      final qualityLabels = <String>{'Auto'};
       for (final src in state.sources) {
         if (src.url != null &&
             src.url!.isNotEmpty &&
             src.url != primarySrc.url) {
+          final qualityLabel = normalizeVideoQualityLabel(src.quality);
+          if (qualityLabel == 'Auto' || !qualityLabels.add(qualityLabel)) {
+            continue;
+          }
           // Each source gets its own merged headers (global + source-specific)
           final srcHeaders = {...?state.headers, ...?src.headers};
           allQualities.add({
-            'quality': src.quality ?? 'Default',
+            'quality': qualityLabel,
             'url': src.url,
             'isHls': src.isM3U8,
             'headers': srcHeaders,
@@ -1485,7 +1491,11 @@ class EpisodeData extends _$EpisodeData {
                     'headers': streamHeaders,
                   },
                   ...extracted.map(
-                    (quality) => {...quality, 'headers': streamHeaders},
+                    (quality) => {
+                      ...quality,
+                      'quality': normalizeVideoQualityLabel(quality['quality']),
+                      'headers': streamHeaders,
+                    },
                   ),
                   ...state.qualityOptions.where((q) => q['quality'] != 'Auto'),
                 ];

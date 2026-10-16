@@ -18,7 +18,6 @@ import 'package:ani_dash/shared/providers/mal_service_provider.dart';
 import 'package:ani_dash/shared/providers/continue_watching_dismissed_provider.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/core/repositories/local_media_repository.dart';
-import 'package:ani_dash/core/models/universal/universal_media_list_entry.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
 import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
 
@@ -44,20 +43,6 @@ class WatchlistSelectionNotifier extends Notifier<Set<String>> {
 final watchlistSelectionProvider =
     NotifierProvider<WatchlistSelectionNotifier, Set<String>>(
       WatchlistSelectionNotifier.new,
-    );
-
-enum LibrarySortOrder { recent, title, progress, score }
-
-class LibrarySortNotifier extends Notifier<LibrarySortOrder> {
-  @override
-  LibrarySortOrder build() => LibrarySortOrder.recent;
-
-  void setOrder(LibrarySortOrder order) => state = order;
-}
-
-final librarySortProvider =
-    NotifierProvider<LibrarySortNotifier, LibrarySortOrder>(
-      LibrarySortNotifier.new,
     );
 
 class WatchlistScreen extends ConsumerStatefulWidget {
@@ -286,31 +271,6 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen>
                 padding: const EdgeInsets.only(right: 4.0),
                 child: _ModeSwitch(isLocal: isLocal),
               ),
-            PopupMenuButton<LibrarySortOrder>(
-              tooltip: 'Sort Library',
-              initialValue: ref.watch(librarySortProvider),
-              onSelected: ref.read(librarySortProvider.notifier).setOrder,
-              icon: const Icon(Icons.sort_rounded),
-              itemBuilder:
-                  (context) => const [
-                    PopupMenuItem(
-                      value: LibrarySortOrder.recent,
-                      child: Text('Recent activity'),
-                    ),
-                    PopupMenuItem(
-                      value: LibrarySortOrder.title,
-                      child: Text('Title A–Z'),
-                    ),
-                    PopupMenuItem(
-                      value: LibrarySortOrder.progress,
-                      child: Text('Most progress'),
-                    ),
-                    PopupMenuItem(
-                      value: LibrarySortOrder.score,
-                      child: Text('Highest score'),
-                    ),
-                  ],
-            ),
             IconButton(
               onPressed: () => _showCustomizeTabsSheet(context),
               icon: const Icon(Icons.tune_rounded),
@@ -619,37 +579,7 @@ class _WatchlistTabView extends ConsumerWidget {
     final isSelectionMode = selectedIds.isNotEmpty;
 
     final rawEntries = status == 'favorites' ? null : state.listFor(status);
-    final progressRepo = ref.watch(watchProgressRepositoryProvider);
-    final sortOrder = ref.watch(librarySortProvider);
-    final sortedEntries =
-        rawEntries == null
-            ? null
-            : (List<UniversalMediaListEntry>.from(rawEntries)..sort((a, b) {
-              if (sortOrder == LibrarySortOrder.title) {
-                return a.media.title.userPreferred.toLowerCase().compareTo(
-                  b.media.title.userPreferred.toLowerCase(),
-                );
-              }
-              if (sortOrder == LibrarySortOrder.progress) {
-                return b.progress.compareTo(a.progress);
-              }
-              if (sortOrder == LibrarySortOrder.score) {
-                return b.score.compareTo(a.score);
-              }
-              final progA = progressRepo.getProgress(a.media.id.toString());
-              final progB = progressRepo.getProgress(b.media.id.toString());
-              final timeA =
-                  progA?.lastPlayedAt ??
-                  progA?.lastUpdated ??
-                  DateTime.fromMillisecondsSinceEpoch(0);
-              final timeB =
-                  progB?.lastPlayedAt ??
-                  progB?.lastUpdated ??
-                  DateTime.fromMillisecondsSinceEpoch(0);
-              return timeB.compareTo(timeA);
-            }));
-
-    final entries = sortedEntries;
+    final entries = rawEntries;
     final media =
         status == 'favorites'
             ? state.favorites

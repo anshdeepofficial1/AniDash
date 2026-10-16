@@ -22,7 +22,7 @@ class VerifiedEpisodeGroupingRepository implements EpisodeGroupingRepository {
   static final List<NamedEpisodeGroup> _onePiece = <NamedEpisodeGroup>[
     _group('21', 'east-blue', 'East Blue', 1, 61, 0),
     _group('21', 'alabasta', 'Alabasta', 62, 135, 1),
-    _group('21', 'skypiea', 'Sky Island', 136, 206, 2),
+    _group('21', 'skypiea', 'Skypiea', 136, 206, 2),
     _group('21', 'davy-back-fight', 'Davy Back Fight', 207, 228, 3),
     _group('21', 'water-seven', 'Water Seven', 229, 263, 4),
     _group('21', 'enies-lobby', 'Enies Lobby', 264, 336, 5),

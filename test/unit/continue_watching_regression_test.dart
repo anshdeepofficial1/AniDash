@@ -93,6 +93,28 @@ void main() {
       );
     });
 
+    test('five seconds of episode 5 syncs four completed episodes', () {
+      expect(
+        completedEpisodeCountForPlayback(
+          episodeNumber: 5,
+          progressInSeconds: 5,
+          durationInSeconds: 23 * 60,
+        ),
+        4,
+      );
+    });
+
+    test('episode 5 syncs as complete only inside the final 90 seconds', () {
+      expect(
+        completedEpisodeCountForPlayback(
+          episodeNumber: 5,
+          progressInSeconds: 22 * 60,
+          durationInSeconds: 23 * 60,
+        ),
+        5,
+      );
+    });
+
     test('remote EP4 progress advances stale local notes to EP5', () {
       expect(
         CloudWatchProgressSync.resolveContinueEpisode(

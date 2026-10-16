@@ -28,6 +28,24 @@ bool isEpisodeProgressEffectivelyComplete(EpisodeProgress episode) {
   return episode.isCompleted;
 }
 
+/// Tracker APIs store the number of fully completed episodes, while AniDash
+/// also stores a timestamp inside the episode currently being watched.
+int completedEpisodeCountForPlayback({
+  required int episodeNumber,
+  required int progressInSeconds,
+  required int durationInSeconds,
+  bool explicitlyCompleted = false,
+}) {
+  final completed =
+      explicitlyCompleted ||
+      isPlaybackEffectivelyComplete(
+        progressInSeconds: progressInSeconds,
+        durationInSeconds: durationInSeconds,
+      );
+  if (completed) return episodeNumber;
+  return episodeNumber > 1 ? episodeNumber - 1 : 0;
+}
+
 class AnimeWatchProgressEntry {
   final String animeId;
   final String animeTitle;
