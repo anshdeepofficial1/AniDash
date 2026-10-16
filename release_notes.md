@@ -1,35 +1,27 @@
-# AniDash v1.20.5 — Reliable progress, notifications and cleaner playback controls
+# AniDash v1.20.6 — Continue Watching, exact skip timing and stronger buffering
 
-This release focuses on preserving stable playback while correcting progress, notification and player-interface edge cases.
+This update keeps the working playback route intact while fixing progress, metadata and long-buffer edge cases.
 
-## Playback and progress
-- Keep a 120-second streaming buffer target while retaining a short startup threshold.
-- Prevent the previous episode frame from appearing while a different episode or anime opens.
-- Prevent a completed episode's final position from leaking into the next episode during transitions.
-- Keep partially watched episodes on the current episode until playback reaches the final 90 seconds.
-- Sync only fully completed episode counts to AniList and MyAnimeList while preserving exact local playback position.
+## Playback and buffering
+- Make Android prioritize the configured 120-second time buffer over ExoPlayer's byte-size threshold, preventing high-bitrate streams from stopping near 40–50 seconds.
+- Keep the existing player, stream selection and source hand-off behavior unchanged.
+- Accept exact late-opening intro markers instead of rejecting every opening that starts after five minutes.
+- Re-fetch episode-specific skip timing when the real media duration replaces an early provisional duration.
 
-## Player interface
-- Simplify the player menu by removing duplicate Share, Content Source and Source entries.
-- Present quality choices as clear resolution labels such as Auto, 1080p and 720p.
-- Keep server selection and playback preferences organized without changing the playback engine.
+## Continue Watching
+- Keep a fresh partially watched local episode authoritative when tracker synchronization is temporarily one episode ahead.
+- Do not remove Continue Watching history when an unrelated snackbar or route change dismisses the removal prompt.
+- Advance only inside the final 90 seconds, and keep completed one-shot movies out of Continue Watching without inventing Episode 2.
 
-## Episodes and library
-- Do not request episode data for unreleased anime; show a clear availability message instead.
-- Remove the extra Your Library sorting control and retain the library's established order.
-- Correct the Skypiea arc label and keep long-series grouping consistent.
-
-## Notifications
-- Remove the former 12-episode release restriction. Enabled SUB and DUB alerts now follow active and planned anime regardless of how far behind the viewer is.
-- Keep completed and dropped titles excluded from release alerts.
-- Make Continue Watching reminders depend on real playback activity instead of tracker refresh timestamps.
-- Keep News, SUB, DUB, Continue Watching and Download notification switches independent.
-
-## Interface polish
-- Improve dark-mode navigation blur, translucency and outline contrast.
+## Movies, franchises and manga
+- Show movie runtime in details metadata, including Kaiju No. 8: Mission Recon.
+- Expand the franchise selector to include movies, specials, OVAs, ONAs and side stories in release order alongside seasons.
+- Add a related-manga action when AniList supplies a source/adaptation relation.
+- Prefer Comick, then MangaSee and MangaDex for new default manga-source selection while preserving an existing user choice.
 
 ## Validation
-- All 103 Flutter tests pass.
-- Flutter static analysis reports no issues.
+- Targeted Dart analysis completed with no issues.
+- Continue Watching, buffer policy, HLS relay, stream headers, downloads and AnyCore policy regression suites all pass.
+- Android release signing and all APK variants are built by the protected GitHub release workflow.
 
-**Version:** 1.20.5 (138)
+**Version:** 1.20.6 (139)

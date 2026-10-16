@@ -77,6 +77,34 @@ class FranchiseWatchOrder {
     ...mainStory,
     ...optionalExtras,
   ];
+
+  /// Every navigable anime entry in release order.  The episode-page selector
+  /// must not silently discard movies, OVAs or short side stories: for many
+  /// franchises those entries sit between numbered seasons.
+  List<FranchiseWatchOrderItem> get navigationItems {
+    final unique = <String, FranchiseWatchOrderItem>{};
+    for (final item in allItems) {
+      unique[item.id] = item;
+    }
+    final items = unique.values.toList();
+    items.sort((a, b) {
+      final aDate = a.media.startDate;
+      final bDate = b.media.startDate;
+      final aKey =
+          (aDate?.year ?? a.media.seasonYear ?? 9999) * 10000 +
+          (aDate?.month ?? 1) * 100 +
+          (aDate?.day ?? 1);
+      final bKey =
+          (bDate?.year ?? b.media.seasonYear ?? 9999) * 10000 +
+          (bDate?.month ?? 1) * 100 +
+          (bDate?.day ?? 1);
+      if (aKey != bKey) return aKey.compareTo(bKey);
+      // On the same date, keep the main entry before its bundled special.
+      if (a.isMainStory != b.isMainStory) return a.isMainStory ? -1 : 1;
+      return a.displayTitle.compareTo(b.displayTitle);
+    });
+    return items;
+  }
 }
 
 class FranchiseService {
@@ -124,6 +152,7 @@ query (\$id: Int) {
     status
     description
     episodes
+    duration
     seasonYear
     startDate {
       year
@@ -151,6 +180,7 @@ query (\$id: Int) {
           status
           description
           episodes
+          duration
           seasonYear
           startDate {
             year

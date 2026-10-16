@@ -31,6 +31,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
   StreamSubscription<bool>? _completedSubscription;
   StreamSubscription<String>? _playbackActionSubscription;
   int? _lastAniSkipEpisode;
+  int? _lastAniSkipDuration;
   bool _isDisposed = false;
   bool _isPlayerReady = false;
 
@@ -623,6 +624,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         _hasAutoSkippedRecap = false;
         _pendingAutoSkipTimer?.cancel();
         _lastAniSkipEpisode = null;
+        _lastAniSkipDuration = null;
         _epNum = next;
         _pos = 0;
         _dur = 0;
@@ -733,9 +735,14 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
     // an ED interval arrives floods AniSkip/JustAnime requests and competes
     // directly with HLS segment downloads, which can produce recurring
     // two-second buffering on slower connections.
-    if (epNum == _lastAniSkipEpisode) return;
+    if (epNum == _lastAniSkipEpisode &&
+        _lastAniSkipDuration != null &&
+        (duration.inSeconds - _lastAniSkipDuration!).abs() <= 30) {
+      return;
+    }
 
     _lastAniSkipEpisode = epNum;
+    _lastAniSkipDuration = duration.inSeconds;
     ref
         .read(aniSkipProvider.notifier)
         .fetchSkipTimes(
@@ -793,7 +800,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           skip.skipId?.isNotEmpty == true ||
           durationMatches;
       final plausiblePlacement =
-          ((isIntro || isRecap) && start <= const Duration(minutes: 6)) ||
+          ((isIntro || isRecap) && start.inSeconds <= (_dur * .60).round()) ||
           (isOutro &&
               start.inSeconds >= (_dur * .50) &&
               start >= const Duration(minutes: 5));

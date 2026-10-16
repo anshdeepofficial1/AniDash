@@ -675,8 +675,27 @@ class _ContinueWatchingSection extends ConsumerWidget {
           final media = cloudItem.media;
           final cloudEntry = createCloudProgressEntry(cloudItem);
           final local = merged[media.id];
+          // Trackers only store whole episode counts and may be one episode
+          // ahead while a local position sync is still settling. Never let
+          // that transient value replace a fresh, genuinely unfinished local
+          // episode; otherwise Continue Watching jumps ahead or disappears.
+          final freshLocalPartial =
+              local?.episodesProgress.values.any((ep) {
+                final watchedAt = ep.watchedAt;
+                final position = ep.progressInSeconds ?? 0;
+                return position > 0 &&
+                    !isEpisodeProgressEffectivelyComplete(ep) &&
+                    watchedAt != null &&
+                    DateTime.now().difference(watchedAt).abs() <
+                        const Duration(hours: 24);
+              }) ??
+              false;
+          final cloudOnlyOneAhead =
+              local != null &&
+              cloudEntry.currentEpisode <= local.currentEpisode + 1;
           if (local == null ||
-              local.currentEpisode < cloudEntry.currentEpisode) {
+              (local.currentEpisode < cloudEntry.currentEpisode &&
+                  !(freshLocalPartial && cloudOnlyOneAhead))) {
             merged[media.id] = cloudEntry;
           }
         }

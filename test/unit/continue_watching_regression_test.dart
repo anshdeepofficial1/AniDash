@@ -51,6 +51,33 @@ void main() {
       expect(entry.isCompletedOrFinished, isTrue);
     });
 
+    test(
+      'completed movie with legacy unknown total never becomes episode 2',
+      () {
+        final entry = AnimeWatchProgressEntry(
+          animeId: 'movie-legacy',
+          animeTitle: 'Mission Recon',
+          animeFormat: 'MOVIE',
+          animeCover: '',
+          totalEpisodes: 0,
+          currentEpisode: 1,
+          status: 'completed',
+          episodesProgress: {
+            1: EpisodeProgress(
+              episodeNumber: 1,
+              episodeTitle: 'Mission Recon',
+              episodeThumbnail: null,
+              isCompleted: true,
+              progressInSeconds: 1440,
+              durationInSeconds: 1440,
+            ),
+          },
+        );
+
+        expect(entry.isCompletedOrFinished, isTrue);
+      },
+    );
+
     test('18 of 23 minutes remains on the current episode after refresh', () {
       final progress = EpisodeProgress(
         episodeNumber: 1,

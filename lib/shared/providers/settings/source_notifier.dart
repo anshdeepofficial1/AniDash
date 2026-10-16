@@ -186,6 +186,12 @@ class SourceNotifier extends _$SourceNotifier {
             (s) => s.id == _repo.getActiveMangaSourceId() && !_isAdultSource(s),
           ) ??
           state.installedMangaExtensions.firstWhereOrNull(
+            (s) => s.name?.toLowerCase().contains('comick') == true,
+          ) ??
+          state.installedMangaExtensions.firstWhereOrNull(
+            (s) => s.name?.toLowerCase().contains('mangasee') == true,
+          ) ??
+          state.installedMangaExtensions.firstWhereOrNull(
             (s) => s.name?.toLowerCase().contains('mangadex') == true,
           ) ??
           state.installedMangaExtensions.firstOrNull,

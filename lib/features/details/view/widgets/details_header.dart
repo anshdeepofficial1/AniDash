@@ -20,6 +20,9 @@ import 'package:ani_dash/core/models/universal/universal_page_response.dart';
 import 'package:ani_dash/shared/providers/incognito_provider.dart';
 import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 import 'package:ani_dash/core/services/share_link_service.dart';
+import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
+import 'package:ani_dash/features/manga/view/manga_details_screen.dart';
+import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart';
 
 class DetailsHeader extends ConsumerStatefulWidget {
   final UniversalMedia anime;
@@ -34,6 +37,102 @@ class DetailsHeader extends ConsumerStatefulWidget {
 class _DetailsHeaderState extends ConsumerState<DetailsHeader> {
   bool isFavorite = false;
   bool isLoading = false;
+  bool _openingManga = false;
+
+  UniversalMedia? get _relatedManga {
+    for (final relation in widget.anime.relations) {
+      final format = relation.media.format?.toUpperCase();
+      final type = relation.relationType.toUpperCase();
+      if ((format == 'MANGA' || format == 'ONE_SHOT') &&
+          (type == 'SOURCE' || type == 'ADAPTATION')) {
+        return relation.media;
+      }
+    }
+    return null;
+  }
+
+  String _normaliseTitle(String value) =>
+      value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+
+  Future<void> _openRelatedManga() async {
+    if (_openingManga) return;
+    final related = _relatedManga;
+    if (related == null) return;
+    final source = ref.read(sourceProvider).activeMangaSource;
+    if (source == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Install or select a manga source first.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _openingManga = true);
+    try {
+      final queries = <String>{
+        related.title.english ?? '',
+        related.title.romaji ?? '',
+        related.title.native ?? '',
+      }.where((title) => title.trim().isNotEmpty);
+      final candidates = <DMedia>[];
+      for (final query in queries.take(2)) {
+        final page = await source.methods
+            .search(query, 1, [])
+            .timeout(const Duration(seconds: 12));
+        candidates.addAll(page.list);
+        if (candidates.isNotEmpty) break;
+      }
+      if (!mounted) return;
+      if (candidates.isEmpty) {
+        throw StateError('No matching manga was found in ${source.name}.');
+      }
+
+      final wanted = <String>{
+        _normaliseTitle(related.title.english ?? ''),
+        _normaliseTitle(related.title.romaji ?? ''),
+        _normaliseTitle(related.title.native ?? ''),
+      }..remove('');
+      candidates.sort((a, b) {
+        int score(DMedia item) {
+          final title = _normaliseTitle(item.title ?? '');
+          if (wanted.contains(title)) return 3;
+          if (wanted.any(
+            (value) =>
+                value.isNotEmpty &&
+                (title.contains(value) || value.contains(title)),
+          )) {
+            return 2;
+          }
+          return 0;
+        }
+
+        return score(b).compareTo(score(a));
+      });
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder:
+              (_) => MangaDetailsScreen(
+                manga: candidates.first,
+                mangaSource: source,
+              ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Bad state: ', '')),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _openingManga = false);
+    }
+  }
 
   @override
   void initState() {
@@ -319,6 +418,13 @@ class _DetailsHeaderState extends ConsumerState<DetailsHeader> {
                 ? '$resolvedEpCount+ eps'
                 : '$resolvedEpCount eps')
             : (isReleasing ? 'Ongoing' : null);
+    final runtimeMinutes = widget.anime.duration;
+    final runtimeDisplay =
+        runtimeMinutes != null && runtimeMinutes > 0
+            ? (runtimeMinutes >= 60
+                ? '${runtimeMinutes ~/ 60}h ${runtimeMinutes % 60}m'
+                : '$runtimeMinutes min')
+            : null;
 
     final highResBanner = _getHighResImageUrl(
       widget.anime.bannerImage != null && widget.anime.bannerImage!.isNotEmpty
@@ -366,9 +472,7 @@ class _DetailsHeaderState extends ConsumerState<DetailsHeader> {
                 left: 0,
                 right: 0,
                 height: 6,
-                child: ColoredBox(
-                  color: colorScheme.surfaceContainerLowest,
-                ),
+                child: ColoredBox(color: colorScheme.surfaceContainerLowest),
               ),
               Positioned(
                 bottom: 24,
@@ -478,64 +582,79 @@ class _DetailsHeaderState extends ConsumerState<DetailsHeader> {
                               ),
                             ),
                           const SizedBox(height: 10),
-                        // Metadata Row
-                        Row(
-                          children: [
-                            if (widget.anime.averageScore != null) ...[
-                              Icon(
-                                Iconsax.star1,
-                                color: theme.colorScheme.primary,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                (widget.anime.averageScore! / 10)
-                                    .toStringAsFixed(1),
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: theme.colorScheme.onSurface,
-                                  fontWeight: FontWeight.bold,
+                          // Metadata Row
+                          Row(
+                            children: [
+                              if (widget.anime.averageScore != null) ...[
+                                Icon(
+                                  Iconsax.star1,
+                                  color: theme.colorScheme.primary,
+                                  size: 16,
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                            ],
-                            Expanded(
-                              child: Text(
-                                [
-                                  widget.anime.seasonYear?.toString(),
-                                  widget.anime.format,
-                                  episodesDisplay,
-                                  widget.anime.status,
-                                  if (widget.anime.isMature) '18+',
-                                ].whereType<String>().join(' • '),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.8,
+                                const SizedBox(width: 4),
+                                Text(
+                                  (widget.anime.averageScore! / 10)
+                                      .toStringAsFixed(1),
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                    color: theme.colorScheme.onSurface,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  fontWeight: FontWeight.w500,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                const SizedBox(width: 12),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  [
+                                    widget.anime.seasonYear?.toString(),
+                                    widget.anime.format,
+                                    runtimeDisplay,
+                                    episodesDisplay,
+                                    widget.anime.status,
+                                    if (widget.anime.isMature) '18+',
+                                  ].whereType<String>().join(' • '),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.8),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        GenreTags(genres: widget.anime.genres),
-                      ],
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          GenreTags(genres: widget.anime.genres),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
       leading: IconButton(
         icon: const Icon(Iconsax.arrow_left_1, color: Colors.white, size: 30),
         onPressed: () => context.pop(),
       ),
       actions: [
+        if (_relatedManga != null)
+          IconButton(
+            icon:
+                _openingManga
+                    ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                    : const Icon(Icons.menu_book_rounded, color: Colors.white),
+            tooltip: 'Read manga',
+            onPressed: _openingManga ? null : _openRelatedManga,
+          ),
         IconButton(
           icon: const Icon(Icons.share_rounded, color: Colors.white),
           tooltip: 'Share anime',
