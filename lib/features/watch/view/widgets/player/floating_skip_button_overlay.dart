@@ -33,7 +33,7 @@ class _FloatingSkipButtonOverlayState
     super.initState();
     _countdownController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 8),
     );
   }
 
@@ -51,7 +51,7 @@ class _FloatingSkipButtonOverlayState
     _countdownController
       ..reset()
       ..forward();
-    _visibilityTimer = Timer(const Duration(seconds: 3), () {
+    _visibilityTimer = Timer(const Duration(seconds: 8), () {
       if (!mounted) return;
       setState(() {
         if (type == 'intro') {
@@ -110,8 +110,21 @@ class _FloatingSkipButtonOverlayState
           ),
     );
 
+    if (currentSkip.interval == null) {
+      if (_visibleRangeKey != null) {
+        _visibleRangeKey = null;
+        _visibilityTimer?.cancel();
+        _introDismissed = false;
+        _outroDismissed = false;
+        _recapDismissed = false;
+      }
+      return const SizedBox.shrink();
+    }
+
     String? label;
     VoidCallback? onSkip;
+    Color? accentColor;
+    IconData? buttonIcon;
 
     if (currentSkip.interval != null) {
       final isOp =
@@ -133,22 +146,29 @@ class _FloatingSkipButtonOverlayState
           currentSkip.skipId?.isNotEmpty == true ||
           durationMatches;
       final plausiblePlacement =
-          ((isOp || isRecap) && currentSkip.interval!.startTime <= 360) ||
+          (isOp && currentSkip.interval!.startTime <= 450) ||
+          (isRecap && currentSkip.interval!.startTime <= dur.inSeconds * 0.65) ||
           (isEd &&
               dur.inSeconds > 0 &&
-              currentSkip.interval!.startTime >= dur.inSeconds * .60 &&
-              currentSkip.interval!.startTime >= 480);
+              currentSkip.interval!.startTime >= dur.inSeconds * .50 &&
+              currentSkip.interval!.startTime >= 300);
 
       if (!verified || !plausiblePlacement) {
         return const SizedBox.shrink();
       }
 
-      if (isOp && !_introDismissed) {
+      final showIntro = isOp && (!_introDismissed || isControlsVisible);
+      final showRecap = isRecap && (!_recapDismissed || isControlsVisible);
+      final showOutro = isEd && (!_outroDismissed || isControlsVisible);
+
+      if (showIntro) {
         _showBriefly(
           '${currentEp}_intro_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
           type: 'intro',
         );
         label = 'Skip Intro';
+        accentColor = const Color(0xFFFFB300);
+        buttonIcon = Icons.fast_forward_rounded;
         onSkip = () {
           setState(() => _introDismissed = true);
           final target = Duration(
@@ -157,12 +177,14 @@ class _FloatingSkipButtonOverlayState
           ref.read(playerStateProvider.notifier).seek(target);
           ref.read(playerUIControllerProvider.notifier).restartHideTimer();
         };
-      } else if (isRecap && !_recapDismissed) {
+      } else if (showRecap) {
         _showBriefly(
           '${currentEp}_recap_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
           type: 'recap',
         );
         label = 'Skip Recap';
+        accentColor = const Color(0xFF00E5FF);
+        buttonIcon = Icons.fast_forward_rounded;
         onSkip = () {
           setState(() => _recapDismissed = true);
           final target = Duration(
@@ -171,12 +193,14 @@ class _FloatingSkipButtonOverlayState
           ref.read(playerStateProvider.notifier).seek(target);
           ref.read(playerUIControllerProvider.notifier).restartHideTimer();
         };
-      } else if (isEd && !_outroDismissed) {
+      } else if (showOutro) {
         _showBriefly(
           '${currentEp}_outro_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
           type: 'outro',
         );
         label = 'Skip Outro';
+        accentColor = const Color(0xFFE040FB);
+        buttonIcon = Icons.skip_next_rounded;
         onSkip = () {
           setState(() => _outroDismissed = true);
           final target = Duration(
@@ -210,15 +234,20 @@ class _FloatingSkipButtonOverlayState
               borderRadius: BorderRadius.circular(24),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.78),
+                  color: Colors.black.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: scheme.primary.withValues(alpha: 0.7),
-                    width: 1.2,
+                    color: (accentColor ?? scheme.primary).withValues(alpha: 0.85),
+                    width: 1.4,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
+                      color: (accentColor ?? scheme.primary).withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
@@ -233,9 +262,9 @@ class _FloatingSkipButtonOverlayState
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.fast_forward_rounded,
+                            buttonIcon ?? Icons.fast_forward_rounded,
                             size: 20,
-                            color: scheme.primary,
+                            color: accentColor ?? scheme.primary,
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -262,7 +291,7 @@ class _FloatingSkipButtonOverlayState
                               minHeight: 2.5,
                               backgroundColor: Colors.white10,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                scheme.primary,
+                                accentColor ?? scheme.primary,
                               ),
                             ),
                           ),

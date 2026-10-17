@@ -82,6 +82,26 @@ class UniversalMedia {
     return highResCoverImage;
   }
 
+  bool get isUnreleased {
+    final s = status?.toUpperCase().replaceAll(' ', '_') ?? '';
+    if (s == 'NOT_YET_RELEASED' || s == 'UNRELEASED' || s == 'UPCOMING') {
+      return true;
+    }
+    if (nextAiringEpisode != null && (episodes == null || episodes == 0)) {
+      return true;
+    }
+    if (startDate != null && startDate!.year != null) {
+      final now = DateTime.now();
+      final start = DateTime(
+        startDate!.year!,
+        startDate!.month ?? 1,
+        startDate!.day ?? 1,
+      );
+      if (start.isAfter(now)) return true;
+    }
+    return false;
+  }
+
   bool get isMature {
     if (isAdult) return true;
     final lowerGenres = genres.map((e) => e.toLowerCase()).toSet();

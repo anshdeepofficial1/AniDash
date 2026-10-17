@@ -1,36 +1,34 @@
-# AniDash v1.20.7 — Exact skip timing, deeper buffering and AnyCore vision
+# AniDash v1.20.8 — Exact Playback Identity, Enhanced Skip Belt & Multimodal AI
 
-This release preserves the working video engine while correcting episode identity, skip timing, AI attachments and unreleased-title behavior.
+This release completely fixes anime episode loading identity (Issue #35), polishes intro/outro/recap skip overlays and seek bar markers, improves multimodal vision attachment in AI chat, enhances conversational voice input, and upgrades unreleased anime UI.
 
-## Playback and buffering
-- Increase Android's time-prioritized forward buffer from 120 seconds to a five-minute target while keeping five-second startup.
-- Keep the selected playback engine and stream-opening route unchanged.
-- Clear stale stream state when switching between different anime with the same episode number.
-- Refuse unsafe episode-1 fallback when a provider cannot resolve the requested episode.
-- Require a confidence-matched title before switching episode providers.
+## Playback & Identity Resolution (Issue #35)
+- Fixed false-fallback bug where opening anime with titles not directly matching provider catalogs defaulted to One Piece Episode 1.
+- Removed blind `.first` and `.firstOrNull` fallbacks across `episode_stream_provider`, `episode_list_provider` (JustAnime), `anikoto`, and `animepahe`.
+- Fixed MAL ID substring matching collision in `anime_match_service` so IDs like 21 do not collide with unrelated anime.
+- Preserved 300s/5-minute deep buffering and instant playback startup.
 
-## Intro, outro and recap
-- Prefer AniSkip's exact MAL-title and episode-specific timestamps over provider-average markers.
-- Use selected-stream intro/outro markers only when the exact episode marker is unavailable.
-- Preserve recap as an independent marker.
-- Correctly classify mixed opening and mixed ending records.
+## Intro, Outro & Recap Skip
+- Overhauled seek bar timeline ("belt") highlights with distinct, vibrant colors:
+  - **RECAP**: Vibrant Teal / Cyan badge
+  - **INTRO**: Warm Amber / Gold badge
+  - **OUTRO**: Soft Purple / Violet badge
+- Added dedicated "Skip Recap" floating action button alongside Skip Intro and Skip Outro.
+- Extended skip button display time from 3 seconds to 8 seconds, and ensure it remains visible whenever player controls are active.
+- Relaxed arbitrary recap boundaries so cold opens and mid-episode recaps are correctly recognized and skippable.
+- Support auto-skipping recaps automatically when `enableAutoSkip` is active.
 
-## AnyCore AI
-- Send attached screenshots as real multimodal image parts to Gemini and compatible vision providers.
-- Resize and compress images before upload to stay within backend request limits.
-- Keep attachment labels in chat history so users can see what was sent.
-- Allow natural confirmed requests such as adding anime from screenshots to Planning.
-- Resolve image-recognized anime titles through AniList before saving them locally.
-- Improve Android voice recognition using the web-search language model and retain final recognition results.
+## AnyCore AI & Voice Input
+- Fixed image vision attachment on Android and desktop: handles paths when `file.bytes` is null and supports uploading multiple anime images at once.
+- Updated AI backend routing so prompts with image attachments route directly to multimodal Gemini 2.5 Flash Lite instead of text-only LLMs.
+- Upgraded voice input to natural speech dictation mode, removing aggressive word replacements so natural Hindi/English conversational queries work seamlessly.
 
-## Upcoming anime
-- Do not search SUB/DUB or streaming sources for titles that have not released.
-- Show the known first-episode or start date in the Episodes tab when metadata provides it.
-- Start source discovery only after metadata reports that the title has released.
+## Unreleased Anime Experience
+- Hidden SUB/DUB audio badges and perpetual loading spinners on unreleased titles.
+- Replaced "No episodes found" with an informative countdown / release date card showing the next airing episode schedule or premiere date.
 
 ## Validation
-- Dart analysis completed with no issues across all changed files.
-- The complete Flutter test suite passes: 108 tests.
-- GitHub Actions builds signed Universal, arm64-v8a, armeabi-v7a and x86_64 APKs.
+- Complete test suite passes.
+- Universal, arm64-v8a, armeabi-v7a, and x86_64 signed APK variants.
 
-**Version:** 1.20.7 (140)
+**Version:** 1.20.8 (141)

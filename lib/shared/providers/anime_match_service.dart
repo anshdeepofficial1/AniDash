@@ -99,7 +99,7 @@ class AnimeMatchService {
         }
         if (malId != null && malId.isNotEmpty) {
           final malMatch = results.firstWhereOrNull(
-            (r) => r.id == malId || (r.id != null && r.id!.contains(malId)),
+            (r) => r.id == malId,
           );
           if (malMatch != null) {
             AppLogger.d(

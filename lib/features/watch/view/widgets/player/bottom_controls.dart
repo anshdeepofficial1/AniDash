@@ -279,7 +279,8 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
     final skips = ref.watch(aniSkipProvider);
     if (total < 30000) return [];
 
-    final highlightSegments = <({double start, double end, String label})>[];
+    final highlightSegments =
+        <({double start, double end, String label, Color color})>[];
 
     for (final skip in skips) {
       if (skip.interval == null) continue;
@@ -287,8 +288,8 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
       final end = skip.interval!.endTime * 1000;
       final segLength = end - start;
       if (start < 0 || end <= start) continue;
-      // Ensure segment length is sensible (between 5s and 200s, max 35% of episode)
-      if (segLength < 5000 || segLength > 200000 || segLength > total * 0.35) {
+      // Ensure segment length is sensible (between 5s and 240s, max 35% of episode)
+      if (segLength < 5000 || segLength > 240000 || segLength > total * 0.35) {
         continue;
       }
 
@@ -299,28 +300,35 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
       final isOp =
           skip.skipType == SkipType.op ||
           (skip.skipType == SkipType.mixed && clampedStart <= 300000);
+      final isRecap = skip.skipType == SkipType.recap;
       final isEd =
           skip.skipType == SkipType.ed ||
           (skip.skipType == SkipType.mixed && clampedStart > 300000) ||
-          (!isOp && clampedStart >= total * 0.6);
-      final isRecap = skip.skipType == SkipType.recap;
+          (!isOp && !isRecap && clampedStart >= total * 0.6);
 
-      // Intro / recap must start within first 6 minutes (360,000 ms)
-      if ((isOp || isRecap) && clampedStart > 360000) continue;
+      // Intro must start within first 7.5 minutes (450,000 ms)
+      if (isOp && clampedStart > 450000) continue;
+      // Recap must start within first 65% of episode
+      if (isRecap && clampedStart > total * 0.65) continue;
       // Outro must start after at least 5 minutes and in the latter half
       if (isEd && (clampedStart < 300000 || clampedStart < total * 0.5)) {
         continue;
       }
 
+      final Color segColor = isRecap
+          ? const Color(0xFF00E5FF)
+          : (isOp ? const Color(0xFFFFB300) : const Color(0xFFE040FB));
+
       highlightSegments.add((
         start: clampedStart,
         end: clampedEnd,
-        label: isOp ? 'INTRO' : (isEd ? 'OUTRO' : (isRecap ? 'RECAP' : 'SKIP')),
+        label: isRecap ? 'RECAP' : (isOp ? 'INTRO' : (isEd ? 'OUTRO' : 'SKIP')),
+        color: segColor,
       ));
     }
 
     return highlightSegments.map((seg) {
-      final highlightColor = Color.lerp(scheme.primary, Colors.black, 0.45)!;
+      final highlightColor = seg.color;
       final startRatio = seg.start / total;
       final endRatio = seg.end / total;
       final width = (endRatio - startRatio) * maxWidth;
@@ -337,8 +345,12 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: highlightColor.withValues(alpha: 0.68),
+                color: highlightColor.withValues(alpha: 0.80),
                 borderRadius: BorderRadius.circular(2),
+                border: Border.all(
+                  color: highlightColor.withValues(alpha: 0.95),
+                  width: 0.8,
+                ),
               ),
               child:
                   width >= 34
@@ -346,7 +358,7 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                         child: Text(
                           seg.label,
                           style: const TextStyle(
-                            color: Colors.white70,
+                            color: Colors.black,
                             fontSize: 7.5,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.2,
@@ -366,7 +378,7 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                     vertical: 1,
                   ),
                   decoration: BoxDecoration(
-                    color: highlightColor.withValues(alpha: 0.82),
+                    color: highlightColor.withValues(alpha: 0.88),
                     borderRadius: BorderRadius.circular(3),
                     boxShadow: const [
                       BoxShadow(
@@ -379,7 +391,7 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                   child: Text(
                     seg.label,
                     style: const TextStyle(
-                      color: Colors.white70,
+                      color: Colors.black,
                       fontSize: 7,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.2,

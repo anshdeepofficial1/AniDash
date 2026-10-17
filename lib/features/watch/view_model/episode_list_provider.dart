@@ -1214,11 +1214,17 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
               .getSearch(searchTitle, null, 1)
               .timeout(const Duration(seconds: 10));
           if (searchPage.results.isNotEmpty) {
-            final match =
-                searchPage.results.firstWhereOrNull(
-                  (r) => r.id == mediaId || r.anilistId?.toString() == mediaId,
-                ) ??
-                searchPage.results.firstOrNull;
+            final idMatch = searchPage.results.firstWhereOrNull(
+              (r) => r.id == mediaId || r.anilistId?.toString() == mediaId,
+            );
+            final titleMatches = getBestMatches(
+              results: searchPage.results,
+              title: currentTitle,
+              nameSelector: (r) => r.name,
+              idSelector: (r) => r.id,
+              minThreshold: 0.55,
+            );
+            final match = idMatch ?? titleMatches.firstOrNull?.result;
 
             final matchId = match?.id;
             if (matchId != null && matchId.isNotEmpty) {
