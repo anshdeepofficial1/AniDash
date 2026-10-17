@@ -21,9 +21,7 @@ class _FloatingSkipButtonOverlayState
     extends ConsumerState<FloatingSkipButtonOverlay>
     with SingleTickerProviderStateMixin {
   int? _lastEpisode;
-  bool _introDismissed = false;
-  bool _outroDismissed = false;
-  bool _recapDismissed = false;
+  final Set<String> _dismissedRangeKeys = <String>{};
   Timer? _visibilityTimer;
   String? _visibleRangeKey;
   late final AnimationController _countdownController;
@@ -44,23 +42,20 @@ class _FloatingSkipButtonOverlayState
     super.dispose();
   }
 
-  void _showBriefly(String key, {required String type}) {
+  void _showBriefly(String key) {
     if (_visibleRangeKey == key) return;
     _visibleRangeKey = key;
     _visibilityTimer?.cancel();
-    _countdownController
-      ..reset()
-      ..forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _countdownController
+        ..reset()
+        ..forward();
+    });
     _visibilityTimer = Timer(const Duration(seconds: 8), () {
       if (!mounted) return;
       setState(() {
-        if (type == 'intro') {
-          _introDismissed = true;
-        } else if (type == 'recap') {
-          _recapDismissed = true;
-        } else {
-          _outroDismissed = true;
-        }
+        _dismissedRangeKeys.add(key);
       });
     });
   }
@@ -68,9 +63,6 @@ class _FloatingSkipButtonOverlayState
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(playerSettingsProvider);
-    // Keep the manual action available whenever the playhead is inside a
-    // detected intro/outro. Auto-skip normally moves past the range at once,
-    // but this remains a reliable fallback while its seek is still pending.
     if (!settings.enableAniSkip) {
       return const SizedBox.shrink();
     }
@@ -80,9 +72,7 @@ class _FloatingSkipButtonOverlayState
     );
     if (currentEp != _lastEpisode) {
       _lastEpisode = currentEp;
-      _introDismissed = false;
-      _outroDismissed = false;
-      _recapDismissed = false;
+      _dismissedRangeKeys.clear();
       _visibleRangeKey = null;
       _visibilityTimer?.cancel();
     }
@@ -114,109 +104,96 @@ class _FloatingSkipButtonOverlayState
       if (_visibleRangeKey != null) {
         _visibleRangeKey = null;
         _visibilityTimer?.cancel();
-        _introDismissed = false;
-        _outroDismissed = false;
-        _recapDismissed = false;
       }
       return const SizedBox.shrink();
     }
 
+    final isOp =
+        currentSkip.skipType == SkipType.op ||
+        (currentSkip.skipType == SkipType.mixed &&
+            currentSkip.interval!.startTime <= 300);
+    final isEd =
+        currentSkip.skipType == SkipType.ed ||
+        (currentSkip.skipType == SkipType.mixed &&
+            currentSkip.interval!.startTime >= 480);
+    final isRecap = currentSkip.skipType == SkipType.recap;
+
+    final isSourceVerified =
+        currentSkip.skipId?.startsWith('source-') ?? false;
+    final durationMatches =
+        currentSkip.episodeLength > 0 &&
+        (currentSkip.episodeLength - dur.inSeconds).abs() <= 90;
+    final verified =
+        isSourceVerified ||
+        currentSkip.skipId?.isNotEmpty == true ||
+        durationMatches;
+    final plausiblePlacement =
+        (isOp && currentSkip.interval!.startTime <= 450) ||
+        (isRecap && currentSkip.interval!.startTime <= dur.inSeconds * 0.65) ||
+        (isEd &&
+            dur.inSeconds > 0 &&
+            currentSkip.interval!.startTime >= dur.inSeconds * .50 &&
+            currentSkip.interval!.startTime >= 300);
+
+    if (!verified || !plausiblePlacement) {
+      return const SizedBox.shrink();
+    }
+
+    final rangeKey =
+        '${currentEp}_${currentSkip.skipType.name}_${currentSkip.interval!.startTime.toInt()}_${currentSkip.interval!.endTime.toInt()}';
+    final isDismissed = _dismissedRangeKeys.contains(rangeKey);
+
+    if (isDismissed && !isControlsVisible) {
+      return const SizedBox.shrink();
+    }
+
+    _showBriefly(rangeKey);
+
+    final scheme = Theme.of(context).colorScheme;
+    final accentColor = scheme.primary;
+
     String? label;
     VoidCallback? onSkip;
-    Color? accentColor;
     IconData? buttonIcon;
 
-    if (currentSkip.interval != null) {
-      final isOp =
-          currentSkip.skipType == SkipType.op ||
-          (currentSkip.skipType == SkipType.mixed &&
-              currentSkip.interval!.startTime <= 300);
-      final isEd =
-          currentSkip.skipType == SkipType.ed ||
-          (currentSkip.skipType == SkipType.mixed &&
-              currentSkip.interval!.startTime >= 480);
-      final isRecap = currentSkip.skipType == SkipType.recap;
-      final isSourceVerified =
-          currentSkip.skipId?.startsWith('source-') ?? false;
-      final durationMatches =
-          currentSkip.episodeLength > 0 &&
-          (currentSkip.episodeLength - dur.inSeconds).abs() <= 90;
-      final verified =
-          isSourceVerified ||
-          currentSkip.skipId?.isNotEmpty == true ||
-          durationMatches;
-      final plausiblePlacement =
-          (isOp && currentSkip.interval!.startTime <= 450) ||
-          (isRecap && currentSkip.interval!.startTime <= dur.inSeconds * 0.65) ||
-          (isEd &&
-              dur.inSeconds > 0 &&
-              currentSkip.interval!.startTime >= dur.inSeconds * .50 &&
-              currentSkip.interval!.startTime >= 300);
-
-      if (!verified || !plausiblePlacement) {
-        return const SizedBox.shrink();
-      }
-
-      final showIntro = isOp && (!_introDismissed || isControlsVisible);
-      final showRecap = isRecap && (!_recapDismissed || isControlsVisible);
-      final showOutro = isEd && (!_outroDismissed || isControlsVisible);
-
-      if (showIntro) {
-        _showBriefly(
-          '${currentEp}_intro_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
-          type: 'intro',
+    if (isOp) {
+      label = 'Skip Intro';
+      buttonIcon = Icons.fast_forward_rounded;
+      onSkip = () {
+        setState(() => _dismissedRangeKeys.add(rangeKey));
+        final target = Duration(
+          seconds: currentSkip.interval!.endTime.toInt() + 1,
         );
-        label = 'Skip Intro';
-        accentColor = const Color(0xFFFFB300);
-        buttonIcon = Icons.fast_forward_rounded;
-        onSkip = () {
-          setState(() => _introDismissed = true);
-          final target = Duration(
-            seconds: currentSkip.interval!.endTime.toInt() + 1,
-          );
-          ref.read(playerStateProvider.notifier).seek(target);
-          ref.read(playerUIControllerProvider.notifier).restartHideTimer();
-        };
-      } else if (showRecap) {
-        _showBriefly(
-          '${currentEp}_recap_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
-          type: 'recap',
+        ref.read(playerStateProvider.notifier).seek(target);
+        ref.read(playerUIControllerProvider.notifier).restartHideTimer();
+      };
+    } else if (isRecap) {
+      label = 'Skip Recap';
+      buttonIcon = Icons.fast_forward_rounded;
+      onSkip = () {
+        setState(() => _dismissedRangeKeys.add(rangeKey));
+        final target = Duration(
+          seconds: currentSkip.interval!.endTime.toInt() + 1,
         );
-        label = 'Skip Recap';
-        accentColor = const Color(0xFF00E5FF);
-        buttonIcon = Icons.fast_forward_rounded;
-        onSkip = () {
-          setState(() => _recapDismissed = true);
-          final target = Duration(
-            seconds: currentSkip.interval!.endTime.toInt() + 1,
-          );
-          ref.read(playerStateProvider.notifier).seek(target);
-          ref.read(playerUIControllerProvider.notifier).restartHideTimer();
-        };
-      } else if (showOutro) {
-        _showBriefly(
-          '${currentEp}_outro_${currentSkip.interval!.startTime}_${currentSkip.interval!.endTime}',
-          type: 'outro',
+        ref.read(playerStateProvider.notifier).seek(target);
+        ref.read(playerUIControllerProvider.notifier).restartHideTimer();
+      };
+    } else if (isEd) {
+      label = 'Skip Outro';
+      buttonIcon = Icons.skip_next_rounded;
+      onSkip = () {
+        setState(() => _dismissedRangeKeys.add(rangeKey));
+        final target = Duration(
+          seconds: currentSkip.interval!.endTime.toInt() + 1,
         );
-        label = 'Skip Outro';
-        accentColor = const Color(0xFFE040FB);
-        buttonIcon = Icons.skip_next_rounded;
-        onSkip = () {
-          setState(() => _outroDismissed = true);
-          final target = Duration(
-            seconds: currentSkip.interval!.endTime.toInt() + 1,
-          );
-          ref.read(playerStateProvider.notifier).seek(target);
-          ref.read(playerUIControllerProvider.notifier).restartHideTimer();
-        };
-      }
+        ref.read(playerStateProvider.notifier).seek(target);
+        ref.read(playerUIControllerProvider.notifier).restartHideTimer();
+      };
     }
 
     if (label == null || onSkip == null) {
       return const SizedBox.shrink();
     }
-
-    final scheme = Theme.of(context).colorScheme;
 
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 250),
@@ -237,12 +214,12 @@ class _FloatingSkipButtonOverlayState
                   color: Colors.black.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: (accentColor ?? scheme.primary).withValues(alpha: 0.85),
+                    color: accentColor.withValues(alpha: 0.85),
                     width: 1.4,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: (accentColor ?? scheme.primary).withValues(alpha: 0.25),
+                      color: accentColor.withValues(alpha: 0.25),
                       blurRadius: 12,
                       spreadRadius: 1,
                     ),
@@ -264,7 +241,7 @@ class _FloatingSkipButtonOverlayState
                           Icon(
                             buttonIcon ?? Icons.fast_forward_rounded,
                             size: 20,
-                            color: accentColor ?? scheme.primary,
+                            color: accentColor,
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -291,7 +268,7 @@ class _FloatingSkipButtonOverlayState
                               minHeight: 2.5,
                               backgroundColor: Colors.white10,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                accentColor ?? scheme.primary,
+                                accentColor,
                               ),
                             ),
                           ),

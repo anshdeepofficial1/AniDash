@@ -44,9 +44,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
   int _lastSavedPos = -1;
   bool _trackingTriggered = false;
   bool _hasAutoAdvanced = false;
-  bool _hasAutoSkippedIntro = false;
-  bool _hasAutoSkippedOutro = false;
-  bool _hasAutoSkippedRecap = false;
+  final Set<String> _autoSkippedRangeKeys = <String>{};
   bool _fromHentaiHub = false;
   bool _prefetchTriggered = false;
   bool _nextPromptTriggered = false;
@@ -512,7 +510,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
 
       // Fetch skip ranges as soon as the manifest duration is known. This lets
       // auto-skip seek before the opening frames have to begin rendering.
-      if (_dur > 30) _checkAniSkip(mediaId, animeName, next.duration);
+      if (_dur > 0) _checkAniSkip(mediaId, animeName, next.duration);
 
       if (next.isPlaying && !(prev?.isPlaying ?? false)) {
         AudioFocusService().requestAudioFocus();
@@ -619,9 +617,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       if (next != null) {
         _episodeTransitionInProgress = true;
         ref.read(aniSkipProvider.notifier).clear();
-        _hasAutoSkippedIntro = false;
-        _hasAutoSkippedOutro = false;
-        _hasAutoSkippedRecap = false;
+        _autoSkippedRangeKeys.clear();
         _pendingAutoSkipTimer?.cancel();
         _lastAniSkipEpisode = null;
         _lastAniSkipDuration = null;
@@ -632,10 +628,23 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         _prefetchTriggered = false;
         _nextPromptTriggered = false;
         _isPlayerReady = false;
+        ref.read(playerStateProvider.notifier).resetForNewEpisode(episode: next);
         ref
             .read(nextEpisodePromptProvider.notifier)
             .dismissForEpisodeTransition();
         ref.read(watchProgressProvider.notifier).resetLastSavedPosition();
+
+        if (ref.read(playerSettingsProvider).enableAniSkip) {
+          ref
+              .read(aniSkipProvider.notifier)
+              .fetchSkipTimes(
+                mediaId: mediaId,
+                animeTitle: _animeName ?? '',
+                episodeNumber: next,
+                episodeLength: 0,
+                malId: _malId,
+              );
+        }
 
         try {
           final currentEpisodes = ref.read(episodeListProvider).episodes;
@@ -764,13 +773,19 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
     final playerState = ref.read(playerStateProvider);
     if (playerState.isOpening ||
         playerState.duration <= Duration.zero ||
-        position <= Duration.zero) {
+        position < Duration.zero) {
       return;
     }
 
     final skips = ref.read(aniSkipProvider);
     for (final skip in skips) {
       if (skip.interval == null) continue;
+      final startSec = skip.interval!.startTime.toInt();
+      final endSec = skip.interval!.endTime.toInt() + 1;
+      final rangeKey = '${skip.skipType.name}_${startSec}_$endSec';
+
+      if (_autoSkippedRangeKeys.contains(rangeKey)) continue;
+
       final isIntro =
           skip.skipType == SkipType.op ||
           (skip.skipType == SkipType.mixed && skip.interval!.startTime <= 300);
@@ -779,12 +794,8 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           (skip.skipType == SkipType.mixed && skip.interval!.startTime > 300);
       final isRecap = skip.skipType == SkipType.recap;
 
-      if (isIntro && _hasAutoSkippedIntro) continue;
-      if (isOutro && _hasAutoSkippedOutro) continue;
-      if (isRecap && _hasAutoSkippedRecap) continue;
-
-      final start = Duration(seconds: skip.interval!.startTime.toInt());
-      final end = Duration(seconds: skip.interval!.endTime.toInt() + 1);
+      final start = Duration(seconds: startSec);
+      final end = Duration(seconds: endSec);
 
       final validType =
           skip.skipType == SkipType.op ||
@@ -818,9 +829,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           plausiblePlacement &&
           position >= start &&
           position < end) {
-        if (isIntro) _hasAutoSkippedIntro = true;
-        if (isOutro) _hasAutoSkippedOutro = true;
-        if (isRecap) _hasAutoSkippedRecap = true;
+        _autoSkippedRangeKeys.add(rangeKey);
         _pendingAutoSkipTimer?.cancel();
         ref.read(playerStateProvider.notifier).seek(end);
         return;

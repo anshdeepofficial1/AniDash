@@ -314,6 +314,7 @@ class EpisodeData extends _$EpisodeData {
       // makes Next/Mark watched -> Next react immediately instead of leaving
       // the preceding episode UI apparently stuck while mpv pauses.
       await _player.pause();
+      _player.resetForNewEpisode(episode: ep);
       if (generation != _loadGeneration) return;
     }
 

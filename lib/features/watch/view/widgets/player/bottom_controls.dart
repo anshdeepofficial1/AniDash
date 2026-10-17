@@ -316,8 +316,8 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
       }
 
       final Color segColor = isRecap
-          ? const Color(0xFF00E5FF)
-          : (isOp ? const Color(0xFFFFB300) : const Color(0xFFE040FB));
+          ? Color.lerp(scheme.primary, Colors.white, 0.25)!
+          : scheme.primary;
 
       highlightSegments.add((
         start: clampedStart,
@@ -345,7 +345,7 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: highlightColor.withValues(alpha: 0.80),
+                color: highlightColor.withValues(alpha: 0.85),
                 borderRadius: BorderRadius.circular(2),
                 border: Border.all(
                   color: highlightColor.withValues(alpha: 0.95),
@@ -357,8 +357,8 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                       ? Center(
                         child: Text(
                           seg.label,
-                          style: const TextStyle(
-                            color: Colors.black,
+                          style: TextStyle(
+                            color: scheme.onPrimary,
                             fontSize: 7.5,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.2,
@@ -378,7 +378,7 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                     vertical: 1,
                   ),
                   decoration: BoxDecoration(
-                    color: highlightColor.withValues(alpha: 0.88),
+                    color: highlightColor.withValues(alpha: 0.92),
                     borderRadius: BorderRadius.circular(3),
                     boxShadow: const [
                       BoxShadow(
@@ -390,8 +390,8 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                   ),
                   child: Text(
                     seg.label,
-                    style: const TextStyle(
-                      color: Colors.black,
+                    style: TextStyle(
+                      color: scheme.onPrimary,
                       fontSize: 7,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.2,

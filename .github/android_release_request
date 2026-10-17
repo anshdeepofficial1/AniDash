@@ -1,4 +1,4 @@
-v1.20.8
-reason=exact-skip-markers-five-minute-buffer-ai-vision-and-playback-identity-issue35
+v1.20.9
+reason=intro-outro-theme-match-and-10s-seek-auto-skip-next-ep-countdown-and-continue-watching-metadata
 build=android-signed-apk-variants
 run=1
