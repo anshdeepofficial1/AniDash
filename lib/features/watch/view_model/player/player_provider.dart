@@ -407,6 +407,21 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     if (_activeMediaId == mediaId) await stop();
   }
 
+  void resetForNewEpisode({int? episode}) {
+    _activeEpisode = episode;
+    _lastStablePosition = Duration.zero;
+    _pendingSeekTarget = null;
+    _completionEmitted = false;
+    state = state.copyWith(
+      position: Duration.zero,
+      duration: Duration.zero,
+      buffer: Duration.zero,
+      isOpening: true,
+      isBuffering: true,
+      clearPlaybackError: true,
+    );
+  }
+
   Future<void> seek(Duration pos) async {
     final clamped = pos < Duration.zero ? Duration.zero : pos;
     _pendingSeekTarget = clamped;

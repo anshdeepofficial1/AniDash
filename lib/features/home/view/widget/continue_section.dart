@@ -1,17 +1,20 @@
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:ani_dash/core/models/universal/universal_media.dart';
 import 'package:ani_dash/core/models/anime/episode_model.dart';
+import 'package:ani_dash/core/network/http_client.dart';
 import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
 import 'package:ani_dash/helpers/anime_match_search.dart';
 import 'package:ani_dash/shared/providers/continue_watching_dismissed_provider.dart';
 import 'package:ani_dash/shared/providers/anime_match_service.dart';
 import 'package:ani_dash/shared/providers/anime_source_provider.dart';
+import 'package:ani_dash/core/registery/sources/anime/justanime.dart';
 import 'package:ani_dash/features/downloads/view/local_player_screen.dart';
 import 'package:ani_dash/features/downloads/view_model/downloads_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
@@ -40,25 +43,171 @@ final _continueEpisodeMetadataProvider = FutureProvider.family<
   EpisodeDataModel?,
   ({String animeId, String title, int episode, bool isAdult})
 >((ref, request) async {
-  final match = await ref
-      .read(animeMatchServiceProvider)
-      .findBestMatch(
-        UniversalTitle(
-          english: request.title,
-          romaji: request.title,
-          native: request.title,
-        ),
-        mediaId: request.animeId,
-        isAdult: request.isAdult,
-      );
-  final provider = ref.read(selectedAnimeProvider);
-  if (match?.id == null || provider == null) return null;
-  final episodes = await provider
-      .getEpisodes(match!.id!, anilistId: request.animeId)
-      .timeout(const Duration(seconds: 12));
-  return episodes.episodes
-      ?.where((e) => e.number == request.episode)
-      .firstOrNull;
+  // 1. Check if the active episode list already has it
+  final activeList = ref.read(episodeListProvider);
+  if (activeList.mediaId == request.animeId ||
+      activeList.animeId == request.animeId ||
+      activeList.animeTitle == request.title) {
+    final activeEp = activeList.episodes
+        .firstWhereOrNull((e) => e.number == request.episode);
+    final hasRealTitle = activeEp?.title != null &&
+        activeEp!.title!.trim().isNotEmpty &&
+        !RegExp(r'^(episode|ep\.?)\s*\d+$', caseSensitive: false)
+            .hasMatch(activeEp.title!.trim());
+    final hasThumb = activeEp?.thumbnail?.trim().isNotEmpty == true;
+    if (hasThumb || hasRealTitle) {
+      return activeEp;
+    }
+  }
+
+  // 2. Fast Ani.zip mappings lookup (High quality episode screenshots & titles)
+  final anilistId = int.tryParse(request.animeId);
+  if (anilistId != null) {
+    try {
+      final response = await UniversalHttpClient.instance
+          .get(
+            Uri.parse('https://api.ani.zip/mappings?anilist_id=$anilistId'),
+            cacheConfig: CacheConfig.medium,
+          )
+          .timeout(const Duration(seconds: 6));
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final rawEpisodes = decoded['episodes'] as Map<String, dynamic>? ?? {};
+        final item = rawEpisodes[request.episode.toString()];
+        if (item is Map) {
+          final titles = item['title'] as Map?;
+          final title = titles?['en']?.toString() ??
+              titles?['x-jat']?.toString() ??
+              titles?['ja']?.toString();
+          final image = item['image']?.toString();
+          if ((image != null && image.isNotEmpty) ||
+              (title != null && title.isNotEmpty)) {
+            return EpisodeDataModel(
+              number: request.episode,
+              title: title,
+              thumbnail: image,
+            );
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 3. Fast TVMaze lookup (HD 16:9 thumbnails and canonical titles)
+  try {
+    final cleanTitle = request.title
+        .replaceAll(
+          RegExp(
+            r'\s*\((?:Dub|Sub|TV|Audio|Uncensored)[^)]*\)',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceAll(
+          RegExp(
+            r'\s*\[(?:Dub|Sub|TV|Audio|Uncensored)[^\]]*\]',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceAll(RegExp(r'\s*-\s*(?:Dub|Sub)$', caseSensitive: false), '')
+        .trim();
+    final searchUri = Uri.https('api.tvmaze.com', '/search/shows', {
+      'q': cleanTitle,
+    });
+    final searchRes = await UniversalHttpClient.instance
+        .get(searchUri, cacheConfig: CacheConfig.veryLong)
+        .timeout(const Duration(seconds: 6));
+    if (searchRes.statusCode == 200) {
+      final searchResults = jsonDecode(searchRes.body) as List<dynamic>;
+      int? showId;
+      for (final res in searchResults) {
+        final show = (res as Map)['show'] as Map;
+        final type = show['type']?.toString().toLowerCase();
+        if (type == 'animation') {
+          showId = show['id'] as int?;
+          break;
+        }
+      }
+      showId ??= searchResults.isNotEmpty
+          ? ((searchResults.first as Map)['show'] as Map)['id'] as int?
+          : null;
+      if (showId != null) {
+        final epRes = await UniversalHttpClient.instance
+            .get(
+              Uri.parse('https://api.tvmaze.com/shows/$showId/episodes'),
+              cacheConfig: CacheConfig.veryLong,
+            )
+            .timeout(const Duration(seconds: 8));
+        if (epRes.statusCode == 200) {
+          final rawEps = jsonDecode(epRes.body) as List<dynamic>;
+          var absNum = 0;
+          for (final raw in rawEps) {
+            final epMap = raw as Map;
+            if (epMap['type']?.toString().toLowerCase() != 'regular') continue;
+            absNum++;
+            if (absNum == request.episode) {
+              final imgMap = epMap['image'];
+              final img = imgMap is Map
+                  ? (imgMap['original'] ?? imgMap['medium'])?.toString()
+                  : null;
+              final name = epMap['name']?.toString().trim();
+              if ((img != null && img.isNotEmpty) ||
+                  (name != null && name.isNotEmpty)) {
+                return EpisodeDataModel(
+                  number: request.episode,
+                  title: name,
+                  thumbnail: img,
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 4. JustAnime TMDB Direct lookup
+  try {
+    final registry = ref.read(animeSourceRegistryProvider);
+    final justAnime = registry.get('justanime') ?? JustAnimeProvider();
+    final res = await justAnime
+        .getEpisodes(request.animeId)
+        .timeout(const Duration(seconds: 8));
+    final matching = res.episodes?.firstWhereOrNull(
+      (e) => e.number == request.episode,
+    );
+    if (matching != null &&
+        (matching.thumbnail != null || matching.title != null)) {
+      return matching;
+    }
+  } catch (_) {}
+
+  // 5. Selected Provider Fallback
+  try {
+    final match = await ref
+        .read(animeMatchServiceProvider)
+        .findBestMatch(
+          UniversalTitle(
+            english: request.title,
+            romaji: request.title,
+            native: request.title,
+          ),
+          mediaId: request.animeId,
+          isAdult: request.isAdult,
+        );
+    final provider = ref.read(selectedAnimeProvider);
+    if (match?.id != null && provider != null) {
+      final episodes = await provider
+          .getEpisodes(match!.id!, anilistId: request.animeId)
+          .timeout(const Duration(seconds: 10));
+      return episodes.episodes
+          ?.where((e) => e.number == request.episode)
+          .firstOrNull;
+    }
+  } catch (_) {}
+
+  return null;
 });
 
 class ContinueSection extends ConsumerWidget {
@@ -204,6 +353,8 @@ class ContinueSection extends ConsumerWidget {
               }
               if (remoteEpisode?.thumbnail?.trim().isNotEmpty == true) {
                 listThumbnail = remoteEpisode!.thumbnail!.trim();
+                final cacheKey = '${entry.animeId}:$nextEpisodeNum';
+                _continueEpisodeThumbnailCache[cacheKey] = listThumbnail;
               }
               final listMatchesEntry =
                   activeEpisodeList.mediaId == entry.animeId ||

@@ -1,34 +1,22 @@
-# AniDash v1.20.8 — Exact Playback Identity, Enhanced Skip Belt & Multimodal AI
+# AniDash v1.20.9 — Theme-Matched Skip Markers, Seek Auto-Skip & Instant Next Episode Countdown
 
-This release completely fixes anime episode loading identity (Issue #35), polishes intro/outro/recap skip overlays and seek bar markers, improves multimodal vision attachment in AI chat, enhances conversational voice input, and upgrades unreleased anime UI.
+This release fixes intro auto-skipping and button visibility when fast-forwarding/seeking 10 seconds into the opening, aligns intro and outro timeline highlights with the app's user-selected theme color, instantly zeroes progress and countdown on next episode transitions, and enables automatic thumbnail and episode title resolution for Home Continue Watching.
 
-## Playback & Identity Resolution (Issue #35)
-- Fixed false-fallback bug where opening anime with titles not directly matching provider catalogs defaulted to One Piece Episode 1.
-- Removed blind `.first` and `.firstOrNull` fallbacks across `episode_stream_provider`, `episode_list_provider` (JustAnime), `anikoto`, and `animepahe`.
-- Fixed MAL ID substring matching collision in `anime_match_service` so IDs like 21 do not collide with unrelated anime.
-- Preserved 300s/5-minute deep buffering and instant playback startup.
+## Intro & Outro Timeline Belt & Skip Buttons
+- **Theme-Matched Colors**: Replaced hardcoded yellow and pink accents on the seek bar and skip buttons with the active theme color (`scheme.primary` and `scheme.onPrimary`), ensuring complete visual consistency with the user's selected app palette.
+- **Auto-Skip & Skip Button on 10s Fast-Forward**: Eliminated rigid boolean guards that prevented auto-skipping or hiding the skip button when seeking directly into an ongoing intro/outro. Per-segment range keys now ensure auto-skip triggers reliably at any playback position within the opening.
+- **Immediate Pre-Fetching**: Trigger AniSkip lookup as soon as the media manifest initializes or when the next episode is selected, so skip ranges are available before playback starts.
 
-## Intro, Outro & Recap Skip
-- Overhauled seek bar timeline ("belt") highlights with distinct, vibrant colors:
-  - **RECAP**: Vibrant Teal / Cyan badge
-  - **INTRO**: Warm Amber / Gold badge
-  - **OUTRO**: Soft Purple / Violet badge
-- Added dedicated "Skip Recap" floating action button alongside Skip Intro and Skip Outro.
-- Extended skip button display time from 3 seconds to 8 seconds, and ensure it remains visible whenever player controls are active.
-- Relaxed arbitrary recap boundaries so cold opens and mid-episode recaps are correctly recognized and skippable.
-- Support auto-skipping recaps automatically when `enableAutoSkip` is active.
+## Next Episode Transitions & Progress Scrubber
+- **Instant Scrubber & Countdown Reset**: When an episode ends and the subsequent episode auto-loads (e.g., from Ep 277 to Ep 278), `resetForNewEpisode` immediately sets position, duration, and buffer to zero. The player countdown timer and seek bar start cleanly from `00:00` without freezing at 100% completion.
 
-## AnyCore AI & Voice Input
-- Fixed image vision attachment on Android and desktop: handles paths when `file.bytes` is null and supports uploading multiple anime images at once.
-- Updated AI backend routing so prompts with image attachments route directly to multimodal Gemini 2.5 Flash Lite instead of text-only LLMs.
-- Upgraded voice input to natural speech dictation mode, removing aggressive word replacements so natural Hindi/English conversational queries work seamlessly.
-
-## Unreleased Anime Experience
-- Hidden SUB/DUB audio badges and perpetual loading spinners on unreleased titles.
-- Replaced "No episodes found" with an informative countdown / release date card showing the next airing episode schedule or premiere date.
+## Home Continue Watching Auto-Refetch
+- **Automatic Metadata Enrichment**: The Home screen "Continue Watching" card now enriches episode metadata directly without requiring users to manually open the anime's episodes screen.
+- **Multi-Source Fallback**: Leverages high-resolution Ani.zip mapping screenshots, canonical TVMaze animation episode titles, TMDB JustAnime direct details, and provider lookups, caching results in memory and persisting them into local storage.
 
 ## Validation
-- Complete test suite passes.
-- Universal, arm64-v8a, armeabi-v7a, and x86_64 signed APK variants.
+- Complete static analysis verified with 0 issues (`dart analyze`).
+- Unit and regression test suite passed (`flutter test`).
+- Signed Android APK variants generated: Universal, arm64-v8a, armeabi-v7a, and x86_64.
 
-**Version:** 1.20.8 (141)
+**Version:** 1.20.9 (142)
