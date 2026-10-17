@@ -561,12 +561,12 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         });
 
         // User requirement: Prompt appears immediately when outro begins.
-        // If there is NO outro detected, only appear exactly 90 seconds before the episode ends.
+        // If there is NO outro detected, only appear exactly 55 seconds before the episode ends.
         final remainingSeconds = _dur - _pos;
         final shouldTriggerNextPrompt =
             hasDetectedOutro
                 ? isInDetectedOutro
-                : (remainingSeconds <= 90 && remainingSeconds > 0 && _dur > 90);
+                : (remainingSeconds <= 55 && remainingSeconds > 0 && _dur > 55);
 
         final hasNextEpisode =
             (_epNum ?? 0) > 0 && (_totalEps <= 0 || (_epNum ?? 0) < _totalEps);

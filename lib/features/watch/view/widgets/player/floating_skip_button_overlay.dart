@@ -31,9 +31,11 @@ class _FloatingSkipButtonOverlayState
     super.initState();
     _countdownController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8),
+      duration: const Duration(seconds: 3),
     );
   }
+
+  final Set<String> _userManuallySkippedKeys = <String>{};
 
   @override
   void dispose() {
@@ -52,7 +54,7 @@ class _FloatingSkipButtonOverlayState
         ..reset()
         ..forward();
     });
-    _visibilityTimer = Timer(const Duration(seconds: 8), () {
+    _visibilityTimer = Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
       setState(() {
         _dismissedRangeKeys.add(key);
@@ -73,6 +75,7 @@ class _FloatingSkipButtonOverlayState
     if (currentEp != _lastEpisode) {
       _lastEpisode = currentEp;
       _dismissedRangeKeys.clear();
+      _userManuallySkippedKeys.clear();
       _visibleRangeKey = null;
       _visibilityTimer?.cancel();
     }
@@ -119,21 +122,23 @@ class _FloatingSkipButtonOverlayState
     final isRecap = currentSkip.skipType == SkipType.recap;
 
     final isSourceVerified =
-        currentSkip.skipId?.startsWith('source-') ?? false;
+        (currentSkip.skipId?.startsWith('source-') ?? false) ||
+        (currentSkip.skipId?.startsWith('justanime-') ?? false);
     final durationMatches =
-        currentSkip.episodeLength > 0 &&
-        (currentSkip.episodeLength - dur.inSeconds).abs() <= 90;
+        currentSkip.episodeLength <= 0 ||
+        dur.inSeconds <= 0 ||
+        (currentSkip.episodeLength - dur.inSeconds).abs() <= 120;
     final verified =
         isSourceVerified ||
         currentSkip.skipId?.isNotEmpty == true ||
         durationMatches;
     final plausiblePlacement =
-        (isOp && currentSkip.interval!.startTime <= 450) ||
-        (isRecap && currentSkip.interval!.startTime <= dur.inSeconds * 0.65) ||
+        (isOp && currentSkip.interval!.startTime <= 600) ||
+        (isRecap && (dur.inSeconds <= 0 || currentSkip.interval!.startTime <= dur.inSeconds * 0.70)) ||
         (isEd &&
-            dur.inSeconds > 0 &&
-            currentSkip.interval!.startTime >= dur.inSeconds * .50 &&
-            currentSkip.interval!.startTime >= 300);
+            (dur.inSeconds <= 0 ||
+                currentSkip.interval!.startTime >= dur.inSeconds * .35 ||
+                currentSkip.interval!.startTime >= 240));
 
     if (!verified || !plausiblePlacement) {
       return const SizedBox.shrink();
@@ -141,8 +146,11 @@ class _FloatingSkipButtonOverlayState
 
     final rangeKey =
         '${currentEp}_${currentSkip.skipType.name}_${currentSkip.interval!.startTime.toInt()}_${currentSkip.interval!.endTime.toInt()}';
-    final isDismissed = _dismissedRangeKeys.contains(rangeKey);
+    if (_userManuallySkippedKeys.contains(rangeKey)) {
+      return const SizedBox.shrink();
+    }
 
+    final isDismissed = _dismissedRangeKeys.contains(rangeKey);
     if (isDismissed && !isControlsVisible) {
       return const SizedBox.shrink();
     }
@@ -160,7 +168,10 @@ class _FloatingSkipButtonOverlayState
       label = 'Skip Intro';
       buttonIcon = Icons.fast_forward_rounded;
       onSkip = () {
-        setState(() => _dismissedRangeKeys.add(rangeKey));
+        setState(() {
+          _userManuallySkippedKeys.add(rangeKey);
+          _dismissedRangeKeys.add(rangeKey);
+        });
         final target = Duration(
           seconds: currentSkip.interval!.endTime.toInt() + 1,
         );
@@ -171,7 +182,10 @@ class _FloatingSkipButtonOverlayState
       label = 'Skip Recap';
       buttonIcon = Icons.fast_forward_rounded;
       onSkip = () {
-        setState(() => _dismissedRangeKeys.add(rangeKey));
+        setState(() {
+          _userManuallySkippedKeys.add(rangeKey);
+          _dismissedRangeKeys.add(rangeKey);
+        });
         final target = Duration(
           seconds: currentSkip.interval!.endTime.toInt() + 1,
         );
@@ -182,7 +196,10 @@ class _FloatingSkipButtonOverlayState
       label = 'Skip Outro';
       buttonIcon = Icons.skip_next_rounded;
       onSkip = () {
-        setState(() => _dismissedRangeKeys.add(rangeKey));
+        setState(() {
+          _userManuallySkippedKeys.add(rangeKey);
+          _dismissedRangeKeys.add(rangeKey);
+        });
         final target = Duration(
           seconds: currentSkip.interval!.endTime.toInt() + 1,
         );
