@@ -32,6 +32,15 @@ void main() {
       expect(policy.canExecute(action, editAuthorized: true), isTrue);
     });
 
+    test('natural library edits authorize confirmed write actions', () {
+      final result = policy.evaluate(
+        'Add both anime from these images to planning',
+        const AiContext(),
+      );
+      expect(result.allowed, isTrue);
+      expect(result.edit, isTrue);
+    });
+
     test('destructive model action never executes directly', () {
       const action = AiAction(
         type: 'delete',

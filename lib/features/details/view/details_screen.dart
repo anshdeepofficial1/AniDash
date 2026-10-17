@@ -177,7 +177,7 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
                   key: ValueKey('episodes-wrap-${displayedAnime.id}'),
                   child:
                       isUnreleased
-                          ? const _UnreleasedEpisodesNotice()
+                          ? _UnreleasedEpisodesNotice(anime: displayedAnime)
                           : EpisodesTab(
                             key: ValueKey('episodes-${displayedAnime.id}'),
                             anime: displayedAnime,
@@ -247,7 +247,26 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
 }
 
 class _UnreleasedEpisodesNotice extends StatelessWidget {
-  const _UnreleasedEpisodesNotice();
+  const _UnreleasedEpisodesNotice({required this.anime});
+
+  final UniversalMedia anime;
+
+  String? get _releaseLabel {
+    final airingAt = anime.nextAiringEpisode?.airingAt;
+    if (airingAt != null && airingAt > 0) {
+      final date = DateTime.fromMillisecondsSinceEpoch(airingAt * 1000);
+      return 'Episode 1 is expected on ${date.day}/${date.month}/${date.year}.';
+    }
+    final date = anime.startDate;
+    if (date?.year == null) return null;
+    if (date?.month != null && date?.day != null) {
+      return 'Episode 1 is expected on ${date!.day}/${date.month}/${date.year}.';
+    }
+    if (date?.month != null) {
+      return 'Expected to begin in ${date!.month}/${date.year}.';
+    }
+    return 'Expected to begin in ${date!.year}.';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,6 +292,24 @@ class _UnreleasedEpisodesNotice extends StatelessWidget {
                 context,
               ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
             ),
+            if (_releaseLabel != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  _releaseLabel!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: colors.onPrimaryContainer),
+                ),
+              ),
+            ],
           ],
         ),
       ),

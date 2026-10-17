@@ -323,10 +323,14 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
               headers: effectiveHeaders,
               videoFormat: _lastIsHls ? BetterPlayerVideoFormat.hls : null,
               bufferingConfiguration: const BetterPlayerBufferingConfiguration(
-                // Keep a full 120-second forward reservoir when bandwidth is
-                // available. Playback still starts after five seconds.
-                minBufferMs: 120000,
-                maxBufferMs: 120000,
+                // Keep loading well beyond the old 120-second target whenever
+                // bandwidth is available. Using the same five-minute minimum
+                // and maximum makes Media3 continue filling the forward
+                // reservoir instead of settling around a shorter equilibrium.
+                // Playback itself still starts after five seconds, so this
+                // larger safety buffer does not delay startup.
+                minBufferMs: 300000,
+                maxBufferMs: 300000,
                 bufferForPlaybackMs: 5000,
                 bufferForPlaybackAfterRebufferMs: 5000,
               ),

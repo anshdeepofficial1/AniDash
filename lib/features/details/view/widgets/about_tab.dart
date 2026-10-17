@@ -47,8 +47,10 @@ class DetailsContent extends ConsumerWidget {
             NextEpisodeWidget(anime: anime),
             const SizedBox(height: 12),
           ],
-          AvailableLanguagesCard(mediaId: mediaId, anime: anime),
-          const SizedBox(height: 10),
+          if (anime.status?.toUpperCase() != 'NOT_YET_RELEASED') ...[
+            AvailableLanguagesCard(mediaId: mediaId, anime: anime),
+            const SizedBox(height: 10),
+          ],
           Align(
             alignment: Alignment.centerLeft,
             child: AskNiaButton(

@@ -174,6 +174,7 @@ class EpisodeDataState {
 @Riverpod(keepAlive: true)
 class EpisodeData extends _$EpisodeData {
   int _loadGeneration = 0;
+  String? _activeMediaKey;
   EpisodeListState get _epList => ref.read(episodeListProvider);
   ExperimentalFeaturesModel get _exp => ref.read(experimentalProvider);
   SourceNotifier get _srcNotifier => ref.read(sourceProvider.notifier);
@@ -246,6 +247,23 @@ class EpisodeData extends _$EpisodeData {
       AppLogger.fail('Invalid episode requested: $ep');
       return;
     }
+
+    final targetMediaKey =
+        mediaId ?? _epList.mediaId ?? _epList.animeId ?? 'unknown';
+    final mediaChanged =
+        _activeMediaKey != null && _activeMediaKey != targetMediaKey;
+    if (mediaChanged) {
+      // Episode numbers repeat across every title. Clear the old stream before
+      // resolving the new title so an Ep 1 request can never reuse another
+      // anime's Ep 1 source while the network request is pending or fails.
+      ++_loadGeneration;
+      await _player.stop();
+      state = const EpisodeDataState();
+      _failedRuntimeServerIds.clear();
+      _prefetchedSourceData = null;
+      _prefetchedRouteKey = null;
+    }
+    _activeMediaKey = targetMediaKey;
 
     final episodeChanged =
         state.selectedEpisode != null && state.selectedEpisode != ep;
@@ -660,7 +678,7 @@ class EpisodeData extends _$EpisodeData {
       ref.read(playerStateProvider).position,
       headers: qualityHeaders,
       isHls: state.qualityOptions[idx]['isHls'] as bool?,
-      mediaId: _epList.animeId,
+      mediaId: _epList.mediaId ?? _epList.animeId,
       episode: state.selectedEpisode,
     );
   }
@@ -1115,6 +1133,7 @@ class EpisodeData extends _$EpisodeData {
 
   void reset() {
     _loadGeneration++;
+    _activeMediaKey = null;
     state = const EpisodeDataState();
   }
 
@@ -1450,7 +1469,7 @@ class EpisodeData extends _$EpisodeData {
         startAt,
         headers: playbackHeaders,
         isHls: selectedOption['isHls'] as bool?,
-        mediaId: _epList.animeId,
+        mediaId: _epList.mediaId ?? _epList.animeId,
         episode: state.selectedEpisode,
       );
 
@@ -1908,8 +1927,11 @@ class EpisodeData extends _$EpisodeData {
             final targetEp = altEpsList?.firstWhereOrNull(
               (e) => e.number == ep.number,
             );
-            resolvedEpId =
-                targetEp?.id ?? altEpsList?.firstOrNull?.id ?? resolvedEpId;
+            // Never silently fall back to episode 1 when the requested number
+            // is missing. That could play a valid stream from the wrong
+            // episode/title and was the root of GitHub issue #35.
+            if (targetEp == null) return null;
+            resolvedEpId = targetEp.id ?? resolvedEpId;
           } catch (_) {}
         }
 

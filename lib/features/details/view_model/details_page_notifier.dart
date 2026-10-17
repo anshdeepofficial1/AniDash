@@ -70,6 +70,9 @@ class DetailsPageState {
 
 @riverpod
 class DetailsPageNotifier extends _$DetailsPageNotifier {
+  bool _isUnreleased(UniversalMedia? media) =>
+      media?.status?.toUpperCase() == 'NOT_YET_RELEASED';
+
   @override
   DetailsPageState build(String animeId) {
     return const DetailsPageState();
@@ -85,12 +88,18 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
       ref.read(episodeListProvider.notifier).reset();
       ref.read(episodeDataProvider.notifier).reset();
 
-      // Episode discovery must not wait for the slower About/details
-      // enrichment. Starting both together prevents the Episodes tab from
-      // briefly looking empty (and removes the need for a manual refresh).
-      final episodesFuture = _fetchEpisodes(media.title);
-      final detailsFuture = fetchDetails();
-      await Future.wait([detailsFuture, episodesFuture]);
+      // Never query streaming sources for unreleased media. Enrich metadata
+      // first because it may contain a newer release status/date.
+      if (_isUnreleased(media)) {
+        await fetchDetails();
+        if (!ref.mounted || _isUnreleased(state.details.value)) return;
+        await _fetchEpisodes(state.details.value!.title);
+      } else {
+        // Released titles can discover episodes alongside About enrichment.
+        final episodesFuture = _fetchEpisodes(media.title);
+        final detailsFuture = fetchDetails();
+        await Future.wait([detailsFuture, episodesFuture]);
+      }
       if (!ref.mounted) return;
 
       // If the initial title could not be matched, retry once with the
@@ -578,6 +587,10 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
   }
 
   Future<void> refresh() async {
+    if (_isUnreleased(state.details.value)) {
+      await fetchDetails();
+      if (!ref.mounted || _isUnreleased(state.details.value)) return;
+    }
     final title = state.details.value?.title;
     if (title != null) {
       state = state.copyWith(
@@ -591,6 +604,7 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
   }
 
   void setManualMatch(String id, String name) {
+    if (_isUnreleased(state.details.value)) return;
     state = state.copyWith(animeIdForSource: id, bestMatchName: name);
     final title = state.details.value?.title;
     if (title != null) {

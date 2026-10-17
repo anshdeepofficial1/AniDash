@@ -2,10 +2,7 @@ class AniSkipInterval {
   final double startTime;
   final double endTime;
 
-  const AniSkipInterval({
-    required this.startTime,
-    required this.endTime,
-  });
+  const AniSkipInterval({required this.startTime, required this.endTime});
 
   factory AniSkipInterval.fromJson(Map<String, dynamic> json) {
     return AniSkipInterval(
@@ -15,13 +12,7 @@ class AniSkipInterval {
   }
 }
 
-enum SkipType {
-  op,
-  ed,
-  mixed,
-  recap,
-  unknown,
-}
+enum SkipType { op, ed, mixed, recap, unknown }
 
 class AniSkipResultItem {
   final AniSkipInterval? interval;
@@ -48,8 +39,10 @@ class AniSkipResultItem {
         type = SkipType.ed;
         break;
       case 'mixed-op':
+        type = SkipType.op;
+        break;
       case 'mixed-ed':
-        type = SkipType.mixed;
+        type = SkipType.ed;
         break;
       case 'recap':
         type = SkipType.recap;
@@ -59,9 +52,10 @@ class AniSkipResultItem {
     }
 
     return AniSkipResultItem(
-      interval: json['interval'] != null
-          ? AniSkipInterval.fromJson(json['interval'])
-          : null,
+      interval:
+          json['interval'] != null
+              ? AniSkipInterval.fromJson(json['interval'])
+              : null,
       skipType: type,
       action: json['action'] ?? 'skip',
       episodeLength: (json['episodeLength'] as num? ?? 0).toDouble(),
@@ -74,17 +68,15 @@ class AniSkipResponse {
   final bool found;
   final List<AniSkipResultItem> results;
 
-  const AniSkipResponse({
-    required this.found,
-    required this.results,
-  });
+  const AniSkipResponse({required this.found, required this.results});
 
   factory AniSkipResponse.fromJson(Map<String, dynamic> json) {
     return AniSkipResponse(
       found: json['found'] ?? false,
-      results: (json['results'] as List<dynamic>? ?? [])
-          .map((e) => AniSkipResultItem.fromJson(e))
-          .toList(),
+      results:
+          (json['results'] as List<dynamic>? ?? [])
+              .map((e) => AniSkipResultItem.fromJson(e))
+              .toList(),
     );
   }
 }

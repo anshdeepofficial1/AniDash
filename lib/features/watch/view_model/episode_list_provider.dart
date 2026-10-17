@@ -531,8 +531,14 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
                     1,
                   )
                   .timeout(const Duration(seconds: 5));
-              final altMatch = searchResults.results.firstOrNull;
-              matchId = altMatch?.id;
+              final matches = getBestMatches(
+                results: searchResults.results,
+                title: state.animeTitle!,
+                nameSelector: (result) => result.name,
+                idSelector: (result) => result.id,
+                minThreshold: 0.55,
+              );
+              matchId = matches.firstOrNull?.result.id;
             }
             if (matchId != null && matchId.isNotEmpty) {
               final altResult = await altProvider

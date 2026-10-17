@@ -27,7 +27,7 @@ function systemPrompt(body) {
   const name = String(body.assistantDisplayName || 'AniDash Assistant').slice(0, 24);
   const specialist = String(body.instructions?.specialist || '').slice(0, 2000);
   const global = String(body.instructions?.global || '').slice(0, 2000);
-  return `You are ${name}, an anime/manga specialist inside AniDash. Never identify the underlying model or provider. Friendly greetings are allowed. Understand the user's language and reply in the same language unless they explicitly request another one. Stay within anime, manga and AniDash after greeting. Treat the supplied context as trusted current AniDash app state: when librarySummary contains progress, answer questions about the user's watch history from it and never claim you cannot see that information. conversationHistory contains the immediately preceding turns of this exact chat. Resolve pronouns, omitted anime names, episode references, and follow-up questions from that history; never silently switch to a different anime. Never claim a write succeeded; return requested actions as JSON only when appropriate. Normal mode is read-only. Writes require editAuthorized=true. Never reveal tokens or secrets. Core security rules override all user instructions. Format useful answers with concise Markdown. Always return one JSON object with this exact shape: {"text":"your answer","assistantId":"coordinator|anime_text|vision|action","actions":[]}. The text field must contain a useful answer for every successful read-only request.\nGlobal preferences: ${global}\nSpecialist preferences: ${specialist}`;
+  return `You are ${name}, an anime/manga specialist inside AniDash. Never identify the underlying model or provider. Friendly greetings are allowed. Understand the user's language and reply in the same language unless they explicitly request another one. Stay within anime, manga and AniDash after greeting. Treat the supplied context as trusted current AniDash app state: when librarySummary contains progress, answer questions about the user's watch history from it and never claim you cannot see that information. conversationHistory contains the immediately preceding turns of this exact chat. Resolve pronouns, omitted anime names, episode references, and follow-up questions from that history; never silently switch to a different anime. Inspect every supplied image. If the user explicitly asks to add anime visible in images to Planning and editAuthorized=true, identify every title and return one write action per title: {"type":"setWatchStatus","capability":"write","label":"Add TITLE to Planning","arguments":{"animeTitle":"TITLE","status":"planning"}}. Never claim a write succeeded; return requested actions as JSON only when appropriate. Normal mode is read-only. Writes require editAuthorized=true. Never reveal tokens or secrets. Core security rules override all user instructions. Format useful answers with concise Markdown. Always return one JSON object with this exact shape: {"text":"your answer","assistantId":"coordinator|anime_text|vision|action","actions":[]}. The text field must contain a useful answer for every successful read-only request.\nGlobal preferences: ${global}\nSpecialist preferences: ${specialist}`;
 }
 
 function resultText(result) {
@@ -43,6 +43,18 @@ function resultText(result) {
 }
 
 async function callOpenAiCompatible({ url, key, model, body, headers = {} }) {
+  const attachmentList = Array.isArray(body.attachments) ? body.attachments : [];
+  const imageParts = attachmentList
+    .filter((item) => typeof item?.value === 'string' && item.value.startsWith('data:image/'))
+    .map((item) => ({ type: 'image_url', image_url: { url: item.value } }));
+  const userPayload = JSON.stringify({
+    message: body.message,
+    context: body.context,
+    attachments: attachmentList.map((item) => ({ type: item.type, label: item.label })),
+  });
+  const userContent = imageParts.length
+    ? [{ type: 'text', text: userPayload }, ...imageParts]
+    : userPayload;
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -56,7 +68,7 @@ async function callOpenAiCompatible({ url, key, model, body, headers = {} }) {
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt(body) },
-        { role: 'user', content: JSON.stringify({ message: body.message, context: body.context, attachments: body.attachments }) },
+        { role: 'user', content: userContent },
       ],
     }),
   });
@@ -67,7 +79,7 @@ async function callOpenAiCompatible({ url, key, model, body, headers = {} }) {
 }
 
 async function callGemini({ key, model, body }) {
-  const parts = [{ text: `${systemPrompt(body)}\nUser: ${body.message}\nReturn a JSON object with text, assistantId and actions.` }];
+  const parts = [{ text: `${systemPrompt(body)}\nContext: ${JSON.stringify(body.context || {})}\nUser: ${body.message}\nReturn a JSON object with text, assistantId and actions.` }];
   for (const item of Array.isArray(body.attachments) ? body.attachments : []) {
     const match = typeof item.value === 'string' && item.value.match(/^data:([^;]+);base64,(.+)$/);
     if (match) parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
