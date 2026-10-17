@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -5,6 +6,7 @@ import 'package:collection/collection.dart';
 import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart';
 import 'package:ani_dash/features/watch/view_model/next_episode_prompt_provider.dart';
+import 'package:ani_dash/features/watch/view_model/player/player_ui_controller.dart';
 import 'package:ani_dash/shared/providers/settings/player_notifier.dart';
 import 'package:ani_dash/core/services/franchise_service.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
@@ -53,11 +55,41 @@ final _storyMovieCueProvider = FutureProvider.autoDispose.family<
   }
 });
 
-class NextEpisodePromptOverlay extends ConsumerWidget {
+class NextEpisodePromptOverlay extends ConsumerStatefulWidget {
   const NextEpisodePromptOverlay({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NextEpisodePromptOverlay> createState() =>
+      _NextEpisodePromptOverlayState();
+}
+
+class _NextEpisodePromptOverlayState
+    extends ConsumerState<NextEpisodePromptOverlay> {
+  int? _lastEp;
+  bool _initialTimerExpired = false;
+  Timer? _hideTimer;
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    super.dispose();
+  }
+
+  void _triggerInitialShow(int ep) {
+    if (_lastEp == ep) return;
+    _lastEp = ep;
+    _initialTimerExpired = false;
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() {
+        _initialTimerExpired = true;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isVisible = ref.watch(nextEpisodePromptProvider);
     if (!isVisible) return const SizedBox.shrink();
 
@@ -70,6 +102,16 @@ class NextEpisodePromptOverlay extends ConsumerWidget {
       episodeDataProvider.select((s) => s.selectedEpisode),
     );
     if (currentEp == null) return const SizedBox.shrink();
+
+    _triggerInitialShow(currentEp);
+
+    final isControlsVisible = ref.watch(
+      playerUIControllerProvider.select((s) => s.isVisible),
+    );
+
+    // Show for the first 3 seconds, or whenever player controls are active
+    final shouldShow = !_initialTimerExpired || isControlsVisible;
+    if (!shouldShow) return const SizedBox.shrink();
 
     final nextEpNum = currentEp + 1;
     final epList = ref.watch(episodeListProvider);
@@ -91,14 +133,16 @@ class NextEpisodePromptOverlay extends ConsumerWidget {
 
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Positioned(
-      bottom: 80,
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+      bottom: isControlsVisible ? 115 : 28,
       right: 24,
       child: Material(
         color: Colors.transparent,
         child: AnimatedOpacity(
           opacity: isVisible ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 200),
           child: Container(
             width: 280,
             padding: const EdgeInsets.all(12),

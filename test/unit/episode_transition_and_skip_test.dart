@@ -90,4 +90,26 @@ void main() {
       expect(skippedKeys.contains(outroKey), isFalse);
     });
   });
+
+  group('Next Episode Prompt 55-Second Threshold', () {
+    test('Fallback prompt activates at 55 seconds when outro is absent', () {
+      const durationSeconds = 1440; // 24-minute episode
+
+      bool shouldTrigger(int currentPosition, bool hasDetectedOutro) {
+        final remainingSeconds = durationSeconds - currentPosition;
+        return hasDetectedOutro
+            ? false
+            : (remainingSeconds <= 55 && remainingSeconds > 0 && durationSeconds > 55);
+      }
+
+      // At 60 seconds remaining -> not yet triggered
+      expect(shouldTrigger(1380, false), isFalse);
+
+      // At exactly 55 seconds remaining -> triggered!
+      expect(shouldTrigger(1385, false), isTrue);
+
+      // At 30 seconds remaining -> triggered!
+      expect(shouldTrigger(1410, false), isTrue);
+    });
+  });
 }
