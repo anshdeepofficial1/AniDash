@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:collection/collection.dart';
 import 'package:ani_dash/core/network/http_client.dart';
 import 'package:html/parser.dart' as html;
 import 'package:ani_dash/core/models/anime/anime_model.dep.dart';
@@ -119,13 +120,20 @@ class AnikotoProvider extends AnimeProvider {
           1,
         );
         if (searchRes.results.isNotEmpty) {
-          actualId = searchRes.results.first.id ?? actualId;
-          url = "$apiUrl?m=release&id=$actualId&sort=episode_asc";
-          var res = await UniversalHttpClient.instance.get(
-            Uri.parse(url),
-            headers: headers,
-          );
-          bodyDecoded = json.decode(res.body);
+          final queryTitle = animeId.replaceAll('-', ' ').trim().toLowerCase();
+          final match = searchRes.results.firstWhereOrNull((r) {
+            final name = r.name?.toLowerCase().trim() ?? '';
+            return name == queryTitle || name.startsWith(queryTitle);
+          });
+          if (match?.id != null) {
+            actualId = match!.id!;
+            url = "$apiUrl?m=release&id=$actualId&sort=episode_asc";
+            var res = await UniversalHttpClient.instance.get(
+              Uri.parse(url),
+              headers: headers,
+            );
+            bodyDecoded = json.decode(res.body);
+          }
         }
       } catch (e) {
         bodyDecoded = {};

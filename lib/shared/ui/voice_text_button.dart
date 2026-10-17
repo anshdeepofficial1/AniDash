@@ -94,11 +94,9 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
       listenOptions: stt.SpeechListenOptions(
         partialResults: true,
         cancelOnError: true,
-        // Android routes this through its web-search language model, which is
-        // more accurate for anime names and short assistant queries.
-        listenMode: stt.ListenMode.search,
+        listenMode: stt.ListenMode.dictation,
         listenFor: const Duration(minutes: 1),
-        pauseFor: const Duration(seconds: 5),
+        pauseFor: const Duration(seconds: 4),
         localeId:
             selectedLocale == null || selectedLocale.isEmpty
                 ? null
@@ -194,13 +192,6 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
     for (final entry in replacements.entries) {
       normalized = normalized.replaceAll(entry.key, entry.value);
     }
-    normalized = normalized.replaceAllMapped(
-      RegExp(
-        r'\b(tell me(?: the)?|exact)\s+watch\s+(?:of\s+)?(One Piece|Black Clover|Re:Zero|Mushoku Tensei|SPY x FAMILY)\b',
-        caseSensitive: false,
-      ),
-      (match) => '${match.group(1)} watch order of ${match.group(2)}',
-    );
     return normalized;
   }
 

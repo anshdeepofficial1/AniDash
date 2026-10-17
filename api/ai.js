@@ -117,31 +117,33 @@ export default async function handler(req, res) {
   const assistantId = ALLOWED_ASSISTANTS.has(body.assistantId) ? body.assistantId : 'coordinator';
   if (!message) return res.status(400).json({ error: 'A message is required' });
 
+  const hasImages = Array.isArray(body.attachments) && body.attachments.some(a => a && a.type && (a.type === 'image' || a.type === 'screenshot'));
+
   const providers = [
-    assistantId === 'vision' && process.env.GEMINI_API_KEY && {
+    (hasImages || assistantId === 'vision') && process.env.GEMINI_API_KEY && {
       kind: 'gemini',
       key: process.env.GEMINI_API_KEY,
       model: process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
     },
-    assistantId === 'action' && process.env.CLOUDFLARE_AI_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID && {
+    assistantId === 'action' && !hasImages && process.env.CLOUDFLARE_AI_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID && {
       kind: 'openai',
       url: `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/ai/v1/chat/completions`,
       key: process.env.CLOUDFLARE_AI_TOKEN,
       model: process.env.CLOUDFLARE_ACTION_MODEL || '@cf/zai-org/glm-4.7-flash',
     },
-    process.env.CEREBRAS_API_KEY && {
+    process.env.CEREBRAS_API_KEY && !hasImages && {
       kind: 'openai',
       url: process.env.CEREBRAS_API_URL || 'https://api.cerebras.ai/v1/chat/completions',
       key: process.env.CEREBRAS_API_KEY,
       model: process.env.CEREBRAS_MODEL || 'gpt-oss-120b',
     },
-    process.env.GROQ_API_KEY && {
+    process.env.GROQ_API_KEY && !hasImages && {
       kind: 'openai',
       url: process.env.GROQ_API_URL || 'https://api.groq.com/openai/v1/chat/completions',
       key: process.env.GROQ_API_KEY,
       model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
     },
-    process.env.MISTRAL_API_KEY && {
+    process.env.MISTRAL_API_KEY && !hasImages && {
       kind: 'openai',
       url: process.env.MISTRAL_API_URL || 'https://api.mistral.ai/v1/chat/completions',
       key: process.env.MISTRAL_API_KEY,

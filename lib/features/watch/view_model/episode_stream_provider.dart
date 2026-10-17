@@ -1805,11 +1805,9 @@ class EpisodeData extends _$EpisodeData {
             title: _epList.animeTitle!,
             nameSelector: (r) => r.name,
             idSelector: (r) => r.id,
-            minThreshold: 0.45,
+            minThreshold: 0.50,
           );
-          final bestId =
-              bestMatches.firstOrNull?.result.id ??
-              searchRes.results.firstOrNull?.id;
+          final bestId = bestMatches.firstOrNull?.result.id;
           if (bestId != null && bestId != effectiveAnimeId) {
             String resolvedTargetEpId = targetEpId;
             if (effectiveProvider.providerName != 'justanime') {

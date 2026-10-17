@@ -89,7 +89,7 @@ class AniSkipService {
             }
             if (item.skipType == SkipType.recap) {
               return interval.startTime >= 0 &&
-                  interval.startTime <= 360 &&
+                  interval.startTime <= 600 &&
                   interval.endTime > interval.startTime;
             }
             return false;
@@ -121,7 +121,7 @@ class AniSkipService {
               return (start >= 0 && start <= episodeLength * 0.60) ||
                   (start >= 480 && start >= episodeLength * 0.60);
             case SkipType.recap:
-              return start >= 0 && start <= 360;
+              return start >= 0 && start <= episodeLength * 0.65;
             default:
               return false;
           }

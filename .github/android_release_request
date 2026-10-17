@@ -1,4 +1,4 @@
-v1.20.7
-reason=exact-skip-markers-five-minute-buffer-ai-vision-and-playback-identity
+v1.20.8
+reason=exact-skip-markers-five-minute-buffer-ai-vision-and-playback-identity-issue35
 build=android-signed-apk-variants
 run=1

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ani_dash/core/jikan/jikan_service.dart';
 import 'package:ani_dash/core/models/aniskip/aniskip_result.dart';
@@ -75,9 +76,11 @@ class AniSkipNotifier extends _$AniSkipNotifier {
         } else if (_knownTopAnimeMalIds.containsKey(cacheKey)) {
           malId = _knownTopAnimeMalIds[cacheKey];
         } else {
-          for (final entry in _knownTopAnimeMalIds.entries) {
-            if (cacheKey.startsWith(entry.key) ||
-                cacheKey.contains(entry.key)) {
+          final sortedEntries = _knownTopAnimeMalIds.entries.toList()
+            ..sort((a, b) => b.key.length.compareTo(a.key.length));
+          for (final entry in sortedEntries) {
+            final pattern = RegExp('(^|[^a-z0-9])${RegExp.escape(entry.key)}([^a-z0-9]|\$)', caseSensitive: false);
+            if (cacheKey == entry.key || pattern.hasMatch(cacheKey)) {
               malId = entry.value;
               break;
             }
@@ -165,9 +168,16 @@ class AniSkipNotifier extends _$AniSkipNotifier {
       // 5. Fallback via Jikan search
       if (malId == null && animeTitle.isNotEmpty) {
         try {
-          final results = await _jikan.getSearch(title: animeTitle, limit: 1);
+          final results = await _jikan.getSearch(title: animeTitle, limit: 3);
           if (results.isNotEmpty) {
-            malId = results.first.malId;
+            final cleanQuery = animeTitle.trim().toLowerCase();
+            final exactMatch = results.firstWhereOrNull((r) {
+              final t = r.title.trim().toLowerCase();
+              return t == cleanQuery || t.startsWith(cleanQuery) || cleanQuery.startsWith(t);
+            });
+            if (exactMatch != null) {
+              malId = exactMatch.malId;
+            }
           }
         } catch (e) {
           AppLogger.w('Jikan search failed: $e');

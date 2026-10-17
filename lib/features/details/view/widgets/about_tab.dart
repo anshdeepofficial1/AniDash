@@ -47,7 +47,7 @@ class DetailsContent extends ConsumerWidget {
             NextEpisodeWidget(anime: anime),
             const SizedBox(height: 12),
           ],
-          if (anime.status?.toUpperCase() != 'NOT_YET_RELEASED') ...[
+          if (!anime.isUnreleased) ...[
             AvailableLanguagesCard(mediaId: mediaId, anime: anime),
             const SizedBox(height: 10),
           ],
@@ -606,6 +606,13 @@ class _AvailableLanguagesCardState
         (!isMatching || episodes.episodes.isEmpty)
             ? null
             : episodes.episodes.first;
+    if (widget.anime.isUnreleased) {
+      return const SizedBox.shrink();
+    }
+    if (!episodes.isLoading && firstEpisode == null) {
+      return const SizedBox.shrink();
+    }
+
     final key = '${widget.mediaId}:${episodes.animeId}:${firstEpisode?.id}';
     if (firstEpisode != null && episodes.animeId != null && key != _lookupKey) {
       _lookupKey = key;
@@ -618,8 +625,7 @@ class _AvailableLanguagesCardState
         final result = snapshot.data;
         final loading =
             episodes.isLoading ||
-            firstEpisode == null ||
-            snapshot.connectionState == ConnectionState.waiting;
+            (firstEpisode != null && snapshot.connectionState == ConnectionState.waiting);
         final theme = Theme.of(context);
         final colors = theme.colorScheme;
 

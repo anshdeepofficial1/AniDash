@@ -993,8 +993,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               ),
             )
           else if (episodes.isEmpty)
-            const SliverFillRemaining(
-              child: Center(child: Text('No episodes found')),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _buildEmptyEpisodesView(context, theme),
             )
           else ...[
             SliverPersistentHeader(
@@ -2458,6 +2459,118 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     final m = seconds ~/ 60;
     final s = seconds % 60;
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildEmptyEpisodesView(BuildContext context, ThemeData theme) {
+    final anime = widget.anime;
+    final isUnreleased = anime?.isUnreleased ?? false;
+    final colors = theme.colorScheme;
+
+    if (isUnreleased) {
+      String dateText = 'Coming Soon';
+      String countdownText = '';
+      if (anime?.nextAiringEpisode?.airingAt != null) {
+        final airDate = DateTime.fromMillisecondsSinceEpoch(
+          anime!.nextAiringEpisode!.airingAt! * 1000,
+        );
+        final diff = airDate.difference(DateTime.now());
+        if (diff.isNegative) {
+          dateText = 'Airing Soon';
+        } else if (diff.inDays > 0) {
+          countdownText = 'Airs in ${diff.inDays}d ${diff.inHours % 24}h';
+          dateText =
+              'Episode ${anime.nextAiringEpisode?.episode ?? 1} on ${airDate.day}/${airDate.month}/${airDate.year}';
+        } else {
+          countdownText = 'Airs in ${diff.inHours}h ${diff.inMinutes % 60}m';
+          dateText = 'Episode ${anime.nextAiringEpisode?.episode ?? 1} today';
+        }
+      } else if (anime?.startDate != null && anime!.startDate!.year != null) {
+        final d = anime.startDate!;
+        dateText = 'Release: ${d.month != null ? "${d.month}/" : ""}${d.year}';
+      }
+
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.schedule_rounded,
+                  size: 32,
+                  color: colors.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Not Yet Released',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                dateText,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (countdownText.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  countdownText,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Text(
+                'Episodes will automatically appear here once broadcast begins.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.movie_filter_outlined, size: 48, color: colors.outline),
+            const SizedBox(height: 12),
+            Text(
+              'No episodes found on this provider',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => ref.read(detailsPageProvider(widget.mediaId).notifier).refresh(),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

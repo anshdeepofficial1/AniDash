@@ -527,7 +527,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       }
 
       if (!_isPlayerReady) {
-        if (_dur == 0 || next.position.inSeconds == 0) return;
+        if (_dur == 0) return;
         _isPlayerReady = true;
       }
 
@@ -800,16 +800,17 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           skip.skipId?.isNotEmpty == true ||
           durationMatches;
       final plausiblePlacement =
-          ((isIntro || isRecap) && start.inSeconds <= (_dur * .60).round()) ||
+          (isIntro && start.inSeconds <= 450) ||
+          (isRecap && start.inSeconds <= (_dur * .65).round()) ||
           (isOutro &&
               start.inSeconds >= (_dur * .50) &&
               start >= const Duration(minutes: 5));
       final validTiming =
           start >= Duration.zero &&
           end > start &&
-          end <= Duration(seconds: _dur + 3) &&
+          (_dur <= 0 || end <= Duration(seconds: _dur + 3)) &&
           length <= const Duration(minutes: 6) &&
-          length.inSeconds <= (_dur * 0.35);
+          (_dur <= 0 || length.inSeconds <= (_dur * 0.35));
 
       if (validType &&
           validTiming &&

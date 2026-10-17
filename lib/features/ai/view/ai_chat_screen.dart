@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -847,36 +848,46 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   Future<void> _pickImage(bool screenshot) async {
     final result = await FilePicker.pickFiles(
       type: FileType.image,
-      allowMultiple: false,
+      allowMultiple: true,
       withData: true,
     );
-    final file = result?.files.single;
-    final bytes = file?.bytes;
-    if (file == null || bytes == null || !mounted) return;
-    if (bytes.length > 12 * 1024 * 1024) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose an image smaller than 12 MB.')),
-      );
-      return;
-    }
-    final prepared = await compute(_prepareAiImage, bytes);
-    if (!mounted) return;
-    if (prepared.length > 2200 * 1024) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This image is still too large to send.')),
-      );
-      return;
-    }
-    setState(
-      () => _attachments.add(
-        AiAttachment(
-          type:
-              screenshot ? AiAttachmentType.screenshot : AiAttachmentType.image,
-          value: 'data:image/jpeg;base64,${base64Encode(prepared)}',
-          label: file.name,
+    if (result == null || result.files.isEmpty || !mounted) return;
+
+    for (final file in result.files) {
+      Uint8List? bytes = file.bytes;
+      if (bytes == null && file.path != null && file.path!.isNotEmpty) {
+        try {
+          bytes = await File(file.path!).readAsBytes();
+        } catch (e) {
+          debugPrint('Failed to read image from path ${file.path}: $e');
+        }
+      }
+      if (bytes == null || !mounted) continue;
+      if (bytes.length > 12 * 1024 * 1024) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${file.name}: Choose an image smaller than 12 MB.')),
+        );
+        continue;
+      }
+      final prepared = await compute(_prepareAiImage, bytes);
+      if (!mounted) return;
+      if (prepared.length > 2200 * 1024) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${file.name}: This image is still too large to send.')),
+        );
+        continue;
+      }
+      setState(
+        () => _attachments.add(
+          AiAttachment(
+            type:
+                screenshot ? AiAttachmentType.screenshot : AiAttachmentType.image,
+            value: 'data:image/jpeg;base64,${base64Encode(prepared)}',
+            label: file.name,
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   void _scrollToEnd() => WidgetsBinding.instance.addPostFrameCallback((_) {
