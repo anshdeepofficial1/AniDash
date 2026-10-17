@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:image/image.dart' as img;
 import 'package:ani_dash/features/ai/application/ai_orchestrator.dart';
 import 'package:ani_dash/features/ai/domain/ai_models.dart';
 import 'package:ani_dash/features/ai/domain/assistant_registry.dart';
@@ -20,7 +22,35 @@ import 'package:ani_dash/features/ai/application/ai_action_executor.dart';
 import 'package:ani_dash/features/ai/view/widgets/assistant_avatar.dart';
 import 'package:ani_dash/features/ai/view/widgets/anidash_ai_emblem.dart';
 import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
+import 'package:ani_dash/shared/providers/anilist_service_provider.dart';
 import 'package:ani_dash/shared/ui/voice_text_button.dart';
+
+Uint8List _prepareAiImage(Uint8List input) {
+  final decoded = img.decodeImage(input);
+  if (decoded == null) return input;
+  var prepared = decoded;
+  final longest =
+      decoded.width > decoded.height ? decoded.width : decoded.height;
+  if (longest > 1600) {
+    prepared = img.copyResize(
+      decoded,
+      width: decoded.width >= decoded.height ? 1600 : null,
+      height: decoded.height > decoded.width ? 1600 : null,
+      interpolation: img.Interpolation.average,
+    );
+  }
+  var encoded = Uint8List.fromList(img.encodeJpg(prepared, quality: 84));
+  if (encoded.length > 1800 * 1024) {
+    prepared = img.copyResize(
+      prepared,
+      width: prepared.width >= prepared.height ? 1280 : null,
+      height: prepared.height > prepared.width ? 1280 : null,
+      interpolation: img.Interpolation.average,
+    );
+    encoded = Uint8List.fromList(img.encodeJpg(prepared, quality: 76));
+  }
+  return encoded;
+}
 
 class AiChatScreen extends ConsumerStatefulWidget {
   const AiChatScreen({
@@ -41,16 +71,19 @@ class _ChatMessage {
     required this.fromUser,
     this.assistantId,
     this.actions = const [],
+    this.attachmentLabels = const [],
   });
   String text;
   final bool fromUser;
   final String? assistantId;
   final List<AiAction> actions;
+  final List<String> attachmentLabels;
 
   Map<String, Object?> toJson() => {
     'text': text,
     'fromUser': fromUser,
     'assistantId': assistantId,
+    'attachmentLabels': attachmentLabels,
     'actions':
         actions
             .map(
@@ -68,6 +101,9 @@ class _ChatMessage {
     text: json['text']?.toString() ?? '',
     fromUser: json['fromUser'] == true,
     assistantId: json['assistantId']?.toString(),
+    attachmentLabels: (json['attachmentLabels'] as List? ?? const [])
+        .map((value) => value.toString())
+        .toList(growable: false),
     actions: (json['actions'] as List? ?? const [])
         .whereType<Map>()
         .map((item) => AiAction.fromJson(Map<String, Object?>.from(item)))
@@ -435,6 +471,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   Future<void> _send([String? preset]) async {
     final text = (preset ?? _controller.text).trim();
     if (text.isEmpty || _busy) return;
+    final attachments = List<AiAttachment>.from(_attachments);
     await _voiceController.stop();
     if (text.startsWith('/') &&
         !text.toLowerCase().startsWith('/edit ') &&
@@ -463,7 +500,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       unawaited(_persistHistory());
       return;
     }
-    final localEdit = _parseLocalEdit(text);
+    final localEdit = attachments.isEmpty ? _parseLocalEdit(text) : null;
     if (localEdit != null) {
       setState(() {
         _messages.add(_ChatMessage(text: text, fromUser: true));
@@ -481,7 +518,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       _scrollToEnd();
       return;
     }
-    final localRead = _localReadResponse(text);
+    final localRead = attachments.isEmpty ? _localReadResponse(text) : null;
     if (localRead != null) {
       setState(() {
         _messages.add(_ChatMessage(text: text, fromUser: true));
@@ -493,9 +530,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       return;
     }
     setState(() {
-      _messages.add(_ChatMessage(text: text, fromUser: true));
+      _messages.add(
+        _ChatMessage(
+          text: text,
+          fromUser: true,
+          attachmentLabels: attachments
+              .map((item) => item.label ?? 'Image')
+              .toList(growable: false),
+        ),
+      );
       _messages.add(_ChatMessage(text: '', fromUser: false));
       _controller.clear();
+      _attachments.clear();
       _busy = true;
     });
     await _stateRepository.savePendingRequest(
@@ -504,8 +550,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     );
     await _persistHistory();
     var accumulated = '';
-    final attachments = List<AiAttachment>.from(_attachments);
-    _attachments.clear();
     await _subscription?.cancel();
     _subscription = _orchestrator
         .send(
@@ -809,20 +853,26 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final file = result?.files.single;
     final bytes = file?.bytes;
     if (file == null || bytes == null || !mounted) return;
-    if (bytes.length > 8 * 1024 * 1024) {
+    if (bytes.length > 12 * 1024 * 1024) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose an image smaller than 8 MB.')),
+        const SnackBar(content: Text('Choose an image smaller than 12 MB.')),
       );
       return;
     }
-    final extension = (file.extension ?? 'jpg').toLowerCase();
-    final mime = extension == 'png' ? 'image/png' : 'image/jpeg';
+    final prepared = await compute(_prepareAiImage, bytes);
+    if (!mounted) return;
+    if (prepared.length > 2200 * 1024) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This image is still too large to send.')),
+      );
+      return;
+    }
     setState(
       () => _attachments.add(
         AiAttachment(
           type:
               screenshot ? AiAttachmentType.screenshot : AiAttachmentType.image,
-          value: 'data:$mime;base64,${base64Encode(bytes)}',
+          value: 'data:image/jpeg;base64,${base64Encode(prepared)}',
           label: file.name,
         ),
       ),
@@ -858,8 +908,32 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       case 'markEpisodeWatched':
       case 'markEpisodesWatched':
       case 'setWatchStatus':
-        final animeId = id ?? widget.contextData.animeId;
+      case 'addToWatchlist':
+        var animeId = id ?? widget.contextData.animeId;
+        final requestedTitle =
+            action.arguments['animeTitle']?.toString().trim() ??
+            action.arguments['title']?.toString().trim();
+        var resolvedTitle = widget.contextData.animeTitle;
+        String resolvedCover = '';
+        int resolvedEpisodes = 0;
+        if (animeId == null && requestedTitle?.isNotEmpty == true) {
+          final matches = await ref
+              .read(anilistServiceProvider)
+              .searchAnime(requestedTitle!, perPage: 5);
+          if (matches.isNotEmpty) {
+            final match = matches.first;
+            animeId = match.id;
+            resolvedTitle =
+                match.title.english ??
+                match.title.romaji ??
+                match.title.userPreferred;
+            resolvedCover = match.highResCoverImage;
+            resolvedEpisodes = match.episodes ?? 0;
+          }
+        }
         if (animeId == null) return;
+        if (!mounted) return;
+        final targetAnimeId = animeId;
         final confirmed =
             alreadyConfirmed
                 ? true
@@ -904,7 +978,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         final repo = ref.read(watchProgressRepositoryProvider);
         final executor = AiActionExecutor(stateRepository: _stateRepository);
         executor.register(action.type, (arguments) async {
-          final existing = repo.getProgress(animeId);
+          final existing = repo.getProgress(targetAnimeId);
           _undoProgress = existing;
           final episode =
               int.tryParse(arguments['episode']?.toString() ?? '') ??
@@ -957,10 +1031,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                   : episode;
           final updated = (existing ??
                   AnimeWatchProgressEntry(
-                    animeId: animeId,
-                    animeTitle: widget.contextData.animeTitle ?? 'Anime',
-                    animeCover: '',
-                    totalEpisodes: 0,
+                    animeId: targetAnimeId,
+                    animeTitle: resolvedTitle ?? requestedTitle ?? 'Anime',
+                    animeCover: resolvedCover,
+                    totalEpisodes: resolvedEpisodes,
                     currentEpisode: resultingEpisode,
                     episodesProgress: progress,
                   ))
@@ -968,8 +1042,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 currentEpisode: resultingEpisode,
                 episodesProgress: progress,
                 status:
-                    action.type == 'setWatchStatus'
-                        ? arguments['status']?.toString()
+                    action.type == 'setWatchStatus' ||
+                            action.type == 'addToWatchlist'
+                        ? arguments['status']?.toString() ?? 'planning'
                         : existing?.status,
                 lastUpdated: DateTime.now(),
               );
@@ -1295,6 +1370,26 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                if (item.attachmentLabels.isNotEmpty) ...[
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: item.attachmentLabels
+                                        .map(
+                                          (label) => Chip(
+                                            avatar: const Icon(
+                                              Icons.image_outlined,
+                                              size: 16,
+                                            ),
+                                            label: Text(label),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                        )
+                                        .toList(growable: false),
+                                  ),
+                                  const SizedBox(height: 6),
+                                ],
                                 if (profile != null)
                                   Text(
                                     profile.displayName,

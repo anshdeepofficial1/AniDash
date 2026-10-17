@@ -166,6 +166,7 @@ jobs:
           flutter test test/unit/stream_headers_test.dart
           flutter test test/unit/hls_playback_relay_test.dart
           flutter test test/unit/player_buffer_policy_test.dart
+          flutter test test/unit/aniskip_result_test.dart
           flutter test test/unit/ai_policy_router_test.dart
           flutter test test/unit/download_progress_test.dart
       - name: Build signed Android APK variants

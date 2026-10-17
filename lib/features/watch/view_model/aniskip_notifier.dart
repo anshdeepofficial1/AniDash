@@ -210,11 +210,10 @@ class AniSkipNotifier extends _$AniSkipNotifier {
     required List<AniSkipResultItem> aniSkipSkips,
     required List<AniSkipResultItem> sourceSkips,
   }) {
-    // Stream markers belong to the exact episode/server currently playing and
-    // therefore win over crowd timestamps for the same marker type. This is
-    // important for episodes whose OP/ED is intentionally placed later than
-    // usual (for example One Piece episode 259).
-    final list = List<AniSkipResultItem>.from(sourceSkips);
+    // AniSkip entries are indexed by MAL title + exact episode and are the
+    // canonical markers. Provider markers are only a fallback: some stream
+    // APIs reuse series-average timestamps, which shifts unusual placements.
+    final list = List<AniSkipResultItem>.from(aniSkipSkips);
 
     final hasOp = list.any(
       (s) =>
@@ -227,24 +226,16 @@ class AniSkipNotifier extends _$AniSkipNotifier {
           (s.skipType == SkipType.mixed && (s.interval?.startTime ?? 0) > 300),
     );
 
-    // AniSkip remains the fallback when the selected server did not provide a
-    // validated marker of that type.
-    for (final crowd in aniSkipSkips) {
-      final isCrowdOp =
-          crowd.skipType == SkipType.op ||
-          (crowd.skipType == SkipType.mixed &&
-              (crowd.interval?.startTime ?? 0) <= 300);
-      final isCrowdEd =
-          crowd.skipType == SkipType.ed ||
-          (crowd.skipType == SkipType.mixed &&
-              (crowd.interval?.startTime ?? 0) > 300);
-
-      if (isCrowdOp && !hasOp) {
-        list.add(crowd);
-      } else if (isCrowdEd && !hasEd) {
-        list.add(crowd);
-      } else if (!isCrowdOp && !isCrowdEd) {
-        list.add(crowd);
+    final hasRecap = list.any((s) => s.skipType == SkipType.recap);
+    for (final source in sourceSkips) {
+      final isSourceOp = source.skipType == SkipType.op;
+      final isSourceEd = source.skipType == SkipType.ed;
+      final isSourceRecap = source.skipType == SkipType.recap;
+      if ((isSourceOp && !hasOp) ||
+          (isSourceEd && !hasEd) ||
+          (isSourceRecap && !hasRecap) ||
+          (!isSourceOp && !isSourceEd && !isSourceRecap)) {
+        list.add(source);
       }
     }
     return list;

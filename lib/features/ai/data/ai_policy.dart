@@ -16,7 +16,11 @@ class AiPolicy {
         reason: 'Type an anime or manga question first.',
       );
     }
-    final edit = text.startsWith('/edit ');
+    final edit =
+        text.startsWith('/edit ') ||
+        RegExp(
+          r'\b(add|save|mark|move|set|remove)\b[\s\S]*\b(planning|plan to watch|watching|watched|completed|library|watchlist|episode)\b',
+        ).hasMatch(text);
     // Anime titles are open-ended (for example "Black Clover") and cannot be
     // reliably recognized with a small keyword list. Let the AI read the full
     // question and apply the server-side scope instructions instead of falsely

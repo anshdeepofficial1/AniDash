@@ -81,10 +81,7 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
     await _speech.listen(
       onResult: (result) {
         final spoken = _normalizeAnimeNames(result.recognizedWords.trim());
-        if (!mounted ||
-            !_listening ||
-            generation != _speechGeneration ||
-            spoken.isEmpty) {
+        if (!mounted || generation != _speechGeneration || spoken.isEmpty) {
           return;
         }
         final value = _prefix.isEmpty ? spoken : '$_prefix $spoken';
@@ -97,7 +94,9 @@ class _VoiceTextButtonState extends State<VoiceTextButton> {
       listenOptions: stt.SpeechListenOptions(
         partialResults: true,
         cancelOnError: true,
-        listenMode: stt.ListenMode.dictation,
+        // Android routes this through its web-search language model, which is
+        // more accurate for anime names and short assistant queries.
+        listenMode: stt.ListenMode.search,
         listenFor: const Duration(minutes: 1),
         pauseFor: const Duration(seconds: 5),
         localeId:
