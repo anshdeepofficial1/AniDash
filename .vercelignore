@@ -19,7 +19,6 @@ web/
 windows/
 *.apk
 *.aab
-!api/chat.js
 
 # Website static media must be included in Vercel deployments.
 !website/assets/

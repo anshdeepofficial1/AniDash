@@ -2,22 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#f8faf7">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f8faf7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d1310" media="(prefers-color-scheme: dark)">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="AniDash">
   <meta name="application-name" content="AniDash">
   <meta name="format-detection" content="telephone=no">
-  <link rel="icon" href="https://anidashweb.vercel.app/assets/anidash_logo.png">
-  <link rel="apple-touch-icon" href="https://anidashweb.vercel.app/assets/anidash_logo.png">
+  <meta name="description" content="AniDash is a fast, app-like anime browser: search titles, jump straight to any episode, resume where you stopped and stream with quality, subtitle and server controls.">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://anidash-watch.vercel.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AniDash">
+  <meta property="og:title" content="AniDash — Discover &amp; Watch Anime">
+  <meta property="og:description" content="Search anime, browse episode lists and stream with a fast player that remembers where you stopped.">
+  <meta property="og:url" content="https://anidash-watch.vercel.app/">
+  <meta property="og:image" content="https://anidash-watch.vercel.app/assets/icon-512.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="AniDash — Discover &amp; Watch Anime">
+  <meta name="twitter:description" content="Search anime, browse episode lists and stream with a fast player that remembers where you stopped.">
+  <meta name="twitter:image" content="https://anidash-watch.vercel.app/assets/icon-512.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <style>
     /* Critical shell guard: prevents raw SVG/app markup if the full stylesheet is delayed. */
     html,body{margin:0;min-height:100%;background:#f8faf7;color:#111512}
     .svg-defs{position:absolute!important;width:0!important;height:0!important;overflow:hidden!important}
-    .icon{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8}
+    .icon{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
     .page{display:none}.page.active{display:block}.side-nav{display:none}
+    dialog{border:0;padding:0;background:transparent}
     @media(prefers-color-scheme:dark){html,body{background:#090d0a;color:#f2f6f2}}
   </style>
 
@@ -38,14 +54,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <title>AniDash</title>
+  <title>AniDash — Discover &amp; Watch Anime</title>
 </head>
 <body>
   <svg class="svg-defs" aria-hidden="true">
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8v9.4a.8.8 0 0 1-.8.8h-5.6v-6.2H9.4V21H3.8a.8.8 0 0 1-.8-.8z"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></symbol>
     <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4.5c3.2-.7 5.9.1 8 2.1v13c-2.1-2-4.8-2.8-8-2.1zM20 4.5c-3.2-.7-5.9.1-8 2.1v13c2.1-2 4.8-2.8 8-2.1z"/></symbol>
-    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 19.5h14"/></symbol>
     <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3.5h12v17l-6-3.7-6 3.7z"/></symbol>
     <symbol id="i-news" viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></symbol>
     <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 10a5.5 5.5 0 0 1 11 0v4l2 2H4.5l2-2zM10 19h4"/></symbol>
@@ -66,20 +81,32 @@
     <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 11 18-8-8 18-2-8zM11 13l10-10"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15.7A8.6 8.6 0 0 1 8.3 4a8.7 8.7 0 1 0 11.7 11.7z"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.7"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.4v13.2L19 12z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 5.4h3.2v13.2H8.5zM12.3 5.4h3.2v13.2h-3.2z"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="M7 5.4v13.2M19 6.1v11.8L9.8 12z"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M17 5.4v13.2M5 6.1v11.8l9.2-5.9z"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9.4h3.6L12 5.5v13L7.6 14.6H4zM16 9.6a3.6 3.6 0 0 1 0 4.8M18.6 7a7.2 7.2 0 0 1 0 10"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9.4h3.6L12 5.5v13L7.6 14.6H4zM16.2 9.8l4.8 4.4M21 9.8l-4.8 4.4"/></symbol>
+    <symbol id="i-captions" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="M7.5 11.6h3M7.5 14.6h5M14.2 11.6h2.3M14.7 14.6h1.8"/></symbol>
+    <symbol id="i-audio" viewBox="0 0 24 24"><path d="M4 14v-4M8 17V7M12 20V4M16 16.4V7.6M20 13.6v-3.2"/></symbol>
+    <symbol id="i-pip" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><rect x="12.2" y="11.2" width="6.8" height="5.8" rx="1.6"/></symbol>
+    <symbol id="i-minimize" viewBox="0 0 24 24"><path d="M9 3.5v5.5H3.5M15 3.5v5.5h5.5M9 20.5V15H3.5M15 20.5V15h5.5"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.8 21 19.4H3zM12 10v4.2M12 16.7v.1"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4.2v5h-5"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3.5 8.5 4.6L12 12.7 3.5 8.1zM3.5 13.4 12 18l8.5-4.6M3.5 17.3 12 21.9l8.5-4.6"/></symbol>
   </svg>
 
   <aside class="side-nav" aria-label="Main navigation">
     <button data-page="homePage" class="active" aria-label="Home"><svg class="icon"><use href="#i-home"/></svg></button>
     <button data-page="browsePage" aria-label="Browse"><svg class="icon"><use href="#i-search"/></svg></button>
     <button data-page="mangaPage" aria-label="Manga"><svg class="icon"><use href="#i-book"/></svg></button>
-    <button data-page="downloadsPage" aria-label="Downloads"><svg class="icon"><use href="#i-download"/></svg></button>
     <button data-page="watchlistPage" aria-label="Watchlist"><svg class="icon"><use href="#i-bookmark"/></svg></button>
   </aside>
 
   <aside id="macSidebar" class="mac-sidebar" aria-label="AniDash desktop navigation">
     <div class="mac-sidebar-head">
       <div class="mac-brand">
-        <img src="https://anidashweb.vercel.app/assets/anidash_logo.png" alt="">
+        <img src="assets/logo.png" alt="">
         <span><b>AniDash</b><small id="macEditionBadge">Desktop Edition</small></span>
       </div>
       <button id="macSidebarToggle" class="mac-icon-button" aria-label="Collapse sidebar" title="Collapse Sidebar">
@@ -99,7 +126,6 @@
         <button class="mac-nav-item active" data-page="homePage" data-mac-label="Home" data-mac-icon="i-home"><svg class="icon"><use href="#i-home"/></svg><span>Home</span><kbd>⌘1</kbd></button>
         <button class="mac-nav-item" data-page="browsePage" data-mac-label="Browse" data-mac-icon="i-search"><svg class="icon"><use href="#i-search"/></svg><span>Browse</span><kbd>⌘2</kbd></button>
         <button class="mac-nav-item" data-page="mangaPage" data-mac-label="Manga" data-mac-icon="i-book"><svg class="icon"><use href="#i-book"/></svg><span>Manga</span><kbd>⌘3</kbd></button>
-        <button class="mac-nav-item" data-page="downloadsPage" data-mac-label="Downloads" data-mac-icon="i-download"><svg class="icon"><use href="#i-download"/></svg><span>Downloads</span><kbd>⌘4</kbd></button>
         <button class="mac-nav-item" data-page="watchlistPage" data-mac-label="Watchlist" data-mac-icon="i-bookmark"><svg class="icon"><use href="#i-bookmark"/></svg><span>Watchlist</span><kbd>⌘5</kbd></button>
       </section>
 
@@ -122,7 +148,6 @@
         <button class="mac-nav-item mac-settings-link" data-settings-focus="appearance" data-mac-label="Appearance & Themes" data-mac-icon="i-palette"><svg class="icon"><use href="#i-palette"/></svg><span>Appearance &amp; Themes</span></button>
         <button class="mac-nav-item mac-settings-link" data-settings-focus="content playback video quality audio" data-mac-label="Video Player" data-mac-icon="i-video"><svg class="icon"><use href="#i-video"/></svg><span>Video Player</span></button>
         <button class="mac-nav-item mac-settings-link" data-settings-focus="account" data-mac-label="Account & Tracking" data-mac-icon="i-user"><svg class="icon"><use href="#i-user"/></svg><span>Account &amp; Tracking</span></button>
-        <button class="mac-nav-item mac-settings-link" data-settings-focus="download" data-mac-label="Download Settings" data-mac-icon="i-download"><svg class="icon"><use href="#i-download"/></svg><span>Download Settings</span></button>
         <button class="mac-nav-item mac-settings-link" data-settings-focus="data storage" data-mac-label="Data & Storage" data-mac-icon="i-extension"><svg class="icon"><use href="#i-extension"/></svg><span>Data &amp; Storage</span></button>
         <button class="mac-nav-item" id="macAboutButton" data-mac-label="About AniDash" data-mac-icon="i-info"><svg class="icon"><use href="#i-info"/></svg><span>About AniDash</span></button>
       </section>
@@ -194,22 +219,6 @@
         <div class="search-bar"><svg class="icon"><use href="#i-search"/></svg><input id="mangaSearch" type="search" placeholder="Search manga" autocomplete="off"><button id="clearManga" aria-label="Clear search" hidden>×</button></div>
         <div id="mangaStatus" class="subtle"></div>
         <div id="mangaGrid" class="poster-grid"></div>
-      </section>
-
-      <section id="downloadsPage" class="page">
-        <div class="page-head"><h1>Downloads</h1></div>
-        <div class="segmented"><button class="active">All</button><button>Downloading</button><button>Completed</button></div>
-        <div class="empty-state">
-          <span class="empty-icon"><svg class="icon"><use href="#i-download"/></svg></span>
-          <h2>No downloads yet</h2>
-          <p>Episodes you save for offline viewing will appear here.</p>
-          <button class="primary" id="downloadsExplore">Find anime to download</button>
-          <div class="info-card">
-            <div><b>Organized automatically</b><small>Episodes stay grouped by anime.</small></div>
-            <div><b>Same AniDash player</b><small>Playback keeps the familiar controls.</small></div>
-            <div><b>Audio and subtitles</b><small>Choose the available version before playing.</small></div>
-          </div>
-        </div>
       </section>
 
       <section id="historyPage" class="page desktop-feature-page">
@@ -332,12 +341,11 @@
             </div>
           </section>
 
-          <section class="settings-section" data-setting-text="navigation tabs browse manga downloads watchlist">
+          <section class="settings-section" data-setting-text="navigation tabs browse manga watchlist">
             <h2>Navigation</h2>
             <div class="settings-card">
               <label class="settings-row"><span class="setting-leading"><svg class="icon"><use href="#i-search"/></svg></span><span class="setting-copy"><b>Browse Tab</b><small>Show Browse in app navigation</small></span><span class="switch"><input id="settingNavBrowse" type="checkbox"><i></i></span></label>
               <label class="settings-row"><span class="setting-leading"><svg class="icon"><use href="#i-book"/></svg></span><span class="setting-copy"><b>Manga Tab</b><small>Show Manga in app navigation</small></span><span class="switch"><input id="settingNavManga" type="checkbox"><i></i></span></label>
-              <label class="settings-row"><span class="setting-leading"><svg class="icon"><use href="#i-download"/></svg></span><span class="setting-copy"><b>Downloads Tab</b><small>Show Downloads in app navigation</small></span><span class="switch"><input id="settingNavDownloads" type="checkbox"><i></i></span></label>
               <label class="settings-row"><span class="setting-leading"><svg class="icon"><use href="#i-bookmark"/></svg></span><span class="setting-copy"><b>Watchlist Tab</b><small>Show Watchlist in app navigation</small></span><span class="switch"><input id="settingNavWatchlist" type="checkbox"><i></i></span></label>
             </div>
           </section>
@@ -356,7 +364,7 @@
           <section class="settings-section" data-setting-text="data storage clear cache history library reset">
             <h2>Data & Storage</h2>
             <div class="settings-card">
-              <button class="settings-row settings-action" id="clearProgressButton"><span class="setting-leading"><svg class="icon"><use href="#i-download"/></svg></span><span class="setting-copy"><b>Clear Continue Watching</b><small>Remove local playback progress from this device</small></span><span class="setting-chevron">›</span></button>
+              <button class="settings-row settings-action" id="clearProgressButton"><span class="setting-leading"><svg class="icon"><use href="#i-history"/></svg></span><span class="setting-copy"><b>Clear Continue Watching</b><small>Remove local playback progress from this device</small></span><span class="setting-chevron">›</span></button>
               <button class="settings-row settings-action" id="clearLibraryButton"><span class="setting-leading"><svg class="icon"><use href="#i-bookmark"/></svg></span><span class="setting-copy"><b>Clear Library</b><small>Remove locally tracked titles</small></span><span class="setting-chevron">›</span></button>
               <button class="settings-row settings-action" id="clearSearchesButton"><span class="setting-leading"><svg class="icon"><use href="#i-search"/></svg></span><span class="setting-copy"><b>Clear Search History</b><small>Delete recent searches on this device</small></span><span class="setting-chevron">›</span></button>
               <button class="settings-row settings-action danger-row" id="resetWebSettingsButton"><span class="setting-leading"><svg class="icon"><use href="#i-settings"/></svg></span><span class="setting-copy"><b>Reset Web Settings</b><small>Restore AniDash web preferences to defaults</small></span><span class="setting-chevron">›</span></button>
@@ -402,7 +410,6 @@
     <button data-page="homePage" class="active" aria-label="Home"><svg class="icon"><use href="#i-home"/></svg></button>
     <button data-page="browsePage" aria-label="Browse"><svg class="icon"><use href="#i-search"/></svg></button>
     <button data-page="mangaPage" aria-label="Manga"><svg class="icon"><use href="#i-book"/></svg></button>
-    <button data-page="downloadsPage" aria-label="Downloads"><svg class="icon"><use href="#i-download"/></svg></button>
     <button data-page="watchlistPage" aria-label="Watchlist"><svg class="icon"><use href="#i-bookmark"/></svg></button>
   </nav>
 
@@ -411,20 +418,127 @@
     <div id="detailsContent"></div>
   </dialog>
 
-  <dialog id="playerDialog" class="player-dialog">
-    <div class="player-top">
-      <button class="player-back" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button>
-      <div><small>ANIDASH PLAYER</small><strong id="playerTitle">Episode</strong></div>
-      <button class="player-list" aria-label="Episodes"><svg class="icon"><use href="#i-list"/></svg></button>
+  <dialog id="playerDialog" class="player-dialog" aria-label="AniDash player">
+    <div class="player-stage" id="playerStage">
+      <video id="video" playsinline webkit-playsinline preload="metadata" tabindex="-1"></video>
+      <div class="player-scrim" aria-hidden="true"></div>
+
+      <header class="player-top player-chrome">
+        <button class="player-back" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button>
+        <div class="player-heading">
+          <small id="playerSeries">AniDash</small>
+          <strong id="playerTitle">Episode</strong>
+          <span class="player-status" id="playerStatus" role="status" aria-live="polite"></span>
+        </div>
+        <div class="player-top-actions">
+          <label class="player-track-select" title="Audio track">
+            <span class="visually-hidden">Sub or dub</span>
+            <select id="audio" aria-label="Sub or dub">
+              <option value="sub">SUB</option>
+              <option value="dub">DUB</option>
+            </select>
+          </label>
+          <button class="player-list" id="playerEpisodesButton" aria-label="Episodes" aria-expanded="false" aria-haspopup="true" title="Episodes"><svg class="icon"><use href="#i-list"/></svg></button>
+        </div>
+      </header>
+
+      <div class="player-center player-chrome">
+        <button class="player-skip" id="playerBack10" aria-label="Rewind 10 seconds" title="Rewind 10s"><span>-10</span></button>
+        <button class="player-bigplay" id="playerBigPlay" data-state="play" aria-label="Play">
+          <svg class="icon icon-play"><use href="#i-play"/></svg>
+          <svg class="icon icon-pause"><use href="#i-pause"/></svg>
+        </button>
+        <button class="player-skip" id="playerForward10" aria-label="Forward 10 seconds" title="Forward 10s"><span>+10</span></button>
+      </div>
+
+      <div class="player-bottom player-chrome">
+        <div class="player-progress" id="playerProgress" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="player-progress-track" aria-hidden="true"></div>
+          <div class="player-progress-buffer" id="playerBuffer" aria-hidden="true"></div>
+          <div class="player-progress-played" id="playerPlayed" aria-hidden="true"><span class="player-progress-thumb"></span></div>
+          <div class="player-progress-tip" id="playerTip" hidden aria-hidden="true"><span>0:00</span></div>
+        </div>
+
+        <div class="player-controls">
+          <button class="player-icon" id="playerPlay" data-state="play" aria-label="Play" title="Play / pause (K)">
+            <svg class="icon icon-play"><use href="#i-play"/></svg>
+            <svg class="icon icon-pause"><use href="#i-pause"/></svg>
+          </button>
+          <button class="player-icon" id="playerPrev" aria-label="Previous episode" title="Previous episode (B)"><svg class="icon"><use href="#i-prev"/></svg></button>
+          <button class="player-icon" id="playerNext" aria-label="Next episode" title="Next episode (N)"><svg class="icon"><use href="#i-next"/></svg></button>
+
+          <span class="player-time"><b id="playerCurrent">0:00</b><i aria-hidden="true">/</i><em id="playerDuration">--:--</em></span>
+
+          <span class="player-volume">
+            <button class="player-icon" id="playerMute" data-muted="false" aria-label="Mute" title="Mute (M)">
+              <svg class="icon icon-sound"><use href="#i-volume"/></svg>
+              <svg class="icon icon-muted"><use href="#i-mute"/></svg>
+            </button>
+            <input id="playerVolume" class="player-volume-slider" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume">
+          </span>
+
+          <span class="player-spacer"></span>
+
+          <span class="player-popwrap">
+            <button class="player-icon player-anchor" id="playerSubsBtn" aria-label="Subtitles" title="Subtitles (C)" aria-haspopup="true" aria-expanded="false"><svg class="icon"><use href="#i-captions"/></svg></button>
+            <div class="player-menu" id="playerSubsMenu" role="menu" hidden></div>
+          </span>
+          <span class="player-popwrap">
+            <button class="player-icon player-anchor" id="playerAudioBtn" aria-label="Audio track" title="Audio track" aria-haspopup="true" aria-expanded="false"><svg class="icon"><use href="#i-audio"/></svg></button>
+            <div class="player-menu" id="playerAudioMenu" role="menu" hidden></div>
+          </span>
+          <span class="player-popwrap">
+            <button class="player-icon-text player-anchor" id="playerSpeedBtn" aria-label="Playback speed" title="Playback speed" aria-haspopup="true" aria-expanded="false">1×</button>
+            <div class="player-menu" id="playerSpeedMenu" role="menu" hidden></div>
+          </span>
+          <span class="player-popwrap">
+            <button class="player-icon-text player-anchor" id="playerQualityBtn" aria-label="Quality" title="Quality" aria-haspopup="true" aria-expanded="false">Auto</button>
+            <div class="player-menu" id="playerQualityMenu" role="menu" hidden></div>
+          </span>
+          <button class="player-icon" id="playerPiP" aria-label="Picture in picture" title="Picture in picture" hidden><svg class="icon"><use href="#i-pip"/></svg></button>
+          <button class="player-icon" id="playerFull" data-active="false" aria-label="Enter fullscreen" title="Fullscreen (F)">
+            <svg class="icon icon-max"><use href="#i-maximize"/></svg>
+            <svg class="icon icon-min"><use href="#i-minimize"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="player-loading" id="playerLoading" hidden>
+        <span class="player-spinner" aria-hidden="true"></span>
+        <b id="playerLoadingText">Starting video…</b>
+      </div>
+
+      <div class="player-buffering" id="playerBuffering" hidden aria-hidden="true"><span class="player-spinner"></span></div>
+
+      <div class="player-error" id="playerError" role="alert" hidden>
+        <span class="player-error-icon" aria-hidden="true"><svg class="icon"><use href="#i-alert"/></svg></span>
+        <b>Playback stopped</b>
+        <p id="playerErrorBody">Playback failed.</p>
+        <div class="player-error-actions">
+          <button class="primary" id="playerRetry"><svg class="icon"><use href="#i-refresh"/></svg>Retry</button>
+          <button class="tonal" id="playerNextServerBtn"><svg class="icon"><use href="#i-layers"/></svg><span>Try another server</span></button>
+        </div>
+      </div>
+
+      <div class="player-chips">
+        <button class="player-chip" id="playerSkipIntro" hidden>Skip Intro</button>
+        <button class="player-chip player-chip-next" id="playerNextEpisode" hidden>Next Episode</button>
+      </div>
     </div>
-    <video id="video" controls playsinline webkit-playsinline preload="metadata"></video>
-    <div id="playerLoading" class="player-loading" hidden><span></span><b>Starting video…</b></div>
-    <div class="player-options"><select id="audio"><option value="sub">SUB</option><option value="dub">DUB</option></select><span id="playerStatus"></span></div>
+
+    <aside class="player-drawer" id="playerEpisodes" hidden aria-label="Episode list">
+      <div class="player-drawer-head">
+        <b>Episodes</b>
+        <span id="playerEpisodeCount"></span>
+        <button class="player-icon" id="playerEpisodesClose" aria-label="Close episode list"><svg class="icon"><use href="#i-close"/></svg></button>
+      </div>
+      <div class="player-drawer-body" id="playerEpisodeList"></div>
+    </aside>
   </dialog>
 
   <dialog id="accountDialog" class="sheet">
     <button class="sheet-close" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
-    <div class="sheet-icon"><img src="https://anidashweb.vercel.app/assets/anidash_logo.png" alt="AniDash"></div>
+    <div class="sheet-icon"><img src="assets/logo.png" alt="AniDash"></div>
     <h2>Welcome to AniDash</h2>
     <p>Your web app keeps local Continue Watching and Library data on this device. Account sync remains optional.</p>
     <button class="primary" id="accountBrowse">Explore AniDash</button>
@@ -439,12 +553,24 @@
     <button class="primary utility-close-action">Done</button>
   </dialog>
 
-  <script src="/api/hls"></script>
   <script>
+    // Load hls.js first (vendored, cache-friendly), fall back to the API route,
+    // then boot the app only once the player library is settled. Ordering the
+    // two scripts guarantees app.js never races hls.js.
     (() => {
-      const script = document.createElement('script');
-      script.src = (window.__ANIDASH_BASE__ || '') + '/app.js';
-      document.body.appendChild(script);
+      const base = window.__ANIDASH_BASE__ || '';
+      const load = (src, done) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => done && done();
+        script.onerror = () => done && done();
+        document.body.appendChild(script);
+      };
+      const loadApp = () => load(base + '/app.js');
+      load(base + '/vendor/hls-1.6.13.min.js', () => {
+        if (window.Hls) loadApp();
+        else load('/api/hls', loadApp);
+      });
     })();
   </script>
 </body>
