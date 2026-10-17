@@ -1,5 +1,22 @@
+/**
+ * AniDash anime metadata + stream resolver.
+ *
+ * Talks to the upstream catalogue API (search / episode lists) and resolves a
+ * playable stream for a given episode across several source servers.
+ *
+ * Every resolved URL is handed back as a same-origin `/api/media?...` link so
+ * the browser never has to talk to a content CDN directly (browsers cannot
+ * send the Referer / User-Agent these CDNs require, and the page must stay
+ * CORS-clean).
+ *
+ * NOTE: an older implementation proxied every URL through
+ * `https://neko.justanime.to/m3u8-proxy`. That hostname no longer has a DNS
+ * record, which is what silently broke playback. The proxy is gone: we now
+ * point `/api/media` straight at the content host and forward only the
+ * whitelisted headers.
+ */
+
 const API = 'https://core.justanime.to/api';
-const STREAM_PROXY = 'https://neko.justanime.to/m3u8-proxy';
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
   'AppleWebKit/537.36 (KHTML, like Gecko) ' +
@@ -11,6 +28,11 @@ const BASE_HEADERS = {
   'User-Agent': UA,
   Accept: 'application/json, text/plain, */*',
 };
+
+const REQUEST_TIMEOUT_MS = 12000;
+const SEARCH_TIMEOUT_MS = 15000;
+/** After the fastest server answers, wait this long for the others to join in. */
+const GRACE_PERIOD_MS = 750;
 
 const SERVER_ORDER = [
   {
@@ -44,9 +66,17 @@ const SERVER_ORDER = [
   },
 ];
 
-async function fetchJson(path, timeout = 12000) {
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function fetchJson(path, timeout = REQUEST_TIMEOUT_MS, signal) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
+  const onAbort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener('abort', onAbort, { once: true });
+  }
+
   try {
     const upstream = await fetch(API + path, {
       signal: controller.signal,
@@ -59,6 +89,7 @@ async function fetchJson(path, timeout = 12000) {
     return null;
   } finally {
     clearTimeout(timer);
+    if (signal) signal.removeEventListener('abort', onAbort);
   }
 }
 
@@ -72,6 +103,10 @@ function normalizeHeaders(input) {
     if (!key || !value) continue;
 
     const lower = key.toLowerCase();
+    // Never forward credentials through the public media proxy.
+    if (lower === 'cookie' || lower === 'authorization' || lower === 'host') continue;
+    if (value.length > 512 || /[\r\n]/.test(value)) continue;
+
     const canonical =
       lower === 'user-agent'
         ? 'User-Agent'
@@ -79,8 +114,6 @@ function normalizeHeaders(input) {
         ? 'Referer'
         : lower === 'origin'
         ? 'Origin'
-        : lower === 'cookie'
-        ? 'Cookie'
         : key;
 
     for (const existing of Object.keys(out)) {
@@ -91,24 +124,13 @@ function normalizeHeaders(input) {
   return out;
 }
 
-function externalProxyUrl(url, headers) {
-  return (
-    STREAM_PROXY +
-    '?url=' +
-    encodeURIComponent(url) +
-    '&headers=' +
-    encodeURIComponent(JSON.stringify(headers))
-  );
-}
-
+/** Same-origin proxy link. `headers` are re-applied upstream by /api/media. */
 function browserProxyUrl(url, headers, isM3U8) {
-  const proxy = externalProxyUrl(url, headers);
-  return (
-    '/api/media?url=' +
-    encodeURIComponent(proxy) +
-    '&hls=' +
-    (isM3U8 ? '1' : '0')
-  );
+  const params = new URLSearchParams();
+  params.set('url', url);
+  params.set('headers', JSON.stringify(headers));
+  if (isM3U8) params.set('hls', '1');
+  return '/api/media?' + params.toString();
 }
 
 function parseServerPayload(server, endpoint, payload, requestedAudio) {
@@ -220,37 +242,21 @@ function orderedServers(preferred) {
   return [first, ...SERVER_ORDER.filter(server => server.id !== preferred)];
 }
 
-async function resolveStreamingSources(id, episode, audio, preferredServer) {
-  const servers = orderedServers(preferredServer);
-
-  const results = await Promise.all(
-    servers.map(async server => {
-      const endpoint = server.path(id, episode, audio);
-      const payload = await fetchJson(endpoint, 12000);
-      return parseServerPayload(server, endpoint, payload, audio);
-    })
-  );
-
-  const valid = results.filter(Boolean);
+function mergeResults(models) {
+  const valid = models.filter(Boolean);
   if (!valid.length) return null;
 
   const sources = [];
   const seen = new Set();
   for (const model of valid) {
     for (const source of model.sources) {
-      const key =
-        source.serverId +
-        '|' +
-        String(source.quality || '') +
-        '|' +
-        source.url;
+      const key = source.serverId + '|' + String(source.quality || '') + '|' + source.url;
       if (seen.has(key)) continue;
       seen.add(key);
       sources.push(source);
     }
   }
 
-  const first = valid[0];
   const subtitles = [];
   const subtitleSeen = new Set();
   for (const model of valid) {
@@ -262,10 +268,12 @@ async function resolveStreamingSources(id, episode, audio, preferredServer) {
         ...track,
         url,
         lang: track?.lang || track?.label || 'English',
+        kind: track?.kind === 'subtitles' ? 'subtitles' : 'captions',
       });
     }
   }
 
+  const first = valid[0];
   return {
     sources,
     subtitles,
@@ -276,8 +284,73 @@ async function resolveStreamingSources(id, episode, audio, preferredServer) {
   };
 }
 
+/**
+ * Resolve a stream.
+ *
+ * All servers are queried concurrently, but we return as soon as the fastest
+ * *successful* one answers (plus a short grace window so slow siblings can
+ * contribute extra failover candidates). Remaining requests are cancelled so
+ * we never leave upstream work running for nothing.
+ */
+async function resolveStreamingSources(id, episode, audio, preferredServer) {
+  const servers = orderedServers(preferredServer);
+  const controllers = servers.map(() => new AbortController());
+
+  const settled = [];
+  const pending = servers.map((server, index) => {
+    const endpoint = server.path(id, episode, audio);
+    return fetchJson(endpoint, REQUEST_TIMEOUT_MS, controllers[index].signal).then(payload => {
+      const model = payload ? parseServerPayload(server, endpoint, payload, audio) : null;
+      if (model) settled.push({ index, model });
+      return model;
+    });
+  });
+
+  let remaining = pending.length;
+  if (!remaining) return null;
+
+  let release;
+  const firstSuccess = new Promise(resolve => {
+    release = resolve;
+  });
+
+  for (const task of pending) {
+    task
+      .catch(() => null)
+      .then(() => {
+        remaining -= 1;
+        if (settled.length || remaining === 0) release();
+      });
+  }
+
+  await firstSuccess;
+  if (settled.length < servers.length) await delay(GRACE_PERIOD_MS);
+
+  controllers.forEach((controller, index) => {
+    if (!settled.some(item => item.index === index)) controller.abort();
+  });
+  // Give cancellations a tick to settle so no rejection escapes.
+  await Promise.allSettled(pending);
+
+  const byPreference = settled
+    .slice()
+    .sort((a, b) => a.index - b.index)
+    .map(item => item.model);
+
+  return mergeResults(byPreference);
+}
+
+function setCors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Vary', 'Origin');
+}
+
 export default async function handler(req, res) {
-  res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=120');
+  setCors(res);
+  res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=30, stale-while-revalidate=120');
+
+  if (req.method === 'OPTIONS') return res.status(204).end();
 
   const {
     action,
@@ -287,58 +360,44 @@ export default async function handler(req, res) {
     audio = 'sub',
     page = '1',
     server = '',
-  } = req.query;
+  } = req.query || {};
 
   if (action === 'search') {
+    const term = String(query).slice(0, 120);
+    const pageNum = /^\d+$/.test(String(page)) ? page : '1';
     const data = await fetchJson(
-      '/search?query=' +
-        encodeURIComponent(query) +
-        '&page=' +
-        encodeURIComponent(page),
-      15000
+      '/search?query=' + encodeURIComponent(term) + '&page=' + encodeURIComponent(pageNum),
+      SEARCH_TIMEOUT_MS
     );
     return data
       ? res.json(data)
-      : res
-          .status(502)
-          .json({ error: 'The source service is temporarily unavailable' });
+      : res.status(502).json({ error: 'The source service is temporarily unavailable' });
   }
 
   if (action === 'episodes' && /^\d+$/.test(id)) {
+    const pageNum = /^\d+$/.test(String(page)) ? page : '1';
     const data = await fetchJson(
-      '/anime/' + id + '/episodes?page=' + encodeURIComponent(page),
-      15000
+      '/anime/' + id + '/episodes?page=' + encodeURIComponent(pageNum),
+      SEARCH_TIMEOUT_MS
     );
     return data
       ? res.json(data)
-      : res
-          .status(504)
-          .json({ error: 'Episode source timed out. Please retry.' });
+      : res.status(504).json({ error: 'Episode source timed out. Please retry.' });
   }
 
-  if (
-    action === 'source' &&
-    /^\d+$/.test(id) &&
-    /^\d+(\.\d+)?$/.test(episode)
-  ) {
+  if (action === 'source' && /^\d+$/.test(id) && /^\d+(\.\d+)?$/.test(episode)) {
     const lang = audio === 'dub' ? 'dub' : 'sub';
-    const preferredServer = SERVER_ORDER.some(item => item.id === server)
-      ? server
-      : '';
-    const resolved = await resolveStreamingSources(
-      id,
-      episode,
-      lang,
-      preferredServer
-    );
+    const preferredServer = SERVER_ORDER.some(item => item.id === server) ? server : '';
+    const resolved = await resolveStreamingSources(id, episode, lang, preferredServer);
 
     if (!resolved?.sources?.length) {
       return res.status(404).json({
         error:
           lang.toUpperCase() +
-          ' stream is unavailable for this episode on all Android servers',
+          ' stream is unavailable for this episode on all source servers',
       });
     }
+    res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=300');
     return res.json(resolved);
   }
 
