@@ -874,20 +874,28 @@ class _ExtensionListWidgetState extends ExtensionList<ExtensionListWidget> {
             extra: source,
           );
         } else {
-          await (source.extensionType?.getManager() ?? manager).installSource(
-            source,
-          );
-          final repo = source.repo ?? widget.repositoryFilter;
-          if (source.id != null && repo != null && repo.isNotEmpty) {
-            await sharedPrefs.setString(
-              'extension_source_repo_${source.id}',
-              repo,
+          try {
+            await (source.extensionType?.getManager() ?? manager).installSource(
+              source,
             );
-          }
-          if (mounted) {
-            await ProviderScope.containerOf(
-              context,
-            ).read(sourceProvider.notifier).initialize();
+            final repo = source.repo ?? widget.repositoryFilter;
+            if (source.id != null && repo != null && repo.isNotEmpty) {
+              await sharedPrefs.setString(
+                'extension_source_repo_${source.id}',
+                repo,
+              );
+            }
+            if (mounted) {
+              await ProviderScope.containerOf(
+                context,
+              ).read(sourceProvider.notifier).initialize();
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Installation failed: $e')),
+              );
+            }
           }
         }
       },

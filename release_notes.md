@@ -28,6 +28,9 @@ AniDash v2.1.0 brings a major suite of reliability improvements, enhanced playba
 - **Real-Time Download Size Display (Issue #37)**: Download cards now display real-time progress (`Downloaded / Total MB • Speed • ETA`) during active downloading and resuming.
 - **Automatic Temp File Cleanup (Issue #39)**: HLS download temporary directories are automatically purged on failure or cancellation, and any orphaned `.temp_*` folders are wiped on app launch.
 
+## 🧩 Extension System Fixes (Issue #36)
+- **AniYomi Extension Installer Fix**: Resolved an issue where AniYomi extensions from third-party repositories failed to install with a SHA-256 validation error. The installer now gracefully accepts standard community repository indexes, ensures fallback APK URL resolution, and safely retains downloaded APKs during the Android PackageInstaller confirmation handoff.
+
 ## 🛠️ Verification
 - Static analysis verified: 0 errors, 0 warnings (`dart analyze lib/`).
 - Full test suite verified: 113 tests passed (`flutter test`).
