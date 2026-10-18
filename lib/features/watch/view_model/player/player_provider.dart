@@ -222,7 +222,8 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     final target = _pendingSeekTarget;
     final landed =
         target != null && (pos - target).abs() <= const Duration(seconds: 2);
-    if (landed) {
+    final isActuallyBuffering = value.isBuffering || (target != null && !landed);
+    if (landed && !value.isBuffering) {
       _pendingSeekTarget = null;
       _seekTimeout?.cancel();
     }
@@ -250,8 +251,8 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       duration: duration,
       buffer: buffer,
       isPlaying: value.isPlaying,
-      isBuffering: value.isBuffering,
-      isSeeking: landed ? false : null,
+      isBuffering: isActuallyBuffering,
+      isSeeking: (target != null) ? true : false,
       isOpening: pos > Duration.zero ? false : null,
       subtitle: subtitle,
       clearPlaybackError: pos > Duration.zero,
@@ -323,16 +324,12 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
               headers: effectiveHeaders,
               videoFormat: _lastIsHls ? BetterPlayerVideoFormat.hls : null,
               bufferingConfiguration: const BetterPlayerBufferingConfiguration(
-                // Keep loading well beyond the old 120-second target whenever
-                // bandwidth is available. Using the same five-minute minimum
-                // and maximum makes Media3 continue filling the forward
-                // reservoir instead of settling around a shorter equilibrium.
-                // Playback itself still starts after five seconds, so this
-                // larger safety buffer does not delay startup.
-                minBufferMs: 300000,
-                maxBufferMs: 300000,
-                bufferForPlaybackMs: 5000,
-                bufferForPlaybackAfterRebufferMs: 5000,
+                // Fast startup & instant seek resume: start playing at 1000ms buffer,
+                // resume after rebuffer at 1500ms, and keep 25-60s forward reservoir.
+                minBufferMs: 25000,
+                maxBufferMs: 60000,
+                bufferForPlaybackMs: 1000,
+                bufferForPlaybackAfterRebufferMs: 1500,
               ),
             )
             : BetterPlayerDataSource.file(url);
@@ -425,12 +422,25 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   Future<void> seek(Duration pos) async {
     final clamped = pos < Duration.zero ? Duration.zero : pos;
     _pendingSeekTarget = clamped;
-    state = state.copyWith(position: clamped, isSeeking: true);
+    _seekTimeout?.cancel();
+    _seekTimeout = Timer(const Duration(seconds: 4), () {
+      if (_pendingSeekTarget == clamped) {
+        _pendingSeekTarget = null;
+        state = state.copyWith(isSeeking: false, isBuffering: false);
+      }
+    });
+    state = state.copyWith(
+      position: clamped,
+      isSeeking: true,
+      isBuffering: true,
+    );
     try {
       await betterPlayerController.seekTo(clamped);
     } catch (error) {
       AppLogger.w('Player seek error: $error');
-      state = state.copyWith(isSeeking: false);
+      _seekTimeout?.cancel();
+      _pendingSeekTarget = null;
+      state = state.copyWith(isSeeking: false, isBuffering: false);
     }
   }
 

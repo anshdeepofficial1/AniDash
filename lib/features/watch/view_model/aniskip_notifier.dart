@@ -67,7 +67,7 @@ class AniSkipNotifier extends _$AniSkipNotifier {
     try {
       final cacheKey = animeTitle.trim().toLowerCase();
 
-      final anilistId =
+      int? anilistId =
           int.tryParse(mediaId) ??
           int.tryParse(ref.read(episodeListProvider).animeId ?? '') ??
           int.tryParse(ref.read(episodeListProvider).mediaId ?? '');
@@ -165,7 +165,7 @@ class AniSkipNotifier extends _$AniSkipNotifier {
             },
             body: jsonEncode({
               'query':
-                  'query (\$search: String) { Media(search: \$search, type: ANIME, sort: [POPULARITY_DESC]) { idMal } }',
+                  'query (\$search: String) { Media(search: \$search, type: ANIME, sort: [POPULARITY_DESC]) { id idMal } }',
               'variables': {
                 'search': cleanTitle.isNotEmpty ? cleanTitle : animeTitle,
               },
@@ -176,8 +176,12 @@ class AniSkipNotifier extends _$AniSkipNotifier {
           if (res.statusCode == 200) {
             final data = jsonDecode(res.body);
             final rawMal = data?['data']?['Media']?['idMal'];
+            final rawAni = data?['data']?['Media']?['id'];
             if (rawMal != null) {
               malId = rawMal is int ? rawMal : int.tryParse(rawMal.toString());
+            }
+            if (anilistId == null && rawAni != null) {
+              anilistId = rawAni is int ? rawAni : int.tryParse(rawAni.toString());
             }
           }
         } catch (e) {
@@ -366,7 +370,14 @@ class AniSkipNotifier extends _$AniSkipNotifier {
     required List<AniSkipResultItem> justAnimeSkips,
     required List<AniSkipResultItem> sourceSkips,
   }) {
-    final list = List<AniSkipResultItem>.from(aniSkipSkips);
+    final list = <AniSkipResultItem>[];
+
+    // 1. TOP PRIORITY: Source Skips (Exact stream source intro/outro from active provider)
+    for (final s in sourceSkips) {
+      if (s.interval != null && s.interval!.endTime > s.interval!.startTime) {
+        list.add(s);
+      }
+    }
 
     final hasOp = list.any(
       (s) =>
@@ -380,7 +391,7 @@ class AniSkipNotifier extends _$AniSkipNotifier {
     );
     final hasRecap = list.any((s) => s.skipType == SkipType.recap);
 
-    // 1. Add JustAnime skips if AniSkip didn't have OP or ED
+    // 2. SECOND PRIORITY: JustAnime Direct Skips (exact web stream markers)
     for (final ja in justAnimeSkips) {
       final isJaOp = ja.skipType == SkipType.op;
       final isJaEd = ja.skipType == SkipType.ed;
@@ -400,18 +411,82 @@ class AniSkipNotifier extends _$AniSkipNotifier {
           (s.skipType == SkipType.mixed && (s.interval?.startTime ?? 0) > 300),
     );
 
-    // 2. Add source skips if still missing
-    for (final source in sourceSkips) {
-      final isSourceOp = source.skipType == SkipType.op;
-      final isSourceEd = source.skipType == SkipType.ed;
-      final isSourceRecap = source.skipType == SkipType.recap;
-      if ((isSourceOp && !hasOpNow) ||
-          (isSourceEd && !hasEdNow) ||
-          (isSourceRecap && !hasRecap) ||
-          (!isSourceOp && !isSourceEd && !isSourceRecap)) {
-        list.add(source);
+    // 3. THIRD PRIORITY: AniSkip community markers (fallback if OP or ED still missing)
+    for (final ani in aniSkipSkips) {
+      final isAniOp = ani.skipType == SkipType.op;
+      final isAniEd = ani.skipType == SkipType.ed;
+      if ((isAniOp && !hasOpNow) || (isAniEd && !hasEdNow)) {
+        list.add(ani);
       }
     }
+
+    // 4. RECAP VALIDATION:
+    // AniSkip crowd-sourced recap is only trusted if:
+    // a) No OP exists and recap starts within first 5 mins (<= 300s), OR
+    // b) An OP exists, and AniSkip's OP aligns within 15s of the actual OP (same cut), OR
+    // c) AniSkip's recap ends before or at the start of the OP (never overlaps or plays during dialogue).
+    final currentOp = list.firstWhereOrNull(
+      (s) =>
+          s.skipType == SkipType.op ||
+          (s.skipType == SkipType.mixed && (s.interval?.startTime ?? 0) <= 300),
+    );
+    final aniOp = aniSkipSkips.firstWhereOrNull(
+      (s) =>
+          s.skipType == SkipType.op ||
+          (s.skipType == SkipType.mixed && (s.interval?.startTime ?? 0) <= 300),
+    );
+    final aniRecap = aniSkipSkips.firstWhereOrNull(
+      (s) => s.skipType == SkipType.recap,
+    );
+
+    if (aniRecap != null && aniRecap.interval != null && !hasRecap) {
+      final recapStart = aniRecap.interval!.startTime;
+      final recapEnd = aniRecap.interval!.endTime;
+      final recapDuration = recapEnd - recapStart;
+
+      if (recapDuration >= 5 && recapDuration <= 240) {
+        if (currentOp == null) {
+          if (recapStart >= 0 && recapStart <= 300) {
+            list.add(aniRecap);
+          }
+        } else {
+          final opStart = currentOp.interval?.startTime ?? 0;
+          if (aniOp != null && aniOp.interval != null) {
+            final offset = (aniOp.interval!.startTime - opStart).abs();
+            if (offset <= 15) {
+              final diff = aniOp.interval!.startTime - opStart;
+              final adjustedStart = (recapStart - diff).clamp(0.0, opStart);
+              final adjustedEnd = (recapEnd - diff).clamp(adjustedStart, opStart);
+              if (adjustedEnd > adjustedStart && (adjustedEnd - adjustedStart) >= 5) {
+                list.add(
+                  AniSkipResultItem(
+                    interval: AniSkipInterval(startTime: adjustedStart, endTime: adjustedEnd),
+                    skipType: SkipType.recap,
+                    action: 'skip',
+                    episodeLength: 0,
+                    skipId: 'ani-recap-aligned',
+                  ),
+                );
+              }
+            }
+          } else if (recapEnd <= opStart + 3 && recapStart < opStart) {
+            list.add(
+              AniSkipResultItem(
+                interval: AniSkipInterval(
+                  startTime: recapStart.clamp(0.0, opStart),
+                  endTime: recapEnd.clamp(0.0, opStart),
+                ),
+                skipType: SkipType.recap,
+                action: 'skip',
+                episodeLength: 0,
+                skipId: 'ani-recap',
+              ),
+            );
+          }
+        }
+      }
+    }
+
     return list;
   }
 
