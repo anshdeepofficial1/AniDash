@@ -1,4 +1,4 @@
-v2.1.0
-reason=anidash-2-1-wakelock-300s-buffer-exact-skip-and-ui-polish
+v2.1.1
+reason=anidash-2-1-1-extension-installer-fix-and-playback-stability
 build=android-signed-apk-variants
 run=1
