@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="138" height="28" viewBox="0 0 138 28" role="img" aria-label="Latest: v1.30.0">
-  <title>Latest: v1.30.0</title>
-  <defs><clipPath id="badge"><rect width="138" height="28" rx="6"/></clipPath></defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="130" height="28" viewBox="0 0 130 28" role="img" aria-label="Latest: v2.0.0">
+  <title>Latest: v2.0.0</title>
+  <defs><clipPath id="badge"><rect width="130" height="28" rx="6"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="65" height="28" fill="#202830"/>
-    <rect x="65" width="73" height="28" fill="#0EA5E9"/>
+    <rect x="65" width="65" height="28" fill="#0EA5E9"/>
   </g>
   <g font-family="DejaVu Sans,Verdana,Arial,sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">
     <text x="32.5" y="14" textLength="47" lengthAdjust="spacingAndGlyphs">Latest</text>
-    <text x="101.5" y="14" textLength="55" lengthAdjust="spacingAndGlyphs">v1.30.0</text>
+    <text x="97.5" y="14" textLength="47" lengthAdjust="spacingAndGlyphs">v2.0.0</text>
   </g>
 </svg>
