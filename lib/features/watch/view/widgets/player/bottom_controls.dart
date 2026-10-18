@@ -298,22 +298,22 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
       if (clampedEnd <= clampedStart) continue;
 
       final isOp =
-          skip.skipType == SkipType.op ||
-          (skip.skipType == SkipType.mixed && clampedStart <= 300000);
+          (skip.skipType == SkipType.op ||
+              (skip.skipType == SkipType.mixed && clampedStart <= 300000)) &&
+          clampedStart <= 600000;
       final isRecap = skip.skipType == SkipType.recap;
       final isEd =
-          skip.skipType == SkipType.ed ||
-          (skip.skipType == SkipType.mixed && clampedStart > 300000) ||
-          (!isOp && !isRecap && clampedStart >= total * 0.5);
+          (skip.skipType == SkipType.ed ||
+              (skip.skipType == SkipType.mixed && clampedStart > 300000) ||
+              (!isOp && !isRecap && clampedStart >= total * 0.5)) &&
+          clampedStart >= 360000;
 
       // Intro must start within first 10 minutes (600,000 ms)
       if (isOp && clampedStart > 600000) continue;
       // Recap must start within first 70% of episode
       if (isRecap && clampedStart > total * 0.70) continue;
       // Outro must start in the latter portion of episode
-      if (isEd && clampedStart < total * 0.35) {
-        continue;
-      }
+      if (isEd && clampedStart < 360000) continue;
 
       final Color segColor = isRecap
           ? Color.lerp(scheme.primary, Colors.lightBlueAccent, 0.35)!
@@ -347,64 +347,26 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
         width: displayWidth,
         top: -2,
         bottom: -2,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: highlightColor,
-                borderRadius: BorderRadius.circular(2.5),
-              ),
-              child:
-                  width >= 34
-                      ? Center(
-                        child: Text(
-                          seg.label,
-                          style: TextStyle(
-                            color: seg.textColor,
-                            fontSize: 7.5,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.2,
-                            height: 1.0,
-                          ),
-                        ),
-                      )
-                      : null,
-            ),
-            // Floating badge above the bar for narrow segments (e.g. short Outro)
-            if (width < 34)
-              Positioned(
-                top: -14,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: highlightColor,
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black45,
-                        blurRadius: 3,
-                        offset: Offset(0, 1),
+        child: Container(
+          decoration: BoxDecoration(
+            color: highlightColor,
+            borderRadius: BorderRadius.circular(2.5),
+          ),
+          child:
+              width >= 34
+                  ? Center(
+                    child: Text(
+                      seg.label,
+                      style: TextStyle(
+                        color: seg.textColor,
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.2,
+                        height: 1.0,
                       ),
-                    ],
-                  ),
-                  child: Text(
-                    seg.label,
-                    style: TextStyle(
-                      color: seg.textColor,
-                      fontSize: 7,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.2,
-                      height: 1.0,
                     ),
-                  ),
-                ),
-              ),
-          ],
+                  )
+                  : null,
         ),
       );
     }).toList();

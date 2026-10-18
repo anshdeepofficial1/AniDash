@@ -707,7 +707,11 @@ class _SideNav extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(35),
-        border: Border.all(color: colorScheme.primary),
+        border: Border.all(
+          color: theme.brightness == Brightness.dark
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.black.withValues(alpha: 0.08),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -784,11 +788,13 @@ class _BottomNav extends StatelessWidget {
       padding: EdgeInsets.all(compact ? 4 : 6),
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(
-          alpha: blur ? (isDark ? 0.56 : 0.72) : 1,
+          alpha: blur ? (isDark ? 0.35 : 0.55) : 1,
         ),
         borderRadius: BorderRadius.circular(100),
         border: Border.all(
-          color: colorScheme.primary.withValues(alpha: isDark ? 0.28 : 0.42),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.black.withValues(alpha: 0.08),
         ),
       ),
       child: Row(
@@ -840,7 +846,7 @@ class _BottomNav extends StatelessWidget {
         child:
             blur
                 ? BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                   child: content,
                 )
                 : content,

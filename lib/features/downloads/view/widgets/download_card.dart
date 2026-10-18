@@ -270,12 +270,15 @@ class DownloadCard extends ConsumerWidget {
       );
     }
 
-    // Show speed and ETA for byte-based downloads
+    // Show speed and ETA for byte-based downloads along with size
     if (item.hasByteSize && item.speed > 0) {
       final speedMB = (item.speed / 1024 / 1024).toStringAsFixed(1);
       final etaText = item.eta != null ? formatDuration(item.eta!) : '--:--';
+      final currentMB = ((item.downloadedBytes ?? item.progress) / 1024 / 1024).toStringAsFixed(1);
+      final totalMB = ((item.size ?? 0) / 1024 / 1024).toStringAsFixed(1);
+      final sizePart = item.size != null && item.size! > 0 ? '$currentMB / $totalMB MB • ' : '$currentMB MB • ';
       return Text(
-        '$speedMB MB/s • $etaText',
+        '$sizePart$speedMB MB/s • $etaText',
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.secondary,
           fontSize: 10,

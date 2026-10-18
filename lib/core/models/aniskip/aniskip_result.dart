@@ -29,6 +29,21 @@ class AniSkipResultItem {
     this.skipId,
   });
 
+  AniSkipResultItem copyWith({
+    AniSkipInterval? interval,
+    SkipType? skipType,
+    String? action,
+    double? episodeLength,
+    String? skipId,
+  }) =>
+      AniSkipResultItem(
+        interval: interval ?? this.interval,
+        skipType: skipType ?? this.skipType,
+        action: action ?? this.action,
+        episodeLength: episodeLength ?? this.episodeLength,
+        skipId: skipId ?? this.skipId,
+      );
+
   factory AniSkipResultItem.fromJson(Map<String, dynamic> json) {
     SkipType type;
     switch (json['skipType']) {

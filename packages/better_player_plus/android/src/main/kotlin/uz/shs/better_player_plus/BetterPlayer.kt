@@ -118,6 +118,7 @@ internal class BetterPlayer(
         // cap despite AniDash requesting 120 seconds.  Time is the user-facing
         // contract here, so keep loading until the configured duration target.
         loadBuilder.setPrioritizeTimeOverSizeThresholds(true)
+        loadBuilder.setBackBuffer(120000, true)
         loadControl = loadBuilder.build()
         exoPlayer = ExoPlayer.Builder(context)
             .setTrackSelector(trackSelector)

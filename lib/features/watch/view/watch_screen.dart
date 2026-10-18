@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screenshot/screenshot.dart';
@@ -72,6 +73,9 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   @override
   void initState() {
     super.initState();
+    try {
+      WakelockPlus.enable();
+    } catch (_) {}
     _setupSystemUI();
 
     _panelController = AnimationController(
@@ -321,6 +325,9 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
 
   @override
   void dispose() {
+    try {
+      WakelockPlus.disable();
+    } catch (_) {}
     if (!_isExiting) {
       unawaited(
         ref

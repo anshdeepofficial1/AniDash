@@ -345,11 +345,13 @@ class _DownloadSourceSelectorState
     final basePerEpSize = _getQualitySize(_selectedQuality);
     final totalSizeMB = basePerEpSize * widget.episodeCount;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.surface.withValues(alpha: 0.92),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
@@ -741,7 +743,7 @@ class _DownloadSourceSelectorState
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

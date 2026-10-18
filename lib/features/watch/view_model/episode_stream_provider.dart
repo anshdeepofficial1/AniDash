@@ -22,6 +22,8 @@ import 'package:ani_dash/features/watch/view_model/aniskip_notifier.dart';
 import 'package:ani_dash/shared/providers/anime_source_provider.dart';
 import 'package:ani_dash/core/registery/sources/anime/anime_provider.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
+import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
+import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
 import 'package:ani_dash/core/utils/video_utils.dart';
 import 'package:ani_dash/features/watch/view/widgets/download_source_selector.dart';
 import 'package:ani_dash/core/registery/sources/anime/justanime.dart';
@@ -323,7 +325,25 @@ class EpisodeData extends _$EpisodeData {
     _fetchServers(ep, generation);
 
     if (play) {
-      await _playCurrent(startAt ?? Duration.zero, generation: generation);
+      Duration resolvedStartAt = startAt ?? Duration.zero;
+      if (startAt == null) {
+        final targetMediaId = mediaId ?? _epList.mediaId ?? _epList.animeId;
+        if (targetMediaId != null) {
+          final saved = ref
+              .read(watchProgressRepositoryProvider)
+              .getEpisodeProgress(targetMediaId, ep);
+          final savedSec = saved?.progressInSeconds ?? 0;
+          final durSec = saved?.durationInSeconds ?? 0;
+          if (savedSec > 0 &&
+              !isPlaybackEffectivelyComplete(
+                progressInSeconds: savedSec,
+                durationInSeconds: durSec,
+              )) {
+            resolvedStartAt = Duration(seconds: savedSec);
+          }
+        }
+      }
+      await _playCurrent(resolvedStartAt, generation: generation);
     }
   }
 
