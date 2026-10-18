@@ -61,7 +61,9 @@ class CenterControls extends ConsumerWidget {
                 );
               },
               child:
-                  isPlaying
+                  isBusy
+                      ? const SizedBox.shrink(key: ValueKey('loading'))
+                      : isPlaying
                       ? _ShadowIconButton(
                         key: const ValueKey('pause'),
                         icon: Icons.pause_rounded,
@@ -71,8 +73,6 @@ class CenterControls extends ConsumerWidget {
                           playerNotifier.togglePlay();
                         },
                       )
-                      : isBusy
-                      ? const SizedBox.shrink(key: ValueKey('loading'))
                       : _ShadowIconButton(
                         key: const ValueKey('play'),
                         icon: Icons.play_arrow_rounded,

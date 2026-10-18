@@ -1307,6 +1307,11 @@ class EpisodeData extends _$EpisodeData {
         headers: data.headers?.cast<String, String>(),
         activeProviderKey: requestedProviderKey,
       );
+      if (data.intro != null || data.outro != null) {
+        ref
+            .read(aniSkipProvider.notifier)
+            .setFallbackFromSource(intro: data.intro, outro: data.outro);
+      }
       final playerSw = Stopwatch()..start();
       await _loadSourceStream(
         0,

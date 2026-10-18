@@ -744,14 +744,14 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
       episodeListProvider.select((e) => e.isLoading),
     );
     // Background server/quality discovery must never cover a video that is
-    // already playing. Only a real underrun, seek, or initial open owns the
+    // already playing. Real underrun, seek, or opening always displays the
     // central loading indicator.
     final isBusy =
-        (isBuffering && !isPlaying) ||
+        isBuffering ||
         isSeeking ||
+        isOpening ||
         (!isPlaying &&
-            (isOpening ||
-                episodesLoading ||
+            (episodesLoading ||
                 episodeStreamState.contains(
                   EpisodeStreamState.SOURCE_LOADING,
                 ) ||

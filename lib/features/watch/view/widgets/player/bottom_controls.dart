@@ -316,12 +316,15 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
       }
 
       final Color segColor = isRecap
-          ? Color.lerp(scheme.primary, Colors.cyanAccent, 0.35)!
+          ? Color.lerp(scheme.primary, Colors.lightBlueAccent, 0.35)!
           : (isOp
-              ? Color.lerp(scheme.primary, Colors.white, 0.18)!
-              : Color.lerp(scheme.secondary, scheme.primary, 0.40)!);
+              ? Color.lerp(scheme.primary, Colors.white, 0.30)!
+              : Color.lerp(scheme.primary, Colors.white, 0.45)!);
 
-      final Color textColor = isEd ? scheme.onSecondary : scheme.onPrimary;
+      final Color textColor =
+          ThemeData.estimateBrightnessForColor(segColor) == Brightness.dark
+              ? Colors.white
+              : Colors.black87;
 
       highlightSegments.add((
         start: clampedStart,
@@ -350,12 +353,8 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: highlightColor.withValues(alpha: 0.90),
-                borderRadius: BorderRadius.circular(2),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  width: 0.9,
-                ),
+                color: highlightColor,
+                borderRadius: BorderRadius.circular(2.5),
               ),
               child:
                   width >= 34
@@ -383,15 +382,11 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                     vertical: 1,
                   ),
                   decoration: BoxDecoration(
-                    color: highlightColor.withValues(alpha: 0.95),
+                    color: highlightColor,
                     borderRadius: BorderRadius.circular(3),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      width: 0.8,
-                    ),
                     boxShadow: const [
                       BoxShadow(
-                        color: Colors.black54,
+                        color: Colors.black45,
                         blurRadius: 3,
                         offset: Offset(0, 1),
                       ),

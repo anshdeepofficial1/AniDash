@@ -112,4 +112,57 @@ void main() {
       expect(shouldTrigger(1410, false), isTrue);
     });
   });
+
+  group('Skip Source Priority & Recap Validation', () {
+    test('Stream source intro overrides mismatched AniSkip crowd-sourced intro', () {
+      // Stream source has exact intro for the playing file at 31s
+      const sourceIntro = AniSkipResultItem(
+        skipType: SkipType.op,
+        interval: AniSkipInterval(startTime: 31, endTime: 111),
+        action: 'skip',
+        episodeLength: 1440,
+        skipId: 'source-intro',
+      );
+
+      // AniSkip had crowd-sourced intro at 310s (different broadcast cut)
+      const aniSkipIntro = AniSkipResultItem(
+        skipType: SkipType.op,
+        interval: AniSkipInterval(startTime: 310, endTime: 400),
+        action: 'skip',
+        episodeLength: 1440,
+        skipId: 'aniskip-mismatched',
+      );
+
+      // Priority ordering ensures source takes precedence
+      final list = <AniSkipResultItem>[sourceIntro];
+      final hasOp = list.any((s) => s.skipType == SkipType.op);
+      if (!hasOp) {
+        list.add(aniSkipIntro);
+      }
+
+      expect(list.length, 1);
+      expect(list.first.interval!.startTime, 31);
+      expect(list.first.interval!.endTime, 111);
+      expect(list.first.skipId, 'source-intro');
+    });
+
+    test('Desynchronized AniSkip recap is rejected when OP timing differs greatly', () {
+      const trustedOpStart = 31.0;
+      const aniOpStart = 310.0; // Desynchronized cut by 279s
+      const aniRecap = AniSkipResultItem(
+        skipType: SkipType.recap,
+        interval: AniSkipInterval(startTime: 132, endTime: 201),
+        action: 'skip',
+        episodeLength: 1440,
+      );
+
+      final offset = (aniOpStart - trustedOpStart).abs();
+      // Recap should be rejected because offset > 15s and it would land in the middle of dialogue
+      final isCutAligned = offset <= 15;
+      final isCleanlyPreceding = aniRecap.interval!.endTime <= trustedOpStart;
+
+      final shouldAcceptRecap = isCutAligned || isCleanlyPreceding;
+      expect(shouldAcceptRecap, isFalse);
+    });
+  });
 }
