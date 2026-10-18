@@ -1,6 +1,6 @@
-# AniDash v2.1.0 — Extended Buffering, Exact Skip Boundaries, Screen Wakelock & UI Polish
+# AniDash v2.1.1 — Extension Installer Fix, Extended Buffering & UI Polish
 
-AniDash v2.1.0 brings a major suite of reliability improvements, enhanced playback stability, accurate intro/outro intervals, and key UI refinements directly addressing user community feedback.
+AniDash v2.1.1 brings a critical fix for AniYomi external extension installation, alongside all major v2.1.0 playback stability upgrades, 300-second buffering, screen wakelock, and UI refinements.
 
 ## 🎬 Playback & Video Player Upgrades
 - **Wakelock Screen Sleep Prevention**: Video player now holds an active screen wakelock (`wakelock_plus`) during playback so your screen never dims or goes to sleep while watching.
@@ -35,4 +35,4 @@ AniDash v2.1.0 brings a major suite of reliability improvements, enhanced playba
 - Static analysis verified: 0 errors, 0 warnings (`dart analyze lib/`).
 - Full test suite verified: 113 tests passed (`flutter test`).
 
-**Version:** 2.1.0 (Build 145)
+**Version:** 2.1.1 (Build 146)
