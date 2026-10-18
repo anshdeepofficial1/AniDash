@@ -1,4 +1,4 @@
-v2.0.0
-reason=anidash-2-0-exact-stream-skip-instant-playback-loading-and-theme-seekbar
+v2.1.0
+reason=anidash-2-1-wakelock-300s-buffer-exact-skip-and-ui-polish
 build=android-signed-apk-variants
 run=1

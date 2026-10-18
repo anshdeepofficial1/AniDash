@@ -39,7 +39,7 @@ class _SpotlightSectionState extends ConsumerState<SpotlightSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SpotlightHeader(spotlightAnime: widget.spotlightAnime),
+        const SizedBox(height: 6),
         MouseRegion(
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
@@ -145,46 +145,6 @@ class _SpotlightSectionState extends ConsumerState<SpotlightSection> {
         ),
         const SizedBox(height: 10),
       ],
-    );
-  }
-}
-
-class _SpotlightHeader extends StatelessWidget {
-  final List<UniversalMedia>? spotlightAnime;
-
-  const _SpotlightHeader({required this.spotlightAnime});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(15, 0, 0, 0),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.tertiaryContainer,
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Iconsax.star5,
-              size: 18,
-              color: theme.colorScheme.onTertiaryContainer,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Trending ${spotlightAnime?.length ?? 25}',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.onTertiaryContainer,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

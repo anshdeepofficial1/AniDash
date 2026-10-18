@@ -617,6 +617,7 @@ Future<DownloadItem> _processM3U8(
     '${p.dirname(task.item.filePath)}/.temp_${task.item.id.hashCode}',
   );
   await tempDir.create(recursive: true);
+  try {
 
   final playlistUri = Uri.tryParse(task.item.downloadUrl);
   if (playlistUri == null ||
@@ -772,6 +773,14 @@ Future<DownloadItem> _processM3U8(
       (total, segment) => total + segment.duration.ceil(),
     ),
   );
+  } catch (e) {
+    try {
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    } catch (_) {}
+    rethrow;
+  }
 }
 
 Future<List<_Segment>> _parsePlaylist(

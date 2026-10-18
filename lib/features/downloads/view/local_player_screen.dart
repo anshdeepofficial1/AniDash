@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:ani_dash/core/models/aniskip/aniskip_result.dart';
@@ -55,6 +56,9 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen>
   @override
   void initState() {
     super.initState();
+    try {
+      WakelockPlus.enable();
+    } catch (_) {}
     _currentItem = widget.item;
     final entry = _matchingEntry();
     final saved = entry?.episodesProgress[_currentItem.episodeNumber];
@@ -360,6 +364,9 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen>
 
   @override
   void dispose() {
+    try {
+      WakelockPlus.disable();
+    } catch (_) {}
     _panelController.dispose();
     final state = ref.read(playerStateProvider);
     unawaited(

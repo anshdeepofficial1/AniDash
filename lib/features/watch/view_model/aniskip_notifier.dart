@@ -372,10 +372,24 @@ class AniSkipNotifier extends _$AniSkipNotifier {
   }) {
     final list = <AniSkipResultItem>[];
 
-    // 1. TOP PRIORITY: Source Skips (Exact stream source intro/outro from active provider)
+    // Helper to sanitize an item to ensure it cannot be classified as OP if > 720s or ED if < 360s
+    AniSkipResultItem sanitizeSkip(AniSkipResultItem item) {
+      final interval = item.interval;
+      if (interval == null) return item;
+      final start = interval.startTime;
+      var type = item.skipType;
+      if (type == SkipType.ed && start < 360) {
+        type = SkipType.op;
+      } else if (type == SkipType.op && start >= 480) {
+        type = SkipType.ed;
+      }
+      return item.copyWith(skipType: type);
+    }
+
+    // 1. Source Skips (Exact stream source intro/outro from active provider)
     for (final s in sourceSkips) {
       if (s.interval != null && s.interval!.endTime > s.interval!.startTime) {
-        list.add(s);
+        list.add(sanitizeSkip(s));
       }
     }
 
@@ -391,12 +405,13 @@ class AniSkipNotifier extends _$AniSkipNotifier {
     );
     final hasRecap = list.any((s) => s.skipType == SkipType.recap);
 
-    // 2. SECOND PRIORITY: JustAnime Direct Skips (exact web stream markers)
+    // 2. JustAnime Direct Skips (exact web stream markers)
     for (final ja in justAnimeSkips) {
-      final isJaOp = ja.skipType == SkipType.op;
-      final isJaEd = ja.skipType == SkipType.ed;
+      final sanitized = sanitizeSkip(ja);
+      final isJaOp = sanitized.skipType == SkipType.op;
+      final isJaEd = sanitized.skipType == SkipType.ed;
       if ((isJaOp && !hasOp) || (isJaEd && !hasEd)) {
-        list.add(ja);
+        list.add(sanitized);
       }
     }
 
@@ -411,12 +426,45 @@ class AniSkipNotifier extends _$AniSkipNotifier {
           (s.skipType == SkipType.mixed && (s.interval?.startTime ?? 0) > 300),
     );
 
-    // 3. THIRD PRIORITY: AniSkip community markers (fallback if OP or ED still missing)
+    // 3. AniSkip community markers (highest precision fallback or duration refinement)
     for (final ani in aniSkipSkips) {
-      final isAniOp = ani.skipType == SkipType.op;
-      final isAniEd = ani.skipType == SkipType.ed;
+      final sanitized = sanitizeSkip(ani);
+      final isAniOp = sanitized.skipType == SkipType.op;
+      final isAniEd = sanitized.skipType == SkipType.ed;
       if ((isAniOp && !hasOpNow) || (isAniEd && !hasEdNow)) {
-        list.add(ani);
+        list.add(sanitized);
+      }
+    }
+
+    // Canonicalize standard 90s TV anime OP and ED lengths:
+    // If a provider cut off the last 5-15s (duration between 70s and 88s), extend to 90s (start + 90)
+    // or match against AniSkip's 90s interval so no residual song plays!
+    for (int i = 0; i < list.length; i++) {
+      final item = list[i];
+      final interval = item.interval;
+      if (interval == null) continue;
+      final dur = interval.endTime - interval.startTime;
+      if (dur >= 70 && dur <= 88) {
+        // Look for matching AniSkip item
+        final matchingAni = aniSkipSkips.firstWhereOrNull((a) =>
+            a.interval != null &&
+            (a.interval!.startTime - interval.startTime).abs() <= 15 &&
+            (a.interval!.endTime - a.interval!.startTime) >= 88);
+        if (matchingAni != null) {
+          list[i] = item.copyWith(
+            interval: AniSkipInterval(
+              startTime: interval.startTime,
+              endTime: matchingAni.interval!.endTime,
+            ),
+          );
+        } else {
+          list[i] = item.copyWith(
+            interval: AniSkipInterval(
+              startTime: interval.startTime,
+              endTime: interval.startTime + 90.0,
+            ),
+          );
+        }
       }
     }
 
@@ -493,6 +541,15 @@ class AniSkipNotifier extends _$AniSkipNotifier {
   void setFallbackFromSource({Intro? intro, Intro? outro}) {
     final newSourceItems = <AniSkipResultItem>[];
 
+    // Detect if provider swapped intro and outro
+    if (intro != null && outro != null) {
+      if ((intro.start ?? 0) > 480 && (outro.start ?? 0) < 360) {
+        final temp = intro;
+        intro = outro;
+        outro = temp;
+      }
+    }
+
     if (intro != null &&
         intro.start != null &&
         intro.end != null &&
@@ -501,18 +558,15 @@ class AniSkipNotifier extends _$AniSkipNotifier {
       final end = intro.end!.toDouble();
       final duration = end - start;
 
-      // These markers came from the exact stream response for this episode.
-      // Do not replace them with an averaged placement: some episodes move or
-      // omit their opening intentionally. Only reject structurally impossible
-      // intervals.
       if (start >= 0 && duration >= 3 && duration <= 360) {
+        final isEd = start >= 480;
         newSourceItems.add(
           AniSkipResultItem(
             interval: AniSkipInterval(startTime: start, endTime: end),
-            skipType: SkipType.op,
+            skipType: isEd ? SkipType.ed : SkipType.op,
             action: 'skip',
             episodeLength: 0,
-            skipId: 'source-intro',
+            skipId: isEd ? 'source-outro' : 'source-intro',
           ),
         );
       } else {
@@ -528,16 +582,15 @@ class AniSkipNotifier extends _$AniSkipNotifier {
       final end = outro.end!.toDouble();
       final duration = end - start;
 
-      // Trust the episode-specific stream marker even when an unusual episode
-      // places its ending earlier than the series average.
       if (start >= 0 && duration >= 3 && duration <= 360) {
+        final isOp = start < 360;
         newSourceItems.add(
           AniSkipResultItem(
             interval: AniSkipInterval(startTime: start, endTime: end),
-            skipType: SkipType.ed,
+            skipType: isOp ? SkipType.op : SkipType.ed,
             action: 'skip',
             episodeLength: 0,
-            skipId: 'source-outro',
+            skipId: isOp ? 'source-intro' : 'source-outro',
           ),
         );
       } else {

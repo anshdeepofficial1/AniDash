@@ -80,7 +80,7 @@ class _NextEpisodePromptOverlayState
     _lastEp = ep;
     _initialTimerExpired = false;
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(seconds: 3), () {
+    _hideTimer = Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() {
         _initialTimerExpired = true;

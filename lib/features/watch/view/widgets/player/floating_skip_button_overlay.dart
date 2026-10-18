@@ -54,7 +54,7 @@ class _FloatingSkipButtonOverlayState
         ..reset()
         ..forward();
     });
-    _visibilityTimer = Timer(const Duration(seconds: 3), () {
+    _visibilityTimer = Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() {
         _dismissedRangeKeys.add(key);
@@ -111,36 +111,26 @@ class _FloatingSkipButtonOverlayState
       return const SizedBox.shrink();
     }
 
+    final startTime = currentSkip.interval!.startTime;
     final isOp =
-        currentSkip.skipType == SkipType.op ||
-        (currentSkip.skipType == SkipType.mixed &&
-            currentSkip.interval!.startTime <= 300);
+        (currentSkip.skipType == SkipType.op ||
+            (currentSkip.skipType == SkipType.mixed && startTime <= 300)) &&
+        startTime <= 600;
     final isEd =
-        currentSkip.skipType == SkipType.ed ||
-        (currentSkip.skipType == SkipType.mixed &&
-            currentSkip.interval!.startTime >= 480);
+        (currentSkip.skipType == SkipType.ed ||
+            (currentSkip.skipType == SkipType.mixed && startTime >= 400)) &&
+        startTime >= 360;
     final isRecap = currentSkip.skipType == SkipType.recap;
 
-    final isSourceVerified =
-        (currentSkip.skipId?.startsWith('source-') ?? false) ||
-        (currentSkip.skipId?.startsWith('justanime-') ?? false);
-    final durationMatches =
-        currentSkip.episodeLength <= 0 ||
-        dur.inSeconds <= 0 ||
-        (currentSkip.episodeLength - dur.inSeconds).abs() <= 120;
-    final verified =
-        isSourceVerified ||
-        currentSkip.skipId?.isNotEmpty == true ||
-        durationMatches;
-    final plausiblePlacement =
-        (isOp && currentSkip.interval!.startTime <= 600) ||
-        (isRecap && (dur.inSeconds <= 0 || currentSkip.interval!.startTime <= dur.inSeconds * 0.70)) ||
-        (isEd &&
-            (dur.inSeconds <= 0 ||
-                currentSkip.interval!.startTime >= dur.inSeconds * .35 ||
-                currentSkip.interval!.startTime >= 240));
+    final resolvedIsOp = isOp || (!isEd && !isRecap && startTime <= 600);
+    final resolvedIsEd = isEd || (!resolvedIsOp && !isRecap && startTime >= 360);
 
-    if (!verified || !plausiblePlacement) {
+    final plausiblePlacement =
+        (resolvedIsOp && startTime <= 600) ||
+        (isRecap && (dur.inSeconds <= 0 || startTime <= dur.inSeconds * 0.70)) ||
+        (resolvedIsEd && startTime >= 360);
+
+    if (!plausiblePlacement) {
       return const SizedBox.shrink();
     }
 
@@ -164,7 +154,7 @@ class _FloatingSkipButtonOverlayState
     VoidCallback? onSkip;
     IconData? buttonIcon;
 
-    if (isOp) {
+    if (resolvedIsOp) {
       label = 'Skip Intro';
       buttonIcon = Icons.fast_forward_rounded;
       onSkip = () {
@@ -173,7 +163,7 @@ class _FloatingSkipButtonOverlayState
           _dismissedRangeKeys.add(rangeKey);
         });
         final target = Duration(
-          seconds: currentSkip.interval!.endTime.toInt() + 1,
+          seconds: currentSkip.interval!.endTime.ceil(),
         );
         ref.read(playerStateProvider.notifier).seek(target);
         ref.read(playerUIControllerProvider.notifier).restartHideTimer();
@@ -187,12 +177,12 @@ class _FloatingSkipButtonOverlayState
           _dismissedRangeKeys.add(rangeKey);
         });
         final target = Duration(
-          seconds: currentSkip.interval!.endTime.toInt() + 1,
+          seconds: currentSkip.interval!.endTime.ceil(),
         );
         ref.read(playerStateProvider.notifier).seek(target);
         ref.read(playerUIControllerProvider.notifier).restartHideTimer();
       };
-    } else if (isEd) {
+    } else if (resolvedIsEd) {
       label = 'Skip Outro';
       buttonIcon = Icons.skip_next_rounded;
       onSkip = () {
@@ -201,7 +191,7 @@ class _FloatingSkipButtonOverlayState
           _dismissedRangeKeys.add(rangeKey);
         });
         final target = Duration(
-          seconds: currentSkip.interval!.endTime.toInt() + 1,
+          seconds: currentSkip.interval!.endTime.ceil(),
         );
         ref.read(playerStateProvider.notifier).seek(target);
         ref.read(playerUIControllerProvider.notifier).restartHideTimer();

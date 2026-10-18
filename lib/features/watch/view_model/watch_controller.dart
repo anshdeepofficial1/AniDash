@@ -542,13 +542,6 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           ref.read(episodeDataProvider.notifier).prefetchNextEpisode();
         }
 
-        final hasDetectedOutro = ref.read(aniSkipProvider).any((skip) {
-          final interval = skip.interval;
-          if (interval == null) return false;
-          return skip.skipType == SkipType.ed ||
-              (skip.skipType == SkipType.mixed && interval.startTime > 300);
-        });
-
         final isInDetectedOutro = ref.read(aniSkipProvider).any((skip) {
           final interval = skip.interval;
           if (interval == null) return false;
@@ -560,13 +553,11 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
               _pos < interval.endTime.ceil();
         });
 
-        // User requirement: Prompt appears immediately when outro begins.
-        // If there is NO outro detected, only appear exactly 55 seconds before the episode ends.
+        // User requirement: In the last 30 seconds of the episode, OR inside detected outro,
+        // show the Next Episode prompt pop-up.
         final remainingSeconds = _dur - _pos;
         final shouldTriggerNextPrompt =
-            hasDetectedOutro
-                ? isInDetectedOutro
-                : (remainingSeconds <= 55 && remainingSeconds > 0 && _dur > 55);
+            isInDetectedOutro || (remainingSeconds <= 30 && remainingSeconds > 0 && _dur > 30);
 
         final hasNextEpisode =
             (_epNum ?? 0) > 0 && (_totalEps <= 0 || (_epNum ?? 0) < _totalEps);
@@ -578,6 +569,9 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           if (settings.showNextEpisodePrompt) {
             ref.read(nextEpisodePromptProvider.notifier).show();
           }
+        } else if (_nextPromptTriggered && remainingSeconds > 35 && !isInDetectedOutro) {
+          // If user seeks backwards, allow prompt to trigger again when reaching the end
+          _nextPromptTriggered = false;
         }
       }
 
@@ -777,56 +771,42 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       return;
     }
 
+    final playerSettings = ref.read(playerSettingsProvider);
+    if (!playerSettings.enableAutoSkip) return;
+
     final skips = ref.read(aniSkipProvider);
     for (final skip in skips) {
       if (skip.interval == null) continue;
-      final startSec = skip.interval!.startTime.toInt();
-      final endSec = skip.interval!.endTime.toInt() + 1;
+      final startSec = skip.interval!.startTime.floor();
+      final endSec = skip.interval!.endTime.ceil();
       final rangeKey = '${skip.skipType.name}_${startSec}_$endSec';
 
       if (_autoSkippedRangeKeys.contains(rangeKey)) continue;
 
       final isIntro =
-          skip.skipType == SkipType.op ||
-          (skip.skipType == SkipType.mixed && skip.interval!.startTime <= 300);
+          (skip.skipType == SkipType.op ||
+              (skip.skipType == SkipType.mixed && skip.interval!.startTime <= 300)) &&
+          skip.interval!.startTime <= 600;
       final isOutro =
-          skip.skipType == SkipType.ed ||
-          (skip.skipType == SkipType.mixed && skip.interval!.startTime > 300);
+          (skip.skipType == SkipType.ed ||
+              (skip.skipType == SkipType.mixed && skip.interval!.startTime > 300)) &&
+          skip.interval!.startTime >= 360;
       final isRecap = skip.skipType == SkipType.recap;
 
       final start = Duration(seconds: startSec);
       final end = Duration(seconds: endSec);
 
-      final validType =
-          skip.skipType == SkipType.op ||
-          skip.skipType == SkipType.ed ||
-          skip.skipType == SkipType.mixed ||
-          skip.skipType == SkipType.recap;
+      final validType = isIntro || isOutro || isRecap || skip.skipType == SkipType.mixed;
       final length = end - start;
-      final isSourceVerified = skip.skipId?.startsWith('source-') ?? false;
-      final durationMatches =
-          skip.episodeLength > 0 && (skip.episodeLength - _dur).abs() <= 90;
-      final hasVerifiedEpisodeMatch =
-          isSourceVerified ||
-          skip.skipId?.isNotEmpty == true ||
-          durationMatches;
-      final plausiblePlacement =
-          (isIntro && start.inSeconds <= 450) ||
-          (isRecap && start.inSeconds <= (_dur * .65).round()) ||
-          (isOutro &&
-              start.inSeconds >= (_dur * .50) &&
-              start >= const Duration(minutes: 5));
+
       final validTiming =
           start >= Duration.zero &&
           end > start &&
-          (_dur <= 0 || end <= Duration(seconds: _dur + 3)) &&
-          length <= const Duration(minutes: 6) &&
-          (_dur <= 0 || length.inSeconds <= (_dur * 0.35));
+          (_dur <= 0 || end <= Duration(seconds: _dur + 5)) &&
+          length <= const Duration(minutes: 6);
 
       if (validType &&
           validTiming &&
-          hasVerifiedEpisodeMatch &&
-          plausiblePlacement &&
           position >= start &&
           position < end) {
         _autoSkippedRangeKeys.add(rangeKey);

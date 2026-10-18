@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/core/utils/stream_headers.dart';
 import 'package:better_player_plus/better_player_plus.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter/widgets.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -121,6 +122,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   int _openGeneration = 0;
   bool _completionEmitted = false;
   bool _videoListenerAttached = false;
+  bool _isEpisodeTransition = false;
 
   String? get activeMediaId => _activeMediaId;
   int? get activeEpisode => _activeEpisode;
@@ -214,10 +216,15 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     final value = betterPlayerController.videoPlayerController?.value;
     if (value == null) return;
     final pos = value.position;
-    if (pos > Duration.zero) {
+    if (pos > Duration.zero && !_isEpisodeTransition) {
       _startupTimer?.cancel();
       _startupTimer = null;
       _lastStablePosition = pos;
+    }
+    if (value.isPlaying) {
+      try {
+        WakelockPlus.enable();
+      } catch (_) {}
     }
     final target = _pendingSeekTarget;
     final landed =
@@ -269,21 +276,23 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   }) async {
     final generation = ++_openGeneration;
     final isSameSession =
+        !_isEpisodeTransition &&
         mediaId != null &&
         episode != null &&
         mediaId == _activeMediaId &&
         episode == _activeEpisode;
-    final effectiveStartAt =
-        startAt != null && startAt > Duration.zero
-            ? startAt
-            : (isSameSession && _lastStablePosition > Duration.zero
-                ? _lastStablePosition
-                : null);
+    _isEpisodeTransition = false;
+    final Duration effectiveStartAt;
+    if (startAt != null) {
+      effectiveStartAt = startAt > Duration.zero ? startAt : Duration.zero;
+    } else if (isSameSession && _lastStablePosition > Duration.zero) {
+      effectiveStartAt = _lastStablePosition;
+    } else {
+      effectiveStartAt = Duration.zero;
+    }
     _activeMediaId = mediaId;
     _activeEpisode = episode;
-    if (!isSameSession && effectiveStartAt != null) {
-      _lastStablePosition = effectiveStartAt;
-    }
+    _lastStablePosition = effectiveStartAt;
     final effectiveHeaders = normalizeStreamHeaders(url, headers);
     _lastUrl = url;
     _lastHeaders = effectiveHeaders;
@@ -295,7 +304,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       isOpening: true,
       isBuffering: true,
       clearPlaybackError: true,
-      position: effectiveStartAt ?? Duration.zero,
+      position: effectiveStartAt,
       duration: isSameSession ? state.duration : Duration.zero,
       buffer: Duration.zero,
     );
@@ -324,10 +333,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
               headers: effectiveHeaders,
               videoFormat: _lastIsHls ? BetterPlayerVideoFormat.hls : null,
               bufferingConfiguration: const BetterPlayerBufferingConfiguration(
-                // Fast startup & instant seek resume: start playing at 1000ms buffer,
-                // resume after rebuffer at 1500ms, and keep 25-60s forward reservoir.
-                minBufferMs: 25000,
-                maxBufferMs: 60000,
+                // Fast startup & high reservoir: start playing at 1000ms,
+                // resume after rebuffer at 1500ms, and keep up to 300s (5 mins) buffer reservoir.
+                minBufferMs: 60000,
+                maxBufferMs: 300000,
                 bufferForPlaybackMs: 1000,
                 bufferForPlaybackAfterRebufferMs: 1500,
               ),
@@ -337,7 +346,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       await betterPlayerController.setupDataSource(source);
       if (generation != _openGeneration) return;
       _attachVideoListener();
-      if (effectiveStartAt != null && effectiveStartAt > Duration.zero) {
+      if (effectiveStartAt > Duration.zero) {
         await betterPlayerController.seekTo(effectiveStartAt);
       }
       await betterPlayerController.play();
@@ -381,8 +390,19 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     }
   }
 
-  Future<void> play() => betterPlayerController.play();
-  Future<void> pause() => betterPlayerController.pause();
+  Future<void> play() async {
+    try {
+      await WakelockPlus.enable();
+    } catch (_) {}
+    return betterPlayerController.play();
+  }
+
+  Future<void> pause() async {
+    try {
+      await WakelockPlus.disable();
+    } catch (_) {}
+    return betterPlayerController.pause();
+  }
 
   Future<void> stop() async {
     _openGeneration++;
@@ -395,6 +415,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     _activeMediaId = null;
     _activeEpisode = null;
     _lastStablePosition = Duration.zero;
+    _isEpisodeTransition = false;
+    try {
+      await WakelockPlus.disable();
+    } catch (_) {}
     await betterPlayerController.pause();
     await betterPlayerController.seekTo(Duration.zero);
     state = PlayerState.initial();
@@ -405,10 +429,19 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   }
 
   void resetForNewEpisode({int? episode}) {
+    _isEpisodeTransition = true;
     _activeEpisode = episode;
     _lastStablePosition = Duration.zero;
     _pendingSeekTarget = null;
     _completionEmitted = false;
+    _seekTimeout?.cancel();
+    _startupTimer?.cancel();
+    if (_videoListenerAttached) {
+      betterPlayerController.videoPlayerController?.removeListener(
+        _syncVideoState,
+      );
+      _videoListenerAttached = false;
+    }
     state = state.copyWith(
       position: Duration.zero,
       duration: Duration.zero,
@@ -519,6 +552,9 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   void _dispose() {
     _seekTimeout?.cancel();
     _startupTimer?.cancel();
+    try {
+      unawaited(WakelockPlus.disable());
+    } catch (_) {}
     if (_videoListenerAttached) {
       betterPlayerController.videoPlayerController?.removeListener(
         _syncVideoState,
