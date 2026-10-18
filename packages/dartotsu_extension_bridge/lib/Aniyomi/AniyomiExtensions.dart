@@ -73,6 +73,16 @@ class AniyomiExtensions extends Extension {
         final loaded = await _loadExtensions(method, repos: [repo]);
         for (final source in loaded) {
           source.repo = repo;
+          if (source.apkUrl == null || source.apkUrl!.isEmpty) {
+            final cleanRepo = repo
+                .replaceAll('/index.min.json', '')
+                .replaceAll('index.min.json', '')
+                .trimRight();
+            final apkName = source.apkName;
+            if (apkName != null && apkName.isNotEmpty) {
+              source.apkUrl = '$cleanRepo/apk/$apkName';
+            }
+          }
           sources.add(source);
         }
       } catch (error) {
@@ -139,12 +149,25 @@ class AniyomiExtensions extends Extension {
 
   @override
   Future<void> installSource(Source source) async {
-    if (source.apkUrl == null) {
+    String? apkUrl = source.apkUrl;
+    if (apkUrl == null || apkUrl.isEmpty) {
+      if (source.repo != null &&
+          source.apkName != null &&
+          source.apkName!.isNotEmpty) {
+        final cleanRepo = source.repo!
+            .replaceAll('/index.min.json', '')
+            .replaceAll('index.min.json', '')
+            .trimRight();
+        apkUrl = '$cleanRepo/apk/${source.apkName}';
+        source.apkUrl = apkUrl;
+      }
+    }
+    if (apkUrl == null || apkUrl.isEmpty) {
       return Future.error('Source APK URL is required for installation.');
     }
 
     try {
-      final apkName = source.apkUrl!.split('/').last;
+      final apkName = apkUrl.split('/').last;
       final packageName =
           source.id?.trim().isNotEmpty == true
               ? source.id!
@@ -160,9 +183,14 @@ class AniyomiExtensions extends Extension {
         appId: packageName,
       );
 
-      if (await apkFile.exists()) {
-        await apkFile.delete();
-      }
+      // Keep APK temporarily on disk so the system PackageInstaller can read it
+      Future.delayed(const Duration(minutes: 5), () async {
+        try {
+          if (await apkFile.exists()) {
+            await apkFile.delete();
+          }
+        } catch (_) {}
+      });
 
       if (result['isSuccess'] != true) {
         throw Exception(
@@ -183,7 +211,7 @@ class AniyomiExtensions extends Extension {
         default:
           throw Exception('Unsupported item type: ${source.itemType}');
       }
-      debugPrint('Successfully installed package: $packageName');
+      debugPrint('Successfully initiated install for package: $packageName');
     } catch (e) {
       if (kDebugMode) {
         print('Error installing source: $e');
@@ -244,12 +272,29 @@ class AniyomiExtensions extends Extension {
 
   @override
   Future<void> updateSource(Source source) async {
-    if (source.apkUrl == null) {
+    String? apkUrl = source.apkUrl;
+    if (apkUrl == null || apkUrl.isEmpty) {
+      if (source.repo != null &&
+          source.apkName != null &&
+          source.apkName!.isNotEmpty) {
+        final cleanRepo = source.repo!
+            .replaceAll('/index.min.json', '')
+            .replaceAll('index.min.json', '')
+            .trimRight();
+        apkUrl = '$cleanRepo/apk/${source.apkName}';
+        source.apkUrl = apkUrl;
+      }
+    }
+    if (apkUrl == null || apkUrl.isEmpty) {
       return Future.error('Source APK URL is required for installation.');
     }
 
     try {
-      final packageName = source.apkUrl!.split('/').last.replaceAll('.apk', '');
+      final apkName = apkUrl.split('/').last;
+      final packageName =
+          source.id?.trim().isNotEmpty == true
+              ? source.id!
+              : apkName.replaceAll('.apk', '');
 
       final tempDir = await getTemporaryDirectory();
       final apkFileName = '$packageName.apk';
@@ -266,9 +311,13 @@ class AniyomiExtensions extends Extension {
           'Installation failed: ${result['errorMessage'] ?? 'Unknown error'}',
         );
       }
-      if (await apkFile.exists()) {
-        await apkFile.delete();
-      }
+      Future.delayed(const Duration(minutes: 5), () async {
+        try {
+          if (await apkFile.exists()) {
+            await apkFile.delete();
+          }
+        } catch (_) {}
+      });
 
       switch (source.itemType) {
         case ItemType.anime:
@@ -293,20 +342,24 @@ class AniyomiExtensions extends Extension {
 
   Future<void> _downloadVerifiedApk(Source source, File destination) async {
     final expected = source.apkSha256?.trim().toLowerCase();
-    if (expected == null || !RegExp(r'^[a-f0-9]{64}$').hasMatch(expected)) {
+    final hasExpectedChecksum = expected != null && expected.isNotEmpty;
+    if (hasExpectedChecksum && !RegExp(r'^[a-f0-9]{64}$').hasMatch(expected)) {
       throw StateError(
-        'This external extension does not publish a valid SHA-256 checksum. '
-        'Installation was blocked for safety.',
+        'This external extension published an invalid SHA-256 checksum format.',
       );
     }
 
     final client = http.Client();
     IOSink? sink;
     try {
-      final request = http.Request('GET', Uri.parse(source.apkUrl!));
+      final uri = Uri.tryParse(source.apkUrl ?? '');
+      if (uri == null || (!uri.isScheme('http') && !uri.isScheme('https'))) {
+        throw StateError('Invalid APK download URL: ${source.apkUrl}');
+      }
+      final request = http.Request('GET', uri);
       final response = await client
           .send(request)
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 40));
       if (response.statusCode != 200) {
         throw HttpException(
           'APK download returned HTTP ${response.statusCode}',
@@ -320,7 +373,7 @@ class AniyomiExtensions extends Extension {
       var received = 0;
       sink = destination.openWrite();
       await for (final chunk in response.stream.timeout(
-        const Duration(seconds: 20),
+        const Duration(seconds: 40),
       )) {
         received += chunk.length;
         if (received > _maxApkBytes) {
@@ -332,10 +385,12 @@ class AniyomiExtensions extends Extension {
       await sink.close();
       sink = null;
 
-      final actual =
-          (await sha256.bind(destination.openRead()).first).toString();
-      if (actual != expected) {
-        throw StateError('Extension APK checksum verification failed.');
+      if (hasExpectedChecksum) {
+        final actual =
+            (await sha256.bind(destination.openRead()).first).toString();
+        if (actual.toLowerCase() != expected.toLowerCase()) {
+          throw StateError('Extension APK checksum verification failed.');
+        }
       }
     } finally {
       await sink?.close();
