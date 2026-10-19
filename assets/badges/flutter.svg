@@ -1,12 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="138" height="28" viewBox="0 0 138 28" role="img" aria-label="Flutter: 3.35.7">
+<svg xmlns="http://www.w3.org/2000/svg" width="113" height="26" viewBox="0 0 113 26" role="img" aria-label="Flutter: 3.35.7">
   <title>Flutter: 3.35.7</title>
-  <defs><clipPath id="badge"><rect width="138" height="28" rx="6"/></clipPath></defs>
-  <g clip-path="url(#badge)">
-    <rect width="72" height="28" fill="#202830"/>
-    <rect x="72" width="66" height="28" fill="#02569B"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.16"/>
+    </linearGradient>
+    <clipPath id="c">
+      <rect width="113" height="26" rx="5"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="56" height="26" fill="#1e293b"/>
+    <rect x="56" width="57" height="26" fill="#02569B"/>
+    <rect width="113" height="26" fill="url(#g)"/>
+    <rect width="113" height="26" rx="5" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1"/>
   </g>
-  <g font-family="DejaVu Sans,Verdana,Arial,sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">
-    <text x="36.0" y="14" textLength="54" lengthAdjust="spacingAndGlyphs">Flutter</text>
-    <text x="105.0" y="14" textLength="48" lengthAdjust="spacingAndGlyphs">3.35.7</text>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="600" text-anchor="middle" dominant-baseline="central">
+    <text x="28.0" y="14" fill="#000000" opacity="0.3">Flutter</text>
+    <text x="28.0" y="13" fill="#ffffff">Flutter</text>
+    <text x="84.5" y="14" fill="#000000" opacity="0.3">3.35.7</text>
+    <text x="84.5" y="13" fill="#ffffff">3.35.7</text>
   </g>
 </svg>

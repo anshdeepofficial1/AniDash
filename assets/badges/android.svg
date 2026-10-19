@@ -1,12 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="123" height="28" viewBox="0 0 123 28" role="img" aria-label="Android: 6.0+">
+<svg xmlns="http://www.w3.org/2000/svg" width="103" height="26" viewBox="0 0 103 26" role="img" aria-label="Android: 6.0+">
   <title>Android: 6.0+</title>
-  <defs><clipPath id="badge"><rect width="123" height="28" rx="6"/></clipPath></defs>
-  <g clip-path="url(#badge)">
-    <rect width="72" height="28" fill="#202830"/>
-    <rect x="72" width="51" height="28" fill="#3DDC84"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.16"/>
+    </linearGradient>
+    <clipPath id="c">
+      <rect width="103" height="26" rx="5"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="60" height="26" fill="#1e293b"/>
+    <rect x="60" width="43" height="26" fill="#3DDC84"/>
+    <rect width="103" height="26" fill="url(#g)"/>
+    <rect width="103" height="26" rx="5" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1"/>
   </g>
-  <g font-family="DejaVu Sans,Verdana,Arial,sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">
-    <text x="36.0" y="14" textLength="54" lengthAdjust="spacingAndGlyphs">Android</text>
-    <text x="97.5" y="14" textLength="33" lengthAdjust="spacingAndGlyphs">6.0+</text>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="600" text-anchor="middle" dominant-baseline="central">
+    <text x="30.0" y="14" fill="#000000" opacity="0.3">Android</text>
+    <text x="30.0" y="13" fill="#ffffff">Android</text>
+    <text x="81.5" y="14" fill="#000000" opacity="0.3">6.0+</text>
+    <text x="81.5" y="13" fill="#ffffff">6.0+</text>
   </g>
 </svg>

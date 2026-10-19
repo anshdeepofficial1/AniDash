@@ -1,12 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="162" height="28" viewBox="0 0 162 28" role="img" aria-label="License: Apache-2.0">
+<svg xmlns="http://www.w3.org/2000/svg" width="142" height="26" viewBox="0 0 142 26" role="img" aria-label="License: Apache-2.0">
   <title>License: Apache-2.0</title>
-  <defs><clipPath id="badge"><rect width="162" height="28" rx="6"/></clipPath></defs>
-  <g clip-path="url(#badge)">
-    <rect width="72" height="28" fill="#202830"/>
-    <rect x="72" width="90" height="28" fill="#3B82F6"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.16"/>
+    </linearGradient>
+    <clipPath id="c">
+      <rect width="142" height="26" rx="5"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="62" height="26" fill="#1e293b"/>
+    <rect x="62" width="80" height="26" fill="#3B82F6"/>
+    <rect width="142" height="26" fill="url(#g)"/>
+    <rect width="142" height="26" rx="5" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1"/>
   </g>
-  <g font-family="DejaVu Sans,Verdana,Arial,sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">
-    <text x="36.0" y="14" textLength="54" lengthAdjust="spacingAndGlyphs">License</text>
-    <text x="117.0" y="14" textLength="72" lengthAdjust="spacingAndGlyphs">Apache-2.0</text>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="600" text-anchor="middle" dominant-baseline="central">
+    <text x="31.0" y="14" fill="#000000" opacity="0.3">License</text>
+    <text x="31.0" y="13" fill="#ffffff">License</text>
+    <text x="102.0" y="14" fill="#000000" opacity="0.3">Apache-2.0</text>
+    <text x="102.0" y="13" fill="#ffffff">Apache-2.0</text>
   </g>
 </svg>
