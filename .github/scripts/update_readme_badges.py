@@ -13,11 +13,11 @@ TOKEN = os.environ.get("GITHUB_TOKEN", "")
 OUT = Path("assets/badges")
 OUT.mkdir(parents=True, exist_ok=True)
 
-def fetch(url, github=True):
+def fetch(url, github=True, timeout=25):
     headers = {"User-Agent": "AniDash-README-badges", "Accept": "application/vnd.github+json" if github else "application/json"}
     if github and TOKEN:
         headers["Authorization"] = f"Bearer {TOKEN}"
-    with urlopen(Request(url, headers=headers), timeout=25) as resp:
+    with urlopen(Request(url, headers=headers), timeout=timeout) as resp:
         return json.load(resp)
 
 def releases():
@@ -31,25 +31,61 @@ def releases():
             return result
     raise ValueError("Too many releases; extend pagination")
 
-def measure(text):
-    return max(44, int(sum(7.7 if c in "MW@%#0123456789" else 7.0 if c.isupper() else 6.5 if c.islower() else 5.0 for c in str(text)) + 26))
+def text_width(s):
+    w = 0.0
+    for c in str(s):
+        if c in "MW@#%":
+            w += 8.8
+        elif c in "m":
+            w += 8.2
+        elif c in "w":
+            w += 7.5
+        elif c in "fjlrtI1":
+            w += 3.8
+        elif c in "i":
+            w += 3.2
+        elif c in ".,:;!'|-+ ":
+            w += 3.8
+        elif c.isupper() or c.isdigit():
+            w += 6.8
+        elif c.islower():
+            w += 6.0
+        else:
+            w += 6.5
+    return w
+
+def measure(text, min_pad=22):
+    return max(40, int(round(text_width(text) + min_pad)))
 
 def badge(label, value, color):
     label, value = str(label), str(value)
     left, right = measure(label), measure(value)
     width = left + right
-    label, value = html.escape(label, quote=True), html.escape(value, quote=True)
+    esc_label = html.escape(label, quote=True)
+    esc_value = html.escape(value, quote=True)
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="28" viewBox="0 0 {width} 28" role="img" aria-label="{label}: {value}">\n'
-        f'  <title>{label}: {value}</title>\n'
-        f'  <defs><clipPath id="badge"><rect width="{width}" height="28" rx="6"/></clipPath></defs>\n'
-        f'  <g clip-path="url(#badge)">\n'
-        f'    <rect width="{left}" height="28" fill="#202830"/>\n'
-        f'    <rect x="{left}" width="{right}" height="28" fill="#{color}"/>\n'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="26" viewBox="0 0 {width} 26" role="img" aria-label="{esc_label}: {esc_value}">\n'
+        f'  <title>{esc_label}: {esc_value}</title>\n'
+        f'  <defs>\n'
+        f'    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">\n'
+        f'      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>\n'
+        f'      <stop offset="100%" stop-color="#000000" stop-opacity="0.16"/>\n'
+        f'    </linearGradient>\n'
+        f'    <clipPath id="c">\n'
+        f'      <rect width="{width}" height="26" rx="5"/>\n'
+        f'    </clipPath>\n'
+        f'  </defs>\n'
+        f'  <g clip-path="url(#c)">\n'
+        f'    <rect width="{left}" height="26" fill="#1e293b"/>\n'
+        f'    <rect x="{left}" width="{right}" height="26" fill="#{color}"/>\n'
+        f'    <rect width="{width}" height="26" fill="url(#g)"/>\n'
+        f'    <rect width="{width}" height="26" rx="5" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1"/>\n'
         f'  </g>\n'
-        f'  <g font-family="DejaVu Sans,Verdana,Arial,sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">\n'
-        f'    <text x="{left/2:.1f}" y="14" textLength="{left-18}" lengthAdjust="spacingAndGlyphs">{label}</text>\n'
-        f'    <text x="{left+right/2:.1f}" y="14" textLength="{right-18}" lengthAdjust="spacingAndGlyphs">{value}</text>\n'
+        f'  <g font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif" font-size="11" font-weight="600" text-anchor="middle" dominant-baseline="central">\n'
+        f'    <text x="{left/2:.1f}" y="14" fill="#000000" opacity="0.3">{esc_label}</text>\n'
+        f'    <text x="{left/2:.1f}" y="13" fill="#ffffff">{esc_label}</text>\n'
+        f'    <text x="{left + right/2:.1f}" y="14" fill="#000000" opacity="0.3">{esc_value}</text>\n'
+        f'    <text x="{left + right/2:.1f}" y="13" fill="#ffffff">{esc_value}</text>\n'
         f'  </g>\n'
         f'</svg>\n'
     )
@@ -57,9 +93,8 @@ def badge(label, value, color):
 def save(name, label, value, color):
     path = OUT / f"{name}.svg"
     data = badge(label, value, color)
-    if not path.exists() or path.read_text(encoding="utf-8") != data:
-        path.write_text(data, encoding="utf-8")
-        print(f"Updated {path}")
+    path.write_text(data, encoding="utf-8")
+    print(f"Updated {path}")
 
 def main():
     all_versions = releases()
@@ -78,15 +113,21 @@ def main():
     save("forks", "Forks", f"{int(info['forks_count']):,}", "06B6D4")
     save("open-issues", "Open Issues", f"{int(issues['total_count']):,}", "F59E0B")
     save("license", "License", (info.get("license") or {}).get("spdx_id") or "Apache-2.0", "3B82F6")
+    active_users = "200+"
+    active_path = OUT / "active-users.svg"
+    if active_path.exists():
+        import re
+        m = re.search(r'aria-label="Active Users:\s*([^"]+)"', active_path.read_text(encoding="utf-8"))
+        if m:
+            active_users = m.group(1).strip()
     try:
-        stats = fetch("https://anidashweb.vercel.app/api/public-stats", github=False)
+        stats = fetch("https://anidashweb.vercel.app/api/public-stats", github=False, timeout=6)
         message = str(stats.get("message", "")).strip() if isinstance(stats, dict) else ""
         if message and len(message) <= 26 and message.lower() not in {"error", "unknown", "undefined", "nan"}:
-            save("active-users", "Active Users", message, "10B981")
-        else:
-            print("No verified active-user count; preserving existing badge")
-    except (HTTPError, URLError, ValueError, TimeoutError) as exc:
-        print(f"Live active-user endpoint unavailable; preserving existing badge: {exc}")
+            active_users = message
+    except Exception as exc:
+        print(f"Live active-user endpoint unavailable; using preserved '{active_users}': {exc}")
+    save("active-users", "Active Users", active_users, "10B981")
     for name, label, value, color in [
         ("android","Android","6.0+","3DDC84"), ("ios","iOS","Test Build","475569"),
         ("windows","Windows","Supported","0078D4"), ("linux","Linux","Supported","A16207"),
