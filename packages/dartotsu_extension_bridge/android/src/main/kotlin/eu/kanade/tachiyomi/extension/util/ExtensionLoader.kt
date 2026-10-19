@@ -147,7 +147,12 @@ internal object ExtensionLoader {
             println("Error creating class loader for $pkgName: ${e.message}")
             return AnimeLoadResult.Error
         }
-        val sources = appInfo.metaData.getString("$ANIME_PACKAGE$XX_METADATA_SOURCE_CLASS")!!
+        val rawSourceClass = appInfo.metaData?.getString("$ANIME_PACKAGE$XX_METADATA_SOURCE_CLASS")
+        if (rawSourceClass.isNullOrEmpty()) {
+            println("Missing source class metadata for extension $extName ($pkgName)")
+            return AnimeLoadResult.Error
+        }
+        val sources = rawSourceClass
             .split(";")
             .map {
                 val sourceClass = it.trim()
@@ -246,7 +251,12 @@ internal object ExtensionLoader {
             return MangaLoadResult.Error
         }
 
-        val sources = appInfo.metaData.getString("$MANGA_PACKAGE$XX_METADATA_SOURCE_CLASS")!!
+        val rawSourceClass = appInfo.metaData?.getString("$MANGA_PACKAGE$XX_METADATA_SOURCE_CLASS")
+        if (rawSourceClass.isNullOrEmpty()) {
+            println("Missing source class metadata for extension $extName ($pkgName)")
+            return MangaLoadResult.Error
+        }
+        val sources = rawSourceClass
             .split(";")
             .map {
                 val sourceClass = it.trim()
@@ -297,17 +307,22 @@ internal object ExtensionLoader {
         return MangaLoadResult.Success(extension)
     }
     private fun isPackageAnExtension(type: MediaType, pkgInfo: PackageInfo): Boolean {
-        return if (type == MediaType.NOVEL) {
-            pkgInfo.packageName.startsWith("some.random")
-        } else {
-            pkgInfo.reqFeatures.orEmpty().any {
-                it.name == when (type) {
-                    MediaType.ANIME -> ANIME_PACKAGE
-                    MediaType.MANGA -> MANGA_PACKAGE
-                    else -> ""
-                }
-            }
+        if (type == MediaType.NOVEL) {
+            return pkgInfo.packageName.startsWith("some.random")
         }
+        val targetFeature = when (type) {
+            MediaType.ANIME -> ANIME_PACKAGE
+            MediaType.MANGA -> MANGA_PACKAGE
+            else -> ""
+        }
+        val targetPrefix = when (type) {
+            MediaType.ANIME -> "eu.kanade.tachiyomi.animeextension."
+            MediaType.MANGA -> "eu.kanade.tachiyomi.extension."
+            else -> ""
+        }
+        val hasFeature = pkgInfo.reqFeatures.orEmpty().any { it.name == targetFeature }
+        val matchesPrefix = targetPrefix.isNotEmpty() && pkgInfo.packageName.startsWith(targetPrefix)
+        return hasFeature || matchesPrefix
     }
 }
 

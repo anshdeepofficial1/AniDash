@@ -721,9 +721,9 @@ class EpisodeData extends _$EpisodeData {
     }
 
     final sub = state.subtitles[idx];
-    AppLogger.infoPair('Applying Subtitle', sub.lang);
-
-    if (sub.url != null) await _player.setSubtitle(sub.url!);
+    if (sub.url != null) {
+      await _player.setSubtitle(sub.url!, headers: state.headers);
+    }
 
     state = state.copyWith(
       selectedSubtitleIdx: idx,

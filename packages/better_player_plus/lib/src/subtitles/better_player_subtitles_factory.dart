@@ -43,17 +43,20 @@ class BetterPlayerSubtitlesFactory {
   static Future<List<BetterPlayerSubtitle>> _parseSubtitlesFromNetwork(BetterPlayerSubtitlesSource source) async {
     try {
       final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 15);
       final List<BetterPlayerSubtitle> subtitles = [];
       for (final String? url in source.urls!) {
-        final request = await client.getUrl(Uri.parse(url!));
-        source.headers?.keys.forEach((key) {
-          final value = source.headers![key];
-          if (value != null) {
-            request.headers.add(key, value);
-          }
+        if (url == null || url.isEmpty) continue;
+        final request = await client.getUrl(Uri.parse(url));
+        source.headers?.forEach((key, value) {
+          request.headers.set(key, value);
         });
         final response = await request.close();
-        final data = await response.transform(const Utf8Decoder()).join();
+        if (response.statusCode != 200) {
+          BetterPlayerUtils.log('Failed to fetch subtitles: HTTP ${response.statusCode}');
+          continue;
+        }
+        final data = await response.transform(const Utf8Decoder(allowMalformed: true)).join();
         final cacheList = _parseString(data);
         subtitles.addAll(cacheList);
       }
@@ -61,7 +64,7 @@ class BetterPlayerSubtitlesFactory {
 
       BetterPlayerUtils.log('Parsed total subtitles: ${subtitles.length}');
       return subtitles;
-    } on Exception catch (exception) {
+    } catch (exception) {
       BetterPlayerUtils.log('Failed to read subtitles from network: $exception');
     }
     return [];
@@ -70,32 +73,35 @@ class BetterPlayerSubtitlesFactory {
   static List<BetterPlayerSubtitle> _parseSubtitlesFromMemory(BetterPlayerSubtitlesSource source) {
     try {
       return _parseString(source.content!);
-    } on Exception catch (exception) {
+    } catch (exception) {
       BetterPlayerUtils.log('Failed to read subtitles from memory: $exception');
     }
     return [];
   }
 
   static List<BetterPlayerSubtitle> _parseString(String value) {
-    List<String> components = value.split('\r\n\r\n');
-    if (components.length == 1) {
-      components = value.split('\n\n');
+    final normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
+    if (normalized.isEmpty) {
+      return [];
     }
 
+    final List<String> components = normalized.split(RegExp(r'\n\s*\n'));
+
     // Skip parsing files with no cues
-    if (components.length == 1) {
+    if (components.isEmpty) {
       return [];
     }
 
     final List<BetterPlayerSubtitle> subtitlesObj = [];
 
-    final bool isWebVTT = components.contains('WEBVTT');
+    final bool isWebVTT = normalized.startsWith('WEBVTT') || normalized.contains('-->');
     for (final component in components) {
-      if (component.isEmpty) {
+      final trimmed = component.trim();
+      if (trimmed.isEmpty || trimmed == 'WEBVTT' || trimmed.startsWith('WEBVTT\n') || trimmed.startsWith('NOTE')) {
         continue;
       }
-      final subtitle = BetterPlayerSubtitle(component, isWebVTT);
-      if (subtitle.start != null && subtitle.end != null && subtitle.texts != null) {
+      final subtitle = BetterPlayerSubtitle(trimmed, isWebVTT);
+      if (subtitle.start != null && subtitle.end != null && subtitle.texts != null && subtitle.texts!.isNotEmpty) {
         subtitlesObj.add(subtitle);
       }
     }
