@@ -1,12 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="103" height="28" viewBox="0 0 103 28" role="img" aria-label="Stars: 20">
+<svg xmlns="http://www.w3.org/2000/svg" width="88" height="26" viewBox="0 0 88 26" role="img" aria-label="Stars: 20">
   <title>Stars: 20</title>
-  <defs><clipPath id="badge"><rect width="103" height="28" rx="6"/></clipPath></defs>
-  <g clip-path="url(#badge)">
-    <rect width="59" height="28" fill="#202830"/>
-    <rect x="59" width="44" height="28" fill="#8B5CF6"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.16"/>
+    </linearGradient>
+    <clipPath id="c">
+      <rect width="88" height="26" rx="5"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="48" height="26" fill="#1e293b"/>
+    <rect x="48" width="40" height="26" fill="#8B5CF6"/>
+    <rect width="88" height="26" fill="url(#g)"/>
+    <rect width="88" height="26" rx="5" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1"/>
   </g>
-  <g font-family="DejaVu Sans,Verdana,Arial,sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">
-    <text x="29.5" y="14" textLength="41" lengthAdjust="spacingAndGlyphs">Stars</text>
-    <text x="81.0" y="14" textLength="26" lengthAdjust="spacingAndGlyphs">20</text>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="600" text-anchor="middle" dominant-baseline="central">
+    <text x="24.0" y="14" fill="#000000" opacity="0.3">Stars</text>
+    <text x="24.0" y="13" fill="#ffffff">Stars</text>
+    <text x="68.0" y="14" fill="#000000" opacity="0.3">20</text>
+    <text x="68.0" y="13" fill="#ffffff">20</text>
   </g>
 </svg>
