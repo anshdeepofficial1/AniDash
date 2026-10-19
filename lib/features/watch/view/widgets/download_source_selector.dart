@@ -349,7 +349,7 @@ class _DownloadSourceSelectorState
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.surface.withValues(alpha: 0.92),
+          color: colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
       child: SafeArea(

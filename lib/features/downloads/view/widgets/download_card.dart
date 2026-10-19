@@ -270,29 +270,35 @@ class DownloadCard extends ConsumerWidget {
       );
     }
 
-    // Show speed and ETA for byte-based downloads along with size
-    if (item.hasByteSize && item.speed > 0) {
+    final textStyle = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      fontSize: 11,
+      fontWeight: FontWeight.w500,
+    );
+
+    // Show speed and ETA if available
+    if (item.speed > 0) {
       final speedMB = (item.speed / 1024 / 1024).toStringAsFixed(1);
       final etaText = item.eta != null ? formatDuration(item.eta!) : '--:--';
       final currentMB = ((item.downloadedBytes ?? item.progress) / 1024 / 1024).toStringAsFixed(1);
-      final totalMB = ((item.size ?? 0) / 1024 / 1024).toStringAsFixed(1);
-      final sizePart = item.size != null && item.size! > 0 ? '$currentMB / $totalMB MB • ' : '$currentMB MB • ';
+      final totalMB = (item.size != null && item.size! > 0)
+          ? ((item.size!) / 1024 / 1024).toStringAsFixed(1)
+          : null;
+      final sizePart = totalMB != null ? '$currentMB / $totalMB MB • ' : '$currentMB MB • ';
       return Text(
         '$sizePart$speedMB MB/s • $etaText',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.secondary,
-          fontSize: 10,
-        ),
+        style: textStyle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       );
     }
 
-    // Show progress text for segment-based or unknown
+    // Show progress text without duplicate percentage
     return Text(
-      item.getProgressText(),
-      style: theme.textTheme.labelSmall?.copyWith(
-        color: theme.colorScheme.secondary,
-        fontSize: 10,
-      ),
+      item.getProgressText(includePercent: false),
+      style: textStyle,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 

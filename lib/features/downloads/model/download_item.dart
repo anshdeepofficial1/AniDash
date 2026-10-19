@@ -141,23 +141,26 @@ extension DownloadItemLogic on DownloadItem {
     return 0.0;
   }
 
-  String getProgressText() {
+  String getProgressText({bool includePercent = true}) {
     if (hasSegmentCount) {
       final percent = (progressPercentage * 100).round().clamp(0, 100);
+      final percentSuffix = includePercent ? ' ($percent%)' : '';
       if (downloadedBytes != null && downloadedBytes! > 0) {
         final currentMB = (downloadedBytes! / 1024 / 1024).toStringAsFixed(1);
         if (hasByteSize) {
           final totalMB = (size! / 1024 / 1024).toStringAsFixed(1);
           final approximate = state == DownloadStatus.downloaded ? '' : '~';
-          return '$currentMB / $approximate$totalMB MB ($percent%)';
+          return '$currentMB / $approximate$totalMB MB$percentSuffix';
         }
-        return '$currentMB MB ($percent%)';
+        return '$currentMB MB$percentSuffix';
       }
-      return '$percent%';
+      return includePercent ? '$percent%' : '$progress / $totalSegments seg';
     } else if (hasByteSize) {
       final currentMB = (progress / 1024 / 1024).toStringAsFixed(1);
       final totalMB = (size! / 1024 / 1024).toStringAsFixed(1);
-      return '$currentMB / $totalMB MB';
+      final percent = (progressPercentage * 100).round().clamp(0, 100);
+      final percentSuffix = includePercent ? ' ($percent%)' : '';
+      return '$currentMB / $totalMB MB$percentSuffix';
     } else if (downloadedBytes != null && downloadedBytes! > 0) {
       final currentMB = (downloadedBytes! / 1024 / 1024).toStringAsFixed(1);
       return '$currentMB MB';

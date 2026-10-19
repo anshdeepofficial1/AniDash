@@ -517,17 +517,23 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     return next;
   }
 
-  Future<void> setSubtitle(String? url) async {
+  Future<void> setSubtitle(String? url, {Map<String, String>? headers}) async {
     if (url == null || url.isEmpty) {
       betterPlayerController.subtitlesLines = [];
       state = state.copyWith(subtitle: const []);
       return;
     }
+    final isNetwork = url.startsWith('http://') || url.startsWith('https://');
+    final effectiveHeaders = isNetwork ? (headers ?? _lastHeaders) : null;
+    final cleanUrl = url.startsWith('file://') ? url.replaceFirst('file://', '') : url;
     await betterPlayerController.setupSubtitleSource(
       BetterPlayerSubtitlesSource(
-        type: BetterPlayerSubtitlesSourceType.network,
-        urls: [url],
+        type: isNetwork
+            ? BetterPlayerSubtitlesSourceType.network
+            : BetterPlayerSubtitlesSourceType.file,
+        urls: [cleanUrl],
         selectedByDefault: true,
+        headers: effectiveHeaders,
       ),
     );
   }
