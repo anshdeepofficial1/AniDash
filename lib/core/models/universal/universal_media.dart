@@ -246,6 +246,14 @@ class UniversalMedia {
       siteUrl: siteUrl ?? this.siteUrl,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UniversalMedia && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class UniversalTitle {
@@ -393,6 +401,17 @@ class UniversalMediaRelation {
     'relationType': relationType,
     'media': media.toJson(),
   };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UniversalMediaRelation &&
+          runtimeType == other.runtimeType &&
+          relationType == other.relationType &&
+          media.id == other.media.id;
+
+  @override
+  int get hashCode => Object.hash(relationType, media.id);
 }
 
 class UniversalStudio {

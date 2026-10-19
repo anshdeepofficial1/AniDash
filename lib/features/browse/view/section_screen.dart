@@ -68,10 +68,10 @@ class _SectionScreenState extends ConsumerState<SectionScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Backend caps perPage at 50, fetch honestly up to 50 per request
+      // Fetch up to 25 items per page for fast and reliable loading
       final response = await widget.fetchItems(
         page: _currentPage,
-        perPage: widget.ranked ? 50 : 20,
+        perPage: widget.ranked ? 25 : 20,
       );
       final newItems = response.data;
       if (mounted) {
@@ -81,7 +81,8 @@ class _SectionScreenState extends ConsumerState<SectionScreen> {
           } else {
             _items.addAll(newItems);
             _currentPage++;
-            if (newItems.length < (widget.ranked ? 50 : 20)) {
+            if (!response.pageInfo.hasNextPage ||
+                newItems.length < (widget.ranked ? 25 : 20)) {
               _hasMore = false;
             }
           }
@@ -91,7 +92,6 @@ class _SectionScreenState extends ConsumerState<SectionScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        // Maybe show snackbar error?
       }
     }
   }
@@ -114,6 +114,36 @@ class _SectionScreenState extends ConsumerState<SectionScreen> {
       body:
           _items.isEmpty && _isLoading
               ? const Center(child: CircularProgressIndicator())
+              : _items.isEmpty
+              ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.movie_outlined,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No anime found',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: () {
+                        setState(() {
+                          _hasMore = true;
+                          _currentPage = 1;
+                        });
+                        _fetchData();
+                      },
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              )
               : widget.ranked
               ? ListView.separated(
                 controller: _scrollController,

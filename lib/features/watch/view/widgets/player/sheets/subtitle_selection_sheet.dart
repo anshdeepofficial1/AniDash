@@ -179,71 +179,98 @@ class _SubtitleSelectionSheetState extends ConsumerState<SubtitleSelectionSheet>
                 ],
               ),
               const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FilledButton.tonal(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      minimumSize: const Size(44, 32),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(42, 32),
+                      ),
+                      onPressed:
+                          () => ref
+                              .read(playerStateProvider.notifier)
+                              .adjustSubtitleDelay(-1.0),
+                      child: const Text('-1.0s', style: TextStyle(fontSize: 12)),
                     ),
-                    onPressed:
-                        () => ref
-                            .read(playerStateProvider.notifier)
-                            .adjustSubtitleDelay(-0.5),
-                    child: const Text('-0.5s', style: TextStyle(fontSize: 12)),
-                  ),
-                  const SizedBox(width: 6),
-                  FilledButton.tonal(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      minimumSize: const Size(44, 32),
+                    const SizedBox(width: 4),
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(42, 32),
+                      ),
+                      onPressed:
+                          () => ref
+                              .read(playerStateProvider.notifier)
+                              .adjustSubtitleDelay(-0.5),
+                      child: const Text('-0.5s', style: TextStyle(fontSize: 12)),
                     ),
-                    onPressed:
-                        () => ref
-                            .read(playerStateProvider.notifier)
-                            .adjustSubtitleDelay(-0.1),
-                    child: const Text('-0.1s', style: TextStyle(fontSize: 12)),
-                  ),
-                  const SizedBox(width: 6),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      minimumSize: const Size(44, 32),
+                    const SizedBox(width: 4),
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(42, 32),
+                      ),
+                      onPressed:
+                          () => ref
+                              .read(playerStateProvider.notifier)
+                              .adjustSubtitleDelay(-0.1),
+                      child: const Text('-0.1s', style: TextStyle(fontSize: 12)),
                     ),
-                    onPressed:
-                        delay == 0
-                            ? null
-                            : () => ref
-                                .read(playerStateProvider.notifier)
-                                .setSubtitleDelay(0.0),
-                    child: const Text('Reset', style: TextStyle(fontSize: 12)),
-                  ),
-                  const SizedBox(width: 6),
-                  FilledButton.tonal(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      minimumSize: const Size(44, 32),
+                    const SizedBox(width: 4),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(42, 32),
+                      ),
+                      onPressed:
+                          delay == 0
+                              ? null
+                              : () => ref
+                                  .read(playerStateProvider.notifier)
+                                  .setSubtitleDelay(0.0),
+                      child: const Text('Reset', style: TextStyle(fontSize: 12)),
                     ),
-                    onPressed:
-                        () => ref
-                            .read(playerStateProvider.notifier)
-                            .adjustSubtitleDelay(0.1),
-                    child: const Text('+0.1s', style: TextStyle(fontSize: 12)),
-                  ),
-                  const SizedBox(width: 6),
-                  FilledButton.tonal(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      minimumSize: const Size(44, 32),
+                    const SizedBox(width: 4),
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(42, 32),
+                      ),
+                      onPressed:
+                          () => ref
+                              .read(playerStateProvider.notifier)
+                              .adjustSubtitleDelay(0.1),
+                      child: const Text('+0.1s', style: TextStyle(fontSize: 12)),
                     ),
-                    onPressed:
-                        () => ref
-                            .read(playerStateProvider.notifier)
-                            .adjustSubtitleDelay(0.5),
-                    child: const Text('+0.5s', style: TextStyle(fontSize: 12)),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(42, 32),
+                      ),
+                      onPressed:
+                          () => ref
+                              .read(playerStateProvider.notifier)
+                              .adjustSubtitleDelay(0.5),
+                      child: const Text('+0.5s', style: TextStyle(fontSize: 12)),
+                    ),
+                    const SizedBox(width: 4),
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(42, 32),
+                      ),
+                      onPressed:
+                          () => ref
+                              .read(playerStateProvider.notifier)
+                              .adjustSubtitleDelay(1.0),
+                      child: const Text('+1.0s', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

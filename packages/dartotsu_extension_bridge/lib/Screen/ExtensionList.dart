@@ -112,7 +112,7 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
       final Map<String, List<Source>> grouped = {};
       final seenSourceIds = <String>{};
       for (final source in fullList) {
-        final repoFilter = config.repositoryFilter;
+        final repoFilter = isInstalled ? null : config.repositoryFilter;
         if (repoFilter != null &&
             (source.repo ?? config.assignedRepoFor(source.id ?? '')) !=
                 repoFilter) {

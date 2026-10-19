@@ -31,7 +31,7 @@ class _FloatingSkipButtonOverlayState
     super.initState();
     _countdownController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 2),
     );
   }
 

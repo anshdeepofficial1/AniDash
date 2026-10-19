@@ -249,7 +249,7 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
       isInstalled: isInstalled,
       searchQuery: searchQuery,
       selectedLanguage: selectedLanguage,
-      repositoryFilter: _selectedRepository,
+      repositoryFilter: isInstalled ? null : _selectedRepository,
     );
   };
 

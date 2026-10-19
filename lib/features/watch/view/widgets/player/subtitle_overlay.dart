@@ -11,7 +11,9 @@ class SubtitleOverlay extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final subtitleStyle = ref.watch(subtitleAppearanceProvider);
     final subtitleText = ref.watch(
-      playerStateProvider.select((s) => s.subtitle.firstOrNull),
+      playerStateProvider.select(
+        (s) => s.subtitle.isEmpty ? null : s.subtitle.join('\n'),
+      ),
     );
     final margin = subtitleStyle.bottomMargin;
     if (subtitleText == null || subtitleText.isEmpty) {

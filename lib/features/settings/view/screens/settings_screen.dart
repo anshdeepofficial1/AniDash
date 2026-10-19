@@ -11,6 +11,7 @@ import 'package:ani_dash/core/services/developer_access_service.dart';
 import 'package:ani_dash/core/utils/env_loader.dart';
 import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
 import 'package:ani_dash/features/settings/view/settings_search_delegate.dart';
+import 'package:ani_dash/features/settings/view/widgets/feedback_issue_sheet.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -196,6 +197,13 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                         mode: LaunchMode.externalApplication,
                       ),
+                ),
+                NormalSettingsItem(
+                  icon: Icon(Iconsax.message_question, color: colorScheme.primary),
+                  accent: colorScheme.primary,
+                  title: 'Report Issue / Feedback',
+                  description: 'In-app report or GitHub issue',
+                  onTap: () => FeedbackIssueSheet.show(context),
                 ),
                 NormalSettingsItem(
                   icon: Icon(Iconsax.info_circle, color: colorScheme.primary),

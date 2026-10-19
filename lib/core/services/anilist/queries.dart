@@ -189,6 +189,16 @@ class AnilistQueries {
     }
   ''';
 
+  static const String pageInfoFields = '''
+    pageInfo {
+      total
+      currentPage
+      lastPage
+      hasNextPage
+      perPage
+    }
+  ''';
+
   // Query: Search anime by title with advanced filters
   static String searchAnimeQuery({
     required bool includeAdult,
@@ -232,6 +242,7 @@ class AnilistQueries {
     return '''
       query (${args.join(', ')}) {
         Page(page: \$page, perPage: \$perPage) {
+          $pageInfoFields
           media(${mediaArgs.join(', ')}) {
             $mediaFields
           }
@@ -452,6 +463,7 @@ class AnilistQueries {
   static String trendingAnimeQuery(bool includeAdult) => '''
     query (\$page: Int, \$perPage: Int${includeAdult ? ', \$isAdult: Boolean' : ''}) {
       Page(page: \$page, perPage: \$perPage) {
+        $pageInfoFields
         media(sort: TRENDING_DESC, type: ANIME${includeAdult ? ', isAdult: \$isAdult' : ''}) {
           $spotlightMediaFields
         }
@@ -463,6 +475,7 @@ class AnilistQueries {
   static const String mostWatchedAnimeQuery = '''
     query (\$page: Int, \$perPage: Int) {
       Page(page: \$page, perPage: \$perPage) {
+        $pageInfoFields
         media(sort: WATCHERS_DESC, type: ANIME) {
           $mediaFields
         }
@@ -474,6 +487,7 @@ class AnilistQueries {
   static String mostFavoriteAnimeQuery(bool includeAdult) => '''
     query (\$page: Int, \$perPage: Int${includeAdult ? ', \$isAdult: Boolean' : ''}) {
       Page(page: \$page, perPage: \$perPage) {
+        $pageInfoFields
         media(sort: FAVOURITES_DESC, type: ANIME${includeAdult ? ', isAdult: \$isAdult' : ''}) {
           $mediaFields
         }
@@ -485,6 +499,7 @@ class AnilistQueries {
   static String popularAnimeQuery(bool includeAdult) => '''
     query (\$page: Int, \$perPage: Int${includeAdult ? ', \$isAdult: Boolean' : ''}) {
       Page(page: \$page, perPage: \$perPage) {
+        $pageInfoFields
         media(sort: POPULARITY_DESC, type: ANIME${includeAdult ? ', isAdult: \$isAdult' : ''}) {
           $mediaFields
         }
@@ -496,6 +511,7 @@ class AnilistQueries {
   static String recentEpisodesQuery(bool includeAdult) => '''
     query (\$page: Int, \$perPage: Int${includeAdult ? ', \$isAdult: Boolean' : ''}) {
       Page(page: \$page, perPage: \$perPage) {
+        $pageInfoFields
         media(type: ANIME, status: RELEASING, sort: UPDATED_AT_DESC${includeAdult ? ', isAdult: \$isAdult' : ''}) {
           $mediaFields
         }
@@ -507,6 +523,7 @@ class AnilistQueries {
   static String seasonalAnimeQuery(bool includeAdult) => '''
     query (\$season: MediaSeason, \$year: Int, \$page: Int, \$perPage: Int${includeAdult ? ', \$isAdult: Boolean' : ''}) {
       Page(page: \$page, perPage: \$perPage) {
+        $pageInfoFields
         media(season: \$season, seasonYear: \$year, type: ANIME, sort: POPULARITY_DESC${includeAdult ? ', isAdult: \$isAdult' : ''}) {
           $mediaFields
         }
@@ -518,6 +535,7 @@ class AnilistQueries {
   static String topRatedAnimeQuery(bool includeAdult) => '''
     query (\$page: Int, \$perPage: Int${includeAdult ? ', \$isAdult: Boolean' : ''}) {
       Page(page: \$page, perPage: \$perPage) {
+        $pageInfoFields
         media(sort: SCORE_DESC, type: ANIME${includeAdult ? ', isAdult: \$isAdult' : ''}) {
           $mediaFields
         }
@@ -542,6 +560,7 @@ class AnilistQueries {
   static String recentlyUpdatedAnimeQuery(bool includeAdult) => '''
     query (\$page: Int, \$perPage: Int${includeAdult ? ', \$isAdult: Boolean' : ''}) {
       Page(page: \$page, perPage: \$perPage) {
+        $pageInfoFields
         media(sort: UPDATED_AT_DESC, type: ANIME${includeAdult ? ', isAdult: \$isAdult' : ''}) {
           $mediaFields
         }
@@ -553,6 +572,7 @@ class AnilistQueries {
   static String upcomingAnimeQuery(bool includeAdult) => '''
     query (\$page: Int, \$perPage: Int${includeAdult ? ', \$isAdult: Boolean' : ''}) {
       Page(page: \$page, perPage: \$perPage) {
+        $pageInfoFields
         media(sort: START_DATE_DESC, type: ANIME, status: NOT_YET_RELEASED${includeAdult ? ', isAdult: \$isAdult' : ''}) {
           $mediaFields
         }
