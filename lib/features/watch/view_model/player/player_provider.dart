@@ -215,7 +215,20 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   void _syncVideoState() {
     final value = betterPlayerController.videoPlayerController?.value;
     if (value == null) return;
-    final pos = value.position;
+    var pos = value.position;
+    final rawDuration = value.duration ?? Duration.zero;
+
+    if (_isEpisodeTransition) {
+      if (pos > const Duration(seconds: 3) &&
+          (_lastStablePosition == Duration.zero ||
+              pos > _lastStablePosition + const Duration(seconds: 5))) {
+        // Stale position leaking from previous episode! Suppress it.
+        pos = _lastStablePosition;
+      } else {
+        _isEpisodeTransition = false;
+      }
+    }
+
     if (pos > Duration.zero && !_isEpisodeTransition) {
       _startupTimer?.cancel();
       _startupTimer = null;
@@ -234,7 +247,6 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       _pendingSeekTarget = null;
       _seekTimeout?.cancel();
     }
-    final rawDuration = value.duration ?? Duration.zero;
     final duration =
         rawDuration <= const Duration(hours: 6) ? rawDuration : state.duration;
     var buffer = Duration.zero;
@@ -281,7 +293,9 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         episode != null &&
         mediaId == _activeMediaId &&
         episode == _activeEpisode;
-    _isEpisodeTransition = false;
+    if (isSameSession) {
+      _isEpisodeTransition = false;
+    }
     final Duration effectiveStartAt;
     if (startAt != null) {
       effectiveStartAt = startAt > Duration.zero ? startAt : Duration.zero;

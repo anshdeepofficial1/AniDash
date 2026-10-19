@@ -14,6 +14,7 @@ import 'package:ani_dash/shared/providers/anilist_service_provider.dart';
 import 'package:ani_dash/shared/providers/mal_service_provider.dart';
 import 'package:ani_dash/shared/providers/tracker/tracker_service.dart';
 import 'package:ani_dash/core/utils/cloud_watch_progress_sync.dart';
+import 'package:ani_dash/features/watchlist/view_model/watchlist_notifier.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'media_tracker_notifier.g.dart';
@@ -83,7 +84,12 @@ class MediaTracker extends _$MediaTracker {
         await _repo.addBinding(mediaId, TrackerType.anilist, mediaId);
       }
     }
-    state = state.copyWith(bindings: bindings);
+    final localEntry = await _repo.getEntry(mediaId);
+    final initialEntries = <TrackerType, UniversalMediaListEntry>{};
+    if (localEntry != null) {
+      initialEntries[TrackerType.anilist] = localEntry;
+    }
+    state = state.copyWith(bindings: bindings, entries: initialEntries);
     await fetchRemoteEntries();
   }
 
@@ -128,6 +134,15 @@ class MediaTracker extends _$MediaTracker {
         }),
       );
 
+      final localEntry = await _repo.getEntry(mediaId);
+      if (localEntry != null) {
+        for (final b in currentState.bindings) {
+          if (!entries.containsKey(b.type)) {
+            entries[b.type] = localEntry;
+          }
+        }
+      }
+
       state = state.copyWith(
         isLoading: false,
         entries: entries,
@@ -136,7 +151,18 @@ class MediaTracker extends _$MediaTracker {
 
       await _syncProgressFromActiveTracker(entries);
     } catch (e) {
-      state = state.copyWith(isLoading: false, remoteLoaded: true);
+      final localEntry = await _repo.getEntry(mediaId);
+      final entries = <TrackerType, UniversalMediaListEntry>{};
+      if (localEntry != null) {
+        for (final b in currentState.bindings) {
+          entries[b.type] = localEntry;
+        }
+      }
+      state = state.copyWith(
+        isLoading: false,
+        entries: entries,
+        remoteLoaded: true,
+      );
     }
   }
 
@@ -311,6 +337,18 @@ class MediaTracker extends _$MediaTracker {
         if (local != null) {
           await repo.saveProgress(local.copyWith(status: status.toLowerCase()));
         }
+        final entry = updatedEntries[type];
+        if (entry != null) {
+          await _repo.saveEntry(
+            entry.media,
+            status: status,
+            score: score ?? entry.score,
+            progress: progress ?? entry.progress,
+            repeat: entry.repeat,
+            notes: entry.notes,
+            isPrivate: entry.isPrivate,
+          );
+        }
       }
 
       state = currentState.copyWith(isLoading: false, entries: updatedEntries);
@@ -320,7 +358,7 @@ class MediaTracker extends _$MediaTracker {
     }
   }
 
-  Future<void> trackAsCurrent(TrackerType type) async {
+  Future<void> trackAsCurrent(TrackerType type, {UniversalMedia? anime}) async {
     final currentState = state;
     state = currentState.copyWith(isLoading: true);
     try {
@@ -334,15 +372,48 @@ class MediaTracker extends _$MediaTracker {
           await _repo.addBinding(mediaId, type, targetRemoteId);
         }
         UniversalMediaListEntry? newEntry;
-        if (type == TrackerType.anilist) {
-          newEntry = await ref
-              .read(anilistServiceProvider)
-              .updateUserAnimeList(mediaId: id, status: 'CURRENT');
-        } else if (type == TrackerType.mal) {
-          newEntry = await ref
-              .read(malServiceProvider)
-              .updateUserAnimeList(mediaId: id, status: 'CURRENT');
+        try {
+          if (type == TrackerType.anilist) {
+            newEntry = await ref
+                .read(anilistServiceProvider)
+                .updateUserAnimeList(mediaId: id, status: 'CURRENT');
+          } else if (type == TrackerType.mal) {
+            newEntry = await ref
+                .read(malServiceProvider)
+                .updateUserAnimeList(mediaId: id, status: 'CURRENT');
+          }
+        } catch (e) {
+          AppLogger.w(
+            'Remote tracker update failed, saving locally: $e',
+          );
         }
+
+        final mediaToSave = anime ?? newEntry?.media;
+        if (mediaToSave != null) {
+          await _repo.saveEntry(
+            mediaToSave,
+            status: 'CURRENT',
+            score: newEntry?.score ?? 0.0,
+            progress: newEntry?.progress ?? 0,
+            repeat: newEntry?.repeat ?? 0,
+            notes: newEntry?.notes ?? '',
+            isPrivate: newEntry?.isPrivate ?? false,
+          );
+        }
+
+        final watchRepo = ref.read(watchProgressRepositoryProvider);
+        final local = watchRepo.getProgress(mediaId);
+        if (local != null) {
+          await watchRepo.saveProgress(local.copyWith(status: 'watching'));
+        }
+
+        if (newEntry == null) {
+          final localSaved = await _repo.getEntry(mediaId);
+          if (localSaved != null) {
+            newEntry = localSaved;
+          }
+        }
+
         final updatedBindings = List<TrackerBinding>.from(
           currentState.bindings,
         );
@@ -362,6 +433,8 @@ class MediaTracker extends _$MediaTracker {
           bindings: updatedBindings,
           entries: updatedEntries,
         );
+
+        ref.read(watchlistProvider.notifier).fetchListForStatus('watching', force: true);
         return;
       }
       state = state.copyWith(isLoading: false);

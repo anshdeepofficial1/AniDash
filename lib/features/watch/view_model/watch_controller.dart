@@ -441,6 +441,10 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       }
       if (target > effectiveTotal) return;
       AppLogger.i('Auto-advancing to episode $target');
+      _episodeTransitionInProgress = true;
+      _pos = 0;
+      _dur = 0;
+      _isPlayerReady = false;
       ref.read(episodeDataProvider.notifier).changeEpisode(target);
     }
 
@@ -481,11 +485,13 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       // previous episode's final position until the replacement open begins;
       // otherwise its 95% state immediately re-shows the prompt as Ep N+2.
       if (_episodeTransitionInProgress) {
-        if (next.isOpening &&
-            ref.read(playerStateProvider.notifier).activeEpisode == _epNum) {
-          _episodeTransitionInProgress = false;
+        if (next.isOpening || next.position <= const Duration(seconds: 2)) {
           _pos = 0;
           _dur = 0;
+          if (!next.isOpening && next.position > Duration.zero) {
+            _episodeTransitionInProgress = false;
+            _isPlayerReady = true;
+          }
         }
         // A pause/EOF event from the old media can arrive after the episode
         // selector has already moved. Never persist that old final position
@@ -530,7 +536,13 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
       }
 
       _checkAutoSkip(next.position);
-      if (_dur > 120 && _pos >= _dur - 1) triggerAutoAdvance();
+      if (!_episodeTransitionInProgress &&
+          !_hasAutoAdvanced &&
+          _isPlayerReady &&
+          _dur > 120 &&
+          _pos >= _dur - 1) {
+        triggerAutoAdvance();
+      }
 
       // Flow optimizations: 85% pre-fetch & 95% next episode prompt
       if (!_episodeTransitionInProgress && _dur > 60) {
@@ -809,9 +821,12 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           validTiming &&
           position >= start &&
           position < end) {
-        _autoSkippedRangeKeys.add(rangeKey);
-        _pendingAutoSkipTimer?.cancel();
-        ref.read(playerStateProvider.notifier).seek(end);
+        _pendingAutoSkipTimer ??= Timer(const Duration(seconds: 2), () {
+          _pendingAutoSkipTimer = null;
+          if (_isDisposed) return;
+          _autoSkippedRangeKeys.add(rangeKey);
+          ref.read(playerStateProvider.notifier).seek(end);
+        });
         return;
       }
     }

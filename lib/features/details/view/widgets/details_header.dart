@@ -22,6 +22,8 @@ import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 import 'package:ani_dash/core/services/share_link_service.dart';
 import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 import 'package:ani_dash/features/manga/view/manga_details_screen.dart';
+import 'package:collection/collection.dart';
+import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
 import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart';
 
 class DetailsHeader extends ConsumerStatefulWidget {
@@ -824,6 +826,7 @@ class TrackerStatusWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final trackerState = ref.watch(mediaTrackerProvider(anime.id));
     final authState = ref.watch(authProvider);
+    final watchlistState = ref.watch(watchlistProvider);
     final theme = Theme.of(context);
 
     final activePlatform = authState.activePlatform;
@@ -832,12 +835,28 @@ class TrackerStatusWidget extends ConsumerWidget {
             ? TrackerType.anilist
             : TrackerType.mal;
 
-    final entry = trackerState.entries[trackerType];
+    var entry = trackerState.entries[trackerType] ??
+        trackerState.entries.values.firstOrNull;
+
+    if (entry == null) {
+      for (final list in watchlistState.lists.values) {
+        final found =
+            list.firstWhereOrNull((item) => item.media.id == anime.id);
+        if (found != null) {
+          entry = found;
+          break;
+        }
+      }
+    }
+
+    final localProgress =
+        ref.watch(watchProgressRepositoryProvider).getProgress(anime.id);
+    final localStatus = localProgress?.status;
 
     Widget content;
     bool isActive = false;
 
-    if (trackerState.isLoading && !trackerState.remoteLoaded) {
+    if (trackerState.isLoading && !trackerState.remoteLoaded && entry == null) {
       content = const SizedBox(
         width: 16,
         height: 16,
@@ -856,6 +875,26 @@ class TrackerStatusWidget extends ConsumerWidget {
                   : '');
       final displayProgress =
           entry.progress > 0 ? '$progressText$totalEps' : '';
+
+      content = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Iconsax.bookmark_25, size: 14, color: theme.colorScheme.primary),
+          const SizedBox(width: 4),
+          Text(
+            '$statusText$displayProgress',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      );
+    } else if (localStatus != null && localStatus.isNotEmpty) {
+      isActive = true;
+      final statusText = _formatStatus(localStatus);
+      final ep = localProgress?.currentEpisode ?? 0;
+      final displayProgress = ep > 0 ? ' $ep' : '';
 
       content = Row(
         mainAxisSize: MainAxisSize.min,

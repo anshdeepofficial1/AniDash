@@ -511,10 +511,10 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     final episodes =
         isMatchingAnime ? episodeListState.episodes : <EpisodeDataModel>[];
     final loading =
+        state.isLoading ||
         episodeListState.isLoading ||
         state.isSearchingMatch ||
         (!isMatchingAnime &&
-            hasSourceMatch &&
             episodes.isEmpty &&
             episodeListState.error == null);
     final error =
@@ -814,37 +814,61 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                     const SizedBox(height: 6),
                     SizedBox(
                       height: 38,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text('Current'),
-                              selected: true,
-                              onSelected: null,
-                            ),
-                          ),
-                          ...seasonRelations.map(
-                            (relation) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ActionChip(
-                                label: Text(
-                                  relation.media.title.english ??
-                                      relation.media.title.romaji ??
-                                      relation.media.title.native ??
-                                      relation.relationType,
+                      child: Builder(
+                        builder: (context) {
+                          final allItemsMap = <String, UniversalMedia>{};
+                          if (widget.anime != null) {
+                            allItemsMap[widget.anime!.id] = widget.anime!;
+                          }
+                          for (final rel in seasonRelations) {
+                            allItemsMap.putIfAbsent(rel.media.id, () => rel.media);
+                          }
+                          final sortedEntries = allItemsMap.values.toList()
+                            ..sort((a, b) {
+                              final aDate = a.startDate;
+                              final bDate = b.startDate;
+                              final aKey =
+                                  (aDate?.year ?? a.seasonYear ?? 9999) * 10000 +
+                                  (aDate?.month ?? 1) * 100 +
+                                  (aDate?.day ?? 1);
+                              final bKey =
+                                  (bDate?.year ?? b.seasonYear ?? 9999) * 10000 +
+                                  (bDate?.month ?? 1) * 100 +
+                                  (bDate?.day ?? 1);
+                              if (aKey != bKey) return aKey.compareTo(bKey);
+                              return (a.title.userPreferred).compareTo(b.title.userPreferred);
+                            });
+
+                          return ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: sortedEntries.length,
+                            itemBuilder: (context, index) {
+                              final item = sortedEntries[index];
+                              final isCurrent = item.id == widget.mediaId;
+                              final chipLabel =
+                                  FranchiseService.deriveCleanSeasonChipLabel(
+                                    item,
+                                    index + 1,
+                                  );
+
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(chipLabel),
+                                  selected: isCurrent,
+                                  onSelected:
+                                      isCurrent
+                                          ? null
+                                          : (selected) {
+                                            if (widget.onSeasonSelected != null) {
+                                              widget.onSeasonSelected!(item);
+                                            }
+                                          },
                                 ),
-                                onPressed:
-                                    widget.onSeasonSelected == null
-                                        ? null
-                                        : () => widget.onSeasonSelected!(
-                                          relation.media,
-                                        ),
-                              ),
-                            ),
-                          ),
-                        ],
+                              );
+                            },
+                          );
+                        },
                       ),
                     ),
                   ],

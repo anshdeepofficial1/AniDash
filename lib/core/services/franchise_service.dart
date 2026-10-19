@@ -38,10 +38,13 @@ class FranchiseWatchOrderItem {
   int? get episodes => media.episodes;
   int? get year => media.startDate?.year ?? media.seasonYear;
   String get coverImage => media.highResCoverImage;
-  bool get isTv => format == 'TV' || format == 'TV_SHORT';
+  bool get isTv =>
+      format == 'TV' ||
+      format == 'TV_SHORT' ||
+      (format == 'ONA' && (episodes == null || episodes! > 3));
   bool get isMovie => format == 'MOVIE';
   bool get isOvaOrSpecial =>
-      format == 'OVA' || format == 'ONA' || format == 'SPECIAL';
+      format == 'OVA' || (format == 'ONA' && (episodes != null && episodes! <= 3)) || format == 'SPECIAL';
 
   /// Exact episode boundary when the verified watch-order note provides one.
   int? get afterEpisode {
@@ -84,10 +87,23 @@ class FranchiseWatchOrder {
   List<FranchiseWatchOrderItem> get navigationItems {
     final unique = <String, FranchiseWatchOrderItem>{};
     for (final item in allItems) {
+      final note = item.placementNote?.toLowerCase() ?? '';
+      final isRecap =
+          note.contains('recap') ||
+          item.relationType.toUpperCase() == 'SUMMARY';
+      if (isRecap && allItems.length > 2) {
+        continue;
+      }
       unique[item.id] = item;
     }
-    final items = unique.values.toList();
+    final items = (unique.isNotEmpty ? unique : {for (final i in allItems) i.id: i}).values.toList();
     items.sort((a, b) {
+      // Prioritize explicit chronological season numbers when both define one
+      if (a.seasonNumber != null &&
+          b.seasonNumber != null &&
+          a.seasonNumber != b.seasonNumber) {
+        return a.seasonNumber!.compareTo(b.seasonNumber!);
+      }
       final aDate = a.media.startDate;
       final bDate = b.media.startDate;
       final aKey =
@@ -99,11 +115,46 @@ class FranchiseWatchOrder {
           (bDate?.month ?? 1) * 100 +
           (bDate?.day ?? 1);
       if (aKey != bKey) return aKey.compareTo(bKey);
-      // On the same date, keep the main entry before its bundled special.
+      // On the same date / season, keep the full TV entry before bundled movies/specials.
+      if (a.isTv != b.isTv) return a.isTv ? -1 : 1;
       if (a.isMainStory != b.isMainStory) return a.isMainStory ? -1 : 1;
       return a.displayTitle.compareTo(b.displayTitle);
     });
-    return items;
+
+    // Ensure all chip labels are distinct so users never see identical duplicate chips
+    final seenLabels = <String, int>{};
+    final result = <FranchiseWatchOrderItem>[];
+    for (final item in items) {
+      var label = item.chipLabel;
+      if (seenLabels.containsKey(label)) {
+        if (item.isMovie && !label.toLowerCase().contains('movie')) {
+          label = '$label (Movie)';
+        } else if (item.isOvaOrSpecial && !label.toLowerCase().contains('special')) {
+          label = '$label (Special)';
+        } else {
+          final count = seenLabels[label]! + 1;
+          seenLabels[label] = count;
+          label = '$label $count';
+        }
+      } else {
+        seenLabels[label] = 1;
+      }
+      result.add(
+        label == item.chipLabel
+            ? item
+            : FranchiseWatchOrderItem(
+              media: item.media,
+              relationType: item.relationType,
+              isCurrent: item.isCurrent,
+              chipLabel: label,
+              orderLabel: label,
+              seasonNumber: item.seasonNumber,
+              placementNote: item.placementNote,
+              isMainStory: item.isMainStory,
+            ),
+      );
+    }
+    return result;
   }
 }
 
@@ -332,7 +383,9 @@ query (\$id: Int) {
           hasPart2: isFollowedByPart2,
         );
 
-        if (m.format == 'TV' || m.format == 'TV_SHORT') {
+        if (m.format == 'TV' ||
+            m.format == 'TV_SHORT' ||
+            (m.format == 'ONA' && (m.episodes == null || m.episodes! > 3))) {
           tvCounter++;
         }
 
@@ -349,7 +402,8 @@ query (\$id: Int) {
         mainStoryItems.add(item);
         if (m.format == 'TV' ||
             m.format == 'TV_SHORT' ||
-            m.format == 'SPECIAL') {
+            m.format == 'SPECIAL' ||
+            (m.format == 'ONA' && (m.episodes == null || m.episodes! > 3))) {
           tvSeasons.add(item);
         }
       }
@@ -501,8 +555,8 @@ query (\$id: Int) {
         if (rel.relationType.toUpperCase() == 'PREQUEL') {
           final cand = pool[rel.media.id] ?? rel.media;
           final candFormat = cand.format?.toUpperCase() ?? '';
-          // Only trace backward into main story if it's TV or canon prequel
-          if (candFormat == 'TV' || candFormat == 'TV_SHORT') {
+          // Only trace backward into main story if it's TV, ONA or canon prequel
+          if (candFormat == 'TV' || candFormat == 'TV_SHORT' || candFormat == 'ONA') {
             prequelNode = cand;
             break;
           }
@@ -523,12 +577,12 @@ query (\$id: Int) {
 
     while (true) {
       UniversalMedia? sequelNode;
-      // First preference: TV sequel
+      // First preference: TV / ONA sequel
       for (final rel in current.relations) {
         if (rel.relationType.toUpperCase() == 'SEQUEL') {
           final cand = pool[rel.media.id] ?? rel.media;
           final candFormat = cand.format?.toUpperCase() ?? '';
-          if (candFormat == 'TV' || candFormat == 'TV_SHORT') {
+          if (candFormat == 'TV' || candFormat == 'TV_SHORT' || candFormat == 'ONA') {
             sequelNode = cand;
             break;
           }
@@ -560,9 +614,9 @@ query (\$id: Int) {
       }
     }
 
-    // Ensure root is in chain if it is a TV series and was missed
+    // Ensure root is in chain if it is a TV or serialized ONA series and was missed
     if (!chain.any((m) => m.id == root.id) &&
-        (root.format == 'TV' || root.format == 'TV_SHORT')) {
+        (root.format == 'TV' || root.format == 'TV_SHORT' || root.format == 'ONA')) {
       chain.add(root);
       // Sort chain by release date if disconnected
       chain.sort((a, b) {
@@ -578,6 +632,21 @@ query (\$id: Int) {
     return chain;
   }
 
+  /// Public helper to format clean, chronological season chip labels across any franchise
+  static String deriveCleanSeasonChipLabel(
+    UniversalMedia media,
+    int fallbackIndex,
+  ) {
+    final title =
+        media.title.english ?? media.title.romaji ?? media.title.userPreferred;
+    final labels = FranchiseService()._deriveLabels(
+      title: title,
+      format: media.format ?? 'TV',
+      tvIndex: fallbackIndex,
+    );
+    return labels.chipLabel;
+  }
+
   /// Derives human-friendly season and chip labels
   ({String chipLabel, String orderLabel, int? seasonNumber}) _deriveLabels({
     required String title,
@@ -590,8 +659,16 @@ query (\$id: Int) {
     final isAoT =
         cleanLower.contains('attack on titan') ||
         cleanLower.contains('shingeki no kyojin');
+    final isKimetsu =
+        cleanLower.contains('demon slayer') ||
+        cleanLower.contains('kimetsu no yaiba');
+    final isJJK = cleanLower.contains('jujutsu kaisen');
+    final isBleach = cleanLower.contains('bleach');
+    final isDrStone =
+        cleanLower.contains('dr. stone') || cleanLower.contains('dr.stone');
+    final isJoJo = cleanLower.contains('jojo');
 
-    // Final Chapters (AoT Specials)
+    // 1. AoT Final Chapters (AoT Specials)
     final finalChaptersMatch = RegExp(
       r'Final\s+Chapters.*?(?:Part|Special)?\s*(\d+)',
       caseSensitive: false,
@@ -605,7 +682,7 @@ query (\$id: Int) {
       );
     }
 
-    // Final Season Part X
+    // 2. Final Season Part X / Cour X
     final finalSeasonPartMatch = RegExp(
       r'(?:The\s+)?Final\s+Season.*?(?:Part\s*(\d+)|Cour\s*(\d+))',
       caseSensitive: false,
@@ -621,7 +698,7 @@ query (\$id: Int) {
       );
     }
 
-    // Final Season (plain)
+    // 3. Final Season (plain)
     if (RegExp(
       r'(?:The\s+)?Final\s+Season',
       caseSensitive: false,
@@ -632,7 +709,38 @@ query (\$id: Int) {
       return (chipLabel: label, orderLabel: label, seasonNumber: sNum);
     }
 
-    // Season X Part Y
+    // 4. Word Seasons: "First Season", "Second Season", "Third Season", etc.
+    final wordSeasonMatch = RegExp(
+      r'\b(First|Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|Ninth|Tenth)\s+Season\b',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (wordSeasonMatch != null) {
+      const wordMap = {
+        'first': 1,
+        'second': 2,
+        'third': 3,
+        'fourth': 4,
+        'fifth': 5,
+        'sixth': 6,
+        'seventh': 7,
+        'eighth': 8,
+        'ninth': 9,
+        'tenth': 10,
+      };
+      final sNum = wordMap[wordSeasonMatch.group(1)!.toLowerCase()] ?? tvIndex;
+      final partMatch = RegExp(
+        r'(?:Part\s*(\d+)|Cour\s*(\d+))',
+        caseSensitive: false,
+      ).firstMatch(clean);
+      final part = partMatch?.group(1) ?? partMatch?.group(2);
+      final label =
+          part != null
+              ? 'Season $sNum Part $part'
+              : (hasPart2 ? 'Season $sNum Part 1' : 'Season $sNum');
+      return (chipLabel: label, orderLabel: label, seasonNumber: sNum);
+    }
+
+    // 5. Numeric Season X Part Y
     final sPartMatch = RegExp(
       r'(?:Season\s*(\d+)|(\d+)(?:st|nd|rd|th)\s*Season).*?(?:Part\s*(\d+)|Cour\s*(\d+))',
       caseSensitive: false,
@@ -648,7 +756,7 @@ query (\$id: Int) {
       );
     }
 
-    // Season X
+    // 6. Numeric Season X
     final sMatch = RegExp(
       r'(?:Season\s*(\d+)|(\d+)(?:st|nd|rd|th)\s*Season)',
       caseSensitive: false,
@@ -660,18 +768,296 @@ query (\$id: Int) {
       return (chipLabel: label, orderLabel: label, seasonNumber: sNum);
     }
 
-    // Named Arcs (Demon Slayer, etc.)
+    // 7. Roman Numerals: e.g. "Mob Psycho 100 II", "Mob Psycho 100 III", "Kingdom IV", "Overlord IV"
+    final romanMatch = RegExp(
+      r'(?:^|[\s:])\b(X|IX|VIII|VII|VI|V|IV|III|II)\b(?:\s+Part\s*(\d+)|\s+Cour\s*(\d+))?$',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (romanMatch != null) {
+      const romanMap = {
+        'ii': 2,
+        'iii': 3,
+        'iv': 4,
+        'v': 5,
+        'vi': 6,
+        'vii': 7,
+        'viii': 8,
+        'ix': 9,
+        'x': 10,
+      };
+      final romanStr = romanMatch.group(1)!.toLowerCase();
+      if (romanMap.containsKey(romanStr)) {
+        final sNum = romanMap[romanStr]!;
+        final part = romanMatch.group(2) ?? romanMatch.group(3);
+        final label =
+            part != null
+                ? 'Season $sNum Part $part'
+                : (hasPart2 ? 'Season $sNum Part 1' : 'Season $sNum');
+        return (chipLabel: label, orderLabel: label, seasonNumber: sNum);
+      }
+    }
+
+    // 8. R2 / S2 / Stage syntax (e.g. Code Geass R2, Initial D Second Stage)
+    final rMatch = RegExp(r'\b[RS](\d+)\b', caseSensitive: false).firstMatch(clean);
+    if (rMatch != null) {
+      final sNum = int.tryParse(rMatch.group(1) ?? '') ?? tvIndex;
+      return (chipLabel: 'Season $sNum', orderLabel: 'Season $sNum', seasonNumber: sNum);
+    }
+    final stageMatch = RegExp(
+      r'\b(First|Second|Third|Fourth|Fifth|Final|2nd|3rd|4th|5th)\s+Stage\b',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (stageMatch != null) {
+      const stageMap = {
+        'first': 1,
+        'second': 2,
+        '2nd': 2,
+        'third': 3,
+        '3rd': 3,
+        'fourth': 4,
+        '4th': 4,
+        'fifth': 5,
+        '5th': 5,
+        'final': 6,
+      };
+      final sNum = stageMap[stageMatch.group(1)!.toLowerCase()] ?? tvIndex;
+      return (chipLabel: 'Season $sNum', orderLabel: 'Season $sNum', seasonNumber: sNum);
+    }
+
+    // 9. Demon Slayer: Kimetsu no Yaiba explicit arc recognition
+    if (isKimetsu) {
+      final isRecapSpecial =
+          cleanLower.contains('to the swordsmith village') ||
+          cleanLower.contains('to the hashira training') ||
+          cleanLower.contains('joushi shuuketsu') ||
+          cleanLower.contains('kizuna no kiseki') ||
+          cleanLower.contains('world tour');
+
+      if (isRecapSpecial) {
+        final label =
+            cleanLower.contains('hashira')
+                ? 'Recap: Hashira Training'
+                : 'Recap: Swordsmith Village';
+        return (chipLabel: label, orderLabel: label, seasonNumber: null);
+      }
+
+      if (cleanLower.contains('hashira training') ||
+          cleanLower.contains('hashira geiko')) {
+        return (
+          chipLabel: 'Hashira Training Arc',
+          orderLabel: 'Hashira Training Arc',
+          seasonNumber: 5,
+        );
+      }
+      if (cleanLower.contains('swordsmith village') ||
+          cleanLower.contains('katanakaji')) {
+        return (
+          chipLabel: 'Swordsmith Village Arc',
+          orderLabel: 'Swordsmith Village Arc',
+          seasonNumber: 4,
+        );
+      }
+      if (cleanLower.contains('entertainment district') ||
+          cleanLower.contains('yuukaku')) {
+        return (
+          chipLabel: 'Entertainment District Arc',
+          orderLabel: 'Entertainment District Arc',
+          seasonNumber: 3,
+        );
+      }
+      if (cleanLower.contains('mugen train') ||
+          cleanLower.contains('mugen ressha')) {
+        final label =
+            format == 'MOVIE' ? 'Mugen Train (Movie)' : 'Mugen Train Arc';
+        return (chipLabel: label, orderLabel: label, seasonNumber: 2);
+      }
+      if (cleanLower.contains('infinity castle') ||
+          cleanLower.contains('mugen jou')) {
+        return (
+          chipLabel: 'Infinity Castle Arc',
+          orderLabel: 'Infinity Castle Arc',
+          seasonNumber: 6,
+        );
+      }
+      // Season 1 (root series without arc name)
+      if (!cleanLower.contains('arc') &&
+          !cleanLower.contains('hen') &&
+          (format == 'TV' || format == 'TV_SHORT' || format == 'ONA')) {
+        return (
+          chipLabel: 'Season 1',
+          orderLabel: 'Season 1',
+          seasonNumber: 1,
+        );
+      }
+    }
+
+    // 10. Jujutsu Kaisen
+    if (isJJK) {
+      if (cleanLower.contains('0') &&
+          (format == 'MOVIE' || cleanLower.contains('movie'))) {
+        return (
+          chipLabel: 'Movie: JJK 0',
+          orderLabel: 'Movie: JJK 0',
+          seasonNumber: null,
+        );
+      }
+      if (cleanLower.contains('hidden inventory') ||
+          cleanLower.contains('kaigyoku')) {
+        return (
+          chipLabel: 'Hidden Inventory Arc',
+          orderLabel: 'Hidden Inventory Arc',
+          seasonNumber: 2,
+        );
+      }
+      if (cleanLower.contains('shibuya incident') ||
+          cleanLower.contains('shibuya')) {
+        return (
+          chipLabel: 'Shibuya Incident Arc',
+          orderLabel: 'Shibuya Incident Arc',
+          seasonNumber: 2,
+        );
+      }
+      if (cleanLower.contains('culling game') ||
+          cleanLower.contains('shimetsu')) {
+        return (
+          chipLabel: 'Culling Game Arc',
+          orderLabel: 'Culling Game Arc',
+          seasonNumber: 3,
+        );
+      }
+      if (!cleanLower.contains('arc') &&
+          (format == 'TV' || format == 'TV_SHORT')) {
+        return (
+          chipLabel: 'Season $tvIndex',
+          orderLabel: 'Season $tvIndex',
+          seasonNumber: tvIndex,
+        );
+      }
+    }
+
+    // 11. Bleach: Thousand-Year Blood War
+    if (isBleach &&
+        (cleanLower.contains('thousand-year') ||
+            cleanLower.contains('sennen kessen'))) {
+      if (cleanLower.contains('conflict') || cleanLower.contains('soukoku')) {
+        return (
+          chipLabel: 'TYBW: The Conflict',
+          orderLabel: 'TYBW: The Conflict',
+          seasonNumber: 17,
+        );
+      }
+      if (cleanLower.contains('separation') ||
+          cleanLower.contains('ketsubetsu')) {
+        return (
+          chipLabel: 'TYBW: The Separation',
+          orderLabel: 'TYBW: The Separation',
+          seasonNumber: 16,
+        );
+      }
+      return (
+        chipLabel: 'TYBW: The Blood Warfare',
+        orderLabel: 'TYBW: The Blood Warfare',
+        seasonNumber: 15,
+      );
+    }
+
+    // 12. Dr. STONE
+    if (isDrStone) {
+      if (cleanLower.contains('stone wars')) {
+        return (
+          chipLabel: 'Season 2: Stone Wars',
+          orderLabel: 'Season 2: Stone Wars',
+          seasonNumber: 2,
+        );
+      }
+      if (cleanLower.contains('ryusui')) {
+        return (
+          chipLabel: 'Special: Ryusui',
+          orderLabel: 'Special: Ryusui',
+          seasonNumber: null,
+        );
+      }
+      if (cleanLower.contains('new world')) {
+        final part =
+            cleanLower.contains('part 2') || cleanLower.contains('cour 2')
+                ? 'Part 2'
+                : 'Part 1';
+        return (
+          chipLabel: 'Season 3: New World $part',
+          orderLabel: 'Season 3: New World $part',
+          seasonNumber: 3,
+        );
+      }
+      if (cleanLower.contains('science future')) {
+        return (
+          chipLabel: 'Season 4: Science Future',
+          orderLabel: 'Season 4: Science Future',
+          seasonNumber: 4,
+        );
+      }
+    }
+
+    // 13. JoJo's Bizarre Adventure
+    if (isJoJo) {
+      if (cleanLower.contains('stardust crusaders') ||
+          cleanLower.contains('egypt')) {
+        final part =
+            cleanLower.contains('egypt')
+                ? 'Battle in Egypt'
+                : 'Stardust Crusaders';
+        return (
+          chipLabel: 'Part 3: $part',
+          orderLabel: 'Part 3: $part',
+          seasonNumber: 2,
+        );
+      }
+      if (cleanLower.contains('diamond is unbreakable')) {
+        return (
+          chipLabel: 'Part 4: Diamond is Unbreakable',
+          orderLabel: 'Part 4: Diamond is Unbreakable',
+          seasonNumber: 3,
+        );
+      }
+      if (cleanLower.contains('golden wind') ||
+          cleanLower.contains('ougon no kaze')) {
+        return (
+          chipLabel: 'Part 5: Golden Wind',
+          orderLabel: 'Part 5: Golden Wind',
+          seasonNumber: 4,
+        );
+      }
+      if (cleanLower.contains('stone ocean')) {
+        return (
+          chipLabel: 'Part 6: Stone Ocean',
+          orderLabel: 'Part 6: Stone Ocean',
+          seasonNumber: 5,
+        );
+      }
+    }
+
+    // 14. Named Arcs (Universal General fallback)
     final arcMatch = RegExp(
-      r'(Mugen Train|Entertainment District|Swordsmith Village|Hashira Training|Infinity Castle)(?:\s*Arc)?',
+      r'([A-Za-z0-9\s\-]+?)\s*(?:Arc|Hen|Chapter)\b',
       caseSensitive: false,
     ).firstMatch(clean);
     if (arcMatch != null) {
-      final name = '${arcMatch.group(1)} Arc';
-      return (chipLabel: name, orderLabel: name, seasonNumber: tvIndex);
+      var name = arcMatch.group(1)!.trim();
+      if (name.contains(':')) name = name.split(':').last.trim();
+      if (name.contains(' - ')) name = name.split(' - ').last.trim();
+      if (name.isNotEmpty && name.length <= 28) {
+        final formatted = '$name Arc';
+        return (
+          chipLabel: formatted,
+          orderLabel: formatted,
+          seasonNumber: tvIndex,
+        );
+      }
     }
 
-    // Fallback to Season index for TV
-    if (format == 'TV' || format == 'TV_SHORT') {
+    // 15. Fallback to Season index for TV / ONA
+    if (format == 'TV' ||
+        format == 'TV_SHORT' ||
+        (format == 'ONA' && !cleanLower.contains('movie'))) {
       return (
         chipLabel: 'Season $tvIndex',
         orderLabel: 'Season $tvIndex',

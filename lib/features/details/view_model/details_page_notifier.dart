@@ -70,8 +70,21 @@ class DetailsPageState {
 
 @riverpod
 class DetailsPageNotifier extends _$DetailsPageNotifier {
-  bool _isUnreleased(UniversalMedia? media) =>
-      media?.status?.toUpperCase() == 'NOT_YET_RELEASED';
+  bool _isUnreleased(UniversalMedia? media) {
+    if (media == null) return false;
+    final status = media.status?.toUpperCase();
+    if (status == 'RELEASING' || status == 'FINISHED') return false;
+    if (media.nextAiringEpisode != null &&
+        (media.nextAiringEpisode!.episode ?? 1) > 1) {
+      return false;
+    }
+    if (media.episodes != null &&
+        media.episodes! > 0 &&
+        status != 'NOT_YET_RELEASED') {
+      return false;
+    }
+    return status == 'NOT_YET_RELEASED';
+  }
 
   @override
   DetailsPageState build(String animeId) {
@@ -109,6 +122,22 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
       final enrichedMedia = state.details.value ?? media;
       if (episodeState.episodes.isEmpty && episodeState.error != null) {
         await _fetchEpisodes(enrichedMedia.title, force: true);
+      }
+    } else {
+      await selectSeason(media);
+    }
+  }
+
+  Future<void> selectSeason(UniversalMedia media) async {
+    if (state.details is AsyncLoading) {
+      await init(media);
+      return;
+    }
+    final targetMedia = state.details.value ?? media;
+    final epState = ref.read(episodeListProvider);
+    if (epState.mediaId != targetMedia.id || epState.episodes.isEmpty) {
+      if (!_isUnreleased(targetMedia)) {
+        await _fetchEpisodes(targetMedia.title, force: false);
       }
     }
   }

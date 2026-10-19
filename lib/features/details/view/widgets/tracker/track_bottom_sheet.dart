@@ -201,7 +201,7 @@ class _TrackerListItem extends ConsumerWidget {
                                       .read(
                                         mediaTrackerProvider(anime.id).notifier,
                                       )
-                                      .trackAsCurrent(type);
+                                      .trackAsCurrent(type, anime: anime);
                                 } else {
                                   updateStatus();
                                 }
@@ -288,7 +288,7 @@ class _TrackerListItem extends ConsumerWidget {
                   onPressed: () {
                     ref
                         .read(mediaTrackerProvider(anime.id).notifier)
-                        .trackAsCurrent(type);
+                        .trackAsCurrent(type, anime: anime);
                   },
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add to Watching'),

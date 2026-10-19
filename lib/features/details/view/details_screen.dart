@@ -73,6 +73,8 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
     );
   }
 
+  bool _forceShowEpisodes = false;
+
   void _onSeasonSelected(UniversalMedia media) {
     if (media.id == _activeMedia.id) return;
     // The episode list is shared for playback continuity. Clear it before
@@ -81,8 +83,9 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
     ref.read(episodeListProvider.notifier).reset();
     setState(() {
       _activeMedia = media;
+      _forceShowEpisodes = false;
     });
-    ref.read(detailsPageProvider(media.id).notifier).init(media);
+    ref.read(detailsPageProvider(media.id).notifier).selectSeason(media);
   }
 
   @override
@@ -99,7 +102,10 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
     final isLoading = pageState.isLoading;
     final isMovie = displayedAnime.format?.toUpperCase() == 'MOVIE';
     final isUnreleased =
-        displayedAnime.status?.toUpperCase() == 'NOT_YET_RELEASED';
+        displayedAnime.status?.toUpperCase() == 'NOT_YET_RELEASED' &&
+        (displayedAnime.nextAiringEpisode == null ||
+            (displayedAnime.nextAiringEpisode!.episode ?? 1) <= 1) &&
+        (displayedAnime.episodes == null || displayedAnime.episodes! <= 0);
     final isDesktop = !(Platform.isAndroid || Platform.isIOS);
 
     return Scaffold(
@@ -176,8 +182,13 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
                 _KeepAliveWrapper(
                   key: ValueKey('episodes-wrap-${displayedAnime.id}'),
                   child:
-                      isUnreleased
-                          ? _UnreleasedEpisodesNotice(anime: displayedAnime)
+                      (isUnreleased && !_forceShowEpisodes)
+                          ? _UnreleasedEpisodesNotice(
+                            anime: displayedAnime,
+                            onShowEpisodes:
+                                () =>
+                                    setState(() => _forceShowEpisodes = true),
+                          )
                           : EpisodesTab(
                             key: ValueKey('episodes-${displayedAnime.id}'),
                             anime: displayedAnime,
@@ -247,9 +258,13 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
 }
 
 class _UnreleasedEpisodesNotice extends StatelessWidget {
-  const _UnreleasedEpisodesNotice({required this.anime});
+  const _UnreleasedEpisodesNotice({
+    required this.anime,
+    this.onShowEpisodes,
+  });
 
   final UniversalMedia anime;
+  final VoidCallback? onShowEpisodes;
 
   String? get _releaseLabel {
     final airingAt = anime.nextAiringEpisode?.airingAt;
@@ -308,6 +323,14 @@ class _UnreleasedEpisodesNotice extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(color: colors.onPrimaryContainer),
                 ),
+              ),
+            ],
+            if (onShowEpisodes != null) ...[
+              const SizedBox(height: 20),
+              FilledButton.tonalIcon(
+                onPressed: onShowEpisodes,
+                icon: const Icon(Icons.search_rounded, size: 18),
+                label: const Text('Check Available Episodes Anyway'),
               ),
             ],
           ],
