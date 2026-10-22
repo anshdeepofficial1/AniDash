@@ -1,32 +1,27 @@
-# AniDash v2.1.3 — Seamless Playback, Instant Fillers & UI Notch Hardening
+# AniDash v2.1.4 — Story Arc Auto-Alignment & Next Up Episode Parity
 
-AniDash v2.1.3 delivers instant filler episode tag rendering, resolves the next-episode auto-play loading spinner lockup, hardens video player orientation and notch/status bar spacing in portrait mode, secures the developer issue dashboard, and resolves repository security advisories.
+AniDash v2.1.4 introduces automatic story arc alignment, smooth horizontal arc chip centering, precise episode list auto-scrolling, and resolves next-up episode parity between the Home Screen and the Episodes view.
 
-## 🌟 What's New in v2.1.3
+## 🌟 What's New in v2.1.4
 
-### ⚡ Instant 0s Filler Episode Tags
-- **Persistent Disk & Memory Cache**: Once fetched, canon/mixed/filler episode classification is cached locally (`SharedPreferences`). Opening any anime or episode list renders filler tags immediately (**0ms delay**).
-- **AnimeFillerList Priority**: Flipped priority to query AnimeFillerList directly first (~250–400ms for entire series metadata), keeping Jikan strictly as a capped fast fallback.
-- **Eager Prefetching**: Details screen eagerly prefetches filler information in parallel during metadata initialization so tags are already available before episode lists render.
+### ⛩️ Automatic Story Arc & Range Alignment
+- **Target Arc Auto-Selection**: Opening any anime with story arcs (e.g. One Piece, Bleach, Naruto, Black Clover, Hunter x Hunter) automatically determines your current progress and activates the exact arc containing your current episode.
+- **Horizontal Arc Centering**: The top horizontal arc bar now automatically scrolls to center the active story arc chip, giving immediate visual clarity without manual horizontal scrolling.
+- **Direct Episode Focus**: The episode list below immediately displays the active arc's episodes and auto-scrolls smoothly to your exact current episode.
+- **Numeric Range Parity**: For series without predefined story arcs or when numeric ranges are preferred, the matching 50-episode range (e.g. 251–300, 301–350) is automatically activated and centered.
 
-### 🎬 Next-Episode Auto-Play "Starting Video" Fix
-- **Smooth Playback Handoff**: Fixed a critical race condition where auto-advancing at the end of an episode left the "Starting video…" loading spinner spinning endlessly over a playing video.
-- **Playback Event Driven**: Integrated BetterPlayer `play` and `progress` event listeners so loading indicators and buffering states dismiss immediately upon first frame decoding.
-- **Timeline Synchronization**: Fixed `_episodeTransitionInProgress` timeline latching in `WatchController` so progress bar and player controls track seamlessly from 0:00 without freezing.
+### 🎯 Next Up Episode Parity & Accurate Continuation
+- **Unified Next-Up Engine**: Eliminated the off-by-one bug where the Episodes area was prematurely advancing to the following episode (e.g. jumping to Episode 338 when Episode 337 was yet to be watched).
+- **Home & Details Synchronization**: The "NEXT UP / CONTINUE" card in the Episodes view now uses the identical progress and completion verification algorithm as the Home Screen's Continue Watching card and Watch History.
+- **Seamless Player Sync**: The In-Player Episodes Panel also honors story arcs and auto-aligns with your active playback episode.
 
-### 📱 Portrait Mode & Status Bar / Notch Spacing
-- **Hardware-Aware Notch Clearance**: Replaced naive padding with true physical display cutout insets (`viewPadding.top`). The top circular back button, title, and controls never get obscured by camera cutouts or status bar icons.
-- **Auto-Sync Rotation**: Turning the phone upright to portrait now cleanly restores the 16:9 pinned player and detailed tabs, preventing accidental full-screen layout lockup in portrait.
-- **Adaptive Fullscreen Button**: Bottom toolbar icon dynamically toggles between fullscreen and exit-fullscreen icons based on the current screen state.
-
-### 🛡️ Developer-Exclusive Issues Dashboard & Security Hardening
-- **Admin-Only Access**: The "User Feedback & Issues" viewer is strictly restricted to developer AniList account (`ID: 8013267`) and protected by the 4-digit Developer PIN.
-- **Repository Security Governance**: Added GitHub-standard `.github/SECURITY.md` security policy, automated `.github/dependabot.yml` vulnerability tracking, and secret scanning CI workflow.
-- **Credential Cleanliness**: Removed tracked Google API Key from `google-services.json` and resolved GitHub secret scanning alert #1. Root repository cleaned and un-cluttered.
+### 📚 Expanded Verified Story Arcs
+- Added verified saga boundaries for **Hunter x Hunter (2011)** (Hunter Exam, Heavens Arena, Yorknew City, Greed Island, Chimera Ant, 13th Chairman Election).
+- Hardened AniList ID, MAL ID, and title variations matching across all verified series.
 
 ## 🛠️ Verification
-- Static analysis verified: 0 errors, 0 warnings (`dart analyze lib/`).
-- Full unit test suite verified: 117/117 tests passed (`flutter test test/unit/`).
+- Static analysis verified: 0 errors, 0 warnings (`dart analyze`).
+- Full unit test suite verified: 119/119 tests passed (`flutter test test/unit/`).
 - Available APK Variants: Universal, arm64-v8a, armeabi-v7a, x86_64.
 
-**Version:** 2.1.3 (Build 148)
+**Version:** 2.1.4 (Build 149)
