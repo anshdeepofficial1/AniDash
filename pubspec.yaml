@@ -20,7 +20,7 @@ dependencies:
   # 7.1+ requires Xcode 26; 6.1.5 keeps identical connectivity behavior while
   # supporting the stable macOS runner used for unsigned IPA builds.
   connectivity_plus: 6.1.5
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^2.0.0
 
   commentum_client:
     git:
