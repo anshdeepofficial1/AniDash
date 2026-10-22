@@ -36,7 +36,7 @@ jobs:
     if: github.event_name == 'push' || github.event.inputs.build_android == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with:
           distribution: "temurin"
@@ -189,7 +189,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_linux == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -228,7 +228,7 @@ jobs:
     # exposes VS 2026 and makes CMake incorrectly fall back to VS 2019.
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -307,7 +307,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_macos == 'true'
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.35.7"
@@ -347,7 +347,7 @@ jobs:
        needs.build-windows.result == 'success' ||
        needs.build-macos.result == 'success')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/download-artifact@v4
