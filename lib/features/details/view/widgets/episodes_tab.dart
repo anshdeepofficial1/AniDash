@@ -1,3 +1,4 @@
+import 'package:ani_dash/core/services/anime_filler_service.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -489,6 +490,10 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
             widget.mediaTitle.english ??
             widget.mediaTitle.romaji ??
             '';
+        AnimeFillerService().getFillerInfo(
+          title: titleForSearch,
+          malId: widget.malId,
+        );
         ref
             .read(episodeListProvider.notifier)
             .fetchEpisodes(

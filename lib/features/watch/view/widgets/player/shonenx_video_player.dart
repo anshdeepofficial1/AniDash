@@ -743,15 +743,15 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     final episodesLoading = ref.watch(
       episodeListProvider.select((e) => e.isLoading),
     );
-    // Background server/quality discovery must never cover a video that is
-    // already playing. Real underrun, seek, or opening always displays the
-    // central loading indicator.
+    // Background server/quality discovery and initial opening states must never
+    // cover a video that is actively playing frames. Real underrun, seek, or
+    // genuine pre-playback loading displays the central indicator.
     final isBusy =
-        isBuffering ||
         isSeeking ||
-        isOpening ||
         (!isPlaying &&
-            (episodesLoading ||
+            (isBuffering ||
+                isOpening ||
+                episodesLoading ||
                 episodeStreamState.contains(
                   EpisodeStreamState.SOURCE_LOADING,
                 ) ||
@@ -760,7 +760,8 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                 ) ||
                 episodeStreamState.contains(
                   EpisodeStreamState.QUALITY_LOADING,
-                )));
+                ))) ||
+        (isPlaying && isBuffering);
 
     Widget videoView = RepaintBoundary(
       child: BetterPlayer(controller: notifier.betterPlayerController),
@@ -988,7 +989,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const FetchingProgressBadge(isEpisode: false),
-                          if (isOpening) ...[
+                          if (isOpening && !isPlaying) ...[
                             const SizedBox(height: 8),
                             const Text(
                               'Starting video…',

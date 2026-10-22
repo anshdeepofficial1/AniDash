@@ -8,6 +8,7 @@ import 'package:ani_dash/core/utils/formatter.dart';
 import 'package:ani_dash/features/watch/view_model/aniskip_notifier.dart';
 import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart';
 import 'package:ani_dash/features/watch/view_model/player/player_provider.dart';
+import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/main.dart';
 
 class BottomControls extends ConsumerStatefulWidget {
@@ -123,7 +124,11 @@ class _BottomControlsState extends ConsumerState<BottomControls> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             _ToolbarIcon(
-                              icon: Icons.fullscreen_rounded,
+                              icon: (MediaQuery.of(context).orientation ==
+                                          Orientation.landscape ||
+                                      UIHelper.isFullscreen)
+                                  ? Icons.fullscreen_exit_rounded
+                                  : Icons.fullscreen_rounded,
                               onTap: widget.onFullScreenPressed,
                             ),
                             _ToolbarIcon(

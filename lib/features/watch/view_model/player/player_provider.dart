@@ -182,10 +182,29 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
 
   void _onPlayerEvent(BetterPlayerEvent event) {
     switch (event.betterPlayerEventType) {
+      case BetterPlayerEventType.play:
+        _startupTimer?.cancel();
+        _startupTimer = null;
+        state = state.copyWith(
+          isPlaying: true,
+          isOpening: false,
+          isBuffering: false,
+          clearPlaybackError: true,
+        );
+      case BetterPlayerEventType.progress:
+        _startupTimer?.cancel();
+        _startupTimer = null;
+        state = state.copyWith(
+          isOpening: false,
+          clearPlaybackError: true,
+        );
       case BetterPlayerEventType.bufferingStart:
         state = state.copyWith(isBuffering: true);
       case BetterPlayerEventType.bufferingEnd:
-        state = state.copyWith(isBuffering: false);
+        state = state.copyWith(
+          isBuffering: false,
+          isOpening: state.isPlaying ? false : null,
+        );
       case BetterPlayerEventType.finished:
         if (!_completionEmitted) {
           _completionEmitted = true;
@@ -229,7 +248,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       }
     }
 
-    if (pos > Duration.zero && !_isEpisodeTransition) {
+    if ((pos > Duration.zero || value.isPlaying) && !_isEpisodeTransition) {
       _startupTimer?.cancel();
       _startupTimer = null;
       _lastStablePosition = pos;
@@ -265,16 +284,17 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         )
         .expand((line) => line.texts ?? const <String>[])
         .toList(growable: false);
+    final isActivelyPlaying = value.isPlaying;
     state = state.copyWith(
       position: pos,
       duration: duration,
       buffer: buffer,
-      isPlaying: value.isPlaying,
+      isPlaying: isActivelyPlaying,
       isBuffering: isActuallyBuffering,
       isSeeking: (target != null) ? true : false,
-      isOpening: pos > Duration.zero ? false : null,
+      isOpening: (pos > Duration.zero || isActivelyPlaying) ? false : null,
       subtitle: subtitle,
-      clearPlaybackError: pos > Duration.zero,
+      clearPlaybackError: pos > Duration.zero || isActivelyPlaying,
     );
   }
 
@@ -443,6 +463,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   }
 
   void resetForNewEpisode({int? episode}) {
+    if (_activeEpisode == episode && state.isPlaying && state.position > Duration.zero) {
+      // Episode already actively playing; keep playback smooth
+      return;
+    }
     _isEpisodeTransition = true;
     _activeEpisode = episode;
     _lastStablePosition = Duration.zero;
@@ -460,6 +484,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       position: Duration.zero,
       duration: Duration.zero,
       buffer: Duration.zero,
+      isPlaying: false,
       isOpening: true,
       isBuffering: true,
       clearPlaybackError: true,

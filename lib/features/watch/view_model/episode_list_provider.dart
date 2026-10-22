@@ -283,6 +283,12 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         animeId: animeId,
         mediaId: mediaId,
       );
+      final cachedFiller =
+          AnimeFillerService().getCachedFillerInfo(animeTitle);
+      if (cachedFiller != null &&
+          (cachedFiller.fillers.isNotEmpty || cachedFiller.mixed.isNotEmpty)) {
+        normalized = _applyFillerInfoToList(normalized, cachedFiller);
+      }
       if (requestGeneration != _requestGeneration) return const [];
       state = state.copyWith(
         episodes: normalized,
@@ -308,6 +314,12 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       animeId: animeId,
       mediaId: mediaId,
     );
+    final cachedFiller =
+        AnimeFillerService().getCachedFillerInfo(animeTitle);
+    if (cachedFiller != null &&
+        (cachedFiller.fillers.isNotEmpty || cachedFiller.mixed.isNotEmpty)) {
+      fetched = _applyFillerInfoToList(fetched, cachedFiller);
+    }
 
     if (fetched.isEmpty) {
       final titleLow = animeTitle.toLowerCase();
@@ -680,6 +692,9 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       'Initializing metadata and episode name sync for: ${state.animeTitle}',
     );
 
+    // Concurrently trigger filler sync immediately in parallel (zero delay)
+    unawaited(_syncFillerInfo());
+
     // unawaited ensures Riverpod doesn't block while fetching non-critical metadata
     unawaited(
       _runMetadataSync().whenComplete(
@@ -700,13 +715,10 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       );
       await _persistCurrentEpisodeMetadata().catchError((_) {});
 
-      // 2. Concurrently enrich Jikan & Kitsu for official MAL/Kitsu titles and filler info
+      // 2. Concurrently enrich Jikan & Kitsu for official MAL/Kitsu titles
       await Future.wait([
         _syncWithJikan().catchError((e) => AppLogger.d('Jikan sync error: $e')),
         _syncWithKitsu().catchError((e) => AppLogger.d('Kitsu sync error: $e')),
-        _syncFillerInfo().catchError(
-          (e) => AppLogger.d('Filler sync error: $e'),
-        ),
       ]);
 
       // 3. Final TVMaze pass in case any thumbnails or titles remain unfilled
@@ -1100,9 +1112,35 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     }
   }
 
+  List<EpisodeDataModel> _applyFillerInfoToList(
+    List<EpisodeDataModel> episodes,
+    AnimeFillerInfo fillerInfo,
+  ) {
+    if (episodes.isEmpty ||
+        (fillerInfo.fillers.isEmpty && fillerInfo.mixed.isEmpty)) {
+      return episodes;
+    }
+    return episodes.map((ep) {
+      final epNum = ep.number;
+      if (epNum == null) return ep;
+      final isFiller =
+          fillerInfo.fillers.contains(epNum) || ep.isFiller == true;
+      final isMixed = fillerInfo.mixed.contains(epNum);
+      if (isFiller == (ep.isFiller ?? false) &&
+          isMixed == (ep.isMixed ?? false)) {
+        return ep;
+      }
+      return ep.copyWith(
+        isFiller: isFiller,
+        isMixed: isMixed,
+      );
+    }).toList(growable: false);
+  }
+
   Future<void> _syncFillerInfo() async {
     try {
-      final currentTitle = state.animeTitle!;
+      final currentTitle = state.animeTitle;
+      if (currentTitle == null || currentTitle.trim().isEmpty) return;
       final malId = state.malId;
 
       final fillerInfo = await AnimeFillerService().getFillerInfo(
@@ -1112,28 +1150,11 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
 
       if ((fillerInfo.fillers.isNotEmpty || fillerInfo.mixed.isNotEmpty) &&
           state.episodes.isNotEmpty) {
-        final updated = List<EpisodeDataModel>.of(state.episodes);
-        var fillerCount = 0;
-        for (var i = 0; i < updated.length; i++) {
-          final epNum = updated[i].number ?? (i + 1);
-          final isFiller =
-              fillerInfo.fillers.contains(epNum) || updated[i].isFiller == true;
-          final isMixed = fillerInfo.mixed.contains(epNum);
-          if (isFiller != (updated[i].isFiller ?? false) ||
-              isMixed != (updated[i].isMixed ?? false)) {
-            updated[i] = updated[i].copyWith(
-              isFiller: isFiller,
-              isMixed: isMixed,
-            );
-            if (isFiller || isMixed) fillerCount++;
-          }
-        }
-        if (fillerCount > 0) {
-          AppLogger.success(
-            'Highlighted $fillerCount filler/mixed episodes for "$currentTitle"',
-          );
-          state = state.copyWith(episodes: updated);
-        }
+        final updated = _applyFillerInfoToList(state.episodes, fillerInfo);
+        AppLogger.success(
+          'Highlighted filler/mixed episodes for "$currentTitle"',
+        );
+        state = state.copyWith(episodes: updated);
       }
     } catch (e) {
       AppLogger.d('AnimeFillerService sync error: $e');

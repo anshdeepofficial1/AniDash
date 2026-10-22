@@ -488,15 +488,19 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         if (next.isOpening || next.position <= const Duration(seconds: 2)) {
           _pos = 0;
           _dur = 0;
-          if (!next.isOpening && next.position > Duration.zero) {
+          if ((!next.isOpening && next.position > Duration.zero) ||
+              next.isPlaying ||
+              next.position > const Duration(seconds: 2)) {
             _episodeTransitionInProgress = false;
             _isPlayerReady = true;
           }
+        } else {
+          _episodeTransitionInProgress = false;
+          _isPlayerReady = true;
         }
-        // A pause/EOF event from the old media can arrive after the episode
-        // selector has already moved. Never persist that old final position
-        // under the new episode number.
-        return;
+        if (_episodeTransitionInProgress) {
+          return;
+        }
       }
 
       _pos = next.position.inSeconds;

@@ -44,6 +44,7 @@ import 'package:ani_dash/features/settings/view/screens/update_screen.dart';
 import 'package:ani_dash/features/settings/view/screens/notification_settings_screen.dart';
 import 'package:ani_dash/features/settings/view/screens/security_settings_screen.dart';
 import 'package:ani_dash/features/settings/view/screens/admin_broadcast_screen.dart';
+import 'package:ani_dash/features/settings/view/screens/admin_issues_screen.dart';
 import 'package:ani_dash/router/router_wrapper.dart';
 import 'package:ani_dash/features/ai/domain/ai_models.dart';
 import 'package:ani_dash/features/ai/view/ai_chat_screen.dart';
@@ -432,6 +433,10 @@ final routerConfig = GoRouter(
         DesktopAdaptiveRoute(
           path: 'admin-broadcast',
           contentBuilder: (_, _) => const AdminBroadcastScreen(),
+        ),
+        DesktopAdaptiveRoute(
+          path: 'admin-issues',
+          contentBuilder: (_, _) => const AdminIssuesScreen(),
         ),
         DesktopAdaptiveRoute(
           path: 'ai',
