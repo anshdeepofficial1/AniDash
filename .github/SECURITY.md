@@ -29,7 +29,7 @@ If you discover a security vulnerability, sensitive token exposure, or security-
    - Click **"Report a vulnerability"** to open a confidential draft advisory directly to repository maintainers.
 
 2. **Direct Maintainer Contact**:
-   - **Email**: `anshdeep.work@gmail.com`
+   - **Email**: `anshdeepofficialone@gmail.com`
    - **AniList**: [Profile #8013267](https://anilist.co/user/8013267/)
    - Subject line: `[SECURITY] AniDash Vulnerability Report - <Brief Description>`
 
