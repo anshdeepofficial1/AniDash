@@ -180,7 +180,7 @@ jobs:
           mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/AniDash-v${VERSION}-armeabi-v7a.apk"
           flutter build apk --release --target-platform android-x64 --no-tree-shake-icons --obfuscate --split-debug-info=build/app/outputs/symbols/x86_64 --dart-define-from-file=keys.json --dart-define=ANIDASH_APK_VARIANT=x86_64
           mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/AniDash-v${VERSION}-x86_64.apk"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-apks
           path: build/app/outputs/flutter-apk/*.apk
@@ -217,7 +217,7 @@ jobs:
       - run: |
           cd build/linux/x64/release/bundle
           zip -r ../../../../../ShonenX-Linux.zip .
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-bundle
           path: ShonenX-Linux.zip
@@ -296,7 +296,7 @@ jobs:
         run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss'
       - name: Create Portable Zip
         run: Compress-Archive -Path build\windows\x64\runner\release\* -DestinationPath AniDash-Windows-Portable.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-dist
           path: |
@@ -332,7 +332,7 @@ jobs:
         run: |
           chmod +x scripts/build_macos_dmg.sh
           ./scripts/build_macos_dmg.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-dmg
           path: build/macos/installer/*.dmg

@@ -24,7 +24,7 @@ jobs:
           cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
           cd build/ios/ipa
           zip -qry AniDash-iOS-unsigned-v1.17.0.ipa Payload
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: AniDash-iOS-unsigned-v1.17.0
           path: build/ios/ipa/AniDash-iOS-unsigned-v1.17.0.ipa
