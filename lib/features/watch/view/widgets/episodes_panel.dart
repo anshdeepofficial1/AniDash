@@ -50,7 +50,8 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
   void initState() {
     super.initState();
     _loadRangeSize();
-    _useNamedGroups = sharedPrefs.getString('episode_grouping_mode') == 'named';
+    final stored = sharedPrefs.getString('episode_grouping_mode');
+    _useNamedGroups = stored != 'ranges';
     widget.panelAnimation.addStatusListener(_onPanelStatusChanged);
   }
 
@@ -83,7 +84,7 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
 
   Future<void> _loadNamedGroups(String? animeTitle) async {
     final token = '${widget.mediaId}:${animeTitle ?? ''}';
-    if (!_useNamedGroups || _groupsLoadedFor == token) return;
+    if (_groupsLoadedFor == token) return;
     _groupsLoadedFor = token;
     final malId = ref.read(episodeListProvider).malId?.toString();
     final groups = await const VerifiedEpisodeGroupingRepository()
@@ -94,12 +95,18 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
         );
     if (!mounted) return;
     final selectedEp = ref.read(episodeDataProvider).selectedEpisode ?? 1;
+    final currentGroupingMode = sharedPrefs.getString('episode_grouping_mode');
     setState(() {
       _namedGroups = groups;
+      if (groups.isNotEmpty &&
+          (currentGroupingMode == null || currentGroupingMode == 'named')) {
+        _useNamedGroups = true;
+      } else if (groups.isEmpty) {
+        _useNamedGroups = false;
+      }
       _selectedNamedGroup =
           groups.firstWhereOrNull((group) => group.contains(selectedEp)) ??
           groups.firstOrNull;
-      if (groups.isEmpty) _useNamedGroups = false;
       _lastScrolledEp = null;
     });
   }
@@ -203,12 +210,12 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
       episodeListProvider.select((s) => s.animeTitle),
     );
     final currentGroupingMode = sharedPrefs.getString('episode_grouping_mode');
-    final wantNamedGroups = currentGroupingMode == 'named';
+    final wantNamedGroups = currentGroupingMode != 'ranges';
     if (_useNamedGroups != wantNamedGroups) {
       _useNamedGroups = wantNamedGroups;
       _groupsLoadedFor = null;
     }
-    if (_useNamedGroups && _groupsLoadedFor == null) {
+    if (_groupsLoadedFor == null) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _loadNamedGroups(animeTitle),
       );

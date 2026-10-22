@@ -95,6 +95,16 @@ class VerifiedEpisodeGroupingRepository implements EpisodeGroupingRepository {
     _group('34572', 'spade-kingdom', 'Spade Kingdom', 158, 170, 9),
   ];
 
+  static final List<NamedEpisodeGroup> _hunterXHunter = <NamedEpisodeGroup>[
+    _group('11061', 'hunter-exam', 'Hunter Exam', 1, 21, 0),
+    _group('11061', 'zoldyck-family', 'Zoldyck Family', 22, 26, 1),
+    _group('11061', 'heavens-arena', 'Heavens Arena', 27, 36, 2),
+    _group('11061', 'yorknew-city', 'Yorknew City', 37, 58, 3),
+    _group('11061', 'greed-island', 'Greed Island', 59, 75, 4),
+    _group('11061', 'chimera-ant', 'Chimera Ant', 76, 136, 5),
+    _group('11061', 'election', '13th Chairman Election', 137, 148, 6),
+  ];
+
   static NamedEpisodeGroup _group(
     String animeId,
     String id,
@@ -160,22 +170,35 @@ class VerifiedEpisodeGroupingRepository implements EpisodeGroupingRepository {
       }
     } catch (_) {}
 
-    final identity = malId ?? animeId;
-    final groups = switch (identity) {
-      '21' => _onePiece,
-      '20' => _naruto,
-      '1735' => _narutoShippuden,
-      '269' => _bleach,
-      '34572' => _blackClover,
-      _ => switch (normalizedTitle) {
-        'onepiece' => _onePiece,
-        'naruto' => _naruto,
-        'narutoshippuden' || 'narutoshippuuden' => _narutoShippuden,
-        'bleach' => _bleach,
-        'blackclover' => _blackClover,
-        _ => const <NamedEpisodeGroup>[],
-      },
-    };
+    final ids = {animeId, if (malId != null) malId};
+    List<NamedEpisodeGroup> groups = const <NamedEpisodeGroup>[];
+    if (ids.contains('21')) {
+      groups = _onePiece;
+    } else if (ids.contains('20')) {
+      groups = _naruto;
+    } else if (ids.contains('1735')) {
+      groups = _narutoShippuden;
+    } else if (ids.contains('269')) {
+      groups = _bleach;
+    } else if (ids.contains('34572') || ids.contains('97940')) {
+      groups = _blackClover;
+    } else if (ids.contains('11061')) {
+      groups = _hunterXHunter;
+    } else if (normalizedTitle.contains('onepiece')) {
+      groups = _onePiece;
+    } else if (normalizedTitle.contains('narutoshippu')) {
+      groups = _narutoShippuden;
+    } else if (normalizedTitle.contains('naruto')) {
+      groups = _naruto;
+    } else if (normalizedTitle.contains('bleach') &&
+        !normalizedTitle.contains('thousandyear')) {
+      groups = _bleach;
+    } else if (normalizedTitle.contains('blackclover')) {
+      groups = _blackClover;
+    } else if (normalizedTitle.contains('hunterxhunter') ||
+        normalizedTitle.contains('hunterhunter')) {
+      groups = _hunterXHunter;
+    }
     return List<NamedEpisodeGroup>.unmodifiable(groups);
   }
 
