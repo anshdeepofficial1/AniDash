@@ -19,9 +19,10 @@ AniDash v2.1.3 delivers instant filler episode tag rendering, resolves the next-
 - **Auto-Sync Rotation**: Turning the phone upright to portrait now cleanly restores the 16:9 pinned player and detailed tabs, preventing accidental full-screen layout lockup in portrait.
 - **Adaptive Fullscreen Button**: Bottom toolbar icon dynamically toggles between fullscreen and exit-fullscreen icons based on the current screen state.
 
-### 🛡️ Developer-Exclusive Issues Dashboard & Security
+### 🛡️ Developer-Exclusive Issues Dashboard & Security Hardening
 - **Admin-Only Access**: The "User Feedback & Issues" viewer is strictly restricted to developer AniList account (`ID: 8013267`) and protected by the 4-digit Developer PIN.
-- **Security Hardening**: Removed hardcoded Google API Key from `google-services.json` and resolved GitHub secret scanning alert #1.
+- **Repository Security Governance**: Added GitHub-standard `.github/SECURITY.md` security policy, automated `.github/dependabot.yml` vulnerability tracking, and secret scanning CI workflow.
+- **Credential Cleanliness**: Removed tracked Google API Key from `google-services.json` and resolved GitHub secret scanning alert #1. Root repository cleaned and un-cluttered.
 
 ## 🛠️ Verification
 - Static analysis verified: 0 errors, 0 warnings (`dart analyze lib/`).
