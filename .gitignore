@@ -88,3 +88,21 @@ repomix-output.xml
 
 .vercel
 .env*
+
+# Node & dependencies
+node_modules/
+
+# Local testing, emulator dumps & caches
+.cache-backup/
+.emulator-test-data/
+.gradle-anidash-build/
+/*.png
+/*.xml
+/*.m3u8
+/*.bin
+/*.err
+/manifest-*.txt
+/segment-*.txt
+/stream-url.txt
+/child-*.txt
+/probe*.json
