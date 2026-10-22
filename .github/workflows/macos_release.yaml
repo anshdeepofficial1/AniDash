@@ -55,7 +55,7 @@ jobs:
           ./scripts/build_macos_dmg.sh
 
       - name: Upload DMG Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: AniDash-macOS-DMG
           path: build/macos/installer/*.dmg
