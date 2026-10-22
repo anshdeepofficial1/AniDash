@@ -62,7 +62,7 @@ jobs:
 
       - name: Release to GitHub (if Tagged)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: build/macos/installer/*.dmg
           token: ${{ secrets.GITHUB_TOKEN }}
