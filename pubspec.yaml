@@ -68,7 +68,7 @@ dependencies:
   install_plugin: ^2.1.0
   intl: ^0.20.2
   isar_community: ^3.3.0
-  isar_community_flutter_libs: ^3.3.0
+  isar_community_flutter_libs: ^3.4.1
 
   js_packer: ^0.0.5
   logger: ^2.5.0
