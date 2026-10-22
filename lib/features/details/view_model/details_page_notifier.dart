@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ani_dash/core/models/universal/universal_media.dart';
 import 'package:ani_dash/core/jikan/jikan_service.dart';
+import 'package:ani_dash/core/services/anime_filler_service.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart';
@@ -101,6 +103,14 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
       ref.read(episodeListProvider.notifier).reset();
       ref.read(episodeDataProvider.notifier).reset();
 
+      // Eagerly prefetch filler information so episodes render with filler tags instantly
+      unawaited(
+        AnimeFillerService().getFillerInfo(
+          title: media.title.userPreferred,
+          malId: int.tryParse(media.idMal ?? ''),
+        ),
+      );
+
       // Never query streaming sources for unreleased media. Enrich metadata
       // first because it may contain a newer release status/date.
       if (_isUnreleased(media)) {
@@ -134,6 +144,12 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
       return;
     }
     final targetMedia = state.details.value ?? media;
+    unawaited(
+      AnimeFillerService().getFillerInfo(
+        title: targetMedia.title.userPreferred,
+        malId: int.tryParse(targetMedia.idMal ?? ''),
+      ),
+    );
     final epState = ref.read(episodeListProvider);
     if (epState.mediaId != targetMedia.id || epState.episodes.isEmpty) {
       if (!_isUnreleased(targetMedia)) {

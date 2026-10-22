@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -91,6 +92,20 @@ class TopControls extends ConsumerWidget {
                 rawEpisodeTitle?.toLowerCase().contains('the very final') ==
                     true));
 
+    final mediaQuery = MediaQuery.of(context);
+    final topInset = math.max(
+      mediaQuery.padding.top,
+      mediaQuery.viewPadding.top,
+    );
+    final leftInset = math.max(
+      mediaQuery.padding.left,
+      mediaQuery.viewPadding.left,
+    );
+    final rightInset = math.max(
+      mediaQuery.padding.right,
+      mediaQuery.viewPadding.right,
+    );
+
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -100,30 +115,38 @@ class TopControls extends ConsumerWidget {
           stops: [0.0, 0.5, 1.0],
         ),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _wrap(() {
-                    Navigator.of(context).maybePop();
-                  }),
-                  customBorder: const CircleBorder(),
-                  child: const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      color: Colors.white,
-                      size: 26,
-                    ),
+      child: Padding(
+        padding: EdgeInsets.only(
+          top: topInset > 0 ? topInset + 4 : 12,
+          bottom: 12,
+          left: math.max(leftInset, 10),
+          right: math.max(rightInset, 10),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _wrap(() {
+                  Navigator.of(context).maybePop();
+                }),
+                customBorder: const CircleBorder(),
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  padding: const EdgeInsets.all(8.0),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                    size: 26,
                   ),
                 ),
               ),
+            ),
               const SizedBox(width: 12),
 
               Expanded(
@@ -261,8 +284,7 @@ class TopControls extends ConsumerWidget {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   void _showRotationSheet(BuildContext context, WidgetRef ref) {

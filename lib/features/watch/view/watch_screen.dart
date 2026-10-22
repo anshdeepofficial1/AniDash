@@ -224,27 +224,34 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
 
   Future<void> _toggleFullscreen() async {
     final isDesktop = !Platform.isAndroid && !Platform.isIOS;
-    final target = !_isLandscapeFullscreen;
-    setState(() {
-      _isLandscapeFullscreen = target;
-    });
-
     if (isDesktop) {
+      final target = !_isLandscapeFullscreen;
+      setState(() {
+        _isLandscapeFullscreen = target;
+      });
       try {
         await windowManager.setFullScreen(target);
       } catch (e) {
         debugPrint('Could not toggle desktop fullscreen: $e');
       }
     } else {
-      if (target) {
-        await Future.wait([
-          UIHelper.enableImmersiveMode(),
-          UIHelper.forceLandscape(),
-        ]);
-      } else {
+      final isCurrentlyLandscape =
+          MediaQuery.of(context).orientation == Orientation.landscape;
+      if (isCurrentlyLandscape || _isLandscapeFullscreen) {
+        setState(() {
+          _isLandscapeFullscreen = false;
+        });
         await Future.wait([
           UIHelper.exitImmersiveMode(),
           UIHelper.forcePortrait(),
+        ]);
+      } else {
+        setState(() {
+          _isLandscapeFullscreen = true;
+        });
+        await Future.wait([
+          UIHelper.enableImmersiveMode(),
+          UIHelper.forceLandscape(),
         ]);
       }
     }
@@ -545,9 +552,20 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                   _panelController.reset();
                 }
 
-                final isLandscape =
-                    orientation == Orientation.landscape ||
-                    _isLandscapeFullscreen;
+                // If physical phone orientation rotated to portrait while fullscreen was on,
+                // smoothly sync state and exit immersive mode back to portrait view.
+                if (orientation == Orientation.portrait && _isLandscapeFullscreen) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _isLandscapeFullscreen) {
+                      setState(() {
+                        _isLandscapeFullscreen = false;
+                      });
+                      UIHelper.exitImmersiveMode();
+                    }
+                  });
+                }
+
+                final isLandscape = orientation == Orientation.landscape;
 
                 final player = AniDashVideoPlayer(
                   onEpisodesPressed:

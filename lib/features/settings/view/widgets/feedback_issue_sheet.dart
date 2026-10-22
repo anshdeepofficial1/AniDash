@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:ani_dash/core/services/feedback_service.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -105,45 +106,68 @@ Date: ${DateTime.now().toIso8601String()}
     }
     if (desc.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please describe what happened or what you need.')),
+        const SnackBar(
+          content: Text('Please describe what happened or what you need.'),
+        ),
       );
       return;
     }
 
     setState(() => _isSubmitting = true);
 
-    final report = _buildFormattedReport();
+    final version =
+        'v${_packageInfo?.version ?? '2.1.2'} (Build ${_packageInfo?.buildNumber ?? '147'})';
+    final submitted = await FeedbackService().submitFeedback(
+      type: _selectedType.name,
+      title: title,
+      description: desc,
+      contact: _contactController.text.trim(),
+      appVersion: version,
+      animeTitle: widget.initialAnimeTitle,
+    );
 
-    // Dismiss sheet and show confirmation with quick share/email actions
     if (!mounted) return;
+    setState(() => _isSubmitting = false);
     Navigator.pop(context);
 
+    final githubUrl = submitted.githubIssueUrl;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        duration: const Duration(seconds: 4),
-        content: const Row(
+        duration: const Duration(seconds: 5),
+        content: Row(
           children: [
-            Icon(Icons.check_circle_rounded, color: Colors.greenAccent),
-            SizedBox(width: 8),
+            const Icon(Icons.check_circle_rounded, color: Colors.greenAccent),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Feedback saved! Thank you for reporting. It will be reviewed for upcoming updates.',
+                githubUrl != null
+                    ? 'Report submitted and tracked on GitHub!'
+                    : 'Report submitted! Developer will review it for upcoming updates.',
               ),
             ),
           ],
         ),
         action: SnackBarAction(
-          label: 'Send Email',
+          label: githubUrl != null ? 'View Issue' : 'GitHub Track',
           onPressed: () {
-            final emailUri = Uri(
-              scheme: 'mailto',
-              path: 'anshdeepofficial1@gmail.com',
-              queryParameters: {
-                'subject': 'AniDash Report: ${_selectedType.label} - $title',
-                'body': report,
-              },
-            );
-            launchUrl(emailUri, mode: LaunchMode.externalApplication);
+            if (githubUrl != null) {
+              launchUrl(
+                Uri.parse(githubUrl),
+                mode: LaunchMode.externalApplication,
+              );
+            } else {
+              final newIssueUri = Uri(
+                scheme: 'https',
+                host: 'github.com',
+                path: 'anshdeepofficial1/AniDash/issues/new',
+                queryParameters: {
+                  'title': '[In-App Feedback]: $title',
+                  'body': _buildFormattedReport(),
+                  'labels': 'in-app-feedback,${_selectedType.name}',
+                },
+              );
+              launchUrl(newIssueUri, mode: LaunchMode.externalApplication);
+            }
           },
         ),
       ),

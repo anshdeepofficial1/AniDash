@@ -239,6 +239,18 @@ class SettingsScreen extends ConsumerWidget {
                             onTap:
                                 () => context.push('/settings/admin-broadcast'),
                           ),
+                          NormalSettingsItem(
+                            icon: Icon(
+                              Iconsax.task,
+                              color: colorScheme.primary,
+                            ),
+                            accent: colorScheme.primary,
+                            title: 'User Feedback & Issues',
+                            description:
+                                'Review in-app bug reports and live GitHub issues',
+                            onTap:
+                                () => context.push('/settings/admin-issues'),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 20),
