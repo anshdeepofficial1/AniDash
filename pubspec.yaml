@@ -80,7 +80,7 @@ dependencies:
     path: packages/better_player_plus
 
   package_info_plus: ^9.0.1
-  onesignal_flutter: ^5.7.0
+  onesignal_flutter: ^5.7.1
   path: ^1.9.0
   path_provider: ^2.1.5
   permission_handler: ^12.0.0+1
