@@ -212,7 +212,7 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                                : const Icon(Iconsax.refresh, size: 16),
+                                : const Icon(Icons.refresh_rounded, size: 16),
                         label: Text(
                           _isChecking ? 'Checking...' : 'Check for Updates',
                         ),
@@ -871,7 +871,7 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                               height: 14,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                            : const Icon(Iconsax.refresh_2, size: 15),
+                            : const Icon(Icons.refresh_rounded, size: 15),
                     label: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
@@ -1116,3 +1116,4 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
     }
   }
 }
+

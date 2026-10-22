@@ -279,7 +279,7 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () => context.push('/settings/permissions'),
                   ),
                 NormalSettingsItem(
-                  icon: Icon(Iconsax.refresh, color: colorScheme.primary),
+                  icon: Icon(Icons.system_update_rounded, color: colorScheme.primary),
                   accent: colorScheme.primary,
                   title: 'Check for updates',
                   description: 'Release channel, auto-check & update settings',
