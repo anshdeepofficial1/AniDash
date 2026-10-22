@@ -13,7 +13,7 @@ environment:
   sdk: ">=3.7.0 <4.0.0"
 
 dependencies:
-  awesome_snackbar_content: any
+  awesome_snackbar_content: 0.1.8
   cached_network_image: ^3.4.1
   carousel_slider: ^5.1.1
   collection: ^1.19.1
