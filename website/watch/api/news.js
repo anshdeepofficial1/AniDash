@@ -3,11 +3,11 @@ const FEED = 'https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us';
 const decode = value =>
   String(value || '')
     .replace(/<!\[CDATA\[|\]\]>/g, '')
-    .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
     .trim();
 
 const stripTags = value =>
