@@ -100,7 +100,7 @@ class AboutScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 FilledButton.tonalIcon(
                   onPressed: () => context.push('/settings/update'),
-                  icon: const Icon(Iconsax.refresh),
+                  icon: const Icon(Icons.system_update_rounded),
                   label: const Text('Check for Updates'),
                 ),
               ],
