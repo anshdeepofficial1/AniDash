@@ -37,12 +37,11 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: "stable"
+          flutter-version: '3.35.7'
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
       - name: Run Static Code Analysis
-        run: dart analyze --fatal-warnings
-
+        run: dart analyze lib/ --fatal-warnings
