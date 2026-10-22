@@ -64,7 +64,7 @@ dependencies:
   http: ^1.4.0
   http_interceptor: ^2.0.0
   iconsax: ^0.0.8
-  image: ^4.5.3
+  image: ^4.12.0
   install_plugin: ^2.1.0
   intl: ^0.20.2
   isar_community: ^3.3.0
@@ -149,3 +149,8 @@ inno_bundle:
   languages:
     - english
   admin: false
+
+
+
+
+
