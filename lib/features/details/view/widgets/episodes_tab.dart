@@ -86,6 +86,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
   late final ValueNotifier<Set<int>> _selectionNotifier;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _chipsScrollController = ScrollController();
+  final GlobalKey _selectedChipKey = GlobalKey();
   bool _showSearch = false;
   bool _isSelecting = false;
   final GlobalKey _currentEpisodeKey = GlobalKey();
@@ -94,6 +96,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
   EpisodeGroupingMode _groupingMode = EpisodeGroupingMode.ranges;
   List<NamedEpisodeGroup> _namedGroups = const [];
   NamedEpisodeGroup? _selectedNamedGroup;
+  bool _userManuallySelectedGroup = false;
+  bool _userManuallySelectedRange = false;
+
   @override
   void initState() {
     super.initState();
@@ -125,45 +130,75 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           title: title,
         );
     if (!mounted) return;
+    final stored = sharedPrefs.getString('episode_grouping_mode');
     setState(() {
       _namedGroups = groups;
-      if (groups.isEmpty) _groupingMode = EpisodeGroupingMode.ranges;
+      // Default to named story arcs when available, unless user specifically configured ranges
+      if (groups.isNotEmpty &&
+          (stored == null || stored == EpisodeGroupingMode.named.name)) {
+        _groupingMode = EpisodeGroupingMode.named;
+      } else if (groups.isEmpty) {
+        _groupingMode = EpisodeGroupingMode.ranges;
+      }
     });
     _selectCurrentNamedGroup();
+    _scheduleSelectedChipScroll();
   }
 
-  void _selectCurrentNamedGroup() {
+  void _selectCurrentNamedGroup([int? preferredEpisode]) {
     if (!mounted ||
         _groupingMode != EpisodeGroupingMode.named ||
         _namedGroups.isEmpty) {
       return;
     }
-    var progress = ref
-        .read(watchProgressRepositoryProvider)
-        .getProgress(widget.mediaId);
-    if (progress == null) {
-      final title =
-          (widget.mediaTitle.english ??
-                  widget.mediaTitle.romaji ??
-                  widget.mediaTitle.userPreferred)
-              .trim()
-              .toLowerCase();
-      if (title.isNotEmpty) {
-        progress =
-            ref
-                .read(watchProgressRepositoryProvider)
-                .getAllProgress()
-                .where((p) => p.animeTitle.trim().toLowerCase() == title)
-                .firstOrNull;
+    int currentEpisode = preferredEpisode ?? 1;
+    if (preferredEpisode == null) {
+      var progress = ref
+          .read(watchProgressRepositoryProvider)
+          .getProgress(widget.mediaId);
+      if (progress == null) {
+        final title =
+            (widget.mediaTitle.english ??
+                    widget.mediaTitle.romaji ??
+                    widget.mediaTitle.userPreferred)
+                .trim()
+                .toLowerCase();
+        if (title.isNotEmpty) {
+          progress =
+              ref
+                  .read(watchProgressRepositoryProvider)
+                  .getAllProgress()
+                  .where((p) => p.animeTitle.trim().toLowerCase() == title)
+                  .firstOrNull;
+        }
       }
+      currentEpisode = progress?.currentEpisode ?? 1;
     }
-    final currentEpisode = progress?.currentEpisode ?? 1;
     final matching = _namedGroups.cast<NamedEpisodeGroup?>().firstWhere(
       (group) => group?.contains(currentEpisode) ?? false,
       orElse: () => _namedGroups.first,
     );
     if (_selectedNamedGroup?.id == matching?.id) return;
     setState(() => _selectedNamedGroup = matching);
+    _scheduleSelectedChipScroll();
+  }
+
+  void _scheduleSelectedChipScroll() {
+    void performChipScroll() {
+      if (!mounted) return;
+      final chipContext = _selectedChipKey.currentContext;
+      if (chipContext != null && chipContext.mounted) {
+        Scrollable.ensureVisible(
+          chipContext,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => performChipScroll());
+    Future.delayed(const Duration(milliseconds: 150), performChipScroll);
   }
 
   Future<void> _setGroupingMode(EpisodeGroupingMode mode) async {
@@ -171,15 +206,21 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     setState(() {
       _groupingMode = mode;
       _selectedNamedGroup = null;
+      _userManuallySelectedGroup = false;
+      _userManuallySelectedRange = false;
     });
-    if (mode == EpisodeGroupingMode.named) _selectCurrentNamedGroup();
+    if (mode == EpisodeGroupingMode.named) {
+      _selectCurrentNamedGroup();
+    }
     await sharedPrefs.setString('episode_grouping_mode', mode.name);
+    _scheduleSelectedChipScroll();
   }
 
   @override
   void dispose() {
     _selectionNotifier.removeListener(_onSelectionChanged);
     _searchController.dispose();
+    _chipsScrollController.dispose();
     super.dispose();
   }
 
@@ -187,6 +228,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     required int episodeNumber,
     required List<EpisodeDataModel> visibleEpisodes,
     required String selectedRange,
+    required EpisodeViewMode viewMode,
   }) {
     final targetIndex = visibleEpisodes.indexWhere(
       (episode) => episode.number == episodeNumber,
@@ -198,14 +240,30 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     _lastAutoScrollToken = token;
     _autoScrollEpisode = episodeNumber;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    double estimatedRowHeight;
+    switch (viewMode) {
+      case EpisodeViewMode.compact:
+        estimatedRowHeight = 64.0;
+        break;
+      case EpisodeViewMode.banner:
+        estimatedRowHeight = 150.0;
+        break;
+      case EpisodeViewMode.grid:
+        estimatedRowHeight = 120.0;
+        break;
+      case EpisodeViewMode.block:
+        estimatedRowHeight = 22.0;
+        break;
+      case EpisodeViewMode.list:
+        estimatedRowHeight = 88.0;
+        break;
+    }
+
+    void performEpisodeScroll() async {
       if (!mounted) return;
       final scrollController = PrimaryScrollController.maybeOf(context);
       if (scrollController == null || !scrollController.hasClients) return;
 
-      // A PrimaryScrollController may legitimately be attached to the outer
-      // details sheet and an inner episode list. Accessing `.position` throws
-      // when both are attached, which used to interrupt episode loading.
       final positions =
           scrollController.positions
               .where((position) => position.hasContentDimensions)
@@ -218,27 +276,33 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 : current,
       );
       final maxExtent = position.maxScrollExtent;
-      final fraction =
-          visibleEpisodes.length <= 1
-              ? 0.0
-              : targetIndex / (visibleEpisodes.length - 1);
-      await position.animateTo(
-        (maxExtent * fraction).clamp(0.0, maxExtent),
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeOutCubic,
-      );
+      if (maxExtent > 0) {
+        final estimatedOffset = (targetIndex * estimatedRowHeight);
+        final targetOffset = estimatedOffset.clamp(0.0, maxExtent);
+        if ((position.pixels - targetOffset).abs() > 40) {
+          await position.animateTo(
+            targetOffset,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      }
 
       if (!mounted) return;
       final targetContext = _currentEpisodeKey.currentContext;
       if (targetContext != null && targetContext.mounted) {
         await Scrollable.ensureVisible(
           targetContext,
-          alignment: 0.45,
+          alignment: 0.35,
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
         );
       }
-    });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => performEpisodeScroll());
+    Future.delayed(const Duration(milliseconds: 120), performEpisodeScroll);
+    Future.delayed(const Duration(milliseconds: 280), performEpisodeScroll);
   }
 
   void _onSelectionChanged() {
@@ -559,6 +623,93 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
             ),
           );
 
+    final totalEpisodes = episodes.length;
+
+    EpisodeDataModel? continueEpisode;
+    EpisodeProgress? continueEpProgress;
+    final watchProgress =
+        ref.watch(animeWatchProgressProvider(widget.mediaId)).asData?.value ??
+        ref.read(watchProgressRepositoryProvider).getProgress(widget.mediaId);
+
+    int targetEpNum = 1;
+
+    if (episodes.isNotEmpty && watchProgress != null) {
+      final unfinished =
+          watchProgress.episodesProgress.values.where((item) {
+              final progress = item.progressInSeconds ?? 0;
+              return progress > 0 &&
+                  !isEpisodeProgressEffectivelyComplete(item);
+            }).toList()
+            ..sort((a, b) {
+              final aTime = a.watchedAt ?? DateTime(0);
+              final bTime = b.watchedAt ?? DateTime(0);
+              return bTime.compareTo(aTime);
+            });
+
+      final currentEp =
+          unfinished.firstOrNull ??
+          watchProgress.episodesProgress[watchProgress.currentEpisode];
+
+      final isCurrentCompleted =
+          currentEp != null &&
+          isEpisodeProgressEffectivelyComplete(currentEp);
+
+      final baseEp =
+          currentEp?.episodeNumber ??
+          (watchProgress.currentEpisode > 0 ? watchProgress.currentEpisode : 1);
+
+      targetEpNum =
+          isCurrentCompleted &&
+                  (totalEpisodes == 0 || baseEp < totalEpisodes)
+              ? baseEp + 1
+              : baseEp;
+
+      continueEpisode = episodes.firstWhereOrNull(
+        (e) => e.number == targetEpNum,
+      ) ?? episodes.firstWhereOrNull(
+        (e) => e.number == baseEp,
+      );
+      continueEpProgress =
+          watchProgress.episodesProgress[continueEpisode?.number];
+    } else if (watchProgress != null) {
+      targetEpNum = watchProgress.currentEpisode > 0 ? watchProgress.currentEpisode : 1;
+    }
+
+    // Auto-select Arc if user has not manually picked one
+    if (!_userManuallySelectedGroup && _namedGroups.isNotEmpty) {
+      final matching = _namedGroups.firstWhereOrNull(
+        (group) => group.contains(targetEpNum),
+      ) ?? _namedGroups.first;
+      if (_selectedNamedGroup?.id != matching.id) {
+        _selectedNamedGroup = matching;
+        _scheduleSelectedChipScroll();
+      }
+    }
+
+    // Auto-select Range if user is in ranges mode and hasn't manually picked one
+    if (!_userManuallySelectedRange &&
+        _groupingMode == EpisodeGroupingMode.ranges &&
+        state.rangeOptions.length > 1 &&
+        state.selectedRange == 'All') {
+      for (final r in state.rangeOptions) {
+        if (r == 'All') continue;
+        final parts = r.split('–');
+        if (parts.length == 2) {
+          final s = int.tryParse(parts[0]) ?? 1;
+          final e = int.tryParse(parts[1]) ?? totalEpisodes;
+          if (targetEpNum >= s && targetEpNum <= e) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ref.read(detailsPageProvider(widget.mediaId).notifier).updateRange(r);
+                _scheduleSelectedChipScroll();
+              }
+            });
+            break;
+          }
+        }
+      }
+    }
+
     List<EpisodeDataModel> visibleEpisodes = episodes;
     if (_groupingMode == EpisodeGroupingMode.named &&
         _selectedNamedGroup != null) {
@@ -605,56 +756,21 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           visibleEpisodes.where((e) => e.isFiller != true).toList();
     }
 
-    final totalEpisodes = episodes.length;
-
-    EpisodeDataModel? continueEpisode;
-    EpisodeProgress? continueEpProgress;
-    final watchProgress =
-        ref.watch(animeWatchProgressProvider(widget.mediaId)).asData?.value ??
-        ref.read(watchProgressRepositoryProvider).getProgress(widget.mediaId);
-
-    if (episodes.isNotEmpty && watchProgress != null) {
-      final currentEpNum = watchProgress.currentEpisode;
-      final currentProgress = watchProgress.episodesProgress[currentEpNum];
-      final dur = currentProgress?.durationInSeconds ?? 0;
-      final prog = currentProgress?.progressInSeconds ?? 0;
-      final isCurrentTrulyCompleted =
-          (currentProgress?.isCompleted == true &&
-              (dur == 0 || prog >= dur - 45 || (prog / dur) >= 0.92)) ||
-          (dur > 0 && (prog / dur) >= 0.92);
-
-      if (currentProgress != null &&
-          !isCurrentTrulyCompleted &&
-          (currentProgress.progressInSeconds ?? 0) > 0) {
-        continueEpisode = episodes.firstWhereOrNull(
-          (e) => e.number == currentEpNum,
-        );
-        continueEpProgress = currentProgress;
-      } else {
-        final nextEpNum = currentEpNum + 1;
-        if (isCurrentTrulyCompleted && nextEpNum > totalEpisodes) {
-          continueEpisode = null;
-          continueEpProgress = null;
-        } else {
-          continueEpisode = episodes.firstWhereOrNull(
-            (e) => e.number == nextEpNum,
-          );
-          if (continueEpisode == null && !isCurrentTrulyCompleted) {
-            continueEpisode = episodes.firstWhereOrNull(
-              (e) => e.number == currentEpNum,
+    final experimentalSettings = ref.watch(experimentalProvider);
+    final viewMode =
+        experimentalSettings.useEpisodeBannerStyle
+            ? EpisodeViewMode.banner
+            : EpisodeViewMode.values.firstWhere(
+              (e) => e.name == ref.watch(uiSettingsProvider).episodeViewMode,
+              orElse: () => EpisodeViewMode.list,
             );
-          }
-          continueEpProgress =
-              watchProgress.episodesProgress[continueEpisode?.number];
-        }
-      }
-    }
 
     if (watchProgress != null && visibleEpisodes.isNotEmpty) {
       _scheduleCurrentEpisodeScroll(
-        episodeNumber: watchProgress.currentEpisode,
+        episodeNumber: targetEpNum,
         visibleEpisodes: visibleEpisodes,
         selectedRange: _selectedNamedGroup?.id ?? state.selectedRange,
+        viewMode: viewMode,
       );
     }
 
@@ -1471,48 +1587,72 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                         SizedBox(
                           height: 50,
                           child: ListView(
+                            controller: _chipsScrollController,
                             scrollDirection: Axis.horizontal,
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             children: [
                               if (_groupingMode == EpisodeGroupingMode.ranges)
                                 ...state.rangeOptions.map((range) {
+                                  final isSelected = state.selectedRange == range;
+                                  Widget chip = Center(
+                                    child: ChoiceChip(
+                                      label: Text(range),
+                                      selected: isSelected,
+                                      onSelected: (isSelected) {
+                                        if (isSelected) {
+                                          _userManuallySelectedRange = true;
+                                          notifier.updateRange(range);
+                                          _scheduleSelectedChipScroll();
+                                        }
+                                      },
+                                    ),
+                                  );
+                                  if (isSelected) {
+                                    chip = KeyedSubtree(
+                                      key: _selectedChipKey,
+                                      child: chip,
+                                    );
+                                  }
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 4.0,
                                     ),
-                                    child: Center(
-                                      child: ChoiceChip(
-                                        label: Text(range),
-                                        selected: state.selectedRange == range,
-                                        onSelected: (isSelected) {
-                                          if (isSelected) {
-                                            notifier.updateRange(range);
-                                          }
-                                        },
-                                      ),
-                                    ),
+                                    child: chip,
                                   );
                                 })
                               else ...[
                                 ..._namedGroups.map(
-                                  (group) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                    ),
-                                    child: Center(
+                                  (group) {
+                                    final isSelected =
+                                        _selectedNamedGroup?.id == group.id;
+                                    Widget chip = Center(
                                       child: ChoiceChip(
                                         label: Text(
                                           '${group.title} (${group.rangeLabel})',
                                         ),
-                                        selected:
-                                            _selectedNamedGroup?.id == group.id,
-                                        onSelected:
-                                            (_) => setState(
-                                              () => _selectedNamedGroup = group,
-                                            ),
+                                        selected: isSelected,
+                                        onSelected: (_) {
+                                          _userManuallySelectedGroup = true;
+                                          setState(
+                                            () => _selectedNamedGroup = group,
+                                          );
+                                          _scheduleSelectedChipScroll();
+                                        },
                                       ),
-                                    ),
-                                  ),
+                                    );
+                                    if (isSelected) {
+                                      chip = KeyedSubtree(
+                                        key: _selectedChipKey,
+                                        child: chip,
+                                      );
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      child: chip,
+                                    );
+                                  },
                                 ),
                               ],
                             ],
