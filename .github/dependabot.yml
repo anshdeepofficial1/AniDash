@@ -16,3 +16,13 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     open-pull-requests-limit: 5
+    ignore:
+      # Pinned / incompatible with current Flutter 3.35 toolchain (Dart SDK 3.9.2)
+      - dependency-name: "cupertino_icons"
+        versions: [">= 2.0.0"]
+      - dependency-name: "url_launcher"
+        versions: [">= 6.3.3"]
+      - dependency-name: "wakelock_plus"
+        versions: [">= 1.5.0"]
+      - dependency-name: "intl"
+        versions: [">= 0.20.3"]
