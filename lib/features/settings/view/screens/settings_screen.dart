@@ -12,7 +12,6 @@ import 'package:ani_dash/core/utils/env_loader.dart';
 import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
 import 'package:ani_dash/features/settings/view/settings_search_delegate.dart';
 import 'package:ani_dash/features/settings/view/widgets/feedback_issue_sheet.dart';
-import 'package:ani_dash/features/home/view/widget/app_tour_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -212,13 +211,6 @@ class SettingsScreen extends ConsumerWidget {
                   title: 'Community Issues & Feedback',
                   description: 'View reported bugs, replies, and status in-app',
                   onTap: () => context.push('/settings/admin-issues'),
-                ),
-                NormalSettingsItem(
-                  icon: Icon(Iconsax.map, color: colorScheme.primary),
-                  accent: colorScheme.primary,
-                  title: 'Interactive App Tour',
-                  description: 'Quick walkthrough of key AniDash features',
-                  onTap: () => AppTourDialog.show(context),
                 ),
                 NormalSettingsItem(
                   icon: Icon(Iconsax.info_circle, color: colorScheme.primary),
