@@ -7,8 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:ani_dash/features/settings/view/screens/in_app_issue_detail_screen.dart';
+import 'package:ani_dash/features/settings/view/widgets/feedback_issue_sheet.dart';
 
 class AdminIssuesScreen extends ConsumerStatefulWidget {
   const AdminIssuesScreen({super.key});
@@ -38,6 +38,17 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
   List<GitHubIssueItem> _githubIssues = [];
   bool _loadingGitHub = false;
   String _githubFilter = 'all'; // all, open, closed
+
+  bool _isInAppIssue(GitHubIssueItem item) {
+    final title = item.title.toLowerCase();
+    final hasInAppTitle = title.startsWith('[in-app') || title.contains('in-app');
+    final hasInAppLabel = item.labels.any((l) => l.toLowerCase().contains('in-app'));
+    final hasInAppBody = item.body.toLowerCase().contains('[anidash in-app report]');
+    return hasInAppTitle || hasInAppLabel || hasInAppBody;
+  }
+
+  List<GitHubIssueItem> get _inAppGitHubIssues =>
+      _githubIssues.where(_isInAppIssue).toList();
 
   @override
   void initState() {
@@ -275,12 +286,12 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
           controller: _tabController,
           tabs: [
             Tab(
-              icon: const Icon(Iconsax.code),
-              text: 'GitHub Issues (${_githubIssues.length})',
+              icon: const Icon(Iconsax.message_text),
+              text: 'In-App Reports (${_inAppGitHubIssues.length + _inAppReports.length})',
             ),
             Tab(
-              icon: const Icon(Iconsax.message_text),
-              text: 'In-App Reports (${_inAppReports.length})',
+              icon: const Icon(Iconsax.code),
+              text: 'GitHub Issues (${_githubIssues.length})',
             ),
           ],
         ),
@@ -300,53 +311,245 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [_buildGitHubTab(colorScheme), _buildInAppTab(colorScheme)],
+        children: [_buildInAppTab(colorScheme), _buildGitHubTab(colorScheme)],
       ),
     );
   }
 
   Widget _buildInAppTab(ColorScheme colorScheme) {
-    if (_loadingInApp) {
+    if (_loadingInApp && _loadingGitHub) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_inAppReports.isEmpty) {
-      return Center(
-        child: Padding(
+    final inAppIssues = _inAppGitHubIssues;
+    // Deduplicate local reports that already have a GitHub issue URL matching one of the inAppIssues
+    final unlinkedLocalReports = _inAppReports.where((local) {
+      if (local.githubIssueUrl == null) return true;
+      return !inAppIssues.any((gh) => gh.htmlUrl == local.githubIssueUrl);
+    }).toList();
+
+    final totalCount = inAppIssues.length + unlinkedLocalReports.length;
+
+    if (totalCount == 0) {
+      return RefreshIndicator(
+        onRefresh: _loadAllData,
+        child: ListView(
           padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Iconsax.message_tick,
-                size: 56,
-                color: colorScheme.outlineVariant,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'No in-app reports yet',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'When users submit feedback or issues inside AniDash, they will appear right here.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: colorScheme.onSurfaceVariant),
-              ),
-            ],
-          ),
+          children: [
+            const SizedBox(height: 60),
+            Icon(
+              Iconsax.message_tick,
+              size: 56,
+              color: colorScheme.outlineVariant,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No in-app reports yet',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'When users submit feedback or bug reports inside AniDash, they will appear right here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+          ],
         ),
       );
     }
 
     return RefreshIndicator(
-      onRefresh: _loadInAppReports,
+      onRefresh: _loadAllData,
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
-        itemCount: _inAppReports.length,
+        itemCount: inAppIssues.length + unlinkedLocalReports.length,
         separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          final item = _inAppReports[index];
+          if (index < inAppIssues.length) {
+            final item = inAppIssues[index];
+            final isOpen = item.state == 'open';
+            final stateColor = isOpen ? Colors.greenAccent : Colors.purpleAccent;
+
+            // Clean title: remove [In-App Feedback]: prefix
+            final cleanTitle = item.title
+                .replaceAll(
+                  RegExp(r'^\[In-App[^\]]*\]:\s*', caseSensitive: false),
+                  '',
+                )
+                .trim();
+
+            // Category from title or labels
+            String category = 'Bug / Error';
+            if (item.title.toLowerCase().contains('subtitles') ||
+                item.title.toLowerCase().contains('playback')) {
+              category = 'Video / Subtitles';
+            } else if (item.title.toLowerCase().contains('feature') ||
+                item.title.toLowerCase().contains('request')) {
+              category = 'Feature Request';
+            }
+
+            final color = _categoryColor(category);
+            final icon = _categoryIcon(category);
+            final formattedDate = DateFormat(
+              'MMM d, y • h:mm a',
+            ).format(item.createdAt);
+
+            return Card(
+              elevation: 0,
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: color.withValues(alpha: 0.3), width: 1.2),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => InAppIssueDetailScreen(issue: item),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(icon, size: 14, color: color),
+                                const SizedBox(width: 4),
+                                Text(
+                                  category.toUpperCase(),
+                                  style: TextStyle(
+                                    color: color,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: stateColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isOpen ? 'OPEN' : 'RESOLVED',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: stateColor,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            formattedDate,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colorScheme.outline,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        cleanTitle.isEmpty ? item.title : cleanTitle,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (item.body.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          item.body
+                              .replaceAll(RegExp(r'\[AniDash In-App Report\]'), '')
+                              .replaceAll(RegExp(r'Type:.*'), '')
+                              .replaceAll(RegExp(r'Title:.*'), '')
+                              .replaceAll(RegExp(r'Details:'), '')
+                              .trim(),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _chip(
+                            Iconsax.user,
+                            'by ${item.author}',
+                            colorScheme,
+                          ),
+                          _chip(
+                            Iconsax.code,
+                            'Issue #${item.number}',
+                            colorScheme,
+                          ),
+                          if (item.commentsCount > 0)
+                            _chip(
+                              Icons.chat_bubble_outline_rounded,
+                              '${item.commentsCount} comments',
+                              colorScheme,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(height: 1),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          FilledButton.tonalIcon(
+                            icon: const Icon(Iconsax.message, size: 16),
+                            label: const Text('View & Reply in App'),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => InAppIssueDetailScreen(issue: item),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          // Local reports
+          final localIndex = index - inAppIssues.length;
+          final item = unlinkedLocalReports[localIndex];
           final color = _categoryColor(item.type);
           final icon = _categoryIcon(item.type);
           final formattedDate = DateFormat(
@@ -392,6 +595,24 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.outline.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'LOCAL',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                       const Spacer(),
                       Text(
                         formattedDate,
@@ -420,8 +641,6 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
                     ),
                   ),
                   const SizedBox(height: 12),
-
-                  // Metadata chips
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
@@ -446,18 +665,15 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
                         ),
                     ],
                   ),
-
                   const SizedBox(height: 12),
                   const Divider(height: 1),
                   const SizedBox(height: 8),
-
-                  // Action Buttons
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton.icon(
                         icon: const Icon(Icons.copy_rounded, size: 16),
-                        label: const Text('Copy'),
+                        label: const Text('Copy Details'),
                         onPressed: () {
                           final text = '''
 [AniDash In-App Report]
@@ -479,47 +695,13 @@ Date: ${item.createdAt}
                         },
                       ),
                       const SizedBox(width: 4),
-                      FilledButton.tonalIcon(
-                        icon: const Icon(Iconsax.export_1, size: 16),
-                        label: const Text('Open on GitHub'),
-                        onPressed: () {
-                          final uri = Uri(
-                            scheme: 'https',
-                            host: 'github.com',
-                            path: 'anshdeepofficial1/AniDash/issues/new',
-                            queryParameters: {
-                              'title':
-                                  '[In-App ${item.type.toUpperCase()}]: ${item.title}',
-                              'body': '''
-### In-App User Report
-- **Category:** ${item.type}
-- **Anime:** ${item.animeTitle ?? 'None'}
-- **App Version:** ${item.appVersion}
-- **Platform:** ${item.platform}
-- **Contact:** ${item.contact}
-- **Date:** ${item.createdAt}
-
----
-### Description
-${item.description}
-''',
-                              'labels': 'in-app-feedback,${item.type}',
-                            },
-                          );
-                          launchUrl(
-                            uri,
-                            mode: LaunchMode.externalApplication,
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 4),
                       IconButton(
                         icon: const Icon(
                           Icons.delete_outline_rounded,
                           size: 18,
                           color: Colors.redAccent,
                         ),
-                        tooltip: 'Resolve / Delete',
+                        tooltip: 'Delete Local Report',
                         onPressed: () async {
                           final confirm = await showDialog<bool>(
                             context: context,
@@ -527,7 +709,7 @@ ${item.description}
                                 (ctx) => AlertDialog(
                                   title: const Text('Delete Report?'),
                                   content: const Text(
-                                    'Are you sure you want to resolve and remove this report?',
+                                    'Are you sure you want to remove this local report?',
                                   ),
                                   actions: [
                                     TextButton(
@@ -604,14 +786,7 @@ ${item.description}
               TextButton.icon(
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('New Issue'),
-                onPressed: () {
-                  launchUrl(
-                    Uri.parse(
-                      'https://github.com/anshdeepofficial1/AniDash/issues/new',
-                    ),
-                    mode: LaunchMode.externalApplication,
-                  );
-                },
+                onPressed: () => FeedbackIssueSheet.show(context),
               ),
             ],
           ),

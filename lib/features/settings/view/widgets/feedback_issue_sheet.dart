@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 enum FeedbackType {
   bug('Bug / Error', Iconsax.danger),
@@ -287,45 +286,7 @@ Date: ${DateTime.now().toIso8601String()}
         ),
         const SizedBox(height: 10),
 
-        // Option 2: GitHub Issue
-        Card(
-          elevation: 0,
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: colorScheme.outline.withValues(alpha: 0.2),
-            ),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            leading: CircleAvatar(
-              backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
-              child: Icon(Iconsax.code, color: colorScheme.onSurface),
-            ),
-            title: const Text(
-              'GitHub Issue Tracker',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: const Text(
-              'For users with a GitHub account. Track replies and discussions.',
-            ),
-            trailing: const Icon(Icons.open_in_new_rounded, size: 16),
-            onTap: () {
-              Navigator.pop(context);
-              launchUrl(
-                Uri.parse(
-                  'https://github.com/anshdeepofficial1/AniDash/issues/new/choose',
-                ),
-                mode: LaunchMode.externalApplication,
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 10),
+
 
         // Quick Share Option
         ListTile(
