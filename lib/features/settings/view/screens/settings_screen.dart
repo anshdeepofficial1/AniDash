@@ -207,6 +207,13 @@ class SettingsScreen extends ConsumerWidget {
                   onTap: () => FeedbackIssueSheet.show(context),
                 ),
                 NormalSettingsItem(
+                  icon: Icon(Iconsax.task, color: colorScheme.primary),
+                  accent: colorScheme.primary,
+                  title: 'Community Issues & Feedback',
+                  description: 'View reported bugs, replies, and status in-app',
+                  onTap: () => context.push('/settings/admin-issues'),
+                ),
+                NormalSettingsItem(
                   icon: Icon(Iconsax.map, color: colorScheme.primary),
                   accent: colorScheme.primary,
                   title: 'Interactive App Tour',

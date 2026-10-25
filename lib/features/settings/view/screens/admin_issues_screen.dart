@@ -70,9 +70,63 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
       _checkingAccess = false;
     });
 
-    if (_unlocked) {
-      _loadAllData();
-    }
+    _loadAllData();
+  }
+
+  void _showPinDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Developer Verification'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter your 4-digit developer PIN to unlock remote server database sync:',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _pinController,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 4,
+              textAlign: TextAlign.center,
+              style: const TextStyle(letterSpacing: 16, fontSize: 24),
+              decoration: const InputDecoration(
+                counterText: '',
+                hintText: '••••',
+              ),
+            ),
+            if (_remainingAttempts < 3) ...[
+              const SizedBox(height: 8),
+              Text(
+                '$_remainingAttempts attempts remaining',
+                style: const TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: _loadingPin
+                ? null
+                : () {
+                    Navigator.pop(ctx);
+                    _unlock();
+                  },
+            child: const Text('Unlock'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _unlock() async {
@@ -124,7 +178,7 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
       final local = await _feedbackService.getLocalReports();
       final token = _token;
       List<FeedbackReport> remote = [];
-      if (token != null) {
+      if (_unlocked && token != null) {
         remote = await _feedbackService.getRemoteReports(
           accessToken: token,
           developerPin: _pinController.text,
@@ -206,148 +260,37 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
 
     if (_checkingAccess) {
       return Scaffold(
-        appBar: AppBar(title: const Text('User Feedback & Issues')),
+        appBar: AppBar(title: const Text('Community Feedback & Issues')),
         body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (!_isDeveloper || _blocked) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('User Feedback & Issues')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _blocked ? Iconsax.lock_1 : Iconsax.security_user,
-                  size: 48,
-                  color: colorScheme.error,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  _blocked
-                      ? 'Developer Access Locked'
-                      : 'Developer Identity Required',
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _blocked
-                      ? 'Too many incorrect PIN attempts. Restart later.'
-                      : 'Only verified developer accounts can inspect in-app reports and private stats.',
-                  textAlign: TextAlign.center,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (!_unlocked) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Developer Verification')),
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: Card(
-              margin: const EdgeInsets.all(24),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Iconsax.key, size: 40, color: colorScheme.primary),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Enter Developer PIN',
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Enter your 4-digit PIN to inspect user issues and reports.',
-                      textAlign: TextAlign.center,
-                      style: textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _pinController,
-                      keyboardType: TextInputType.number,
-                      obscureText: true,
-                      maxLength: 4,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(letterSpacing: 16, fontSize: 24),
-                      decoration: const InputDecoration(
-                        counterText: '',
-                        hintText: '••••',
-                      ),
-                    ),
-                    if (_remainingAttempts < 3) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        '$_remainingAttempts attempt${_remainingAttempts == 1 ? '' : 's'} remaining',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.error,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: _loadingPin ? null : _unlock,
-                        child:
-                            _loadingPin
-                                ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                                : const Text('Unlock'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('User Feedback & Issues'),
+        title: const Text('Feedback & Issues'),
         bottom: TabBar(
           controller: _tabController,
           tabs: [
             Tab(
-              icon: const Icon(Iconsax.message_text),
-              text: 'In-App Reports (${_inAppReports.length})',
-            ),
-            Tab(
               icon: const Icon(Iconsax.code),
               text: 'GitHub Issues (${_githubIssues.length})',
+            ),
+            Tab(
+              icon: const Icon(Iconsax.message_text),
+              text: 'In-App Reports (${_inAppReports.length})',
             ),
           ],
         ),
         actions: [
+          if (_isDeveloper && !_unlocked && !_blocked)
+            IconButton(
+              icon: const Icon(Iconsax.key),
+              tooltip: 'Unlock Developer Sync',
+              onPressed: _showPinDialog,
+            ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
@@ -357,7 +300,7 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [_buildInAppTab(colorScheme), _buildGitHubTab(colorScheme)],
+        children: [_buildGitHubTab(colorScheme), _buildInAppTab(colorScheme)],
       ),
     );
   }
