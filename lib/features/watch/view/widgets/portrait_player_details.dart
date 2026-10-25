@@ -299,8 +299,12 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
 
     final streamState = ref.watch(episodeDataProvider);
     final isDub = streamState.selectedServer?.isDub == true;
-    final sourceLang =
-        ref.watch(sourceProvider).activeAnimeSource?.lang;
+    final animeDetails = ref.watch(detailsPageProvider(widget.mediaId)).details.value;
+    final sourceLang = LanguageUtils.detectLanguage(
+      sourceLang: ref.watch(sourceProvider).activeAnimeSource?.lang,
+      genres: animeDetails?.genres,
+      title: widget.animeTitle,
+    );
     final subShort = LanguageUtils.getShortName(sourceLang, fallback: 'Japanese');
     final dubShort = (sourceLang != null && sourceLang != 'ja' && sourceLang != 'en' && sourceLang != 'all')
         ? LanguageUtils.getShortName(sourceLang)

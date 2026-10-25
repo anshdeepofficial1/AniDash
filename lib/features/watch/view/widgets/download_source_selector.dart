@@ -35,6 +35,7 @@ class DownloadSourceSelector extends ConsumerStatefulWidget {
   )?
   onConfirmBatchDownload;
   final bool isAdult;
+  final List<String>? genres;
 
   const DownloadSourceSelector({
     super.key,
@@ -49,6 +50,7 @@ class DownloadSourceSelector extends ConsumerStatefulWidget {
     this.scrollController,
     this.onConfirmBatchDownload,
     this.isAdult = false,
+    this.genres,
   });
 
   @override
@@ -336,7 +338,11 @@ class _DownloadSourceSelectorState
       isAdult: widget.isAdult,
       audioLanguage: LanguageUtils.formatAudioLanguage(
         _selectedLanguage,
-        ref.read(sourceProvider).activeAnimeSource?.lang,
+        LanguageUtils.detectLanguage(
+          sourceLang: ref.read(sourceProvider).activeAnimeSource?.lang,
+          genres: widget.genres,
+          title: widget.animeTitle,
+        ),
       ),
     );
 
@@ -388,8 +394,11 @@ class _DownloadSourceSelectorState
 
     final basePerEpSize = _getQualitySize(_selectedQuality);
     final totalSizeMB = basePerEpSize * widget.episodeCount;
-    final activeSourceLang =
-        ref.watch(sourceProvider).activeAnimeSource?.lang;
+    final activeSourceLang = LanguageUtils.detectLanguage(
+      sourceLang: ref.watch(sourceProvider).activeAnimeSource?.lang,
+      genres: widget.genres,
+      title: widget.animeTitle,
+    );
     final subLabel = LanguageUtils.getSubLabel(activeSourceLang);
     final dubLabel = LanguageUtils.getDubLabel(activeSourceLang);
 

@@ -14,6 +14,7 @@ import 'package:ani_dash/helpers/show_subtitle_sidebar.dart';
 import 'package:ani_dash/core/utils/video_quality_label.dart';
 import 'package:ani_dash/core/utils/language_utils.dart';
 import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
+import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 
 class SettingsSheetContent extends ConsumerWidget {
   final VoidCallback onDismiss;
@@ -52,8 +53,11 @@ class SettingsSheetContent extends ConsumerWidget {
             : 'Auto';
 
     final isDub = streamData.selectedServer?.isDub == true;
-    final sourceLang =
-        ref.watch(sourceProvider).activeAnimeSource?.lang;
+    final animeTitle = ref.watch(episodeListProvider).animeTitle;
+    final sourceLang = LanguageUtils.detectLanguage(
+      sourceLang: ref.watch(sourceProvider).activeAnimeSource?.lang,
+      title: animeTitle,
+    );
     final subLabel = LanguageUtils.getSubLabel(sourceLang);
     final dubLabel = LanguageUtils.getDubLabel(sourceLang);
 

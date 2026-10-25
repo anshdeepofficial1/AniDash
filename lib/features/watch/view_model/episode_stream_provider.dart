@@ -40,6 +40,7 @@ import 'package:ani_dash/shared/providers/anime_match_service.dart';
 import 'package:ani_dash/core/utils/language_utils.dart';
 import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/core/models/universal/universal_media.dart';
+import 'package:ani_dash/features/details/view_model/details_page_notifier.dart';
 
 part 'episode_stream_provider.g.dart';
 
@@ -382,11 +383,12 @@ class EpisodeData extends _$EpisodeData {
     required int episode,
     required List<Subtitle> subtitles,
   }) {
+    final autoEnableSubs = ref.read(playerSettingsProvider).autoEnableSubtitles;
     state = state.copyWith(
       selectedEpisode: episode,
       subtitles: subtitles,
       clearError: true,
-      selectedSubtitleIdx: subtitles.length > 1 ? 1 : 0,
+      selectedSubtitleIdx: (autoEnableSubs && subtitles.length > 1) ? 1 : 0,
     );
   }
 
@@ -997,7 +999,11 @@ class EpisodeData extends _$EpisodeData {
         isAdult: _epList.isAdult,
         audioLanguage: LanguageUtils.formatAudioLanguage(
           language,
-          _srcNotifier.state.activeAnimeSource?.lang,
+          LanguageUtils.detectLanguage(
+            sourceLang: _srcNotifier.state.activeAnimeSource?.lang,
+            genres: ref.read(detailsPageProvider(_epList.mediaId ?? '')).details.value?.genres,
+            title: _epList.animeTitle,
+          ),
         ),
       );
 
@@ -1142,7 +1148,11 @@ class EpisodeData extends _$EpisodeData {
           isAdult: _epList.isAdult,
           audioLanguage: LanguageUtils.formatAudioLanguage(
             targetLang,
-            _srcNotifier.state.activeAnimeSource?.lang,
+            LanguageUtils.detectLanguage(
+              sourceLang: _srcNotifier.state.activeAnimeSource?.lang,
+              genres: ref.read(detailsPageProvider(_epList.mediaId ?? '')).details.value?.genres,
+              title: _epList.animeTitle,
+            ),
           ),
         );
 
@@ -1342,7 +1352,11 @@ class EpisodeData extends _$EpisodeData {
         throw StateError('No playable sources found');
       }
       final allTracks = [Subtitle(lang: 'None'), ...data.tracks];
-      final activeSourceLang = _srcNotifier.state.activeAnimeSource?.lang?.toLowerCase();
+      final autoEnableSubs = ref.read(playerSettingsProvider).autoEnableSubtitles;
+      final activeSourceLang = LanguageUtils.detectLanguage(
+        sourceLang: _srcNotifier.state.activeAnimeSource?.lang,
+        title: _epList.animeTitle,
+      )?.toLowerCase();
       final prefMatch = allTracks.indexWhere((t) {
         if (t.lang == null) return false;
         final l = t.lang!.toLowerCase();
@@ -1352,7 +1366,7 @@ class EpisodeData extends _$EpisodeData {
         }
         return l.contains('english') || l.contains('eng');
       });
-      final initialSubIdx = prefMatch > 0 ? prefMatch : (allTracks.length > 1 ? 1 : 0);
+      final initialSubIdx = autoEnableSubs ? (prefMatch > 0 ? prefMatch : (allTracks.length > 1 ? 1 : 0)) : 0;
 
       state = state.copyWith(
         sources: data.sources,
@@ -1535,11 +1549,15 @@ class EpisodeData extends _$EpisodeData {
 
       if (activeGeneration != _loadGeneration) return;
 
+      final autoEnableSubs = ref.read(playerSettingsProvider).autoEnableSubtitles;
       final isDub = state.selectedServer?.isDub == true || primarySrc.isDub;
-      if (!isDub) {
+      if (!isDub && autoEnableSubs) {
         int targetSubIdx = state.selectedSubtitleIdx;
         if (targetSubIdx <= 0 || targetSubIdx >= state.subtitles.length) {
-          final activeSourceLang = _srcNotifier.state.activeAnimeSource?.lang?.toLowerCase();
+          final activeSourceLang = LanguageUtils.detectLanguage(
+            sourceLang: _srcNotifier.state.activeAnimeSource?.lang,
+            title: _epList.animeTitle,
+          )?.toLowerCase();
           final langIdx = state.subtitles.indexWhere((s) {
             if (s.lang == null) return false;
             final l = s.lang!.toLowerCase();

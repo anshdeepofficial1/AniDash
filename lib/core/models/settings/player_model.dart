@@ -18,6 +18,7 @@ class PlayerModel {
   final Map<String, String> mpvSettings;
   final bool showManualSkip;
   final int manualSkipDuration;
+  final bool autoEnableSubtitles;
 
   PlayerModel({
     this.defaultQuality = 'Auto',
@@ -38,6 +39,7 @@ class PlayerModel {
     this.mpvSettings = const {},
     this.showManualSkip = true,
     this.manualSkipDuration = 85,
+    this.autoEnableSubtitles = false,
   }) : bufferSize = bufferSize.clamp(100.0, 256.0).toDouble(),
        preferredAudioLanguage =
            preferredAudioLanguage == 'dub'
@@ -68,6 +70,7 @@ class PlayerModel {
     Map<String, String>? mpvSettings,
     bool? showManualSkip,
     int? manualSkipDuration,
+    bool? autoEnableSubtitles,
   }) {
     final newAudioLang =
         preferredAudioLanguage ??
@@ -95,6 +98,7 @@ class PlayerModel {
       mpvSettings: mpvSettings ?? this.mpvSettings,
       showManualSkip: showManualSkip ?? this.showManualSkip,
       manualSkipDuration: manualSkipDuration ?? this.manualSkipDuration,
+      autoEnableSubtitles: autoEnableSubtitles ?? this.autoEnableSubtitles,
     );
   }
 
@@ -118,6 +122,7 @@ class PlayerModel {
       'mpvSettings': mpvSettings,
       'showManualSkip': showManualSkip,
       'manualSkipDuration': manualSkipDuration,
+      'autoEnableSubtitles': autoEnableSubtitles,
     };
   }
 
@@ -154,6 +159,7 @@ class PlayerModel {
       mpvSettings: Map<String, String>.from(map['mpvSettings'] ?? {}),
       showManualSkip: map['showManualSkip'] ?? true,
       manualSkipDuration: map['manualSkipDuration'] ?? 85,
+      autoEnableSubtitles: map['autoEnableSubtitles'] ?? false,
     );
   }
 

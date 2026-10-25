@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ani_dash/core/utils/language_utils.dart';
+import 'package:ani_dash/core/models/settings/player_model.dart';
 import 'package:better_player_plus/better_player_plus.dart';
 
 void main() {
@@ -10,6 +11,9 @@ void main() {
       expect(LanguageUtils.getShortName('es'), 'Spanish');
       expect(LanguageUtils.getShortName('ja'), 'Japanese');
       expect(LanguageUtils.getShortName('en'), 'English');
+      expect(LanguageUtils.getShortName('hi'), 'Hindi');
+      expect(LanguageUtils.getShortName('hin'), 'Hindi');
+      expect(LanguageUtils.getShortName('hindi'), 'Hindi');
       expect(LanguageUtils.getShortName(null, fallback: 'Original'), 'Original');
     });
 
@@ -18,6 +22,8 @@ void main() {
       expect(LanguageUtils.getDubLabel('de'), 'German (DUB)');
       expect(LanguageUtils.getSubLabel('ja'), 'Japanese (SUB)');
       expect(LanguageUtils.getDubLabel('ja'), 'English (DUB)');
+      expect(LanguageUtils.getSubLabel('hi'), 'Hindi (SUB)');
+      expect(LanguageUtils.getDubLabel('hi'), 'Hindi (DUB)');
       expect(LanguageUtils.getSubLabel(null), 'Japanese (SUB)');
       expect(LanguageUtils.getDubLabel(null), 'English (DUB)');
     });
@@ -27,6 +33,63 @@ void main() {
       expect(LanguageUtils.formatAudioLanguage('dub', 'de'), 'German DUB');
       expect(LanguageUtils.formatAudioLanguage('sub', 'ja'), 'Japanese SUB');
       expect(LanguageUtils.formatAudioLanguage('dub', 'ja'), 'English DUB');
+      expect(LanguageUtils.formatAudioLanguage('dub', 'hi'), 'Hindi DUB');
+      expect(LanguageUtils.formatAudioLanguage('sub', 'hi'), 'Hindi SUB');
+    });
+
+    test('detects language dynamically from genres or title', () {
+      // 1. From genres
+      expect(
+        LanguageUtils.detectLanguage(genres: ['Action', 'Hindi', 'Shounen']),
+        'Hindi',
+      );
+      expect(
+        LanguageUtils.detectLanguage(genres: ['Hindi Dub', 'Adventure']),
+        'Hindi',
+      );
+      expect(
+        LanguageUtils.detectLanguage(genres: ['German', 'Fantasy']),
+        'German',
+      );
+
+      // 2. From title
+      expect(
+        LanguageUtils.detectLanguage(title: 'Solo Leveling [Hindi Dub]'),
+        'Hindi',
+      );
+      expect(
+        LanguageUtils.detectLanguage(title: 'Attack on Titan (German)'),
+        'German',
+      );
+
+      // 3. Explicit sourceLang overrides fallback
+      expect(
+        LanguageUtils.detectLanguage(
+          sourceLang: 'fr',
+          genres: ['Hindi'],
+          title: 'Naruto',
+        ),
+        'French',
+      );
+    });
+  });
+
+  group('PlayerModel autoEnableSubtitles Tests', () {
+    test('defaults autoEnableSubtitles to false', () {
+      final model = PlayerModel();
+      expect(model.autoEnableSubtitles, isFalse);
+    });
+
+    test('serializes and deserializes autoEnableSubtitles accurately', () {
+      final model = PlayerModel(autoEnableSubtitles: true);
+      expect(model.autoEnableSubtitles, isTrue);
+
+      final jsonString = model.toJson();
+      final restored = PlayerModel.fromJson(jsonString);
+      expect(restored.autoEnableSubtitles, isTrue);
+
+      final toggled = restored.copyWith(autoEnableSubtitles: false);
+      expect(toggled.autoEnableSubtitles, isFalse);
     });
   });
 

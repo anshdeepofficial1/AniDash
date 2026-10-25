@@ -170,8 +170,19 @@ class PlayerSettingsScreen extends ConsumerWidget {
               title: 'Subtitle',
               titleColor: colorScheme.primary,
               children: [
-                NormalSettingsItem(
+                ToggleableSettingsItem(
                   icon: Icon(Iconsax.subtitle, color: colorScheme.primary),
+                  accent: colorScheme.primary,
+                  title: 'Auto-Enable Subtitles',
+                  description:
+                      'Automatically show subtitles when video playback starts',
+                  value: playerSettings.autoEnableSubtitles,
+                  onChanged: (value) => playerNotifier.updateSettings(
+                    (prev) => prev.copyWith(autoEnableSubtitles: value),
+                  ),
+                ),
+                NormalSettingsItem(
+                  icon: Icon(Iconsax.colorfilter, color: colorScheme.primary),
                   accent: colorScheme.primary,
                   title: 'Subtitle Customization',
                   description: 'Customize subtitle appearance',
