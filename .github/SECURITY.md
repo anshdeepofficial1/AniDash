@@ -1,6 +1,6 @@
 # Security Policy
 
-At AniDash (ShonenX), we take the security of our application, our users' privacy, and sensitive credentials seriously. This document outlines the security procedures, supported versions, and responsible disclosure processes for the repository.
+At AniDash, we take the security of our application, our users' privacy, and sensitive credentials seriously. This document outlines the security procedures, supported versions, and responsible disclosure processes for the repository.
 
 ---
 
