@@ -596,8 +596,11 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
 
   void _openAudio() {
     final current = ref.read(playerSettingsProvider).preferredAudioLanguage;
-    final sourceLang =
-        ref.read(sourceProvider).activeAnimeSource?.lang;
+    final animeTitle = ref.read(episodeListProvider).animeTitle;
+    final sourceLang = LanguageUtils.detectLanguage(
+      sourceLang: ref.read(sourceProvider).activeAnimeSource?.lang,
+      title: animeTitle,
+    );
     final subName = LanguageUtils.getSubLabel(sourceLang);
     final dubName = LanguageUtils.getDubLabel(sourceLang);
     final options = [

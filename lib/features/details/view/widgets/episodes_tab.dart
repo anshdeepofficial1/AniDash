@@ -487,6 +487,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               animeCover: widget.mediaCover,
               episodeCount: selectedNums.length,
               isAdult: widget.fromHentaiHub,
+              genres: widget.anime?.genres,
               onConfirmBatchDownload: (lang, quality, doNotAskAgain) async {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
