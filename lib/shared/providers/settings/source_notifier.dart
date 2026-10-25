@@ -186,10 +186,22 @@ class SourceNotifier extends _$SourceNotifier {
             (s) => s.id == _repo.getActiveMangaSourceId() && !_isAdultSource(s),
           ) ??
           state.installedMangaExtensions.firstWhereOrNull(
-            (s) => s.name?.toLowerCase().contains('comick') == true,
+            (s) => s.name?.toLowerCase().contains('mangasee') == true,
           ) ??
           state.installedMangaExtensions.firstWhereOrNull(
-            (s) => s.name?.toLowerCase().contains('mangasee') == true,
+            (s) => s.name?.toLowerCase().contains('mangakakalot') == true,
+          ) ??
+          state.installedMangaExtensions.firstWhereOrNull(
+            (s) => s.name?.toLowerCase().contains('mangabat') == true,
+          ) ??
+          state.installedMangaExtensions.firstWhereOrNull(
+            (s) => s.name?.toLowerCase().contains('manganato') == true,
+          ) ??
+          state.installedMangaExtensions.firstWhereOrNull(
+            (s) => s.name?.toLowerCase().contains('asura') == true,
+          ) ??
+          state.installedMangaExtensions.firstWhereOrNull(
+            (s) => s.name?.toLowerCase().contains('comick') == true,
           ) ??
           state.installedMangaExtensions.firstWhereOrNull(
             (s) => s.name?.toLowerCase().contains('mangadex') == true,

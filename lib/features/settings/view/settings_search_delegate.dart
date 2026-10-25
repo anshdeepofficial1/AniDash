@@ -123,13 +123,6 @@ class SettingsSearchDelegate extends SearchDelegate<void> {
       Iconsax.key,
     ),
     _SettingsSearchEntry(
-      'Experimental',
-      'Misc',
-      'experimental beta features',
-      '/settings/experimental',
-      Iconsax.danger,
-    ),
-    _SettingsSearchEntry(
       'Check for Updates',
       'Misc',
       'update release channel automatic updates schedule',

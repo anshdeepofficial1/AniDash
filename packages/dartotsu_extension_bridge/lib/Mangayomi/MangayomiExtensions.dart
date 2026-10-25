@@ -102,6 +102,58 @@ class MangayomiExtensions extends Extension {
     await getInstalledAnimeExtensions();
     return installedCount;
   }
+  Future<int> restoreDefaultMangaSources() {
+    return _restoreDefaultsFuture ??= _restoreDefaultMangaSources()
+        .whenComplete(() => _restoreDefaultsFuture = null);
+  }
+
+  Future<int> _restoreDefaultMangaSources() async {
+    var installedCount = 0;
+    try {
+      final installedNames =
+          getInstalledRx(ItemType.manga).value
+              .map(
+                (e) => (e.name ?? '').toLowerCase().replaceAll(
+                  RegExp(r'[^a-z0-9]'),
+                  '',
+                ),
+              )
+              .toSet();
+      final available = getAvailableRx(ItemType.manga).value;
+      const targetNames = ['mangasee', 'mangakakalot', 'mangabat', 'asurascans'];
+
+      for (final target in targetNames) {
+        if (!installedNames.any(
+          (name) => name == target || name.startsWith(target),
+        )) {
+          final match = available.firstWhereOrNull(
+            (s) =>
+                (s.name
+                    ?.toLowerCase()
+                    .replaceAll(RegExp(r'[^a-z0-9]'), '')
+                    .startsWith(target) ==
+                true),
+          );
+
+          if (match != null) {
+            match.itemType = ItemType.manga;
+            debugPrint(
+              '[EXT_AUTO_INSTALL] Installing default manga extension: ${match.name} (${match.version})',
+            );
+            await installSource(match);
+            installedNames.add(target);
+            installedCount++;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[EXT_AUTO_INSTALL] Error installing manga defaults: $e');
+      rethrow;
+    }
+    await getInstalledMangaExtensions();
+    return installedCount;
+  }
+
 
   @override
   Future<List<Source>> fetchAvailableAnimeExtensions(List<String>? repos) =>

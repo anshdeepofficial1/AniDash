@@ -324,6 +324,9 @@ class SettingsSheetContent extends ConsumerWidget {
                               ref
                                   .read(playerStateProvider.notifier)
                                   .seek(targetDuration);
+                              if (context.mounted && Navigator.of(context).canPop()) {
+                                Navigator.of(context).pop();
+                              }
                             },
                           ),
                     );

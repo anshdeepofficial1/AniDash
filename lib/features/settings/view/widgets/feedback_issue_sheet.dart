@@ -247,6 +247,45 @@ Date: ${DateTime.now().toIso8601String()}
         ),
         const SizedBox(height: 10),
 
+        // Option 2: Track My Reports & Progress
+        Card(
+          elevation: 0,
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: Colors.cyanAccent.withValues(alpha: 0.3),
+              width: 1.2,
+            ),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            leading: CircleAvatar(
+              backgroundColor: Colors.cyanAccent.withValues(alpha: 0.15),
+              child: const Icon(Iconsax.user_tag, color: Colors.cyanAccent),
+            ),
+            title: const Text(
+              'My Reports & Dev Responses',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: const Text(
+              'Check progress, developer replies, and status for reports you submitted.',
+            ),
+            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AdminIssuesScreen(initialTabIndex: 0),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
         // Option: View Community Issues & Discussions In-App
         Card(
           elevation: 0,

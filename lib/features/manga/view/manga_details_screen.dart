@@ -1,3 +1,4 @@
+import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +69,91 @@ class _MangaDetailsScreenState extends ConsumerState<MangaDetailsScreen> {
         });
       }
     }
+  }
+
+  Future<void> _showSourceSwitcher(BuildContext context) async {
+    final sources = ref.read(sourceProvider).installedMangaExtensions;
+    if (sources.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No other manga extensions installed.')),
+      );
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetCtx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Switch Manga Source',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: sources.length,
+                itemBuilder: (_, i) {
+                  final src = sources[i];
+                  final isCurrent = src.id == widget.mangaSource.id;
+                  return ListTile(
+                    leading: const Icon(Iconsax.book),
+                    title: Text(src.name ?? 'Unknown Source'),
+                    trailing: isCurrent ? const Icon(Icons.check, color: Colors.green) : null,
+                    onTap: () async {
+                      Navigator.pop(sheetCtx);
+                      if (isCurrent) return;
+                      // Search manga on new source
+                      setState(() {
+                        _isLoading = true;
+                        _error = null;
+                      });
+                      try {
+                        final title = widget.manga.title ?? '';
+                        final searchRes = await src.methods.search(title, 1, []);
+                        final matches = searchRes.list;
+                        if (matches.isNotEmpty) {
+                          final match = matches.first;
+                          final details = await src.methods.getDetail(match).timeout(const Duration(seconds: 20));
+                          if (mounted) {
+                            setState(() {
+                              _detailedManga = details;
+                              _isLoading = false;
+                            });
+                          }
+                        } else {
+                          if (mounted) {
+                            setState(() {
+                              _error = 'No match found for "$title" on ${src.name}';
+                              _isLoading = false;
+                            });
+                          }
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          setState(() {
+                            _error = 'Error searching ${src.name}: $e';
+                            _isLoading = false;
+                          });
+                        }
+                      }
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -298,9 +384,33 @@ class _MangaDetailsScreenState extends ConsumerState<MangaDetailsScreen> {
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
-                      child: Text(
-                        _error ?? 'No chapters found for this manga',
-                        style: TextStyle(color: colorScheme.onSurfaceVariant),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Iconsax.book_1,
+                              size: 48,
+                              color: colorScheme.outlineVariant,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _error ?? 'No chapters found on ${widget.mangaSource.name ?? "current source"}',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton.tonalIcon(
+                              icon: const Icon(Iconsax.refresh, size: 18),
+                              label: const Text('Try Another Source (MangaSee, Mangakakalot)'),
+                              onPressed: () => _showSourceSwitcher(context),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   )

@@ -270,13 +270,6 @@ class SettingsScreen extends ConsumerWidget {
               titleColor: colorScheme.primary,
               onTap: () {},
               children: [
-                NormalSettingsItem(
-                  icon: Icon(Iconsax.danger, color: colorScheme.primary),
-                  accent: colorScheme.primary,
-                  title: 'Experimental',
-                  description: 'Few extra features',
-                  onTap: () => context.push('/settings/experimental'),
-                ),
                 if (!Platform.isWindows && !Platform.isLinux)
                   NormalSettingsItem(
                     icon: Icon(Iconsax.key, color: colorScheme.primary),
