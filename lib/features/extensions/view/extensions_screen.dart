@@ -212,8 +212,10 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
       await defaults.fetchAvailableAnimeExtensions(
         _getSavedAnimeRepos(defaults),
       );
-      final restored =
-          await (defaults as MangayomiExtensions).restoreDefaultAnimeSources();
+      final mangayomi = defaults as MangayomiExtensions;
+      final restoredAnime = await mangayomi.restoreDefaultAnimeSources();
+      final restoredManga = await mangayomi.restoreDefaultMangaSources();
+      final restored = restoredAnime + restoredManga;
       if (!mounted) return;
       await ProviderScope.containerOf(
         context,

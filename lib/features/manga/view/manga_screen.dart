@@ -961,8 +961,8 @@ class _MangaScreenState extends ConsumerState<MangaScreen> {
                       final targetSource =
                           activeSource ??
                           Source(
-                            id: entry.sourceId ?? 'mangadex',
-                            name: entry.sourceName ?? 'MangaDex',
+                            id: entry.sourceId ?? activeSource?.id ?? 'mangasee',
+                            name: entry.sourceName ?? activeSource?.name ?? 'MangaSee',
                             isNsfw: entry.isAdult,
                           );
 
@@ -1195,8 +1195,8 @@ class _MangaScreenState extends ConsumerState<MangaScreen> {
                     final targetSource =
                         activeSource ??
                         Source(
-                          id: entry.sourceId ?? 'mangadex',
-                          name: entry.sourceName ?? 'MangaDex',
+                          id: entry.sourceId ?? activeSource?.id ?? 'mangasee',
+                          name: entry.sourceName ?? activeSource?.name ?? 'MangaSee',
                           isNsfw: entry.isAdult,
                         );
 
@@ -1249,8 +1249,8 @@ class _MangaScreenState extends ConsumerState<MangaScreen> {
                     final targetSource =
                         activeSource ??
                         Source(
-                          id: entry.sourceId ?? 'mangadex',
-                          name: entry.sourceName ?? 'MangaDex',
+                          id: entry.sourceId ?? activeSource?.id ?? 'mangasee',
+                          name: entry.sourceName ?? activeSource?.name ?? 'MangaSee',
                           isNsfw: entry.isAdult,
                         );
 

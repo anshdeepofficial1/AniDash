@@ -216,6 +216,15 @@ class FeedbackService {
             githubIssueUrl: githubUrl,
           );
           await _saveLocalReport(updatedReport);
+
+          // Save issue number to user tracking list
+          final issueMatch = RegExp(r'/issues/(\d+)').firstMatch(githubUrl);
+          if (issueMatch != null) {
+            final num = int.tryParse(issueMatch.group(1)!);
+            if (num != null) {
+              await addUserSubmittedIssueNumber(num);
+            }
+          }
           return updatedReport;
         }
       }
@@ -443,8 +452,111 @@ class FeedbackService {
     }
   }
 
+  static const String _userSubmittedIssuesKey = 'user_submitted_issue_numbers';
+
+  Future<List<int>> getUserSubmittedIssueNumbers() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_userSubmittedIssuesKey) ?? [];
+      return list.map((e) => int.tryParse(e)).whereType<int>().toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> addUserSubmittedIssueNumber(int issueNumber) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final current = prefs.getStringList(_userSubmittedIssuesKey) ?? [];
+      if (!current.contains(issueNumber.toString())) {
+        current.add(issueNumber.toString());
+        await prefs.setStringList(_userSubmittedIssuesKey, current);
+      }
+    } catch (_) {}
+  }
+
+  /// Automatically check for developer responses to the user's submitted feedback
+  Future<void> checkDeveloperRepliesAndNotify() async {
+    try {
+      final userIssues = await getUserSubmittedIssueNumbers();
+      final localReports = await getLocalReports();
+      final allIssues = await fetchGitHubIssues(state: 'all');
+      final prefs = await SharedPreferences.getInstance();
+
+      // Also match local reports by title to GitHub issues in case issue number wasn't linked yet
+      for (final report in localReports) {
+        final match = allIssues.firstWhere(
+          (gh) =>
+              gh.title.toLowerCase().contains(report.title.toLowerCase()) ||
+              gh.htmlUrl == report.githubIssueUrl,
+          orElse: () => GitHubIssueItem(
+            number: 0,
+            title: '',
+            state: '',
+            author: '',
+            labels: [],
+            commentsCount: 0,
+            createdAt: DateTime.now(),
+            htmlUrl: '',
+            body: '',
+          ),
+        );
+        if (match.number > 0 && !userIssues.contains(match.number)) {
+          await addUserSubmittedIssueNumber(match.number);
+          userIssues.add(match.number);
+        }
+      }
+
+      for (final issueNum in userIssues) {
+        final comments = await fetchIssueComments(issueNum);
+        if (comments.isEmpty) continue;
+
+        final lastSeenCommentKey = 'last_seen_comment_for_issue_$issueNum';
+        final lastSeenCommentId = prefs.getInt(lastSeenCommentKey) ?? 0;
+
+        // Find developer replies
+        final devReplies = comments.where((c) {
+          final author = c.author.toLowerCase();
+          return author == 'anshdeepofficial1' || author.contains('anshdeep') || author.contains('admin');
+        }).toList();
+
+        if (devReplies.isNotEmpty) {
+          final newest = devReplies.last;
+          if (newest.id > lastSeenCommentId) {
+            final issueTitle = allIssues.firstWhere(
+              (i) => i.number == issueNum,
+              orElse: () => GitHubIssueItem(
+                number: issueNum,
+                title: 'Report #$issueNum',
+                state: 'open',
+                author: 'Dev',
+                labels: [],
+                commentsCount: 1,
+                createdAt: DateTime.now(),
+                htmlUrl: '',
+                body: '',
+              ),
+            ).title;
+
+            await NotificationService().showDeveloperReplyAlert(
+              issueNumber: issueNum,
+              issueTitle: issueTitle.replaceAll(RegExp(r'^\[In-App[^\]]*\]\s*'), ''),
+              author: newest.author,
+              commentBody: newest.body,
+            );
+
+            await prefs.setInt(lastSeenCommentKey, newest.id);
+          }
+        }
+      }
+    } catch (e) {
+      AppLogger.d('Developer reply check skipped: $e');
+    }
+  }
+
   Future<void> checkForNewIssuesAndNotify() async {
     try {
+      await checkDeveloperRepliesAndNotify();
       final issues = await fetchGitHubIssues(state: 'open');
       if (issues.isEmpty) return;
 

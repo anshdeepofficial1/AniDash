@@ -11,7 +11,8 @@ import 'package:ani_dash/features/settings/view/screens/in_app_issue_detail_scre
 import 'package:ani_dash/features/settings/view/widgets/feedback_issue_sheet.dart';
 
 class AdminIssuesScreen extends ConsumerStatefulWidget {
-  const AdminIssuesScreen({super.key});
+  final int initialTabIndex;
+  const AdminIssuesScreen({super.key, this.initialTabIndex = 0});
 
   @override
   ConsumerState<AdminIssuesScreen> createState() => _AdminIssuesScreenState();
@@ -38,6 +39,7 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
   List<GitHubIssueItem> _githubIssues = [];
   bool _loadingGitHub = false;
   String _githubFilter = 'all'; // all, open, closed
+  List<int> _userSubmittedIssueNumbers = [];
 
   bool _isInAppIssue(GitHubIssueItem item) {
     final title = item.title.toLowerCase();
@@ -53,7 +55,7 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex.clamp(0, 2));
     WidgetsBinding.instance.addPostFrameCallback((_) => _initializeAccess());
   }
 
@@ -178,6 +180,8 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
   }
 
   Future<void> _loadAllData() async {
+    final userNumbers = await _feedbackService.getUserSubmittedIssueNumbers();
+    if (mounted) setState(() => _userSubmittedIssueNumbers = userNumbers);
     _loadInAppReports();
     _loadGitHubIssues();
   }
@@ -286,12 +290,16 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
           controller: _tabController,
           tabs: [
             Tab(
+              icon: const Icon(Iconsax.user),
+              text: 'My Reports ($_myReportsCount)',
+            ),
+            Tab(
               icon: const Icon(Iconsax.message_text),
-              text: 'In-App Reports (${_inAppGitHubIssues.length + _inAppReports.length})',
+              text: 'Community (${_inAppGitHubIssues.length})',
             ),
             Tab(
               icon: const Icon(Iconsax.code),
-              text: 'GitHub Issues (${_githubIssues.length})',
+              text: 'GitHub (${_githubIssues.length})',
             ),
           ],
         ),
@@ -311,7 +319,261 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [_buildInAppTab(colorScheme), _buildGitHubTab(colorScheme)],
+        children: [
+          _buildMyReportsTab(colorScheme),
+          _buildInAppTab(colorScheme),
+          _buildGitHubTab(colorScheme),
+        ],
+      ),
+    );
+  }
+
+  int get _myReportsCount {
+    final matchedGh = _githubIssues.where((item) =>
+        _userSubmittedIssueNumbers.contains(item.number) ||
+        _inAppReports.any((r) => item.title.toLowerCase().contains(r.title.toLowerCase()))).length;
+    final unlinked = _inAppReports.where((local) {
+      if (local.githubIssueUrl == null) return true;
+      return !_githubIssues.any((gh) => gh.htmlUrl == local.githubIssueUrl);
+    }).length;
+    return matchedGh + unlinked;
+  }
+
+  Widget _buildMyReportsTab(ColorScheme colorScheme) {
+    if (_loadingInApp && _loadingGitHub) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final myGhIssues = _githubIssues.where((item) =>
+        _userSubmittedIssueNumbers.contains(item.number) ||
+        _inAppReports.any((r) => item.title.toLowerCase().contains(r.title.toLowerCase()))).toList();
+
+    final unlinkedLocalReports = _inAppReports.where((local) {
+      if (local.githubIssueUrl == null) return true;
+      return !_githubIssues.any((gh) => gh.htmlUrl == local.githubIssueUrl);
+    }).toList();
+
+    final totalCount = myGhIssues.length + unlinkedLocalReports.length;
+
+    if (totalCount == 0) {
+      return RefreshIndicator(
+        onRefresh: _loadAllData,
+        child: ListView(
+          padding: const EdgeInsets.all(32),
+          children: [
+            const SizedBox(height: 60),
+            Icon(
+              Iconsax.user_tag,
+              size: 56,
+              color: colorScheme.outlineVariant,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No feedback submitted yet',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Reports you submit from this device will appear here so you can track progress and developer replies.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: FilledButton.icon(
+                icon: const Icon(Iconsax.edit, size: 18),
+                label: const Text('Submit Feedback / Report Bug'),
+                onPressed: () => FeedbackIssueSheet.show(context),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadAllData,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: totalCount,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          if (index < myGhIssues.length) {
+            final item = myGhIssues[index];
+            final isOpen = item.state == 'open';
+            final stateColor = isOpen ? Colors.greenAccent : Colors.purpleAccent;
+
+            return Card(
+              elevation: 0,
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: stateColor.withValues(alpha: 0.3), width: 1.2),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => InAppIssueDetailScreen(issue: item),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: stateColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isOpen ? 'OPEN (IN PROGRESS)' : 'RESOLVED',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: stateColor,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            DateFormat('MMM d, y • h:mm a').format(item.createdAt),
+                            style: TextStyle(fontSize: 11, color: colorScheme.outline),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        item.title.replaceAll(RegExp(r'^\[In-App[^\]]*\]\s*'), ''),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          if (item.commentsCount > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.chat_bubble_outline_rounded, size: 14, color: colorScheme.primary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${item.commentsCount} Dev Responses',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const Spacer(),
+                          const Text(
+                            'View Details & Reply',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 12),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          final localIndex = index - myGhIssues.length;
+          final item = unlinkedLocalReports[localIndex];
+          final color = _categoryColor(item.type);
+
+          return Card(
+            elevation: 0,
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: color.withValues(alpha: 0.3), width: 1.2),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                final virtualItem = GitHubIssueItem(
+                  number: item.id.hashCode.abs() % 10000,
+                  title: '[In-App Feedback] ${item.title}',
+                  state: item.isResolved ? 'closed' : 'open',
+                  author: item.contact.isNotEmpty ? item.contact : 'You',
+                  labels: [item.type, 'In-App Feedback', 'Local'],
+                  commentsCount: 0,
+                  createdAt: item.createdAt,
+                  htmlUrl: item.githubIssueUrl ?? '',
+                  body: item.description,
+                );
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => InAppIssueDetailScreen(issue: virtualItem),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.blueAccent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'SUBMITTED (PENDING REVIEW)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueAccent,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          DateFormat('MMM d, y • h:mm a').format(item.createdAt),
+                          style: TextStyle(fontSize: 11, color: colorScheme.outline),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      item.title,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      item.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

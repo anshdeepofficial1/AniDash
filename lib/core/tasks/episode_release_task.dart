@@ -1,3 +1,4 @@
+import 'package:ani_dash/core/services/feedback_service.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -491,13 +492,13 @@ class EpisodeReleaseTask {
           // background sync cannot indefinitely postpone this reminder.
           final lastWatched = entry.effectiveLastPlayedTime;
           if (DateTime.now().difference(lastWatched) >=
-              const Duration(hours: 12)) {
+              const Duration(hours: 6)) {
             final reminderKey =
                 'continue_reminder_${entry.animeId}_$reminderEpisode';
             final lastReminder = pref.getInt(reminderKey) ?? 0;
             final isCooldownActive =
                 DateTime.now().millisecondsSinceEpoch - lastReminder <
-                const Duration(days: 3).inMilliseconds;
+                const Duration(hours: 20).inMilliseconds;
 
             if (!isCooldownActive) {
               sentCount++;
@@ -518,6 +519,11 @@ class EpisodeReleaseTask {
           }
         }
       }
+
+      // Check for developer replies to user feedback
+      try {
+        await FeedbackService().checkDeveloperRepliesAndNotify();
+      } catch (_) {}
 
       // Record successful check time
       await pref.setInt(keyLastCheck, nowEpoch);

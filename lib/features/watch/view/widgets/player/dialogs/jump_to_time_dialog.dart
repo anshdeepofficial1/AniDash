@@ -14,6 +14,15 @@ class TimeDigitInputFormatter extends TextInputFormatter {
       return newValue;
     }
 
+    // If user is manually typing colons, units, or dots, preserve directly
+    if (newValue.text.contains(':') ||
+        newValue.text.contains('m') ||
+        newValue.text.contains('s') ||
+        newValue.text.contains('h') ||
+        newValue.text.contains('.')) {
+      return newValue;
+    }
+
     // Extract only digits from new value
     final rawDigits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
     if (rawDigits.isEmpty) {
@@ -264,15 +273,53 @@ class _JumpToTimeDialogState extends State<JumpToTimeDialog> {
     });
   }
 
+  Duration? _fallbackParseDuration(String input) {
+    input = input.trim().toLowerCase();
+    // Handle mm:ss carryover e.g. 1:60 -> 2m, 0:90 -> 90s
+    if (input.contains(':')) {
+      final parts = input.split(':');
+      if (parts.length == 2) {
+        final m = int.tryParse(parts[0].trim());
+        final s = int.tryParse(parts[1].trim());
+        if (m != null && s != null) {
+          return Duration(seconds: (m * 60) + s);
+        }
+      } else if (parts.length == 3) {
+        final h = int.tryParse(parts[0].trim());
+        final m = int.tryParse(parts[1].trim());
+        final s = int.tryParse(parts[2].trim());
+        if (h != null && m != null && s != null) {
+          return Duration(seconds: (h * 3600) + (m * 60) + s);
+        }
+      }
+    }
+    // Handle decimals e.g. 15.5 -> 15m 30s
+    final decimal = double.tryParse(input);
+    if (decimal != null && decimal > 0) {
+      final totalSec = (decimal * 60).round();
+      return Duration(seconds: totalSec);
+    }
+    return null;
+  }
+
   void _submit() {
-    if (_parsedDuration != null) {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    final target = _parsedDuration ??
+        parseJumpTimeInput(text, totalDuration: widget.totalDuration) ??
+        _fallbackParseDuration(text);
+
+    if (target != null) {
       final clamped = widget.totalDuration > Duration.zero
-          ? (_parsedDuration! > widget.totalDuration
-              ? widget.totalDuration
-              : _parsedDuration!)
-          : _parsedDuration!;
+          ? (target > widget.totalDuration ? widget.totalDuration : target)
+          : target;
       widget.onJump(clamped);
       Navigator.of(context).pop();
+    } else {
+      setState(() {
+        _errorMessage = 'Please enter a valid time (e.g. 15:00 or 15m)';
+      });
     }
   }
 
@@ -523,7 +570,7 @@ class _JumpToTimeDialogState extends State<JumpToTimeDialog> {
                   ),
                   const SizedBox(width: 8),
                   FilledButton.icon(
-                    onPressed: _parsedDuration != null ? _submit : null,
+                    onPressed: _controller.text.trim().isNotEmpty ? _submit : null,
                     icon: const Icon(Iconsax.play5, size: 18),
                     label: Text(widget.actionLabel),
                   ),

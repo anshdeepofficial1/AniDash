@@ -1081,6 +1081,39 @@ class NotificationService {
     await flutterLocalNotificationsPlugin.cancel(9999);
   }
 
+  Future<void> showDeveloperReplyAlert({
+    required int issueNumber,
+    required String issueTitle,
+    required String author,
+    required String commentBody,
+  }) async {
+    const androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'anidash_feedback_replies_channel',
+      'Developer Replies & Feedback Updates',
+      channelDescription:
+          'Notifications when the developer replies to your submitted feedback',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+    );
+    const platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: DarwinNotificationDetails(),
+    );
+
+    final cleanSnippet = commentBody.trim().length > 120
+        ? '${commentBody.trim().substring(0, 117)}...'
+        : commentBody.trim();
+
+    await flutterLocalNotificationsPlugin.show(
+      89000 + (issueNumber % 1000),
+      'Developer Replied to: $issueTitle',
+      '$author: $cleanSnippet',
+      platformChannelSpecifics,
+      payload: 'issue:$issueNumber',
+    );
+  }
+
   Future<void> showIssueAlert({
     required int issueNumber,
     required String title,
