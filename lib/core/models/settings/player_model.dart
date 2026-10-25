@@ -39,7 +39,7 @@ class PlayerModel {
     this.mpvSettings = const {},
     this.showManualSkip = true,
     this.manualSkipDuration = 85,
-    this.autoEnableSubtitles = false,
+    this.autoEnableSubtitles = true,
   }) : bufferSize = bufferSize.clamp(100.0, 256.0).toDouble(),
        preferredAudioLanguage =
            preferredAudioLanguage == 'dub'
@@ -159,7 +159,7 @@ class PlayerModel {
       mpvSettings: Map<String, String>.from(map['mpvSettings'] ?? {}),
       showManualSkip: map['showManualSkip'] ?? true,
       manualSkipDuration: map['manualSkipDuration'] ?? 85,
-      autoEnableSubtitles: map['autoEnableSubtitles'] ?? false,
+      autoEnableSubtitles: map['autoEnableSubtitles'] ?? true,
     );
   }
 

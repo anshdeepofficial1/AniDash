@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:ani_dash/features/settings/view/screens/in_app_issue_detail_screen.dart';
 
 class AdminIssuesScreen extends ConsumerStatefulWidget {
   const AdminIssuesScreen({super.key});
@@ -812,9 +813,10 @@ ${item.description}
                               ],
                             ),
                             onTap: () {
-                              launchUrl(
-                                Uri.parse(item.htmlUrl),
-                                mode: LaunchMode.externalApplication,
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => InAppIssueDetailScreen(issue: item),
+                                ),
                               );
                             },
                           ),

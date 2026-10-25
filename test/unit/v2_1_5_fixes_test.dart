@@ -75,9 +75,9 @@ void main() {
   });
 
   group('PlayerModel autoEnableSubtitles Tests', () {
-    test('defaults autoEnableSubtitles to false', () {
+    test('defaults autoEnableSubtitles to true', () {
       final model = PlayerModel();
-      expect(model.autoEnableSubtitles, isFalse);
+      expect(model.autoEnableSubtitles, isTrue);
     });
 
     test('serializes and deserializes autoEnableSubtitles accurately', () {

@@ -1080,4 +1080,31 @@ class NotificationService {
   Future<void> hidePlaybackNotification() async {
     await flutterLocalNotificationsPlugin.cancel(9999);
   }
+
+  Future<void> showIssueAlert({
+    required int issueNumber,
+    required String title,
+    required String author,
+  }) async {
+    const androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'anidash_issues_channel',
+      'Issue & Feedback Alerts',
+      channelDescription: 'Notifications for new GitHub issues and user reports',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+    );
+    const platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: DarwinNotificationDetails(),
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      88000 + (issueNumber % 1000),
+      'New Issue #$issueNumber by $author',
+      title,
+      platformChannelSpecifics,
+      payload: 'issue:$issueNumber',
+    );
+  }
 }

@@ -30,6 +30,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ani_dash/shared/providers/settings/ui_notifier.dart';
 import 'package:ani_dash/shared/ui/adaptive_media_skeleton.dart';
 import 'package:ani_dash/features/home/view/widget/app_tour_dialog.dart';
+import 'package:ani_dash/core/services/feedback_service.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -61,6 +62,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       Future.delayed(const Duration(milliseconds: 1200), () {
         if (mounted) {
           AppTourDialog.showIfNeeded(context);
+        }
+      });
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          FeedbackService().checkForNewIssuesAndNotify();
         }
       });
     });
