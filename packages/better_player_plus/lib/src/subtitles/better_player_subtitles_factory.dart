@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:better_player_plus/src/core/better_player_utils.dart';
-import 'package:better_player_plus/src/subtitles/better_player_subtitle.dart';
 
 class BetterPlayerSubtitlesFactory {
   const BetterPlayerSubtitlesFactory._();
@@ -24,13 +23,17 @@ class BetterPlayerSubtitlesFactory {
     try {
       final List<BetterPlayerSubtitle> subtitles = [];
       for (final String? url in source.urls!) {
-        final file = File(url!);
+        if (url == null || url.isEmpty) continue;
+        final cleanPath = url.startsWith('file://')
+            ? (Uri.tryParse(url)?.toFilePath() ?? url.replaceFirst('file://', ''))
+            : url;
+        final file = File(cleanPath);
         if (file.existsSync()) {
           final String fileContent = await file.readAsString();
           final subtitlesCache = _parseString(fileContent);
           subtitles.addAll(subtitlesCache);
         } else {
-          BetterPlayerUtils.log("$url doesn't exist!");
+          BetterPlayerUtils.log("$cleanPath doesn't exist!");
         }
       }
       return subtitles;
@@ -85,14 +88,35 @@ class BetterPlayerSubtitlesFactory {
       return [];
     }
 
+    final List<BetterPlayerSubtitle> subtitlesObj = [];
+
+    // Check if this is an Advanced SubStation Alpha (.ass / .ssa) file
+    final lower = normalized.toLowerCase();
+    if (lower.contains('[events]') || lower.contains('dialogue:')) {
+      final lines = normalized.split('\n');
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (trimmed.toLowerCase().startsWith('dialogue:')) {
+          final subtitle = BetterPlayerSubtitle.fromAss(trimmed);
+          if (subtitle.start != null &&
+              subtitle.end != null &&
+              subtitle.texts != null &&
+              subtitle.texts!.isNotEmpty) {
+            subtitlesObj.add(subtitle);
+          }
+        }
+      }
+      if (subtitlesObj.isNotEmpty) {
+        return subtitlesObj;
+      }
+    }
+
     final List<String> components = normalized.split(RegExp(r'\n\s*\n'));
 
     // Skip parsing files with no cues
     if (components.isEmpty) {
       return [];
     }
-
-    final List<BetterPlayerSubtitle> subtitlesObj = [];
 
     final bool isWebVTT = normalized.startsWith('WEBVTT') || normalized.contains('-->');
     for (final component in components) {

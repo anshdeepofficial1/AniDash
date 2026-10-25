@@ -54,6 +54,7 @@ class DownloadService {
         unawaited(startDownload(item));
       }
     });
+    Future.microtask(() => cleanTemporaryFiles());
     ref.onDispose(dispose);
   }
 
@@ -137,6 +138,14 @@ class DownloadService {
     } catch (_) {}
 
     return null;
+  }
+
+  Future<String?> getDownloadPath() async {
+    final requestedCustom =
+        (_settings.useCustomPath && _settings.customDownloadPath != null)
+            ? _settings.customDownloadPath!
+            : null;
+    return _resolveWritableBasePath(requestedCustom);
   }
 
   Future<void> startDownload(DownloadItem item) async {
@@ -258,6 +267,31 @@ class DownloadService {
       final file = File(item.filePath);
       if (await file.exists()) await file.delete();
 
+      // Delete associated temporary directory
+      final tempDir = Directory(
+        '${p.dirname(item.filePath)}/.temp_${item.id.hashCode}',
+      );
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+
+      // Delete sidecar subtitle & metadata files
+      try {
+        final parentDir = file.parent;
+        if (await parentDir.exists()) {
+          final baseName = p.basenameWithoutExtension(item.filePath);
+          final sidecars = parentDir.listSync().where((entity) {
+            final name = p.basename(entity.path);
+            return name.startsWith(baseName) && entity.path != item.filePath;
+          });
+          for (final sidecar in sidecars) {
+            try {
+              sidecar.deleteSync(recursive: true);
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
       if (await file.parent.exists() && file.parent.listSync().isEmpty) {
         await file.parent.delete();
       }
@@ -265,6 +299,32 @@ class DownloadService {
     } catch (e) {
       AppLogger.e('Delete failed: $e');
     }
+  }
+
+  Future<int> cleanTemporaryFiles() async {
+    int freedBytes = 0;
+    try {
+      final rootPath = await getDownloadPath();
+      if (rootPath == null) return 0;
+      final rootDir = Directory(rootPath);
+      if (!await rootDir.exists()) return 0;
+
+      await for (final entity in rootDir.list(recursive: true, followLinks: false)) {
+        if (entity is Directory && p.basename(entity.path).startsWith('.temp_')) {
+          try {
+            await for (final file in entity.list(recursive: true, followLinks: false)) {
+              if (file is File) {
+                freedBytes += await file.length();
+              }
+            }
+            await entity.delete(recursive: true);
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      AppLogger.e('Error cleaning temporary download files: $e');
+    }
+    return freedBytes;
   }
 
   void _processQueue() {
@@ -630,6 +690,7 @@ Future<DownloadItem> _processM3U8(
     task.item.headers,
     client,
     task.port,
+    targetQuality: task.item.quality,
   );
   if (segments.isEmpty) throw Exception("Empty playlist");
 
@@ -783,12 +844,29 @@ Future<DownloadItem> _processM3U8(
   }
 }
 
+class _VariantInfo {
+  final String url;
+  final int bandwidth;
+  final int height;
+  final String name;
+  final String rawInf;
+
+  _VariantInfo({
+    required this.url,
+    required this.bandwidth,
+    required this.height,
+    required this.name,
+    required this.rawInf,
+  });
+}
+
 Future<List<_Segment>> _parsePlaylist(
   String url,
   Map headers,
   http.Client client,
-  SendPort port,
-) async {
+  SendPort port, {
+  String? targetQuality,
+}) async {
   final bytes = await _fetch(url, headers, client);
   if (bytes == null) throw Exception("Failed to load m3u8");
 
@@ -797,30 +875,84 @@ Future<List<_Segment>> _parsePlaylist(
   final segments = <_Segment>[];
 
   if (lines.any((l) => l.contains('#EXT-X-STREAM-INF'))) {
-    String? bestVariant;
-    var bestBandwidth = -1;
+    final variants = <_VariantInfo>[];
     for (int i = 0; i < lines.length; i++) {
       if (lines[i].startsWith('#EXT-X-STREAM-INF') && i + 1 < lines.length) {
         final next = lines[i + 1].trim();
         if (next.isNotEmpty && !next.startsWith('#')) {
+          final line = lines[i];
           final bandwidth =
               int.tryParse(
-                RegExp(r'BANDWIDTH=(\d+)').firstMatch(lines[i])?.group(1) ?? '',
+                RegExp(r'BANDWIDTH=(\d+)').firstMatch(line)?.group(1) ?? '',
               ) ??
               0;
-          if (bandwidth > bestBandwidth) {
-            bestBandwidth = bandwidth;
-            bestVariant = next;
-          }
+          final resMatch = RegExp(r'RESOLUTION=(\d+)x(\d+)').firstMatch(line);
+          final height =
+              resMatch != null ? int.tryParse(resMatch.group(2) ?? '') ?? 0 : 0;
+          final nameMatch =
+              RegExp(r'NAME="?([^",]+)"?').firstMatch(line)?.group(1) ?? '';
+          variants.add(
+            _VariantInfo(
+              url: next,
+              bandwidth: bandwidth,
+              height: height,
+              name: nameMatch,
+              rawInf: line,
+            ),
+          );
         }
       }
     }
-    if (bestVariant != null) {
+
+    if (variants.isNotEmpty) {
+      _VariantInfo selectedVariant = variants.first;
+      final targetHeight =
+          int.tryParse(
+            (targetQuality ?? '').replaceAll(RegExp(r'[^0-9]'), ''),
+          ) ??
+          0;
+
+      if (targetHeight > 0) {
+        final exactHeight =
+            variants.where((v) => v.height == targetHeight).toList();
+        if (exactHeight.isNotEmpty) {
+          selectedVariant = exactHeight.first;
+        } else {
+          final nameMatch =
+              variants
+                  .where(
+                    (v) =>
+                        v.name.contains('$targetHeight') ||
+                        v.rawInf.contains('${targetHeight}p'),
+                  )
+                  .toList();
+          if (nameMatch.isNotEmpty) {
+            selectedVariant = nameMatch.first;
+          } else {
+            final sorted = [...variants];
+            sorted.sort((a, b) {
+              if (a.height > 0 && b.height > 0) {
+                final diffA = (a.height - targetHeight).abs();
+                final diffB = (b.height - targetHeight).abs();
+                return diffA.compareTo(diffB);
+              }
+              return b.bandwidth.compareTo(a.bandwidth);
+            });
+            selectedVariant = sorted.first;
+          }
+        }
+      } else {
+        final sorted = [...variants];
+        sorted.sort((a, b) => b.bandwidth.compareTo(a.bandwidth));
+        selectedVariant = sorted.first;
+      }
+
       return _parsePlaylist(
-        baseUri.resolve(bestVariant).toString(),
+        baseUri.resolve(selectedVariant.url).toString(),
         headers,
         client,
         port,
+        targetQuality: targetQuality,
       );
     }
   }

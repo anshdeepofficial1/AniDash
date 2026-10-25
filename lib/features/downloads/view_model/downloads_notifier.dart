@@ -171,6 +171,10 @@ class DownloadsNotifier extends _$DownloadsNotifier {
     _repository.clearAll();
   }
 
+  Future<int> cleanTemporaryFiles() => _service.cleanTemporaryFiles();
+
+  Future<String?> getDownloadDirectory() => _service.getDownloadPath();
+
   Future<DownloadItem?> findDownloadedEpisode({
     required String animeTitle,
     required int episodeNumber,

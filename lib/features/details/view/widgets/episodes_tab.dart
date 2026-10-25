@@ -2242,11 +2242,11 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       subtitle:
                           snapshot.connectionState == ConnectionState.waiting
                               ? const Text(
-                                'Checking Japanese SUB and English DUB…',
+                                'Checking SUB and DUB availability…',
                               )
                               : Text(
-                                'Japanese (SUB): ${availability?.sub == true ? "Available" : "Unavailable"}\n'
-                                'English (DUB): ${availability?.dub == true ? "Available" : "Unavailable"}',
+                                'SUB: ${availability?.sub == true ? "Available" : "Unavailable"}\n'
+                                'DUB: ${availability?.dub == true ? "Available" : "Unavailable"}',
                               ),
                     );
                   },

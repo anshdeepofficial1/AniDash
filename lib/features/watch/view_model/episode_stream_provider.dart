@@ -37,6 +37,8 @@ import 'package:ani_dash/features/watch/view_model/next_episode_prompt_provider.
 import 'package:ani_dash/core/utils/extractors.dart' as extractor;
 import 'package:ani_dash/helpers/matcher.dart';
 import 'package:ani_dash/shared/providers/anime_match_service.dart';
+import 'package:ani_dash/core/utils/language_utils.dart';
+import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/core/models/universal/universal_media.dart';
 
 part 'episode_stream_provider.g.dart';
@@ -374,6 +376,18 @@ class EpisodeData extends _$EpisodeData {
 
     AppLogger.i('Changing to episode: $target');
     await loadEpisode(ep: target, play: true, startAt: startAt);
+  }
+
+  void setLocalPlaybackState({
+    required int episode,
+    required List<Subtitle> subtitles,
+  }) {
+    state = state.copyWith(
+      selectedEpisode: episode,
+      subtitles: subtitles,
+      clearError: true,
+      selectedSubtitleIdx: subtitles.length > 1 ? 1 : 0,
+    );
   }
 
   void clearEpisodeCache({String? mediaId, int? episodeNumber}) {
@@ -981,7 +995,10 @@ class EpisodeData extends _$EpisodeData {
           ...?matchedSource.headers,
         },
         isAdult: _epList.isAdult,
-        audioLanguage: language == 'dub' ? 'English DUB' : 'Japanese SUB',
+        audioLanguage: LanguageUtils.formatAudioLanguage(
+          language,
+          _srcNotifier.state.activeAnimeSource?.lang,
+        ),
       );
 
       await ref.read(downloadsProvider.notifier).addDownload(item);
@@ -1123,7 +1140,10 @@ class EpisodeData extends _$EpisodeData {
             ...?source.headers,
           },
           isAdult: _epList.isAdult,
-          audioLanguage: targetLang == 'dub' ? 'English DUB' : 'Japanese SUB',
+          audioLanguage: LanguageUtils.formatAudioLanguage(
+            targetLang,
+            _srcNotifier.state.activeAnimeSource?.lang,
+          ),
         );
 
         await ref.read(downloadsProvider.notifier).addDownload(item);
@@ -1321,9 +1341,23 @@ class EpisodeData extends _$EpisodeData {
       if (data == null || data.sources.isEmpty) {
         throw StateError('No playable sources found');
       }
+      final allTracks = [Subtitle(lang: 'None'), ...data.tracks];
+      final activeSourceLang = _srcNotifier.state.activeAnimeSource?.lang?.toLowerCase();
+      final prefMatch = allTracks.indexWhere((t) {
+        if (t.lang == null) return false;
+        final l = t.lang!.toLowerCase();
+        if (activeSourceLang != null && activeSourceLang.isNotEmpty && activeSourceLang != 'all') {
+          final shortName = LanguageUtils.getShortName(activeSourceLang).toLowerCase();
+          if (l.contains(shortName) || l.contains(activeSourceLang)) return true;
+        }
+        return l.contains('english') || l.contains('eng');
+      });
+      final initialSubIdx = prefMatch > 0 ? prefMatch : (allTracks.length > 1 ? 1 : 0);
+
       state = state.copyWith(
         sources: data.sources,
-        subtitles: [Subtitle(lang: 'None'), ...data.tracks],
+        subtitles: allTracks,
+        selectedSubtitleIdx: initialSubIdx,
         headers: data.headers?.cast<String, String>(),
         activeProviderKey: requestedProviderKey,
       );
@@ -1503,10 +1537,23 @@ class EpisodeData extends _$EpisodeData {
 
       final isDub = state.selectedServer?.isDub == true || primarySrc.isDub;
       if (!isDub) {
-        final engIdx = state.subtitles.indexWhere(
-          (s) => s.lang?.toLowerCase().contains('eng') ?? false,
-        );
-        if (engIdx != -1) changeSubtitle(engIdx);
+        int targetSubIdx = state.selectedSubtitleIdx;
+        if (targetSubIdx <= 0 || targetSubIdx >= state.subtitles.length) {
+          final activeSourceLang = _srcNotifier.state.activeAnimeSource?.lang?.toLowerCase();
+          final langIdx = state.subtitles.indexWhere((s) {
+            if (s.lang == null) return false;
+            final l = s.lang!.toLowerCase();
+            if (activeSourceLang != null && activeSourceLang.isNotEmpty && activeSourceLang != 'all') {
+              final shortName = LanguageUtils.getShortName(activeSourceLang).toLowerCase();
+              if (l.contains(shortName) || l.contains(activeSourceLang)) return true;
+            }
+            return l.contains('eng') || l.contains('english');
+          });
+          targetSubIdx = langIdx != -1 ? langIdx : (state.subtitles.length > 1 ? 1 : 0);
+        }
+        if (targetSubIdx > 0 && targetSubIdx < state.subtitles.length) {
+          changeSubtitle(targetSubIdx);
+        }
       }
 
       state = state.copyWith(
@@ -2098,7 +2145,9 @@ class EpisodeData extends _$EpisodeData {
                     TextButton(
                       onPressed: () {
                         messenger.hideCurrentSnackBar();
-                        routerConfig.go('/downloads');
+                        UIHelper.exitImmersiveMode();
+                        UIHelper.forcePortrait();
+                        routerConfig.push('/downloads');
                       },
                       child: const Text('View Downloads'),
                     ),
@@ -2113,7 +2162,9 @@ class EpisodeData extends _$EpisodeData {
                   onPressed: () {
                     messenger.hideCurrentSnackBar();
                     if (downloadId == null) {
-                      routerConfig.go('/downloads');
+                      UIHelper.exitImmersiveMode();
+                      UIHelper.forcePortrait();
+                      routerConfig.push('/downloads');
                     } else {
                       ref
                           .read(downloadsProvider.notifier)

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ani_dash/features/downloads/view_model/downloads_notifier.dart';
 import 'package:ani_dash/features/settings/view/widgets/settings_item.dart';
 import 'package:ani_dash/features/settings/view/widgets/settings_section.dart';
 import 'package:ani_dash/shared/providers/settings/download_settings_notifier.dart';
@@ -47,6 +48,14 @@ class DownloadSettingsScreen extends ConsumerWidget {
                   );
                 },
               ),
+              if (!settings.useCustomPath)
+                NormalSettingsItem(
+                  icon: Icon(Iconsax.folder, color: colorScheme.primary),
+                  accent: colorScheme.primary,
+                  title: 'Storage Directory',
+                  description: 'Internal app storage (managed automatically)',
+                  onTap: () {},
+                ),
               if (settings.useCustomPath)
                 NormalSettingsItem(
                   icon: Icon(Iconsax.folder, color: colorScheme.primary),
@@ -152,6 +161,40 @@ class DownloadSettingsScreen extends ConsumerWidget {
                         .toList(),
                 onChanged: (val) {
                   if (val != null) notifier.setFolderStructure(val);
+                },
+              ),
+              NormalSettingsItem(
+                icon: Icon(Iconsax.trash, color: colorScheme.primary),
+                accent: colorScheme.primary,
+                title: 'Clean Temporary Files',
+                description: 'Remove leftover segment caches and incomplete downloads',
+                onTap: () async {
+                  final freed = await ref
+                      .read(downloadsProvider.notifier)
+                      .cleanTemporaryFiles();
+                  if (context.mounted) {
+                    final freedMB = (freed / 1024 / 1024).toStringAsFixed(1);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          freed > 0
+                              ? 'Cleaned temporary files. Freed $freedMB MB'
+                              : 'No temporary files found.',
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+              ),
+              NormalSettingsItem(
+                icon: Icon(Iconsax.export_1, color: colorScheme.primary),
+                accent: colorScheme.primary,
+                title: 'Export / Share Episodes',
+                description:
+                    'To export or share downloaded episodes, use the Export icon on any completed download in the Downloads screen.',
+                onTap: () {
+                  context.push('/downloads');
                 },
               ),
             ],
@@ -260,17 +303,17 @@ class DownloadSettingsScreen extends ConsumerWidget {
                 DropdownSettingsItem(
                   icon: Icon(Iconsax.translate),
                   accent: colorScheme.primary,
-                  title: 'Default Language',
-                  description: 'Preferred audio / subtitle language',
+                  title: 'Default Audio Track',
+                  description: 'Preferred audio track for playback and downloads',
                   value: settings.preferredLanguage,
                   items: const [
                     DropdownMenuItem(
                       value: 'sub',
-                      child: Text('Japanese (Sub)'),
+                      child: Text('Subtitled / Original (SUB)'),
                     ),
                     DropdownMenuItem(
                       value: 'dub',
-                      child: Text('English (Dub)'),
+                      child: Text('Dubbed (DUB)'),
                     ),
                   ],
                   onChanged: (val) {

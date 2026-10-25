@@ -55,6 +55,66 @@ class BetterPlayerSubtitle {
     return BetterPlayerSubtitle._();
   }
 
+  factory BetterPlayerSubtitle.fromAss(String line) {
+    try {
+      final trimmed = line.trim();
+      if (!trimmed.toLowerCase().startsWith('dialogue:')) {
+        return BetterPlayerSubtitle._();
+      }
+      final raw = trimmed.substring(9).trim(); // Remove "Dialogue:"
+      // ASS format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+      // Split into at most 10 tokens so the text token can safely contain commas
+      final tokens = <String>[];
+      var current = StringBuffer();
+      for (int i = 0; i < raw.length; i++) {
+        if (raw[i] == ',' && tokens.length < 9) {
+          tokens.add(current.toString().trim());
+          current.clear();
+        } else {
+          current.write(raw[i]);
+        }
+      }
+      tokens.add(current.toString().trim());
+
+      if (tokens.length < 10) {
+        return BetterPlayerSubtitle._();
+      }
+
+      final start = _stringToDuration(tokens[1]);
+      final end = _stringToDuration(tokens[2]);
+      var rawText = tokens[9];
+
+      // Replace ASS linebreaks (\N or \n) with real newlines
+      rawText = rawText.replaceAll(RegExp(r'\\[Nn]'), '\n');
+      // Strip ASS override tags like {\an8}, {\b1}, {\pos(x,y)}, etc.
+      rawText = rawText.replaceAll(RegExp(r'\{[^}]*\}'), '');
+      // Strip HTML tags like <i>, </b>, etc.
+      rawText = rawText.replaceAll(RegExp(r'<[^>]*>'), '');
+      // Clean drawing commands if present
+      rawText = rawText.replaceAll(RegExp(r'\\h'), ' ').trim();
+
+      final texts = rawText
+          .split('\n')
+          .map((t) => t.trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+
+      if (start == Duration.zero && end == Duration.zero) {
+        return BetterPlayerSubtitle._();
+      }
+
+      return BetterPlayerSubtitle._(
+        index: null,
+        start: start,
+        end: end,
+        texts: texts.isNotEmpty ? texts : [rawText],
+      );
+    } catch (e) {
+      BetterPlayerUtils.log('Failed to parse ASS subtitle line: $line ($e)');
+    }
+    return BetterPlayerSubtitle._();
+  }
+
   BetterPlayerSubtitle._({this.index, this.start, this.end, this.texts});
 
   static const String timerSeparator = ' --> ';

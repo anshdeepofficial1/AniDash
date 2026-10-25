@@ -31,6 +31,8 @@ import 'package:ani_dash/features/watch/view/widgets/player/fetching_progress_ba
 import 'package:ani_dash/features/watch/view/widgets/player/next_episode_prompt_overlay.dart';
 import 'package:ani_dash/features/watch/view/widgets/player/floating_skip_button_overlay.dart';
 import 'package:ani_dash/helpers/ui.dart';
+import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
+import 'package:ani_dash/core/utils/language_utils.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -594,6 +596,14 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
 
   void _openAudio() {
     final current = ref.read(playerSettingsProvider).preferredAudioLanguage;
+    final sourceLang =
+        ref.read(sourceProvider).activeAnimeSource?.lang;
+    final subName = LanguageUtils.getSubLabel(sourceLang);
+    final dubName = LanguageUtils.getDubLabel(sourceLang);
+    final options = [
+      ('sub', subName, 'SUB'),
+      ('dub', dubName, 'DUB'),
+    ];
     _sheet(
       SafeArea(
         child: Padding(
@@ -604,10 +614,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
             children: [
               Text('Audio', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
-              for (final option in const [
-                ('sub', 'Japanese', 'SUB'),
-                ('dub', 'English', 'DUB'),
-              ])
+              for (final option in options)
                 ListTile(
                   leading: Icon(
                     current == option.$1

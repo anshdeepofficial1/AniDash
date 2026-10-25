@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:better_player_plus/src/configuration/better_player_controller_event.dart';
 import 'package:better_player_plus/src/core/better_player_utils.dart';
-import 'package:better_player_plus/src/subtitles/better_player_subtitle.dart';
 import 'package:better_player_plus/src/subtitles/better_player_subtitles_factory.dart';
 import 'package:better_player_plus/src/video_player/video_player.dart';
 import 'package:better_player_plus/src/video_player/video_player_platform_interface.dart';

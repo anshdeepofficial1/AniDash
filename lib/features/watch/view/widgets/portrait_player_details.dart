@@ -15,6 +15,8 @@ import 'package:ani_dash/features/watch/view_model/episode_list_provider.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
 import 'package:ani_dash/features/details/view_model/details_page_notifier.dart';
 import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
+import 'package:ani_dash/core/utils/language_utils.dart';
+import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 
 enum DiscussionMode { episodeComments, worldChat }
 
@@ -297,7 +299,13 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
 
     final streamState = ref.watch(episodeDataProvider);
     final isDub = streamState.selectedServer?.isDub == true;
-    final audioLabel = isDub ? 'Dub English | Sub' : 'Sub Japanese | Dub';
+    final sourceLang =
+        ref.watch(sourceProvider).activeAnimeSource?.lang;
+    final subShort = LanguageUtils.getShortName(sourceLang, fallback: 'Japanese');
+    final dubShort = (sourceLang != null && sourceLang != 'ja' && sourceLang != 'en' && sourceLang != 'all')
+        ? LanguageUtils.getShortName(sourceLang)
+        : 'English';
+    final audioLabel = isDub ? 'Dub $dubShort | Sub' : 'Sub $subShort | Dub';
 
     final detailsFormat =
         ref.watch(detailsPageProvider(widget.mediaId)).details.value?.format;

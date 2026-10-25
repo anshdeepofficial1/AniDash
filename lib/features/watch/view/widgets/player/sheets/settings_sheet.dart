@@ -12,6 +12,8 @@ import 'package:ani_dash/features/watch/view_model/player/pip_controller.dart';
 import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 import 'package:ani_dash/helpers/show_subtitle_sidebar.dart';
 import 'package:ani_dash/core/utils/video_quality_label.dart';
+import 'package:ani_dash/core/utils/language_utils.dart';
+import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 
 class SettingsSheetContent extends ConsumerWidget {
   final VoidCallback onDismiss;
@@ -50,6 +52,10 @@ class SettingsSheetContent extends ConsumerWidget {
             : 'Auto';
 
     final isDub = streamData.selectedServer?.isDub == true;
+    final sourceLang =
+        ref.watch(sourceProvider).activeAnimeSource?.lang;
+    final subLabel = LanguageUtils.getSubLabel(sourceLang);
+    final dubLabel = LanguageUtils.getDubLabel(sourceLang);
 
     return SafeArea(
       child: Padding(
@@ -144,7 +150,7 @@ class SettingsSheetContent extends ConsumerWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 ListTile(
-                                  title: const Text("Japanese (SUB)"),
+                                  title: Text(subLabel),
                                   trailing:
                                       playerSettings.preferredAudioLanguage ==
                                               'sub'
@@ -159,7 +165,7 @@ class SettingsSheetContent extends ConsumerWidget {
                                   },
                                 ),
                                 ListTile(
-                                  title: const Text("English (DUB)"),
+                                  title: Text(dubLabel),
                                   trailing:
                                       playerSettings.preferredAudioLanguage ==
                                               'dub'
@@ -361,7 +367,7 @@ class SettingsSheetContent extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Audio: ${isDub ? 'English DUB' : 'Japanese SUB'}',
+                                  'Audio: ${LanguageUtils.formatAudioLanguage(isDub ? 'dub' : 'sub', sourceLang)}',
                                 ),
                                 Text('Quality: $currentQuality'),
                                 Text(

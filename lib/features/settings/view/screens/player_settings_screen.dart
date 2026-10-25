@@ -55,17 +55,17 @@ class PlayerSettingsScreen extends ConsumerWidget {
                   title: 'Preferred Audio Track',
                   description:
                       (playerSettings.preferredAudioLanguage == 'sub'
-                              ? 'Japanese (SUB)'
-                              : 'English (DUB)'),
+                              ? 'Subtitled / Original (SUB)'
+                              : 'Dubbed (DUB)'),
                   value: playerSettings.preferredAudioLanguage,
                   items: const [
                     DropdownMenuItem(
                       value: 'sub',
-                      child: Text('Japanese (SUB)'),
+                      child: Text('Subtitled / Original (SUB)'),
                     ),
                     DropdownMenuItem(
                       value: 'dub',
-                      child: Text('English (DUB)'),
+                      child: Text('Dubbed (DUB)'),
                     ),
                   ],
                   onChanged: (value) {
