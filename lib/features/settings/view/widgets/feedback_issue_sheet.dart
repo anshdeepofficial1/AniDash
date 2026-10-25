@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:ani_dash/core/services/feedback_service.dart';
+import 'package:ani_dash/features/settings/view/screens/admin_issues_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -148,26 +149,13 @@ Date: ${DateTime.now().toIso8601String()}
           ],
         ),
         action: SnackBarAction(
-          label: githubUrl != null ? 'View Issue' : 'GitHub Track',
+          label: 'View Issues',
           onPressed: () {
-            if (githubUrl != null) {
-              launchUrl(
-                Uri.parse(githubUrl),
-                mode: LaunchMode.externalApplication,
-              );
-            } else {
-              final newIssueUri = Uri(
-                scheme: 'https',
-                host: 'github.com',
-                path: 'anshdeepofficial1/AniDash/issues/new',
-                queryParameters: {
-                  'title': '[In-App Feedback]: $title',
-                  'body': _buildFormattedReport(),
-                  'labels': 'in-app-feedback,${_selectedType.name}',
-                },
-              );
-              launchUrl(newIssueUri, mode: LaunchMode.externalApplication);
-            }
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const AdminIssuesScreen(),
+              ),
+            );
           },
         ),
       ),
@@ -256,6 +244,45 @@ Date: ${DateTime.now().toIso8601String()}
             ),
             trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
             onTap: () => setState(() => _showInAppForm = true),
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Option: View Community Issues & Discussions In-App
+        Card(
+          elevation: 0,
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: colorScheme.outline.withValues(alpha: 0.2),
+            ),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            leading: CircleAvatar(
+              backgroundColor: colorScheme.primary.withValues(alpha: 0.15),
+              child: Icon(Iconsax.task, color: colorScheme.primary),
+            ),
+            title: const Text(
+              'Community Feedback & Issues',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: const Text(
+              'View reported issues, dev responses, and status right inside the app.',
+            ),
+            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AdminIssuesScreen(),
+                ),
+              );
+            },
           ),
         ),
         const SizedBox(height: 10),
