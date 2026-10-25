@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/core/utils/env_loader.dart';
+import 'package:ani_dash/core/services/notification_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -124,6 +125,33 @@ class GitHubIssueItem {
           DateTime.now(),
       htmlUrl: json['html_url']?.toString() ?? '',
       body: json['body']?.toString() ?? '',
+    );
+  }
+}
+
+class GitHubIssueComment {
+  final int id;
+  final String author;
+  final String? authorAvatar;
+  final String body;
+  final DateTime createdAt;
+
+  const GitHubIssueComment({
+    required this.id,
+    required this.author,
+    this.authorAvatar,
+    required this.body,
+    required this.createdAt,
+  });
+
+  factory GitHubIssueComment.fromJson(Map<String, dynamic> json) {
+    return GitHubIssueComment(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      author: (json['user'] as Map?)?['login']?.toString() ?? 'anonymous',
+      authorAvatar: (json['user'] as Map?)?['avatar_url']?.toString(),
+      body: json['body']?.toString() ?? '',
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 }
@@ -312,5 +340,133 @@ class FeedbackService {
       AppLogger.d('Error fetching GitHub issues: $e');
     }
     return [];
+  }
+
+  static const String _githubTokenKey = 'github_admin_pat';
+  static const String _lastSeenIssueKey = 'last_seen_github_issue_number';
+
+  Future<String?> getGitHubToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_githubTokenKey);
+  }
+
+  Future<void> saveGitHubToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_githubTokenKey, token.trim());
+  }
+
+  Future<List<GitHubIssueComment>> fetchIssueComments(int issueNumber) async {
+    try {
+      final token = await getGitHubToken();
+      final headers = <String, String>{
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'AniDash-Admin-Viewer',
+      };
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+      final uri = Uri.parse(
+        'https://api.github.com/repos/anshdeepofficial1/AniDash/issues/$issueNumber/comments',
+      );
+      final response = await http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List;
+        return list
+            .map((e) => GitHubIssueComment.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      AppLogger.e('Error fetching comments for issue #$issueNumber: $e');
+    }
+    return [];
+  }
+
+  Future<bool> postIssueComment(int issueNumber, String body, {String? token}) async {
+    try {
+      final activeToken = token ?? await getGitHubToken();
+      if (activeToken == null || activeToken.isEmpty) return false;
+
+      final uri = Uri.parse(
+        'https://api.github.com/repos/anshdeepofficial1/AniDash/issues/$issueNumber/comments',
+      );
+      final response = await http
+          .post(
+            uri,
+            headers: {
+              'Accept': 'application/vnd.github.v3+json',
+              'Authorization': 'Bearer $activeToken',
+              'Content-Type': 'application/json',
+              'User-Agent': 'AniDash-Admin-Viewer',
+            },
+            body: jsonEncode({'body': body.trim()}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 201;
+    } catch (e) {
+      AppLogger.e('Error posting comment to issue #$issueNumber: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateIssueState(
+    int issueNumber, {
+    required bool close,
+    String? token,
+  }) async {
+    try {
+      final activeToken = token ?? await getGitHubToken();
+      if (activeToken == null || activeToken.isEmpty) return false;
+
+      final uri = Uri.parse(
+        'https://api.github.com/repos/anshdeepofficial1/AniDash/issues/$issueNumber',
+      );
+      final response = await http
+          .patch(
+            uri,
+            headers: {
+              'Accept': 'application/vnd.github.v3+json',
+              'Authorization': 'Bearer $activeToken',
+              'Content-Type': 'application/json',
+              'User-Agent': 'AniDash-Admin-Viewer',
+            },
+            body: jsonEncode({'state': close ? 'closed' : 'open'}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      AppLogger.e('Error updating issue #$issueNumber state: $e');
+      return false;
+    }
+  }
+
+  Future<void> checkForNewIssuesAndNotify() async {
+    try {
+      final issues = await fetchGitHubIssues(state: 'open');
+      if (issues.isEmpty) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final lastSeen = prefs.getInt(_lastSeenIssueKey);
+      final newest = issues.first;
+
+      if (lastSeen != null && newest.number > lastSeen) {
+        for (final issue in issues) {
+          if (issue.number > lastSeen) {
+            await NotificationService().showIssueAlert(
+              issueNumber: issue.number,
+              title: issue.title,
+              author: issue.author,
+            );
+          }
+        }
+      }
+
+      await prefs.setInt(_lastSeenIssueKey, newest.number);
+    } catch (e) {
+      AppLogger.d('Issue check notification skipped: $e');
+    }
   }
 }
