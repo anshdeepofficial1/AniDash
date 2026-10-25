@@ -564,7 +564,9 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     }
     final isNetwork = url.startsWith('http://') || url.startsWith('https://');
     final effectiveHeaders = isNetwork ? (headers ?? _lastHeaders) : null;
-    final cleanUrl = url.startsWith('file://') ? url.replaceFirst('file://', '') : url;
+    final cleanUrl = url.startsWith('file://')
+        ? (Uri.tryParse(url)?.toFilePath() ?? url.replaceFirst('file://', ''))
+        : url;
     await betterPlayerController.setupSubtitleSource(
       BetterPlayerSubtitlesSource(
         type: isNetwork

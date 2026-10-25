@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:ani_dash/router/router_config.dart';
@@ -12,6 +13,9 @@ import 'package:ani_dash/features/downloads/view_model/downloads_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/download_settings_notifier.dart';
 import 'package:ani_dash/core/utils/extractors.dart' as extractor;
 import 'package:ani_dash/core/utils/video_utils.dart';
+import 'package:ani_dash/core/utils/language_utils.dart';
+import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
+import 'package:ani_dash/helpers/ui.dart';
 
 class DownloadSourceSelector extends ConsumerStatefulWidget {
   final String animeTitle;
@@ -65,6 +69,7 @@ class _DownloadSourceSelectorState
   bool _hasDub = true;
   late ServerData? _selectedServer;
   bool _downloadSubtitles = true;
+  final Map<String, int> _probedQualityBytes = {};
 
   @override
   void initState() {
@@ -104,6 +109,7 @@ class _DownloadSourceSelectorState
           _hasDub = hasDub;
           _loading = false;
         });
+        unawaited(_probeSizes());
       } else {
         setState(() => _loading = false);
       }
@@ -138,6 +144,35 @@ class _DownloadSourceSelectorState
     await _initSources();
   }
 
+  Source? _getMatchedSource() {
+    if (_sources.isEmpty) return null;
+    if (_selectedLanguage == 'dub') {
+      return _sources.where((s) => s.isDub).firstOrNull ?? _sources.first;
+    }
+    return _sources.where((s) => !s.isDub).firstOrNull ?? _sources.first;
+  }
+
+  Future<void> _probeSizes() async {
+    final matched = _getMatchedSource();
+    if (matched == null || !VideoUtils.isValidNetworkUrl(matched.url)) return;
+    if (matched.isM3U8 || matched.url!.contains('.m3u8')) {
+      try {
+        final extracted = await extractor
+            .extractQualities(matched.url!, matched.headers ?? {}, true)
+            .timeout(const Duration(seconds: 6));
+        for (final q in extracted) {
+          final qName = q['quality'] as String?;
+          final bw = q['bandwidth'] as int?;
+          if (qName != null && bw != null && bw > 0) {
+            final bytes = (bw * 1440) ~/ 8;
+            _probedQualityBytes[qName] = bytes;
+          }
+        }
+        if (mounted) setState(() {});
+      } catch (_) {}
+    }
+  }
+
   String _formatSize(int mb) {
     if (mb >= 1024) {
       return '~${(mb / 1024).toStringAsFixed(1)} GB';
@@ -146,17 +181,22 @@ class _DownloadSourceSelectorState
   }
 
   int _getQualitySize(String quality) {
+    for (final entry in _probedQualityBytes.entries) {
+      if (entry.key.contains(quality)) {
+        return (entry.value / (1024 * 1024)).round();
+      }
+    }
     switch (quality) {
       case '1080p':
-        return 350;
+        return 950;
       case '720p':
-        return 200;
+        return 500;
       case '480p':
-        return 100;
+        return 250;
       case '360p':
-        return 60;
+        return 120;
       default:
-        return 200;
+        return 500;
     }
   }
 
@@ -294,8 +334,10 @@ class _DownloadSourceSelectorState
         ...?matchedSource.headers,
       },
       isAdult: widget.isAdult,
-      audioLanguage:
-          _selectedLanguage == 'dub' ? 'English DUB' : 'Japanese SUB',
+      audioLanguage: LanguageUtils.formatAudioLanguage(
+        _selectedLanguage,
+        ref.read(sourceProvider).activeAnimeSource?.lang,
+      ),
     );
 
     await ref.read(downloadsProvider.notifier).addDownload(item);
@@ -317,7 +359,9 @@ class _DownloadSourceSelectorState
               TextButton(
                 onPressed: () {
                   messenger.hideCurrentSnackBar();
-                  routerConfig.go('/downloads');
+                  UIHelper.exitImmersiveMode();
+                  UIHelper.forcePortrait();
+                  routerConfig.push('/downloads');
                 },
                 child: const Text('View Downloads'),
               ),
@@ -344,6 +388,10 @@ class _DownloadSourceSelectorState
 
     final basePerEpSize = _getQualitySize(_selectedQuality);
     final totalSizeMB = basePerEpSize * widget.episodeCount;
+    final activeSourceLang =
+        ref.watch(sourceProvider).activeAnimeSource?.lang;
+    final subLabel = LanguageUtils.getSubLabel(activeSourceLang);
+    final dubLabel = LanguageUtils.getDubLabel(activeSourceLang);
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -558,13 +606,13 @@ class _DownloadSourceSelectorState
                 children: [
                   if (_hasDub)
                     _LanguageChip(
-                      label: 'English (Dub)',
+                      label: dubLabel,
                       icon: Iconsax.volume_high,
                       isSelected: _selectedLanguage == 'dub',
                       onTap: () => _selectLanguage('dub'),
                     ),
                   _LanguageChip(
-                    label: 'Japanese (Sub)',
+                    label: subLabel,
                     icon: Iconsax.translate,
                     isSelected: _selectedLanguage == 'sub',
                     onTap: () => _selectLanguage('sub'),

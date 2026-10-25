@@ -99,10 +99,48 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen>
     _nextPromptTriggered = false;
     ref.read(nextEpisodePromptProvider.notifier).dismissForEpisodeTransition();
 
-    // 1. Set current episode
-    ref
-        .read(episodeDataProvider.notifier)
-        .changeEpisode(_currentItem.episodeNumber);
+    // 1. Set current episode and offline subtitles
+    final localSubtitles = <Subtitle>[Subtitle(lang: 'None')];
+    if (_currentItem.subtitles != null && _currentItem.subtitles!.isNotEmpty) {
+      for (final raw in _currentItem.subtitles!) {
+        try {
+          final map = Map<String, dynamic>.from(
+            raw is String ? jsonDecode(raw) as Map : raw as Map,
+          );
+          final url = map['url']?.toString();
+          final lang = map['lang']?.toString() ?? 'Subtitle';
+          if (url != null && url.isNotEmpty) {
+            localSubtitles.add(Subtitle(lang: lang, url: url));
+          }
+        } catch (_) {}
+      }
+    }
+    try {
+      final baseDir = Directory(p.dirname(_currentItem.filePath));
+      final baseName = p.basenameWithoutExtension(_currentItem.filePath);
+      if (baseDir.existsSync()) {
+        final sidecars = baseDir.listSync().whereType<File>().where((f) {
+          final fname = p.basename(f.path);
+          final ext = p.extension(f.path).toLowerCase();
+          return fname.startsWith(baseName) &&
+              (ext == '.vtt' || ext == '.srt' || ext == '.ass' || ext == '.ssa');
+        });
+        for (final sidecar in sidecars) {
+          final uriStr = sidecar.uri.toString();
+          if (!localSubtitles.any((s) => s.url == uriStr || s.url == sidecar.path)) {
+            final fname = p.basenameWithoutExtension(sidecar.path);
+            final parts = fname.split('.');
+            final langName = parts.length > 2 ? parts[parts.length - 2] : 'Subtitle';
+            localSubtitles.add(Subtitle(lang: langName, url: sidecar.uri.toString()));
+          }
+        }
+      }
+    } catch (_) {}
+
+    ref.read(episodeDataProvider.notifier).setLocalPlaybackState(
+      episode: _currentItem.episodeNumber,
+      subtitles: localSubtitles,
+    );
 
     // 2. Populate episodes for panel
     final title = _currentItem.animeTitle.trim().toLowerCase();
@@ -387,6 +425,15 @@ class _LocalPlayerScreenState extends ConsumerState<LocalPlayerScreen>
     ref.listen(playerStateProvider, (previous, next) {
       unawaited(_saveProgress(next.position, next.duration));
       _checkSkipAndNextPrompt(next.position, next.duration);
+      if (previous?.isOpening == true && !next.isOpening) {
+        final epData = ref.read(episodeDataProvider);
+        if (epData.subtitles.length > 1 && epData.selectedSubtitleIdx > 0) {
+          final sub = epData.subtitles[epData.selectedSubtitleIdx];
+          if (sub.url != null) {
+            ref.read(playerStateProvider.notifier).setSubtitle(sub.url);
+          }
+        }
+      }
     });
 
     ref.listen(episodeDataProvider.select((s) => s.selectedEpisode), (

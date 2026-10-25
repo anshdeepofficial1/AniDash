@@ -69,12 +69,12 @@ List<Map<String, dynamic>> _parseM3U8(String body, String masterUrl) {
       
       String quality = 'Unknown';
 
+      final bw = bandwidthMatch != null ? int.tryParse(bandwidthMatch.group(1)!) : null;
       if (resolutionMatch != null) {
         quality = '${resolutionMatch.group(1)}p';
       } else if (nameMatch != null) {
         quality = nameMatch.group(1)!;
-      } else if (bandwidthMatch != null) {
-        final bw = int.tryParse(bandwidthMatch.group(1)!) ?? 0;
+      } else if (bw != null) {
         if (bw >= 4000000) {
           quality = '1080p';
         } else if (bw >= 2000000) {
@@ -94,7 +94,11 @@ List<Map<String, dynamic>> _parseM3U8(String body, String masterUrl) {
           continue;
         }
         final fullUrl = Uri.parse(masterUrl).resolve(candidate).toString();
-        extractedQualities.add({'quality': quality, 'url': fullUrl});
+        extractedQualities.add({
+          'quality': quality,
+          'url': fullUrl,
+          if (bw != null) 'bandwidth': bw,
+        });
         break;
       }
     }

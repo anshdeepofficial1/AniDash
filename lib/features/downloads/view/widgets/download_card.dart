@@ -4,6 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:path/path.dart' as p;
+import 'package:share_plus/share_plus.dart';
 import 'package:ani_dash/features/downloads/model/download_status.dart';
 import 'package:ani_dash/features/downloads/model/download_item.dart';
 import 'package:ani_dash/features/downloads/view/local_player_screen.dart';
@@ -61,6 +63,7 @@ class DownloadCard extends ConsumerWidget {
                 ),
               ),
               _buildActionButtons(
+                context,
                 theme,
                 downloadNotifier,
                 isDownloading,
@@ -303,6 +306,7 @@ class DownloadCard extends ConsumerWidget {
   }
 
   Widget _buildActionButtons(
+    BuildContext context,
     ThemeData theme,
     DownloadsNotifier downloadNotifier,
     bool isDownloading,
@@ -311,13 +315,47 @@ class DownloadCard extends ConsumerWidget {
     bool isFailed,
   ) {
     if (isCompleted) {
-      return IconButton(
-        onPressed: () => downloadNotifier.deleteDownload(item),
-        icon: Icon(Iconsax.trash, color: theme.colorScheme.onSurfaceVariant),
-        iconSize: 18,
-        constraints: const BoxConstraints(),
-        padding: const EdgeInsets.all(8),
-        tooltip: 'Delete',
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            onPressed: () async {
+              final file = File(item.filePath);
+              if (await file.exists()) {
+                await SharePlus.instance.share(
+                  ShareParams(
+                    files: [
+                      XFile(item.filePath, name: p.basename(item.filePath)),
+                    ],
+                    text: '${item.animeTitle} - ${item.episodeTitle}',
+                  ),
+                );
+              } else {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('File not found on disk'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }
+            },
+            icon: Icon(Iconsax.export_1, color: theme.colorScheme.onSurfaceVariant),
+            iconSize: 18,
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(8),
+            tooltip: 'Export / Share',
+          ),
+          IconButton(
+            onPressed: () => downloadNotifier.deleteDownload(item),
+            icon: Icon(Iconsax.trash, color: theme.colorScheme.onSurfaceVariant),
+            iconSize: 18,
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(8),
+            tooltip: 'Delete',
+          ),
+        ],
       );
     }
 
