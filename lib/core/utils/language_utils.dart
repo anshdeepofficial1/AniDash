@@ -203,4 +203,27 @@ class LanguageUtils {
       return '$lang SUB';
     }
   }
+
+  /// Checks if a source provides Hindi content based on its name or language tag
+  static bool isHindiSourceNameOrLang({String? name, String? lang}) {
+    final l = (lang ?? '').toLowerCase();
+    final n = (name ?? '').toLowerCase();
+    return l == 'hi' ||
+        l == 'hin' ||
+        n.contains('toonstream') ||
+        n.contains('animedub') ||
+        n.contains('hindi') ||
+        n.contains('moviebox');
+  }
+
+  /// Checks if an episode is Hindi dubbed based on episode title or active source
+  static bool isHindiEpisode(String? title, {String? sourceName, String? sourceLang}) {
+    if (isHindiSourceNameOrLang(name: sourceName, lang: sourceLang)) return true;
+    if (title == null) return false;
+    final t = title.toLowerCase();
+    return t.contains('hindi') ||
+        t.contains('hin dub') ||
+        t.contains('[hin]') ||
+        t.contains('(hin)');
+  }
 }

@@ -33,6 +33,9 @@ import 'package:ani_dash/features/watch/view/widgets/player/floating_skip_button
 import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 import 'package:ani_dash/core/utils/language_utils.dart';
+import 'package:collection/collection.dart';
+import 'package:ani_dash/shared/providers/anime_source_provider.dart';
+import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -77,6 +80,9 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
   int _doubleTapPairCount = 0;
   Duration _doubleTapAnchor = Duration.zero;
   bool _initialVolumeSyncDone = false;
+  Timer? _audioToastTimer;
+  bool _showAudioToast = false;
+  String? _audioToastText;
 
   bool _isDraggingSeek = false;
   Duration _dragStartPos = Duration.zero;
@@ -149,6 +155,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     WidgetsBinding.instance.removeObserver(this);
     _focusNode.dispose();
     _fitLabelTimer?.cancel();
+    _audioToastTimer?.cancel();
     _volumeOverlayTimer?.cancel();
     _doubleTapTimer?.cancel();
 
@@ -594,19 +601,101 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     });
   }
 
+  void _triggerAudioToast() {
+    final useExt = ref.read(experimentalProvider).useExtensions;
+    final sourceState = ref.read(sourceProvider);
+    final activeSource = sourceState.activeAnimeSource;
+    final isCurrentHindi = useExt && LanguageUtils.isHindiSourceNameOrLang(
+      name: activeSource?.name,
+      lang: activeSource?.lang,
+    );
+    final hasHindiExt = sourceState.installedAnimeExtensions.any(
+      (s) => LanguageUtils.isHindiSourceNameOrLang(name: s.name, lang: s.lang),
+    );
+
+    final currentPref = ref.read(playerSettingsProvider).preferredAudioLanguage;
+    final currentLabel = isCurrentHindi
+        ? 'Hindi (हिन्दी)'
+        : (currentPref == 'dub' ? 'English (DUB)' : 'Japanese (SUB)');
+
+    final availableList = <String>[];
+    if (isCurrentHindi || hasHindiExt) availableList.add('Hindi 🇮🇳');
+    availableList.add('Japanese (SUB)');
+    availableList.add('English (DUB)');
+
+    if (!mounted) return;
+    setState(() {
+      _audioToastText = '🎧 Playing: $currentLabel • Available in: ${availableList.join(" • ")}';
+      _showAudioToast = true;
+    });
+
+    _audioToastTimer?.cancel();
+    _audioToastTimer = Timer(const Duration(milliseconds: 4500), () {
+      if (mounted) {
+        setState(() => _showAudioToast = false);
+      }
+    });
+  }
+
   void _openAudio() {
-    final current = ref.read(playerSettingsProvider).preferredAudioLanguage;
+    final currentPref = ref.read(playerSettingsProvider).preferredAudioLanguage;
+    final useExt = ref.read(experimentalProvider).useExtensions;
+    final sourceState = ref.read(sourceProvider);
+    final activeSource = sourceState.activeAnimeSource;
+    final isCurrentHindi = useExt && LanguageUtils.isHindiSourceNameOrLang(
+      name: activeSource?.name,
+      lang: activeSource?.lang,
+    );
+
     final animeTitle = ref.read(episodeListProvider).animeTitle;
     final sourceLang = LanguageUtils.detectLanguage(
-      sourceLang: ref.read(sourceProvider).activeAnimeSource?.lang,
+      sourceLang: activeSource?.lang,
       title: animeTitle,
     );
     final subName = LanguageUtils.getSubLabel(sourceLang);
     final dubName = LanguageUtils.getDubLabel(sourceLang);
-    final options = [
-      ('sub', subName, 'SUB'),
-      ('dub', dubName, 'DUB'),
+
+    final hindiExtension = sourceState.installedAnimeExtensions.firstWhereOrNull(
+      (s) => LanguageUtils.isHindiSourceNameOrLang(name: s.name, lang: s.lang),
+    );
+
+    final options = <(String, String, String, VoidCallback)>[
+      (
+        'sub',
+        subName,
+        'Original Audio (Subtitles)',
+        () {
+          if (isCurrentHindi) {
+            ref.read(experimentalProvider.notifier).toggleExtensions(false);
+          }
+          ref.read(episodeDataProvider.notifier).switchAudioLanguage('sub');
+        },
+      ),
+      (
+        'dub',
+        dubName,
+        'English Audio (Dubbed)',
+        () {
+          if (isCurrentHindi) {
+            ref.read(experimentalProvider.notifier).toggleExtensions(false);
+          }
+          ref.read(episodeDataProvider.notifier).switchAudioLanguage('dub');
+        },
+      ),
+      if (hindiExtension != null)
+        (
+          'hindi',
+          'Hindi (हिन्दी डब)',
+          '${hindiExtension.name ?? "Hindi Source"} • Extension',
+          () {
+            ref.read(selectedProviderKeyProvider.notifier).clear();
+            ref.read(sourceProvider.notifier).setActiveSource(hindiExtension);
+            ref.read(experimentalProvider.notifier).toggleExtensions(true);
+            ref.read(episodeDataProvider.notifier).retryWithAnotherServer();
+          },
+        ),
     ];
+
     _sheet(
       SafeArea(
         child: Padding(
@@ -615,26 +704,51 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Audio', style: Theme.of(context).textTheme.titleLarge),
+              Text('Audio & Language', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
-              for (final option in options)
-                ListTile(
+              for (final option in options) () {
+                final isSelected = option.$1 == 'hindi'
+                    ? isCurrentHindi
+                    : (!isCurrentHindi && currentPref == option.$1);
+                return ListTile(
                   leading: Icon(
-                    current == option.$1
+                    isSelected
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_off_rounded,
+                    color: option.$1 == 'hindi' ? Colors.orange : null,
                   ),
-                  title: Text(option.$2),
+                  title: Row(
+                    children: [
+                      Text(option.$2),
+                      if (option.$1 == 'hindi') ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'HINDI',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                   subtitle: Text(option.$3),
                   onTap: () {
                     Navigator.pop(context);
-                    if (current != option.$1) {
-                      ref
-                          .read(episodeDataProvider.notifier)
-                          .switchAudioLanguage(option.$1);
+                    if (!isSelected) {
+                      option.$4();
                     }
                   },
-                ),
+                );
+              }(),
             ],
           ),
         ),
@@ -645,6 +759,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
   void _cycleVideoFit() {
     final mode = ref.read(playerStateProvider.notifier).cycleFitMode();
     _fitLabelTimer?.cancel();
+    _audioToastTimer?.cancel();
     setState(() => _fitLabel = mode.label);
     _fitLabelTimer = Timer(const Duration(milliseconds: 1100), () {
       if (mounted) setState(() => _fitLabel = null);
@@ -739,6 +854,15 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     ref.listen(playerStateProvider.select((p) => p.isPlaying), (prev, next) {
       if (ref.read(pipProvider)) {
         ref.read(pipProvider.notifier).updatePlaybackState(next);
+      }
+      if (prev != true && next == true) {
+        _triggerAudioToast();
+      }
+    });
+
+    ref.listen(episodeDataProvider.select((e) => e.sources), (prev, next) {
+      if (prev != next && next.isNotEmpty) {
+        _triggerAudioToast();
       }
     });
 
@@ -1065,6 +1189,90 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                       child: VolumeBrightnessOverlay(
                         isVolume: true,
                         value: uiState.volume,
+                      ),
+                    ),
+                  ),
+
+                // Hotstar-style Audio Tracks Banner Toast
+                if (_showAudioToast && _audioToastText != null && !uiState.isLocked)
+                  Positioned(
+                    bottom: uiState.isVisible ? 82 : 26,
+                    left: 16,
+                    right: 16,
+                    child: Center(
+                      child: AnimatedOpacity(
+                        opacity: _showAudioToast ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 300),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.88),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.headphones_rounded,
+                                color: Colors.orangeAccent,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  _audioToastText!,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              InkWell(
+                                onTap: _openAudio,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orangeAccent.withValues(alpha: 0.25),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.orangeAccent.withValues(alpha: 0.6),
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Switch',
+                                    style: TextStyle(
+                                      color: Colors.orangeAccent,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
