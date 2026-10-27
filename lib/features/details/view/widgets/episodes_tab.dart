@@ -611,12 +611,32 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               'PREQUEL',
               'PARENT',
               'SIDE_STORY',
-              'SUMMARY',
               'SPIN_OFF',
               'OTHER',
             };
-            return relevantRelations.contains(relationType) &&
-                !excludedFormats.contains(format);
+            if (!relevantRelations.contains(relationType) || excludedFormats.contains(format)) {
+              return false;
+            }
+            final title = (relation.media.title.english ??
+                    relation.media.title.romaji ??
+                    relation.media.title.userPreferred)
+                .toLowerCase();
+            if (relationType == 'SUMMARY' ||
+                title.contains('recap') ||
+                title.contains('to the swordsmith village') ||
+                title.contains('to the hashira training') ||
+                title.contains('joushi shuuketsu') ||
+                title.contains('kizuna no kiseki') ||
+                title.contains('world tour') ||
+                title.contains('chibi') ||
+                title.contains('gakuen') ||
+                title.contains('valentine') ||
+                title.contains('theater') ||
+                title.contains('digest') ||
+                title.contains('preview')) {
+              return false;
+            }
+            return true;
           }).toList()
           ..sort(
             (a, b) => (a.media.seasonYear ?? 9999).compareTo(
@@ -801,12 +821,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                             final selectedNative = ref.watch(selectedAnimeProvider);
 
                             String rawName;
-                            if (nativeKey == 'justanime' || nativeKey == 'hianime' || nativeKey == 'anikoto') {
-                              rawName = nativeKey!;
-                            } else if (useExt && activeExt != null) {
-                              rawName = activeExt.name ?? 'Unknown';
+                            if (useExt && activeExt != null) {
+                              rawName = activeExt.name ?? 'Extension';
+                            } else if (nativeKey != null && nativeKey.isNotEmpty) {
+                              rawName = nativeKey;
                             } else {
-                              rawName = selectedNative?.providerName ?? nativeKey ?? 'JustAnime';
+                              rawName = selectedNative?.providerName ?? 'JustAnime';
                             }
 
                             String formatName(String? name) {
@@ -820,19 +840,20 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                               if (l.contains('toonstream')) return 'Toonstream';
                               if (l.contains('animedub')) return 'AnimeDubHindi';
                               if (l.contains('moviebox')) return 'MovieBox';
-                              return name.substring(0, 1).toUpperCase() +
-                                  name.substring(1);
+                              return name.length > 1
+                                  ? name.substring(0, 1).toUpperCase() + name.substring(1)
+                                  : name.toUpperCase();
                             }
 
                             final formatted = formatName(rawName);
 
                             if (state.isSearchingMatch) {
-                              return 'SEARCHING ( via  )';
+                              return 'SEARCHING ( via ' + formatted + ' )';
                             }
                             if (exposedName == null) {
-                              return 'SOURCE: ';
+                              return 'SOURCE: ' + formatted.toUpperCase();
                             }
-                            return 'MATCHED ( by  )';
+                            return 'MATCHED ( by ' + formatted + ' )';
                           }(),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.primary,
@@ -2294,11 +2315,13 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       ? matchingExt.iconUrl
                       : fallbackIcon;
 
-              final activeSourceName = (sourceState.activeAdultAnimeSource?.name ??
-                      sourceState.activeAnimeSource?.name ??
-                      '')
-                  .toLowerCase();
-              final isSelected = currentNativeKey == server.key;
+              final isExtensionActive = useExtensions && sourceState.activeAnimeSource != null;
+              final activeExtName = (sourceState.activeAnimeSource?.name ?? '').toLowerCase();
+              final activeExtId = (sourceState.activeAnimeSource?.id ?? '').toLowerCase();
+
+              final isSelected = (!isExtensionActive && currentNativeKey == server.key) ||
+                  (isExtensionActive &&
+                      (activeExtName.contains(server.key) || activeExtId.contains(server.key)));
 
               return ListTile(
                 leading: Container(
@@ -2381,7 +2404,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                     : null,
                 onTap: () {
                   ref.read(selectedProviderKeyProvider.notifier).select(server.key);
-                  if (matchingExt != null) {
+                  if (server.key == 'justanime') {
+                    ref.read(experimentalProvider.notifier).toggleExtensions(false);
+                  } else if (matchingExt != null) {
                     ref.read(sourceProvider.notifier).setActiveSource(matchingExt);
                     ref.read(experimentalProvider.notifier).toggleExtensions(true);
                   } else {

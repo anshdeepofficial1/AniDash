@@ -88,9 +88,25 @@ class FranchiseWatchOrder {
     final unique = <String, FranchiseWatchOrderItem>{};
     for (final item in allItems) {
       final note = item.placementNote?.toLowerCase() ?? '';
+      final title = (item.media.title.english ??
+              item.media.title.romaji ??
+              item.media.title.userPreferred)
+          .toLowerCase();
       final isRecap =
           note.contains('recap') ||
-          item.relationType.toUpperCase() == 'SUMMARY';
+          item.relationType.toUpperCase() == 'SUMMARY' ||
+          title.contains('recap') ||
+          title.contains('to the swordsmith village') ||
+          title.contains('to the hashira training') ||
+          title.contains('joushi shuuketsu') ||
+          title.contains('kizuna no kiseki') ||
+          title.contains('world tour') ||
+          title.contains('chibi') ||
+          title.contains('gakuen') ||
+          title.contains('valentine') ||
+          title.contains('theater') ||
+          title.contains('digest') ||
+          title.contains('preview');
       if (isRecap && allItems.length > 2) {
         continue;
       }
