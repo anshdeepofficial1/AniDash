@@ -68,6 +68,7 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
                         "libVersion" to ext.libVersion,
                         "supportedLanguages" to ext.sources.map { it.lang },
                         "itemType" to 1,
+                        "extensionType" to 1,
                         "hasUpdate" to ext.hasUpdate,
                         "isObsolete" to ext.isObsolete,
                         "isUnofficial" to ext.isUnofficial,
@@ -99,6 +100,7 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
                         "libVersion" to ext.libVersion,
                         "supportedLanguages" to ext.sources.map { it.lang },
                         "itemType" to 0,
+                        "extensionType" to 1,
                         "hasUpdate" to ext.hasUpdate,
                         "isObsolete" to ext.isObsolete,
                         "isUnofficial" to ext.isUnofficial,
@@ -223,10 +225,9 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
             author = animeMap["author"] as? String
             genre = animeMap["genre"] as? String
         }
-        val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
-
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
                 val res = media.getDetails(anime)
                 val eps = if (isAnime) media.getEpisodeList(anime) else media.getChapterList(anime)
                 val resultMap = mapOf(
@@ -280,10 +281,9 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
             return result.error("INVALID_ARGS", "Missing required parameters", null)
         }
 
-        val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
-
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
                 val res = media.getLatestUpdates(page)
                 val resultMap = mapOf(
                     "list" to res.animes.map {
@@ -328,10 +328,9 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
             return result.error("INVALID_ARGS", "Missing required parameters", null)
         }
 
-        val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
-
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
                 val res = media.getPopular(page)
                 val resultMap = mapOf(
                     "list" to res.animes.map {
@@ -375,6 +374,23 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
         if (sourceId == null || isAnime == null || mediaUrl == null) {
             return result.error("INVALID_ARGS", "Missing required parameters", null)
         }
+
+        val rawDateUpload = mediaUrl["date_upload"]
+        val dateUploadParsed = when (rawDateUpload) {
+            is Long -> rawDateUpload
+            is Number -> rawDateUpload.toLong()
+            is String -> rawDateUpload.toLongOrNull() ?: 0L
+            else -> 0L
+        }
+
+        val rawEpNum = mediaUrl["episode_number"]
+        val epNumParsed = when (rawEpNum) {
+            is Float -> rawEpNum
+            is Number -> rawEpNum.toFloat()
+            is String -> rawEpNum.toFloatOrNull() ?: 0f
+            else -> 0f
+        }
+
         val episode = SEpisode.create().apply {
             name = mediaUrl["name"] as? String ?: ""
             url = mediaUrl["url"] as? String ?: return result.error(
@@ -382,16 +398,16 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
                 "Url cant be empty",
                 null
             )
-            date_upload = (mediaUrl["date_upload"] as? Long)?.takeIf { it > 0 } ?: 0L
-            episode_number = (mediaUrl["episode_number"] as? Double)?.toFloat() ?: 0f
+            date_upload = dateUploadParsed.takeIf { it > 0 } ?: 0L
+            episode_number = epNumParsed
             scanlator = mediaUrl["scanlator"] as? String
         }
-        val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
         fun Headers.toMap(): Map<String, String> =
             names().associateWith { name -> this[name] ?: "" }
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
                 val res = media.getVideoList(episode)
                 val resultList = res.map { video ->
                     mapOf(
@@ -440,10 +456,10 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
         if (sourceId == null || isAnime == null || query == null || page == null) {
             return result.error("INVALID_ARGS", "Missing required parameters", null)
         }
-        val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
                 val res = media.getSearchResults(query, page)
                 val resultMap = mapOf(
                     "list" to res.animes.map {
@@ -467,7 +483,7 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
-                    result.error("ERROR", "Failed to get video list: ${e.message}", null)
+                    result.error("ERROR", "Failed to search: ${e.message}", null)
                 }
             }
         }
@@ -488,6 +504,23 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
         if (sourceId == null || isAnime == null || mediaUrl == null) {
             return result.error("INVALID_ARGS", "Missing required parameters", null)
         }
+
+        val rawDateUpload = mediaUrl["date_upload"]
+        val dateUploadParsed = when (rawDateUpload) {
+            is Long -> rawDateUpload
+            is Number -> rawDateUpload.toLong()
+            is String -> rawDateUpload.toLongOrNull() ?: 0L
+            else -> 0L
+        }
+
+        val rawEpNum = mediaUrl["episode_number"]
+        val epNumParsed = when (rawEpNum) {
+            is Float -> rawEpNum
+            is Number -> rawEpNum.toFloat()
+            is String -> rawEpNum.toFloatOrNull() ?: 0f
+            else -> 0f
+        }
+
         val episode = SChapter.create().apply {
             name = mediaUrl["name"] as? String ?: ""
             url = mediaUrl["url"] as? String ?: return result.error(
@@ -495,14 +528,14 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
                 "Url cant be empty",
                 null
             )
-            date_upload = (mediaUrl["date_upload"] as? Long)?.takeIf { it > 0 } ?: 0L
-            chapter_number = (mediaUrl["episode_number"] as? Double)?.toFloat() ?: 0f
+            date_upload = dateUploadParsed.takeIf { it > 0 } ?: 0L
+            chapter_number = epNumParsed
             scanlator = mediaUrl["scanlator"] as? String
         }
 
-        val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
                 val res = media.getPageList(episode)
                 val resultList = res.map { chapter ->
                     val (url, headers) = pageToUrlAndHeaders(chapter)
@@ -523,7 +556,7 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
-                    result.error("ERROR", "Failed to get video list: ${e.message}", null)
+                    result.error("ERROR", "Failed to get page list: ${e.message}", null)
                 }
             }
         }
@@ -638,9 +671,8 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
             return result.error("INVALID_ARGS", "Missing required parameters", null)
         }
 
-        val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
-
         try {
+            val media = if (isAnime) AnimeSourceMethods(sourceId) else MangaSourceMethods(sourceId)
             val pm = PreferenceManager(context)
             val screen = pm.createPreferenceScreen(context)
 
@@ -650,7 +682,10 @@ class AniyomiBridge(private val context: Context) : MethodChannel.MethodCallHand
 
             result.success(map)
         } catch (e: NoPreferenceScreenException) {
-            result.success(e.message)
+            result.success(emptyList<Map<String, Any?>>())
+        } catch (e: Exception) {
+            e.printStackTrace()
+            result.error("ERROR", "Failed to get preference: ${e.message}", null)
         }
 
     }

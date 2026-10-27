@@ -163,18 +163,16 @@ class SourceNotifier extends _$SourceNotifier {
 
   void _restoreActiveSources() {
     final savedAnimeId = _repo.getActiveAnimeSourceId();
-    // An explicit saved selection must not silently fall back to JustAnime
-    // when switching extension engines or while a repository is still loading.
     final activeAnime =
         state.installedAnimeExtensions.firstWhereOrNull(
-          (s) => s.id == savedAnimeId && !_isAdultSource(s),
+          (s) =>
+              (s.id == savedAnimeId || s.name == savedAnimeId) &&
+              !_isAdultSource(s),
         ) ??
-        (savedAnimeId == null
-            ? (state.installedAnimeExtensions.firstWhereOrNull(
-                  (s) => (s.name ?? '').toLowerCase().contains('justanime'),
-                ) ??
-                state.installedAnimeExtensions.firstOrNull)
-            : null);
+        state.installedAnimeExtensions.firstWhereOrNull(
+          (s) => (s.name ?? '').toLowerCase().contains('justanime'),
+        ) ??
+        state.installedAnimeExtensions.firstOrNull;
 
     final activeAdult = state.installedAdultAnimeExtensions.firstOrNull;
 
@@ -280,10 +278,15 @@ class SourceNotifier extends _$SourceNotifier {
       final savedList = sharedPrefs.getStringList('saved_anime_repos') ?? [];
       final repos =
           <String>{
-            if (!isAniyomi)
+            if (!isAniyomi) ...[
               'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
-            if (!isAniyomi)
               'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime_index.json',
+            ] else ...[
+              'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/index.min.json',
+              'https://kohiden.xyz/Kohi-den/extensions/raw/branch/main/index.min.json',
+              'https://raw.githubusercontent.com/yuzono/anime-repo/repo/index.min.json',
+              'https://raw.githubusercontent.com/Secozzi/aniyomi-extensions/refs/heads/repo/index.min.json',
+            ],
             ...savedList.where(
               (url) =>
                   isAniyomi
@@ -335,7 +338,7 @@ class SourceNotifier extends _$SourceNotifier {
       );
       final result = await state.activeAnimeSource!.methods
           .search(query, page, filters)
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 25));
       AppLogger.d('Search: Got ${result.list.length} results');
       return result;
     } catch (err, st) {
@@ -379,7 +382,7 @@ class SourceNotifier extends _$SourceNotifier {
       }
       return await state.activeAnimeSource!.methods
           .getVideoList(episode)
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
     } catch (err) {
       AppLogger.e(err);
       return [];

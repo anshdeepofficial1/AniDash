@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.regex.Matcher
+import eu.kanade.tachiyomi.source.model.FilterList
 import java.util.regex.Pattern
 
 class MangaSourceMethods(sourceID: String, langIndex: Int = 0) : AniyomiSourceMethods {
@@ -25,11 +26,24 @@ class MangaSourceMethods(sourceID: String, langIndex: Int = 0) : AniyomiSourceMe
 
     init {
         val manager = Injekt.get<AniyomiExtensionManager>()
-        val extension = manager.installedMangaExtensions
-            .find { it.pkgName == sourceID }
-            ?: throw IllegalArgumentException("Manga source with ID '$sourceID' not found.")
+        var extension = manager.getOrFetchInstalledMangaExtensions().find { ext ->
+            ext.pkgName == sourceID ||
+            ext.pkgName.equals(sourceID, ignoreCase = true) ||
+            ext.name.equals(sourceID, ignoreCase = true) ||
+            ext.sources.any { s -> s.id.toString() == sourceID || s.name.equals(sourceID, ignoreCase = true) }
+        }
+        if (extension == null) {
+            extension = manager.fetchInstalledMangaExtensions()?.find { ext ->
+                ext.pkgName == sourceID ||
+                ext.pkgName.equals(sourceID, ignoreCase = true) ||
+                ext.name.equals(sourceID, ignoreCase = true) ||
+                ext.sources.any { s -> s.id.toString() == sourceID || s.name.equals(sourceID, ignoreCase = true) }
+            }
+        }
+        val foundExt = extension ?: throw IllegalArgumentException("Manga source with ID '$sourceID' not found.")
 
-        val src = extension.sources.getOrNull(langIndex) ?: extension.sources.firstOrNull()
+        val matchedSource = foundExt.sources.find { it.id.toString() == sourceID || it.name.equals(sourceID, ignoreCase = true) }
+        val src = matchedSource ?: foundExt.sources.getOrNull(langIndex) ?: foundExt.sources.firstOrNull()
         source = src as? HttpSource ?: src as? CatalogueSource
                 ?: throw IllegalArgumentException("Source with ID '$sourceID' is not an HttpSource or CatalogueSource")
     }
@@ -45,11 +59,12 @@ class MangaSourceMethods(sourceID: String, langIndex: Int = 0) : AniyomiSourceMe
     }
 
     override suspend fun getSearchResults(query: String, page: Int): AnimesPage {
+        val filters = try { source.getFilterList() } catch (e: Throwable) { FilterList() }
         return mangaPageToAnimePage(
             source.getSearchManga(
                 page = page,
                 query = query,
-                filters = source.getFilterList()
+                filters = filters
             )
         )
     }
