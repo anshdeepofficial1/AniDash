@@ -49,13 +49,9 @@ class AnimeMatchService {
     double bestSimilarity = 0.0;
 
     final nativeKey = _ref.read(selectedProviderKeyProvider)?.toLowerCase();
-    // Fast ID lookup must not select JustAnime while an extension is active.
-    final userSelectedExtension =
-        _ref.read(experimentalProvider).useExtensions &&
-        nativeKey == null &&
-        _ref.read(sourceProvider).activeAnimeSource != null;
-    if (!userSelectedExtension &&
-        (nativeKey == null || nativeKey == 'justanime' || nativeKey.isEmpty) &&
+    final useExt = _ref.read(experimentalProvider).useExtensions;
+    final isExplicitJustAnime = !useExt && (nativeKey == 'justanime');
+    if (isExplicitJustAnime &&
         mediaId != null &&
         int.tryParse(mediaId) != null) {
       try {
@@ -67,7 +63,6 @@ class AnimeMatchService {
             AppLogger.success(
               'JustAnime direct AniList ID match verified for ID: $mediaId',
             );
-            _ref.read(selectedProviderKeyProvider.notifier).select('justanime');
             return BaseAnimeModel(
               id: mediaId,
               anilistId: int.tryParse(mediaId),
@@ -192,62 +187,52 @@ class AnimeMatchService {
     bool isAdult = false,
   }) async {
     final useExtensions = _ref.read(experimentalProvider).useExtensions;
-    final nativeKey = _ref.read(selectedProviderKeyProvider);
-    final isNative =
-        nativeKey != null &&
-        _ref.read(animeSourceRegistryProvider).has(nativeKey);
-
     final activeSource = _ref.read(sourceProvider).activeAnimeSource;
+    final nativeKey = _ref.read(selectedProviderKeyProvider)?.toLowerCase();
 
-    if (useExtensions && !isNative && activeSource != null) {
-      final res = await _ref.read(sourceProvider.notifier).search(query);
+    if (useExtensions && activeSource != null) {
+      try {
+        final res = await _ref.read(sourceProvider.notifier).search(query);
 
-      return res.list
-          .where((r) => r.title != null && r.url != null)
-          .map((r) => BaseAnimeModel(id: r.url, name: r.title, poster: r.cover))
-          .toList();
-    } else {
-      final registry = _ref.read(animeSourceRegistryProvider);
-      final currentKey = _ref.read(selectedProviderKeyProvider);
-      // A source selected by the user is authoritative. Searching another
-      // provider here returns a provider-specific anime id, and previously
-      // also changed the global source behind the user's back. That could
-      // make a JustAnime details page start a HiAnime stream.
-      final keys = <String>[
-        if (currentKey != null && currentKey.isNotEmpty)
-          currentKey
-        else ...const ['justanime', 'hianime', 'anikoto'],
-      ];
-      for (final key in keys) {
-        final candidate = registry.get(key);
-        if (candidate == null) continue;
-        try {
-          final res = await candidate
-              .getSearch(query, null, 1)
-              .timeout(const Duration(seconds: 20));
-          final results =
-              res.results
-                  .where((item) => item.id != null && item.name != null)
-                  .map(
-                    (item) => BaseAnimeModel(
-                      id: item.id,
-                      anilistId: item.anilistId,
-                      name: item.name,
-                      jname: item.jname,
-                      type: item.type,
-                      poster: item.poster,
-                      releaseDate: item.releaseDate,
-                      number: item.number,
-                    ),
-                  )
-                  .toList();
-          if (results.isNotEmpty) return results;
-        } catch (error) {
-          AppLogger.d('Search failed on $key: $error');
-        }
+        return res.list
+            .where((r) => r.title != null && r.url != null)
+            .map((r) => BaseAnimeModel(id: r.url, name: r.title, poster: r.cover))
+            .toList();
+      } catch (e) {
+        AppLogger.w('Extension search for "$query" failed: $e');
       }
-      return [];
     }
+
+    final registry = _ref.read(animeSourceRegistryProvider);
+    final currentKey = nativeKey ?? 'justanime';
+    final candidate = registry.get(currentKey);
+    if (candidate != null) {
+      try {
+        final res = await candidate
+            .getSearch(query, null, 1)
+            .timeout(const Duration(seconds: 20));
+        final results =
+            res.results
+                .where((item) => item.id != null && item.name != null)
+                .map(
+                  (item) => BaseAnimeModel(
+                    id: item.id,
+                    anilistId: item.anilistId,
+                    name: item.name,
+                    jname: item.jname,
+                    type: item.type,
+                    poster: item.poster,
+                    releaseDate: item.releaseDate,
+                    number: item.number,
+                  ),
+                )
+                .toList();
+        if (results.isNotEmpty) return results;
+      } catch (error) {
+        AppLogger.d('Search failed on $currentKey: $error');
+      }
+    }
+    return [];
   }
 
   /// Attempts to restore a previously selected source for the given [animeId].

@@ -449,10 +449,11 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     try {
       final registry = ref.read(animeSourceRegistryProvider);
       final currentKey = ref.read(selectedProviderKeyProvider);
-      final isNative = currentKey != null && registry.has(currentKey);
+      final activeSource = ref.read(sourceProvider).activeAnimeSource;
+      final useExtensions = _exp.useExtensions;
 
       // Fast path for JustAnime: AniList mediaId is the exact anime ID
-      if (currentKey == 'justanime') {
+      if (currentKey == 'justanime' && !useExtensions) {
         final directId =
             (int.tryParse(animeId ?? '') != null)
                 ? animeId
@@ -468,16 +469,12 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             );
             return directEps;
           }
-          // The direct ID already exercised the selected JustAnime source.
-          // Do not run the same request loop a second time below: that made a
-          // down source look frozen for roughly 20 seconds before showing an
-          // actionable error.
           return const [];
         }
       }
 
       var eps =
-          (!isNative && _exp.useExtensions)
+          (useExtensions && activeSource != null)
               ? await _fetchExtensionEpisodes(media)
               : await _fetchLegacyEpisodes(animeId);
       if (eps.isNotEmpty && currentKey != null) {
