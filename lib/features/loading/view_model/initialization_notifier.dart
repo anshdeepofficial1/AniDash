@@ -15,6 +15,7 @@ import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/main.dart';
 import 'package:ani_dash/storage_provider.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
+import 'package:ani_dash/core/services/notification_inbox_service.dart';
 
 part 'initialization_notifier.g.dart';
 
@@ -278,6 +279,15 @@ class Initialization extends _$Initialization {
       progress: 1.0,
     );
 
+        unawaited(
+      NotificationInboxService().add(
+        title: 'अब आप हिन्दी में भी देख सकते हो! 🇮🇳',
+        body: 'Hindi Dubbed anime sources (Toonstream, AnimeDubHindi, MovieBox) are now available in Extensions! Tap here to check them out.',
+        route: '/extensions',
+        dedupeKey: 'hindi_dub_announcement_v1',
+        notificationType: 'system',
+      ),
+    );
     AppLogger.section('BOOT COMPLETE');
     AppLogger.success('Application is ready 🚀');
   }

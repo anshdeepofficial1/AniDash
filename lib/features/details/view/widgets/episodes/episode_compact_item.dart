@@ -17,6 +17,7 @@ class EpisodeCompactItem extends StatelessWidget {
   final VoidCallback? onLongPress;
   final bool isSelected;
   final bool isSelectionMode;
+  final bool isHindi;
 
   const EpisodeCompactItem({
     super.key,
@@ -32,6 +33,7 @@ class EpisodeCompactItem extends StatelessWidget {
     this.onLongPress,
     this.isSelected = false,
     this.isSelectionMode = false,
+    this.isHindi = false,
   });
 
   @override
@@ -90,69 +92,7 @@ class EpisodeCompactItem extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: isWatched ? theme.hintColor : null),
           ),
-          subtitle:
-              (download != null || episode.isFiller == true || episode.isMixed == true)
-                  ? Row(
-                    children: [
-                      if (episode.isMixed == true)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withValues(alpha: 0.25),
-                              border: Border.all(
-                                color: theme.colorScheme.primary,
-                                width: 1.0,
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'MIXED',
-                              style: TextStyle(
-                                color: theme.colorScheme.primary,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                          ),
-                        )
-                      else if (episode.isFiller == true)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withValues(alpha: 0.10),
-                              border: Border.all(
-                                color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                                width: 0.8,
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'FILLER',
-                              style: TextStyle(
-                                color: theme.colorScheme.primary.withValues(alpha: 0.85),
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (download != null)
-                        _buildDownloadStatus(theme, download!),
-                    ],
-                  )
-                  : null,
+          subtitle: _buildSubtitle(context, theme),
           trailing:
               isSelectionMode
                   ? null
@@ -210,5 +150,119 @@ class EpisodeCompactItem extends StatelessWidget {
         color: theme.colorScheme.tertiary,
       );
     }
+  }
+
+  Widget? _buildSubtitle(BuildContext context, ThemeData theme) {
+    final titleLower = (episode.title ?? '').toLowerCase();
+    final isHindiEp = isHindi ||
+        titleLower.contains('hindi') ||
+        titleLower.contains('hin dub') ||
+        titleLower.contains('[hin]') ||
+        titleLower.contains('(hin)');
+    final isDubEp = !isHindiEp && (episode.dub == true || titleLower.contains('dub'));
+    final isSubEp = episode.sub == true || titleLower.contains('sub');
+
+    final hasBadges = isHindiEp || isDubEp || isSubEp || episode.isMixed == true || episode.isFiller == true;
+    if (!hasBadges && download == null) return null;
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (isHindiEp)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.18),
+              border: Border.all(color: Colors.orange, width: 0.8),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              'HINDI DUB',
+              style: TextStyle(
+                color: Colors.orange,
+                fontWeight: FontWeight.bold,
+                fontSize: 9,
+                letterSpacing: 0.4,
+              ),
+            ),
+          )
+        else if (isDubEp)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.15),
+              border: Border.all(color: Colors.blue, width: 0.8),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              'DUB',
+              style: TextStyle(
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+                fontSize: 9,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+        if (isSubEp && !isHindiEp)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: Colors.teal.withValues(alpha: 0.15),
+              border: Border.all(color: Colors.teal, width: 0.8),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              'SUB',
+              style: TextStyle(
+                color: Colors.teal,
+                fontWeight: FontWeight.bold,
+                fontSize: 9,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+        if (episode.isMixed == true)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.25),
+              border: Border.all(color: theme.colorScheme.primary, width: 1.0),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'MIXED',
+              style: TextStyle(
+                color: theme.colorScheme.primary,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.4,
+              ),
+            ),
+          )
+        else if (episode.isFiller == true)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.10),
+              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5), width: 0.8),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'FILLER',
+              style: TextStyle(
+                color: theme.colorScheme.primary.withValues(alpha: 0.85),
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+        if (download != null)
+          _buildDownloadStatus(theme, download!),
+      ],
+    );
   }
 }

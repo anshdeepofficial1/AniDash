@@ -21,6 +21,7 @@ class EpisodeListItem extends StatelessWidget {
   final bool isSelected;
   final bool isSelectionMode;
   final bool isMovie;
+  final bool isHindi;
 
   const EpisodeListItem({
     super.key,
@@ -38,6 +39,7 @@ class EpisodeListItem extends StatelessWidget {
     this.isSelected = false,
     this.isSelectionMode = false,
     this.isMovie = false,
+    this.isHindi = false,
   });
 
   @override
@@ -95,56 +97,7 @@ class EpisodeListItem extends StatelessWidget {
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (episode.isMixed == true)
-                  Container(
-                    margin: const EdgeInsets.only(top: 2),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 1.5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.25),
-                      border: Border.all(
-                        color: theme.colorScheme.primary,
-                        width: 1.0,
-                      ),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'MIXED',
-                      style: TextStyle(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  )
-                else if (episode.isFiller == true)
-                  Container(
-                    margin: const EdgeInsets.only(top: 2),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 1.5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.10),
-                      border: Border.all(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                        width: 0.9,
-                      ),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'FILLER',
-                      style: TextStyle(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.85),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
+                _buildBadges(context, theme),
                 if (download != null) ...[
                   const SizedBox(height: 4),
                   _buildDownloadStatus(theme, download!),
@@ -311,5 +264,120 @@ class EpisodeListItem extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildBadges(BuildContext context, ThemeData theme) {
+    final titleLower = (episode.title ?? '').toLowerCase();
+    final isHindiEp = isHindi ||
+        titleLower.contains('hindi') ||
+        titleLower.contains('hin dub') ||
+        titleLower.contains('[hin]') ||
+        titleLower.contains('(hin)');
+    final isDubEp = !isHindiEp && (episode.dub == true || titleLower.contains('dub'));
+    final isSubEp = episode.sub == true || titleLower.contains('sub');
+
+    final badges = <Widget>[
+      if (isHindiEp)
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.18),
+            border: Border.all(color: Colors.orange, width: 0.9),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Text(
+            'HINDI DUB',
+            style: TextStyle(
+              color: Colors.orange,
+              fontWeight: FontWeight.bold,
+              fontSize: 9,
+              letterSpacing: 0.4,
+            ),
+          ),
+        )
+      else if (isDubEp)
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+          decoration: BoxDecoration(
+            color: Colors.blue.withValues(alpha: 0.15),
+            border: Border.all(color: Colors.blue, width: 0.8),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Text(
+            'DUB',
+            style: TextStyle(
+              color: Colors.blue,
+              fontWeight: FontWeight.bold,
+              fontSize: 9,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ),
+      if (isSubEp && !isHindiEp)
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+          decoration: BoxDecoration(
+            color: Colors.teal.withValues(alpha: 0.15),
+            border: Border.all(color: Colors.teal, width: 0.8),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Text(
+            'SUB',
+            style: TextStyle(
+              color: Colors.teal,
+              fontWeight: FontWeight.bold,
+              fontSize: 9,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ),
+      if (episode.isMixed == true)
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withValues(alpha: 0.25),
+            border: Border.all(color: theme.colorScheme.primary, width: 1.0),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            'MIXED',
+            style: TextStyle(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.bold,
+              fontSize: 10,
+              letterSpacing: 0.5,
+            ),
+          ),
+        )
+      else if (episode.isFiller == true)
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withValues(alpha: 0.10),
+            border: Border.all(
+              color: theme.colorScheme.primary.withValues(alpha: 0.5),
+              width: 0.9,
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            'FILLER',
+            style: TextStyle(
+              color: theme.colorScheme.primary.withValues(alpha: 0.85),
+              fontWeight: FontWeight.bold,
+              fontSize: 10,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+    ];
+
+    if (badges.isEmpty) return const SizedBox.shrink();
+    return Wrap(spacing: 6, runSpacing: 4, children: badges);
   }
 }
