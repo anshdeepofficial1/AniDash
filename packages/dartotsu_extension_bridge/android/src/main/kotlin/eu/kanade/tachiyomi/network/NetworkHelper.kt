@@ -21,6 +21,8 @@ class NetworkHelper(
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .callTimeout(2, TimeUnit.MINUTES)
+            .followRedirects(true)
+            .followSslRedirects(true)
             .cache(
                 Cache(
                     directory = File(context.externalCacheDir ?: context.cacheDir, "network_cache"),

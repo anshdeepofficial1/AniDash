@@ -261,6 +261,7 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
     final saved = sharedPrefs.getStringList('saved_anime_repos') ?? const [];
     if (isAniyomi) {
       return <String>{
+        'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/index.min.json',
         'https://kohiden.xyz/Kohi-den/extensions/raw/branch/main/index.min.json',
         'https://raw.githubusercontent.com/yuzono/anime-repo/repo/index.min.json',
         'https://raw.githubusercontent.com/Secozzi/aniyomi-extensions/refs/heads/repo/index.min.json',

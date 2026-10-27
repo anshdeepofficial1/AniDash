@@ -24,103 +24,157 @@ class AniyomiSourceMethods implements SourceMethods {
 
   @override
   Future<DMedia> getDetail(DMedia media) async {
-    final result = await platform.invokeMethod('getDetail', {
-      'sourceId': source.id,
-      'isAnime': isAnime,
-      'media': {
-        'title': media.title,
-        'url': media.url,
-        'thumbnail_url': media.cover,
-        'description': media.description,
-        'author': media.author,
-        'artist': media.artist,
-        'genre': media.genre,
-      },
-    });
+    try {
+      final result = await platform.invokeMethod('getDetail', {
+        'sourceId': source.id,
+        'isAnime': isAnime,
+        'media': {
+          'title': media.title,
+          'url': media.url,
+          'thumbnail_url': media.cover,
+          'description': media.description,
+          'author': media.author,
+          'artist': media.artist,
+          'genre': media.genre,
+        },
+      });
 
-    return await compute(
-      DMedia.fromJson,
-      Map<String, dynamic>.from(result as Map),
-    );
+      if (result == null || result is! Map) {
+        return media;
+      }
+
+      return await compute(
+        DMedia.fromJson,
+        Map<String, dynamic>.from(result),
+      );
+    } catch (e) {
+      debugPrint('AniyomiSourceMethods.getDetail error: $e');
+      return media;
+    }
   }
 
   @override
   Future<Pages> getLatestUpdates(int page) async {
-    final result = await platform.invokeMethod('getLatestUpdates', {
-      'sourceId': source.id,
-      'isAnime': isAnime,
-      'page': page,
-    });
+    try {
+      final result = await platform.invokeMethod('getLatestUpdates', {
+        'sourceId': source.id,
+        'isAnime': isAnime,
+        'page': page,
+      });
 
-    return await compute(
-      Pages.fromJson,
-      Map<String, dynamic>.from(result as Map),
-    );
+      if (result == null || result is! Map) {
+        return Pages(list: []);
+      }
+
+      return await compute(
+        Pages.fromJson,
+        Map<String, dynamic>.from(result),
+      );
+    } catch (e) {
+      debugPrint('AniyomiSourceMethods.getLatestUpdates error: $e');
+      return Pages(list: []);
+    }
   }
 
   @override
   Future<Pages> getPopular(int page) async {
-    final result = await platform.invokeMethod('getPopular', {
-      'sourceId': source.id,
-      'isAnime': isAnime,
-      'page': page,
-    });
+    try {
+      final result = await platform.invokeMethod('getPopular', {
+        'sourceId': source.id,
+        'isAnime': isAnime,
+        'page': page,
+      });
 
-    return await compute(
-      Pages.fromJson,
-      Map<String, dynamic>.from(result as Map),
-    );
+      if (result == null || result is! Map) {
+        return Pages(list: []);
+      }
+
+      return await compute(
+        Pages.fromJson,
+        Map<String, dynamic>.from(result),
+      );
+    } catch (e) {
+      debugPrint('AniyomiSourceMethods.getPopular error: $e');
+      return Pages(list: []);
+    }
   }
 
   @override
   Future<List<Video>> getVideoList(DEpisode episode) async {
-    final result = await platform.invokeMethod('getVideoList', {
-      'sourceId': source.id,
-      'isAnime': isAnime,
-      'episode': {
-        'name': episode.name,
-        'url': episode.url,
-        'date_upload': episode.dateUpload,
-        'description': episode.description,
-        'episode_number': episode.episodeNumber,
-        'scanlator': episode.scanlator,
-      },
-    });
+    try {
+      final result = await platform.invokeMethod('getVideoList', {
+        'sourceId': source.id,
+        'isAnime': isAnime,
+        'episode': {
+          'name': episode.name,
+          'url': episode.url,
+          'date_upload': episode.dateUpload,
+          'description': episode.description,
+          'episode_number': episode.episodeNumber,
+          'scanlator': episode.scanlator,
+        },
+      });
 
-    return await compute(parseVideos, List<dynamic>.from(result));
+      if (result == null || result is! List) {
+        return [];
+      }
+
+      return await compute(parseVideos, List<dynamic>.from(result));
+    } catch (e) {
+      debugPrint('AniyomiSourceMethods.getVideoList error: $e');
+      return [];
+    }
   }
 
   @override
   Future<List<PageUrl>> getPageList(DEpisode episode) async {
-    final result = await platform.invokeMethod('getPageList', {
-      'sourceId': source.id,
-      'isAnime': isAnime,
-      'episode': {
-        'name': episode.name,
-        'url': episode.url,
-        'date_upload': episode.dateUpload,
-        'description': episode.description,
-        'episode_number': episode.episodeNumber,
-        'scanlator': episode.scanlator,
-      },
-    });
+    try {
+      final result = await platform.invokeMethod('getPageList', {
+        'sourceId': source.id,
+        'isAnime': isAnime,
+        'episode': {
+          'name': episode.name,
+          'url': episode.url,
+          'date_upload': episode.dateUpload,
+          'description': episode.description,
+          'episode_number': episode.episodeNumber,
+          'scanlator': episode.scanlator,
+        },
+      });
 
-    return compute(parsePageUrls, List<dynamic>.from(result));
+      if (result == null || result is! List) {
+        return [];
+      }
+
+      return compute(parsePageUrls, List<dynamic>.from(result));
+    } catch (e) {
+      debugPrint('AniyomiSourceMethods.getPageList error: $e');
+      return [];
+    }
   }
 
   @override
   Future<Pages> search(String query, int page, List filters) async {
-    final result = await platform.invokeMethod('search', {
-      'sourceId': source.id,
-      'isAnime': isAnime,
-      'query': query,
-      'page': page,
-    });
+    try {
+      final result = await platform.invokeMethod('search', {
+        'sourceId': source.id,
+        'isAnime': isAnime,
+        'query': query,
+        'page': page,
+      });
 
-    return await compute(
-      Pages.fromJson,
-      Map<String, dynamic>.from(result as Map),
-    );
+      if (result == null || result is! Map) {
+        return Pages(list: []);
+      }
+
+      return await compute(
+        Pages.fromJson,
+        Map<String, dynamic>.from(result),
+      );
+    } catch (e) {
+      debugPrint('AniyomiSourceMethods.search error: $e');
+      return Pages(list: []);
+    }
   }
 
   List<Video> parseVideos(List<dynamic> list) {

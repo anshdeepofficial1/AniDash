@@ -1751,7 +1751,7 @@ class EpisodeData extends _$EpisodeData {
             .getSources(
               DEpisode(episodeNumber: ep.number.toString(), url: epTargetUrl),
             )
-            .timeout(const Duration(seconds: 10));
+            .timeout(const Duration(seconds: 30));
         final extractedHeaders =
             res
                 .firstWhereOrNull(

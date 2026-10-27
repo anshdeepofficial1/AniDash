@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import uy.kohesive.injekt.Injekt
+import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import uy.kohesive.injekt.api.get
 
 class AnimeSourceMethods(sourceID: String, langIndex: Int = 0) : AniyomiSourceMethods {
@@ -19,11 +20,24 @@ class AnimeSourceMethods(sourceID: String, langIndex: Int = 0) : AniyomiSourceMe
     private val source: AnimeCatalogueSource
     init {
         val manager = Injekt.get<AniyomiExtensionManager>()
-        val extension = manager.installedAnimeExtensions
-            .find { it.pkgName == sourceID }
-            ?: throw IllegalArgumentException("Anime source with ID '$sourceID' not found.")
+        var extension = manager.getOrFetchInstalledAnimeExtensions().find { ext ->
+            ext.pkgName == sourceID ||
+            ext.pkgName.equals(sourceID, ignoreCase = true) ||
+            ext.name.equals(sourceID, ignoreCase = true) ||
+            ext.sources.any { s -> s.id.toString() == sourceID || s.name.equals(sourceID, ignoreCase = true) }
+        }
+        if (extension == null) {
+            extension = manager.fetchInstalledAnimeExtensions()?.find { ext ->
+                ext.pkgName == sourceID ||
+                ext.pkgName.equals(sourceID, ignoreCase = true) ||
+                ext.name.equals(sourceID, ignoreCase = true) ||
+                ext.sources.any { s -> s.id.toString() == sourceID || s.name.equals(sourceID, ignoreCase = true) }
+            }
+        }
+        val foundExt = extension ?: throw IllegalArgumentException("Anime source with ID '$sourceID' not found.")
 
-        val src = extension.sources.getOrNull(langIndex) ?: extension.sources.firstOrNull()
+        val matchedSource = foundExt.sources.find { it.id.toString() == sourceID || it.name.equals(sourceID, ignoreCase = true) }
+        val src = matchedSource ?: foundExt.sources.getOrNull(langIndex) ?: foundExt.sources.firstOrNull()
 
         source = src as? AnimeHttpSource ?: src as? AnimeCatalogueSource
                 ?: throw IllegalArgumentException("Source with ID '$sourceID' is not an AnimeHttpSource or AnimeCatalogueSource")
@@ -40,7 +54,7 @@ class AnimeSourceMethods(sourceID: String, langIndex: Int = 0) : AniyomiSourceMe
         source.getSearchAnime(
             page = page,
             query = query,
-            filters = source.getFilterList()
+            filters = try { source.getFilterList() } catch (e: Throwable) { AnimeFilterList() }
         )
 
     override suspend fun getDetails(media: SAnime): SAnime = source.getAnimeDetails(media)
@@ -48,16 +62,24 @@ class AnimeSourceMethods(sourceID: String, langIndex: Int = 0) : AniyomiSourceMe
     override suspend fun getEpisodeList(media: SAnime): List<SEpisode> = source.getEpisodeList(media)
 
     override suspend fun getVideoList(episode: SEpisode): List<Video> {
-        if ((source as AnimeHttpSource).javaClass.declaredMethods.any { it.name == "getHosterList" }) {
-            val hosters = source.getHosterList(episode)
-            val allVideos = hosters.flatMap { hoster ->
-                val videos = source.getVideoList(hoster)
-                videos.map { it.copy(videoTitle = "${hoster.hosterName} - ${it.videoTitle}") }
+        val httpSource = source as? AnimeHttpSource
+        if (httpSource != null && httpSource.javaClass.declaredMethods.any { it.name == "getHosterList" }) {
+            try {
+                val hosters = httpSource.getHosterList(episode)
+                if (hosters.isNotEmpty()) {
+                    val allVideos = hosters.flatMap { hoster ->
+                        val videos = httpSource.getVideoList(hoster)
+                        videos.map { it.copy(videoTitle = "${hoster.hosterName} - ${it.videoTitle}") }
+                    }
+                    if (allVideos.isNotEmpty()) {
+                        return allVideos
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-            return allVideos
-        } else {
-            return source.getVideoList(episode)
         }
+        return source.getVideoList(episode)
     }
 
     override suspend fun getChapterList(media: SAnime): List<SEpisode> =

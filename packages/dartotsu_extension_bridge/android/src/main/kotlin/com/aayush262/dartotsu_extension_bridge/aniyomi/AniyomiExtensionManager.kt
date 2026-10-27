@@ -19,11 +19,25 @@ import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 
 class AniyomiExtensionManager(var context: Context) {
-    lateinit var installedAnimeExtensions: List<AnimeExtension.Installed>
-    lateinit var availableAnimeExtensions: List<AnimeExtension.Available>
-    lateinit var installedMangaExtensions : List<MangaExtension.Installed>
-    lateinit var availableMangaExtensions: List<MangaExtension.Available>
+    var installedAnimeExtensions: List<AnimeExtension.Installed> = emptyList()
+    var availableAnimeExtensions: List<AnimeExtension.Available> = emptyList()
+    var installedMangaExtensions: List<MangaExtension.Installed> = emptyList()
+    var availableMangaExtensions: List<MangaExtension.Available> = emptyList()
     private val json: Json by injectLazy()
+
+    fun getOrFetchInstalledAnimeExtensions(): List<AnimeExtension.Installed> {
+        if (installedAnimeExtensions.isEmpty()) {
+            fetchInstalledAnimeExtensions()
+        }
+        return installedAnimeExtensions
+    }
+
+    fun getOrFetchInstalledMangaExtensions(): List<MangaExtension.Installed> {
+        if (installedMangaExtensions.isEmpty()) {
+            fetchInstalledMangaExtensions()
+        }
+        return installedMangaExtensions
+    }
 
     fun fetchInstalledAnimeExtensions(): List<AnimeExtension.Installed>? {
         val sources = ExtensionLoader.loadAnimeExtensions(context)
