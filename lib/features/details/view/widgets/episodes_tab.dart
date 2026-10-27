@@ -187,21 +187,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
   }
 
   void _scheduleSelectedChipScroll() {
-    void performChipScroll() {
-      if (!mounted) return;
-      final chipContext = _selectedChipKey.currentContext;
-      if (chipContext != null && chipContext.mounted) {
-        Scrollable.ensureVisible(
-          chipContext,
-          alignment: 0.5,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => performChipScroll());
-    Future.delayed(const Duration(milliseconds: 150), performChipScroll);
+    // Avoid Scrollable.ensureVisible which causes parent TabBarView horizontal switches
   }
 
   Future<void> _setGroupingMode(EpisodeGroupingMode mode) async {
@@ -233,6 +219,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     required String selectedRange,
     required EpisodeViewMode viewMode,
   }) {
+    // Disabled to prevent unwanted jumping to bottom of page
+    return;
     if (_isRefreshing) return;
     final targetIndex = visibleEpisodes.indexWhere(
       (episode) => episode.number == episodeNumber,
@@ -779,14 +767,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               orElse: () => EpisodeViewMode.list,
             );
 
-    if (watchProgress != null && visibleEpisodes.isNotEmpty) {
-      _scheduleCurrentEpisodeScroll(
-        episodeNumber: targetEpNum,
-        visibleEpisodes: visibleEpisodes,
-        selectedRange: _selectedNamedGroup?.id ?? state.selectedRange,
-        viewMode: viewMode,
-      );
-    }
+    // Auto-scroll disabled to prevent disruptive jumping to bottom or switching tabs
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -814,39 +795,44 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       children: [
                         Text(
                           () {
-                            final sourceName =
-                                ref.watch(experimentalProvider).useExtensions
-                                    ? ref
-                                        .watch(sourceProvider)
-                                        .activeAnimeSource
-                                        ?.name
-                                    : ref
-                                        .watch(selectedAnimeProvider)
-                                        ?.providerName;
+                            final useExt = ref.watch(experimentalProvider).useExtensions;
+                            final activeExt = ref.watch(sourceProvider).activeAnimeSource;
+                            final nativeKey = ref.watch(selectedProviderKeyProvider)?.toLowerCase();
+                            final selectedNative = ref.watch(selectedAnimeProvider);
+
+                            String rawName;
+                            if (nativeKey == 'justanime' || nativeKey == 'hianime' || nativeKey == 'anikoto') {
+                              rawName = nativeKey!;
+                            } else if (useExt && activeExt != null) {
+                              rawName = activeExt.name ?? 'Unknown';
+                            } else {
+                              rawName = selectedNative?.providerName ?? nativeKey ?? 'JustAnime';
+                            }
+
                             String formatName(String? name) {
                               if (name == null || name.isEmpty) {
-                                return 'Unknown';
-                              }
-                              if (name.toLowerCase() == 'hianime') {
-                                return 'HiAnime';
-                              }
-                              if (name.toLowerCase() == 'justanime') {
                                 return 'JustAnime';
                               }
-                              if (name.toLowerCase() == 'anikoto') {
-                                return 'AniKoto';
-                              }
+                              final l = name.toLowerCase();
+                              if (l.contains('justanime')) return 'JustAnime';
+                              if (l.contains('hianime')) return 'HiAnime';
+                              if (l.contains('anikoto')) return 'AniKoto';
+                              if (l.contains('toonstream')) return 'Toonstream';
+                              if (l.contains('animedub')) return 'AnimeDubHindi';
+                              if (l.contains('moviebox')) return 'MovieBox';
                               return name.substring(0, 1).toUpperCase() +
                                   name.substring(1);
                             }
 
+                            final formatted = formatName(rawName);
+
                             if (state.isSearchingMatch) {
-                              return 'SEARCHING ( via ${formatName(sourceName)} )';
+                              return 'SEARCHING ( via  )';
                             }
                             if (exposedName == null) {
-                              return 'SOURCE: ${formatName(sourceName).toUpperCase()}';
+                              return 'SOURCE: ';
                             }
-                            return 'MATCHED ( by ${formatName(sourceName)} )';
+                            return 'MATCHED ( by  )';
                           }(),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.primary,
@@ -2074,12 +2060,19 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
   }
 
   bool _isCurrentSourceHindi(WidgetRef ref) {
+    final nativeKey = ref.watch(selectedProviderKeyProvider)?.toLowerCase();
+    if (nativeKey == 'justanime' || nativeKey == 'hianime' || nativeKey == 'anikoto') {
+      return false;
+    }
     final useExt = ref.watch(experimentalProvider).useExtensions;
     if (!useExt) return false;
     final active = ref.watch(sourceProvider).activeAnimeSource;
     if (active == null) return false;
     final name = (active.name ?? '').toLowerCase();
     final lang = (active.lang ?? '').toLowerCase();
+    if (name.contains('justanime') || name.contains('hianime') || name.contains('anikoto')) {
+      return false;
+    }
     return lang == 'hi' ||
         lang == 'hin' ||
         name.contains('toonstream') ||
@@ -2305,9 +2298,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       sourceState.activeAnimeSource?.name ??
                       '')
                   .toLowerCase();
-              final isSelected =
-                  (!useExtensions && currentNativeKey == server.key) ||
-                  (useExtensions && activeSourceName.contains(server.key));
+              final isSelected = currentNativeKey == server.key;
 
               return ListTile(
                 leading: Container(
@@ -2390,7 +2381,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                     : null,
                 onTap: () {
                   ref.read(selectedProviderKeyProvider.notifier).select(server.key);
-                  ref.read(experimentalProvider.notifier).toggleExtensions(false);
+                  if (matchingExt != null) {
+                    ref.read(sourceProvider.notifier).setActiveSource(matchingExt);
+                    ref.read(experimentalProvider.notifier).toggleExtensions(true);
+                  } else {
+                    ref.read(experimentalProvider.notifier).toggleExtensions(false);
+                  }
                   ref
                       .read(sourcePreferenceRepositoryProvider)
                       .clearSourcePreference(widget.mediaId);

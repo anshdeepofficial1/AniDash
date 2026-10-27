@@ -78,11 +78,18 @@ class DetailsPageState {
 class DetailsPageNotifier extends _$DetailsPageNotifier {
   bool _isCurrentSourceHindi() {
     final useExtensions = ref.read(experimentalProvider).useExtensions;
+    final nativeKey = ref.read(selectedProviderKeyProvider)?.toLowerCase();
+    if (nativeKey == 'justanime' || nativeKey == 'hianime' || nativeKey == 'anikoto') {
+      return false;
+    }
     if (!useExtensions) return false;
     final activeSource = ref.read(sourceProvider).activeAnimeSource;
     if (activeSource == null) return false;
     final name = (activeSource.name ?? '').toLowerCase();
     final lang = (activeSource.lang ?? '').toLowerCase();
+    if (name.contains('justanime') || name.contains('hianime') || name.contains('anikoto')) {
+      return false;
+    }
     return lang == 'hi' ||
         lang == 'hin' ||
         name.contains('toonstream') ||
