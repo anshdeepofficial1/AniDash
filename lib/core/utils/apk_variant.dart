@@ -32,5 +32,13 @@ dynamic selectAndroidApkAsset(List<dynamic> assets) {
   for (final asset in assets) {
     if (matches(asset, 'universal')) return asset;
   }
+
+  // General fallback: if neither variant nor universal is found, fallback to arm64 or any valid APK
+  for (final asset in assets) {
+    if (matches(asset, 'arm64-v8a')) return asset;
+  }
+  for (final asset in assets) {
+    if (isApk(asset)) return asset;
+  }
   return null;
 }
