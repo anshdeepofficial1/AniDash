@@ -13,6 +13,10 @@ import 'package:ani_dash/shared/providers/anime_repo_provider.dart';
 import 'package:ani_dash/shared/providers/anilist_service_provider.dart';
 import 'package:ani_dash/shared/providers/anime_match_service.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
+import 'package:ani_dash/core/repositories/source_preference_repository.dart';
+import 'package:ani_dash/shared/providers/anime_source_provider.dart';
+import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
+import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 
 part 'details_page_notifier.g.dart';
 
@@ -72,6 +76,19 @@ class DetailsPageState {
 
 @riverpod
 class DetailsPageNotifier extends _$DetailsPageNotifier {
+  bool _isCurrentSourceHindi() {
+    final useExtensions = ref.read(experimentalProvider).useExtensions;
+    if (!useExtensions) return false;
+    final activeSource = ref.read(sourceProvider).activeAnimeSource;
+    if (activeSource == null) return false;
+    final name = (activeSource.name ?? '').toLowerCase();
+    final lang = (activeSource.lang ?? '').toLowerCase();
+    return lang == 'hi' ||
+        lang == 'hin' ||
+        name.contains('toonstream') ||
+        name.contains('animedub') ||
+        name.contains('moviebox');
+  }
   bool _isUnreleased(UniversalMedia? media) {
     if (media == null) return false;
     final status = media.status?.toUpperCase();
@@ -524,7 +541,7 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
     // first lightweight relation object may have matched the wrong season;
     // retaining that stale source id makes season chips show "No episodes"
     // even though opening the same season from Search works.
-    if (force) {
+    if (force && state.animeIdForSource == null) {
       state = state.copyWith(setBestMatchNull: true);
     }
 
@@ -563,11 +580,60 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
                 mediaId: animeId,
                 malId: state.details.value?.idMal,
               )
-              .timeout(const Duration(seconds: 14), onTimeout: () => null);
+              .timeout(const Duration(seconds: 35), onTimeout: () => null);
 
           if (!ref.mounted) return;
 
           if (match == null) {
+            // If active source is a Hindi extension and has no match for this anime,
+            // seamlessly fallback to the official server (JustAnime)
+            if (_isCurrentSourceHindi()) {
+              AppLogger.i('Anime not found on Hindi source. Falling back to Official server (JustAnime)...');
+              ref.read(selectedProviderKeyProvider.notifier).select('justanime');
+              ref.read(experimentalProvider.notifier).toggleExtensions(false);
+              ref.read(sourcePreferenceRepositoryProvider).clearSourcePreference(animeId);
+
+              final officialMatch = await ref
+                  .read(animeMatchServiceProvider)
+                  .findBestMatch(
+                    mediaTitle,
+                    isAdult: isAdultMedia,
+                    mediaId: animeId,
+                    malId: state.details.value?.idMal,
+                  )
+                  .timeout(const Duration(seconds: 25), onTimeout: () => null);
+
+              if (!ref.mounted) return;
+
+              if (officialMatch != null) {
+                state = state.copyWith(
+                  animeIdForSource: officialMatch.id,
+                  bestMatchName: officialMatch.name,
+                  isSearchingMatch: false,
+                  error: null,
+                );
+
+                await ref.read(episodeListProvider.notifier).fetchEpisodes(
+                  animeTitle: officialMatch.name!,
+                  animeId: officialMatch.id,
+                  mediaId: state.details.value?.id ?? animeId,
+                  force: force,
+                  malId: int.tryParse(state.details.value?.idMal ?? ''),
+                  media: DMedia(
+                    title: officialMatch.name,
+                    url: officialMatch.id,
+                    cover: state.details.value?.coverImage.large ??
+                        state.details.value?.coverImage.medium,
+                  ),
+                  isMovie: state.details.value?.format?.toUpperCase() == 'MOVIE',
+                );
+                if (ref.mounted) {
+                  _updateRanges();
+                }
+                return;
+              }
+            }
+
             _fail(
               'Anime Match',
               'No suitable match found for any title.',
@@ -613,6 +679,53 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
           currentListState.animeId != state.animeIdForSource) {
         state = state.copyWith(animeIdForSource: currentListState.animeId);
       }
+
+      // If Hindi source returned 0 episodes (empty listing), fallback to official server
+      if (currentListState.episodes.isEmpty && _isCurrentSourceHindi()) {
+        AppLogger.i('Hindi source returned 0 episodes for "${state.bestMatchName}". Falling back to Official server...');
+        ref.read(selectedProviderKeyProvider.notifier).select('justanime');
+        ref.read(experimentalProvider.notifier).toggleExtensions(false);
+        ref.read(sourcePreferenceRepositoryProvider).clearSourcePreference(animeId);
+
+        final isAdultMedia =
+            state.details.value?.isAdult == true ||
+            state.details.value?.isMature == true;
+        final officialMatch = await ref
+            .read(animeMatchServiceProvider)
+            .findBestMatch(
+              mediaTitle,
+              isAdult: isAdultMedia,
+              mediaId: animeId,
+              malId: state.details.value?.idMal,
+            )
+            .timeout(const Duration(seconds: 25), onTimeout: () => null);
+
+        if (!ref.mounted) return;
+
+        if (officialMatch != null) {
+          state = state.copyWith(
+            animeIdForSource: officialMatch.id,
+            bestMatchName: officialMatch.name,
+            error: null,
+          );
+
+          await ref.read(episodeListProvider.notifier).fetchEpisodes(
+            animeTitle: officialMatch.name!,
+            animeId: officialMatch.id,
+            mediaId: state.details.value?.id ?? animeId,
+            force: true,
+            malId: int.tryParse(state.details.value?.idMal ?? ''),
+            media: DMedia(
+              title: officialMatch.name,
+              url: officialMatch.id,
+              cover: state.details.value?.coverImage.large ??
+                  state.details.value?.coverImage.medium,
+            ),
+            isMovie: state.details.value?.format?.toUpperCase() == 'MOVIE',
+          );
+        }
+      }
+
       _updateRanges();
     } catch (err, stack) {
       AppLogger.e(err, stack);
@@ -653,7 +766,7 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
     state = state.copyWith(animeIdForSource: id, bestMatchName: name);
     final title = state.details.value?.title;
     if (title != null) {
-      _fetchEpisodes(title, force: true);
+      _fetchEpisodes(title, force: false);
     }
   }
 

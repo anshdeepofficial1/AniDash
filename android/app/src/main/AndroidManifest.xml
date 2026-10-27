@@ -46,7 +46,10 @@
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
-            <intent-filter android:autoVerify="true">
+            <meta-data
+                android:name="flutterDeepLinkingEnabled"
+                android:value="true" />
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -65,9 +68,12 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="anidashweb.vercel.app" android:pathPrefix="/c/" />
-                <data android:scheme="https" android:host="anidashweb.vercel.app" android:pathPrefix="/anime/" />
-                <data android:scheme="https" android:host="anidashweb.vercel.app" android:pathPrefix="/episode/" />
+                <data android:scheme="https" android:host="anidashweb.vercel.app" android:pathPrefix="/c" />
+                <data android:scheme="https" android:host="anidashweb.vercel.app" android:pathPrefix="/anime" />
+                <data android:scheme="https" android:host="anidashweb.vercel.app" android:pathPrefix="/episode" />
+                <data android:scheme="https" android:host="www.anidashweb.vercel.app" android:pathPrefix="/c" />
+                <data android:scheme="https" android:host="www.anidashweb.vercel.app" android:pathPrefix="/anime" />
+                <data android:scheme="https" android:host="www.anidashweb.vercel.app" android:pathPrefix="/episode" />
             </intent-filter>
         </activity>
 

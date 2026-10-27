@@ -23,3 +23,5 @@ windows/
 # Website static media must be included in Vercel deployments.
 !website/assets/
 !website/assets/**
+!website/.well-known/
+!website/.well-known/**

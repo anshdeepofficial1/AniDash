@@ -9,11 +9,40 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/c/:id",
+      "destination": "/api/share-page?kind=chat&id=:id"
+    },
+    {
+      "source": "/anime/:id",
+      "destination": "/api/share-page?kind=anime&id=:id"
+    },
+    {
+      "source": "/episode/:id/:episode",
+      "destination": "/api/share-page?kind=episode&id=:id&episode=:episode"
+    },
+    {
       "source": "/watch",
       "destination": "/watch/index.html"
     }
   ],
   "headers": [
+    {
+      "source": "/.well-known/assetlinks.json",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
     {
       "source": "/watch/sw.js",
       "headers": [

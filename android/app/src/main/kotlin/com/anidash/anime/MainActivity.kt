@@ -656,6 +656,11 @@ class MainActivity : FlutterFragmentActivity() {
         return super.dispatchKeyEvent(event)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
     override fun onDestroy() {
         disableLandscapeRotation()
         abandonAudioFocus()
