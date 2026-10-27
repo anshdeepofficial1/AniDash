@@ -151,15 +151,44 @@ final routerConfig = GoRouter(
       return '/settings/ui';
     }
 
-    // Handle incoming deep links (e.g. anidash://anime/123 or https://anilist.co/anime/123/...)
-    final path = state.uri.path;
-    if (path.startsWith('/anime/')) {
+    // Handle incoming deep links (e.g. anidash://anime/123, https://anidashweb.vercel.app/anime/123, https://anilist.co/anime/123/...)
+    final uri = state.uri;
+    final path = uri.path;
+    final host = uri.host.toLowerCase();
+
+    // 1. Anime details deep links
+    if (path.startsWith('/anime/') || (uri.scheme == 'anidash' && host == 'anime')) {
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
-      if (segments.length >= 2) {
-        final id = segments[1];
+      final id = (host == 'anime')
+          ? (segments.isNotEmpty ? segments.first : null)
+          : (segments.length >= 2 ? segments[1] : null);
+      if (id != null && id.isNotEmpty) {
         return '/details/$id';
       }
     }
+
+    // 2. Episode deep links -> open anime details
+    if (path.startsWith('/episode/') || (uri.scheme == 'anidash' && host == 'episode')) {
+      final segments = path.split('/').where((s) => s.isNotEmpty).toList();
+      final id = (host == 'episode')
+          ? (segments.isNotEmpty ? segments.first : null)
+          : (segments.length >= 2 ? segments[1] : null);
+      if (id != null && id.isNotEmpty) {
+        return '/details/$id';
+      }
+    }
+
+    // 3. Shared chat deep links
+    if (path.startsWith('/c/') || (uri.scheme == 'anidash' && host == 'c')) {
+      final segments = path.split('/').where((s) => s.isNotEmpty).toList();
+      final id = (host == 'c')
+          ? (segments.isNotEmpty ? segments.first : null)
+          : (segments.length >= 2 ? segments[1] : null);
+      if (id != null && id.isNotEmpty) {
+        return '/c/$id';
+      }
+    }
+
     return null;
   },
   routes: [

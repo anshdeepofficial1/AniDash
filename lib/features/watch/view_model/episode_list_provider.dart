@@ -614,26 +614,46 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     final details = await _sourceNotifier.getDetails(media);
     final chapters = details?.episodes ?? [];
 
-    final mapped =
-        chapters.map((ch) {
-          // Safely extract episode number string before parsing
-          final numStr =
-              ch.episodeNumber.isNotEmpty
-                  ? ch.episodeNumber
-                  : RegExp(r'\d+').firstMatch(ch.name ?? '')?.group(0) ?? '';
+    int? parseEpNumber(String name, String epNumStr) {
+      final direct = double.tryParse(epNumStr);
+      if (direct != null && direct > 0) return direct.toInt();
 
-          return EpisodeDataModel(
-            title: ch.name,
-            url: ch.url,
-            isFiller: false,
-            number: int.tryParse(numStr),
-          );
-        }).toList();
+      final epMatch = RegExp(r'(?:episode|ep\.?|e)\s*(\d+)', caseSensitive: false).firstMatch(name);
+      if (epMatch != null) {
+        final n = int.tryParse(epMatch.group(1)!);
+        if (n != null) return n;
+      }
 
-    // Sort ascending if valid numbers exist
-    if (mapped.isNotEmpty && mapped.first.number != null) {
-      mapped.sort((a, b) => (a.number ?? 999999).compareTo(b.number ?? 999999));
+      final trailingMatch = RegExp(r'[-–:]\s*(\d+)\s*$').firstMatch(name);
+      if (trailingMatch != null) {
+        final n = int.tryParse(trailingMatch.group(1)!);
+        if (n != null) return n;
+      }
+
+      final withoutSeason = name.replaceAll(RegExp(r'(?:season|s)\s*\d+', caseSensitive: false), '');
+      final lastNumMatch = RegExp(r'(\d+)').allMatches(withoutSeason).lastOrNull;
+      if (lastNumMatch != null) {
+        final n = int.tryParse(lastNumMatch.group(1)!);
+        if (n != null) return n;
+      }
+      return null;
     }
+
+    final mapped = chapters.indexed.map((entry) {
+      final index = entry.$1;
+      final ch = entry.$2;
+      final num = parseEpNumber(ch.name ?? '', ch.episodeNumber) ?? (index + 1);
+
+      return EpisodeDataModel(
+        title: ch.name ?? 'Episode $num',
+        url: ch.url,
+        isFiller: false,
+        number: num,
+      );
+    }).toList();
+
+    // Sort ascending by episode number
+    mapped.sort((a, b) => (a.number ?? 999999).compareTo(b.number ?? 999999));
 
     return mapped;
   }

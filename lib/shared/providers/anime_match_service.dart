@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ani_dash/core/models/anime/anime_model.dep.dart';
 import 'package:ani_dash/core/models/universal/universal_media.dart';
 import 'package:ani_dash/core/repositories/source_preference_repository.dart';
+import 'package:ani_dash/data/isar/isar_source_preference.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/helpers/matcher.dart';
 import 'package:ani_dash/shared/providers/anime_source_provider.dart';
@@ -122,6 +123,7 @@ class AnimeMatchService {
             AppLogger.d(
               'High-confidence match found: ${topMatch.result.name} (via "$title")',
             );
+            _saveMatchPreference(mediaId, topMatch.result);
             return topMatch.result;
           }
           if (topMatch.similarity > bestSimilarity) {
@@ -135,14 +137,53 @@ class AnimeMatchService {
       }
     }
 
-    if (bestCandidate != null && bestSimilarity >= 0.55) {
+    if (bestCandidate != null && bestSimilarity >= 0.40) {
       AppLogger.d(
         'Using closest match: ${bestCandidate.name} (similarity: ${bestSimilarity.toStringAsFixed(2)})',
       );
+      _saveMatchPreference(mediaId, bestCandidate);
       return bestCandidate;
     }
 
     return null;
+  }
+
+  void _saveMatchPreference(String? mediaId, BaseAnimeModel anime) {
+    if (mediaId == null || mediaId.isEmpty) return;
+    try {
+      final repo = _ref.read(sourcePreferenceRepositoryProvider);
+      final useExtensions = _ref.read(experimentalProvider).useExtensions;
+      final nativeKey = _ref.read(selectedProviderKeyProvider);
+      final isNative =
+          nativeKey != null &&
+          _ref.read(animeSourceRegistryProvider).has(nativeKey);
+
+      if (useExtensions && !isNative) {
+        final activeSource = _ref.read(sourceProvider).activeAnimeSource;
+        if (activeSource != null) {
+          final selection = IsarSourcePreference(
+            animeId: mediaId,
+            sourceId: activeSource.id?.toString(),
+            sourceType: 'mangayomi',
+            matchedAnimeId: anime.id,
+            matchedAnimeTitle: anime.name,
+          );
+          repo.saveSourcePreference(mediaId, anime.poster ?? '', selection);
+        }
+      } else {
+        final currentKey = _ref.read(selectedProviderKeyProvider) ?? 'justanime';
+        final selection = IsarSourcePreference(
+          animeId: mediaId,
+          sourceId: currentKey,
+          sourceType: 'legacy',
+          matchedAnimeId: anime.id,
+          matchedAnimeTitle: anime.name,
+        );
+        repo.saveSourcePreference(mediaId, anime.poster ?? '', selection);
+      }
+    } catch (e) {
+      AppLogger.w('Failed to auto-persist match preference: $e');
+    }
   }
 
   /// Searches for anime using the configured source (Mangayomi or Legacy).
@@ -286,13 +327,38 @@ class AnimeMatchService {
             AppLogger.w('Auto-Restore: Legacy provider not found');
           }
         } else if (['mangayomi', 'aniyomi'].contains(selection.sourceType)) {
+          final selectedKey = _ref.read(selectedProviderKeyProvider);
+          final useExtensions = _ref.read(experimentalProvider).useExtensions;
+          final activeSource = _ref.read(sourceProvider).activeAnimeSource;
+
+          // If user currently selected a native provider, DO NOT restore an extension!
+          if (selectedKey != null || !useExtensions) {
+            AppLogger.d(
+              'Ignoring saved extension match; user selected native $selectedKey',
+            );
+            return null;
+          }
+
+          // If user selected a different extension than saved selection, DO NOT restore the old extension!
+          if (activeSource != null && activeSource.id?.toString() != selection.sourceId) {
+            AppLogger.d(
+              'Ignoring saved extension ${selection.sourceId}; user selected ${activeSource.name}',
+            );
+            return null;
+          }
+
+          // Don't restore if title was "None" or empty or invalid
+          if (selection.matchedAnimeTitle == null ||
+              selection.matchedAnimeTitle!.trim().isEmpty ||
+              selection.matchedAnimeTitle!.toLowerCase() == 'none' ||
+              selection.matchedAnimeId == null ||
+              selection.matchedAnimeId!.trim().isEmpty) {
+            return null;
+          }
+
           AppLogger.d(
             'Auto-Restore: Restoring extension source ${selection.sourceId}',
           );
-          // Switch to extensions
-          _ref.read(experimentalProvider.notifier).toggleExtensions(true);
-          _ref.read(selectedProviderKeyProvider.notifier).clear();
-
           final sourceNotifier = _ref.read(sourceProvider.notifier);
           final source = _ref
               .read(sourceProvider)

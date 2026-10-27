@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ani_dash/core/models/anime/anime_model.dep.dart';
 import 'package:ani_dash/core/models/universal/universal_media.dart';
@@ -94,10 +95,12 @@ class AnimeSearchNotifier extends _$AnimeSearchNotifier {
       if (useExtensions) {
         final activeSource = ref.read(sourceProvider).activeAnimeSource;
         if (activeSource != null) {
+          final isAniyomi = activeSource.extensionType == ExtensionType.aniyomi ||
+              (activeSource.id != null && activeSource.id!.startsWith('eu.kanade.tachiyomi'));
           final selection = IsarSourcePreference(
             animeId: media.id.toString(),
             sourceId: activeSource.id.toString(),
-            sourceType: 'mangayomi',
+            sourceType: isAniyomi ? 'aniyomi' : 'mangayomi',
             matchedAnimeId: anime.id,
             matchedAnimeTitle: anime.name,
           );

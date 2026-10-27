@@ -1,4 +1,5 @@
 import 'package:ani_dash/core/models/settings/source_model.dart';
+import 'package:ani_dash/core/repositories/source_preference_repository.dart';
 import 'package:ani_dash/core/services/anime_filler_service.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -99,6 +100,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
   NamedEpisodeGroup? _selectedNamedGroup;
   bool _userManuallySelectedGroup = false;
   bool _userManuallySelectedRange = false;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -231,6 +233,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     required String selectedRange,
     required EpisodeViewMode viewMode,
   }) {
+    if (_isRefreshing) return;
     final targetIndex = visibleEpisodes.indexWhere(
       (episode) => episode.number == episodeNumber,
     );
@@ -545,10 +548,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 episodeListState.episodes.isNotEmpty));
     final hasSourceMatch = state.animeIdForSource != null;
 
-    if (!isMatchingAnime &&
+    if (!_isRefreshing &&
+        !isMatchingAnime &&
         hasSourceMatch &&
         !state.isSearchingMatch &&
-        !episodeListState.isLoading) {
+        !episodeListState.isLoading &&
+        state.error == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final titleForSearch =
@@ -587,7 +592,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         state.isSearchingMatch ||
         (!isMatchingAnime &&
             episodes.isEmpty &&
-            episodeListState.error == null);
+            episodeListState.error == null &&
+            state.error == null);
     final error =
         state.error ?? (isMatchingAnime ? episodeListState.error : null);
 
@@ -600,7 +606,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
             : null;
     final franchiseEntries = franchiseOrder?.navigationItems ?? [];
 
-    final exposedName = state.bestMatchName;
+    final rawExposed = state.bestMatchName?.trim();
+    final exposedName = (rawExposed == null ||
+            rawExposed.isEmpty ||
+            rawExposed.toLowerCase() == 'none')
+        ? null
+        : rawExposed;
     final theme = Theme.of(context);
     final seasonRelations =
         widget.relations.where((relation) {
@@ -689,7 +700,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     }
 
     // Auto-select Range if user is in ranges mode and hasn't manually picked one
-    if (!_userManuallySelectedRange &&
+    if (!_isRefreshing &&
+        !_userManuallySelectedRange &&
         _groupingMode == EpisodeGroupingMode.ranges &&
         state.rangeOptions.length > 1 &&
         state.selectedRange == 'All') {
@@ -777,7 +789,16 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     }
 
     return RefreshIndicator(
-      onRefresh: () async => await notifier.refresh(),
+      onRefresh: () async {
+        _isRefreshing = true;
+        try {
+          await notifier.refresh();
+        } finally {
+          if (mounted) {
+            setState(() => _isRefreshing = false);
+          }
+        }
+      },
       child: CustomScrollView(
         primary: true,
         physics: const AlwaysScrollableScrollPhysics(),
@@ -819,6 +840,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                   name.substring(1);
                             }
 
+                            if (state.isSearchingMatch) {
+                              return 'SEARCHING ( via ${formatName(sourceName)} )';
+                            }
+                            if (exposedName == null) {
+                              return 'SOURCE: ${formatName(sourceName).toUpperCase()}';
+                            }
                             return 'MATCHED ( by ${formatName(sourceName)} )';
                           }(),
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -828,17 +855,19 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          exposedName ?? 'None',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: exposedName == null ? theme.hintColor : null,
-                            fontStyle:
-                                exposedName == null
-                                    ? FontStyle.italic
-                                    : FontStyle.normal,
+                        InkWell(
+                          onTap: exposedName == null ? () => _handleWrongMatch(context, ref, notifier) : null,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Text(
+                            exposedName ?? (state.isSearchingMatch ? 'Searching for match...' : 'Tap to select match manually'),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: exposedName == null ? theme.colorScheme.primary : null,
+                              fontStyle: exposedName == null ? FontStyle.italic : FontStyle.normal,
+                              decoration: exposedName == null ? TextDecoration.underline : null,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -2049,10 +2078,13 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     if (!useExt) return false;
     final active = ref.watch(sourceProvider).activeAnimeSource;
     if (active == null) return false;
-    return active.lang == 'hi' ||
-        active.lang == 'hin' ||
-        (active.name ?? '').toLowerCase().contains('toonstream') ||
-        (active.name ?? '').toLowerCase().contains('animedub');
+    final name = (active.name ?? '').toLowerCase();
+    final lang = (active.lang ?? '').toLowerCase();
+    return lang == 'hi' ||
+        lang == 'hin' ||
+        name.contains('toonstream') ||
+        name.contains('animedub') ||
+        name.contains('moviebox');
   }
 
   Widget _buildHindiAvailabilityBanner(
@@ -2062,15 +2094,21 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     SourceState sourceState,
   ) {
     final theme = Theme.of(context);
-    final hindiSource = sourceState.installedAnimeExtensions.firstWhereOrNull(
-      (s) =>
-          s.lang == 'hi' ||
-          s.lang == 'hin' ||
-          (s.name ?? '').toLowerCase().contains('toonstream') ||
-          (s.name ?? '').toLowerCase().contains('animedub') ||
-          (s.name ?? '').toLowerCase().contains('moviebox'),
+    // Priority: Toonstream > AnimeDub > hi/hin > Moviebox
+    Source? hindiSource = sourceState.installedAnimeExtensions.firstWhereOrNull(
+      (s) => (s.name ?? '').toLowerCase().contains('toonstream'),
+    );
+    hindiSource ??= sourceState.installedAnimeExtensions.firstWhereOrNull(
+      (s) => (s.name ?? '').toLowerCase().contains('animedub'),
+    );
+    hindiSource ??= sourceState.installedAnimeExtensions.firstWhereOrNull(
+      (s) => (s.lang ?? '').toLowerCase() == 'hi' || (s.lang ?? '').toLowerCase() == 'hin',
+    );
+    hindiSource ??= sourceState.installedAnimeExtensions.firstWhereOrNull(
+      (s) => (s.name ?? '').toLowerCase().contains('moviebox'),
     );
     if (hindiSource == null) return const SizedBox.shrink();
+    final targetSource = hindiSource;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -2127,8 +2165,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
             ),
             onPressed: () {
               ref.read(selectedProviderKeyProvider.notifier).clear();
-              ref.read(sourceProvider.notifier).setActiveSource(hindiSource);
+              ref.read(sourceProvider.notifier).setActiveSource(targetSource);
               ref.read(experimentalProvider.notifier).toggleExtensions(true);
+              ref.read(sourcePreferenceRepositoryProvider).clearSourcePreference(widget.mediaId);
               notifier.refresh();
             },
             child: const Text(
@@ -2208,8 +2247,21 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           name.contains('moviebox');
     }
 
+    bool isOfficialServer(Source s) {
+      final name = (s.name ?? '').toLowerCase();
+      final id = (s.id ?? '').toLowerCase();
+      return name.contains('justanime') ||
+          name.contains('hianime') ||
+          name.contains('anikoto') ||
+          id.contains('justanime') ||
+          id.contains('hianime') ||
+          id.contains('anikoto');
+    }
+
     final hindiExtensions = filteredExtensions.where(isHindi).toList();
-    final otherExtensions = filteredExtensions.where((s) => !isHindi(s)).toList();
+    final otherExtensions = filteredExtensions
+        .where((s) => !isHindi(s) && !isOfficialServer(s))
+        .toList();
 
     return ListView(
       controller: scrollController,
@@ -2229,32 +2281,124 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
             ),
           ),
           for (final server in nativeServers) ...[
-            ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: theme.colorScheme.primary.withValues(alpha: 0.15),
+            () {
+              final matchingExt = uniqueAvailable.firstWhereOrNull((s) {
+                final name = (s.name ?? '').toLowerCase();
+                final id = (s.id ?? '').toLowerCase();
+                return name.contains(server.key) || id.contains(server.key);
+              });
+              final fallbackIcon = {
+                'justanime':
+                    'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.justanime.png',
+                'hianime':
+                    'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.hianime.png',
+                'anikoto':
+                    'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.anikoto.png',
+              }[server.key];
+              final iconUrl =
+                  (matchingExt?.iconUrl != null &&
+                          matchingExt!.iconUrl!.isNotEmpty)
+                      ? matchingExt.iconUrl
+                      : fallbackIcon;
+
+              final activeSourceName = (sourceState.activeAdultAnimeSource?.name ??
+                      sourceState.activeAnimeSource?.name ??
+                      '')
+                  .toLowerCase();
+              final isSelected =
+                  (!useExtensions && currentNativeKey == server.key) ||
+                  (useExtensions && activeSourceName.contains(server.key));
+
+              return ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: theme.colorScheme.surfaceContainerHighest,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: (iconUrl != null && iconUrl.isNotEmpty)
+                      ? CachedNetworkImage(
+                          imageUrl: iconUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (_, _) => Container(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                            child: Icon(
+                              server.icon,
+                              color: theme.colorScheme.primary,
+                              size: 20,
+                            ),
+                          ),
+                          errorWidget: (_, _, _) => Image.asset(
+                            'assets/icons/anidash_logo.png',
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Icon(
+                              server.icon,
+                              color: theme.colorScheme.primary,
+                              size: 20,
+                            ),
+                          ),
+                        )
+                      : Image.asset(
+                          'assets/icons/anidash_logo.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Icon(
+                            server.icon,
+                            color: theme.colorScheme.primary,
+                            size: 20,
+                          ),
+                        ),
                 ),
-                child: Icon(server.icon, color: theme.colorScheme.primary, size: 22),
-              ),
-              title: Text(
-                server.name,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text(server.subtitle, style: const TextStyle(fontSize: 12)),
-              selected: !useExtensions && currentNativeKey == server.key,
-              trailing: (!useExtensions && currentNativeKey == server.key)
-                  ? Icon(Icons.check_circle_rounded, color: theme.colorScheme.primary)
-                  : null,
-              onTap: () {
-                ref.read(selectedProviderKeyProvider.notifier).select(server.key);
-                ref.read(experimentalProvider.notifier).toggleExtensions(false);
-                Navigator.pop(ref.context);
-                notifier.refresh();
-              },
-            ),
+                title: Row(
+                  children: [
+                    Text(
+                      server.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'OFFICIAL',
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                subtitle: Text(
+                  server.subtitle,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                selected: isSelected,
+                trailing: isSelected
+                    ? Icon(
+                        Icons.check_circle_rounded,
+                        color: theme.colorScheme.primary,
+                      )
+                    : null,
+                onTap: () {
+                  ref.read(selectedProviderKeyProvider.notifier).select(server.key);
+                  ref.read(experimentalProvider.notifier).toggleExtensions(false);
+                  ref
+                      .read(sourcePreferenceRepositoryProvider)
+                      .clearSourcePreference(widget.mediaId);
+                  Navigator.pop(ref.context);
+                  notifier.refresh();
+                },
+              );
+            }(),
           ],
         ],
 
@@ -2331,6 +2475,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 ref.read(selectedProviderKeyProvider.notifier).clear();
                 ref.read(sourceProvider.notifier).setActiveSource(source);
                 ref.read(experimentalProvider.notifier).toggleExtensions(true);
+                ref.read(sourcePreferenceRepositoryProvider).clearSourcePreference(widget.mediaId);
                 Navigator.pop(ref.context);
                 notifier.refresh();
               },
@@ -2379,6 +2524,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 ref.read(selectedProviderKeyProvider.notifier).clear();
                 ref.read(sourceProvider.notifier).setActiveSource(source);
                 ref.read(experimentalProvider.notifier).toggleExtensions(true);
+                ref.read(sourcePreferenceRepositoryProvider).clearSourcePreference(widget.mediaId);
                 Navigator.pop(ref.context);
                 notifier.refresh();
               },

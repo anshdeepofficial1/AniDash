@@ -51,10 +51,11 @@ SourceMethods currentSourceMethods(Source source) {
     return (source as HasSourceMethods).methods;
   }
 
-  final type = source.extensionType;
-  return type == ExtensionType.mangayomi
-      ? MangayomiSourceMethods(source)
-      : AniyomiSourceMethods(source);
+  final isAniyomi = source.extensionType == ExtensionType.aniyomi ||
+      (source.id != null && source.id!.startsWith('eu.kanade.tachiyomi'));
+  return isAniyomi
+      ? AniyomiSourceMethods(source)
+      : MangayomiSourceMethods(source);
 }
 
 List<ExtensionType> get getSupportedExtensions =>

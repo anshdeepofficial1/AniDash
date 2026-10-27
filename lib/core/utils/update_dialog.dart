@@ -642,7 +642,9 @@ class _UpdateDialogState extends State<UpdateDialog>
                                                 ? 'Download & Install Windows .exe'
                                                 : (Platform.isMacOS
                                                     ? 'Download & Install macOS DMG'
-                                                    : 'Update Now')))),
+                                                    : (Platform.isAndroid
+                                                        ? 'Download & Install APK'
+                                                        : 'Update Now'))))),
                               ),
                               onPressed:
                                   _downloading
@@ -688,7 +690,9 @@ class _UpdateDialogState extends State<UpdateDialog>
                                           ? 'Download & Install Windows .exe'
                                           : (Platform.isMacOS
                                               ? 'Download macOS .dmg'
-                                              : 'Update Now')))),
+                                              : (Platform.isAndroid
+                                                  ? 'Download & Install APK'
+                                                  : 'Update Now'))))),
                         ),
                         onPressed:
                             _downloading

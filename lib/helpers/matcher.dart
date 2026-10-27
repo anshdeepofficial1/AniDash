@@ -102,7 +102,9 @@ double _calculateHybridScore(
   // e.g. "One Piece Film: Red" vs "One Piece: Stampede"
   const stopWords = {
     'the', 'a', 'an', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for', 'with',
-    'movie', 'film', 'special', 'ova', 'ona', 'tv', 'season', 'series', 'part', 'x'
+    'movie', 'film', 'special', 'ova', 'ona', 'tv', 'season', 'series', 'part', 'x',
+    'hindi', 'dub', 'dubbed', 'sub', 'subbed', 'dual', 'audio', 'multi', 'uncensored',
+    'hd', 'full', 'all', 'episodes', 'complete',
   };
   final qMeaningful = qTokens.difference(stopWords);
   final tMeaningful = tTokens.difference(stopWords);
@@ -152,6 +154,12 @@ String _normalize(String input) {
   s = s.replaceAllMapped(RegExp(r'\bs(\d+)\b'), (m) => 'season ${m.group(1)}');
   s = s.replaceAllMapped(RegExp(r'\b(\d+)(?:st|nd|rd|th)?\s+season\b'),
       (m) => 'season ${m.group(1)}');
+
+  // Strip audio / language tags appended by extensions
+  s = s.replaceAll(
+    RegExp(r'\b(hindi|dubbed|dub|subbed|sub|dual\s+audio|dual|multi\s+audio|multi|uncensored)\b'),
+    ' ',
+  );
 
   // Remove non-alphanumeric characters and collapse multiple spaces.
   s = s.replaceAllMapped(

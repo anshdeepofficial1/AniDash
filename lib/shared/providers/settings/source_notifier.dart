@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart';
 import 'package:get/instance_manager.dart';
@@ -48,6 +49,27 @@ class SourceNotifier extends _$SourceNotifier {
     }
   }
 
+  List<Extension> _getAllManagers() {
+    final List<Extension> managers = [];
+    try {
+      final m = ExtensionType.mangayomi.getManager();
+      managers.add(m);
+    } catch (e) {
+      AppLogger.w('Failed to get Mangayomi manager: $e');
+    }
+    if (Platform.isAndroid) {
+      try {
+        final a = ExtensionType.aniyomi.getManager();
+        if (!managers.contains(a)) {
+          managers.add(a);
+        }
+      } catch (e) {
+        AppLogger.w('Failed to get Aniyomi manager: $e');
+      }
+    }
+    return managers;
+  }
+
   Future<void> _onManagerChanged(Extension manager) async {
     // Clear old extension subscriptions
     for (final sub in _extensionSubscriptions) {
@@ -55,28 +77,33 @@ class SourceNotifier extends _$SourceNotifier {
     }
     _extensionSubscriptions.clear();
 
-    // Subscribe to installed extension changes from current manager
-    _extensionSubscriptions.addAll([
-      manager.installedAnimeExtensions.listen(
-        (extensions) => _updateExtensions(ItemType.anime, extensions),
-      ),
-      manager.installedMangaExtensions.listen(
-        (extensions) => _updateExtensions(ItemType.manga, extensions),
-      ),
-      manager.installedNovelExtensions.listen(
-        (extensions) => _updateExtensions(ItemType.novel, extensions),
-      ),
-    ]);
+    final allManagers = _getAllManagers();
 
-    // Fetch initial data
+    // Subscribe to installed extension changes from ALL managers (Mangayomi + Aniyomi)
+    for (final m in allManagers) {
+      _extensionSubscriptions.addAll([
+        m.installedAnimeExtensions.listen(
+          (_) => _syncCombinedExtensions(ItemType.anime),
+        ),
+        m.installedMangaExtensions.listen(
+          (_) => _syncCombinedExtensions(ItemType.manga),
+        ),
+        m.installedNovelExtensions.listen(
+          (_) => _syncCombinedExtensions(ItemType.novel),
+        ),
+      ]);
+    }
+
+    // Fetch initial repo/store data
     fetchSources(ItemType.anime);
     fetchSources(ItemType.manga);
 
+    // Initial fetch of installed extensions across ALL managers
     for (final type in [ItemType.anime, ItemType.manga]) {
       final Set<String> seen = {};
       final List<Source> extensions = [];
 
-      Future<void> addExtensions(Extension m) async {
+      for (final m in allManagers) {
         try {
           List<Source> list = [];
           switch (type) {
@@ -96,10 +123,10 @@ class SourceNotifier extends _$SourceNotifier {
               extensions.add(s);
             }
           }
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.w('Failed to fetch installed extensions for $type from $m: $e');
+        }
       }
-
-      await addExtensions(manager);
 
       _updateExtensions(type, extensions);
     }
@@ -112,6 +139,37 @@ class SourceNotifier extends _$SourceNotifier {
     );
 
     _restoreActiveSources();
+  }
+
+  void _syncCombinedExtensions(ItemType type) {
+    final allManagers = _getAllManagers();
+    final Set<String> seen = {};
+    final List<Source> combined = [];
+
+    for (final m in allManagers) {
+      List<Source> list = [];
+      switch (type) {
+        case ItemType.anime:
+          list = m.installedAnimeExtensions.value;
+          break;
+        case ItemType.manga:
+          list = m.installedMangaExtensions.value;
+          break;
+        case ItemType.novel:
+          list = m.installedNovelExtensions.value;
+          break;
+      }
+      for (final s in list) {
+        final key = s.id ?? s.name ?? '';
+        if (key.isNotEmpty && seen.add(key)) {
+          combined.add(s);
+        }
+      }
+    }
+
+    if (combined.isNotEmpty) {
+      _updateExtensions(type, combined);
+    }
   }
 
   bool _isAdultSource(Source s) {
@@ -220,10 +278,23 @@ class SourceNotifier extends _$SourceNotifier {
       }
       return;
     }
+
+    final isAnime = source.itemType == ItemType.anime ||
+        state.installedAnimeExtensions.any((s) => s.id == source.id || s.name == source.name);
+    if (isAnime) {
+      ref.read(selectedProviderKeyProvider.notifier).clear();
+      state = state.copyWith(
+        activeAnimeSource: source,
+        lastUpdatedSourceType: 'ANIME',
+      );
+      if (source.id != null) {
+        _repo.saveActiveAnimeSourceId(source.id!);
+      }
+      return;
+    }
+
     switch (source.itemType) {
       case ItemType.anime:
-        // An explicitly chosen extension must override the persisted native
-        // JustAnime key, including across future application launches.
         ref.read(selectedProviderKeyProvider.notifier).clear();
         state = state.copyWith(
           activeAnimeSource: source,
