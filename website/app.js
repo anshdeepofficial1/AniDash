@@ -1,5 +1,6 @@
 const pages=[
   ["Home","/"],
+  ["Watch","/watch"],
   ["Features","/features"],
   ["Screens","/screens"],
   ["Downloads","/downloads"],
