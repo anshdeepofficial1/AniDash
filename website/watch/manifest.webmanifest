@@ -1,6 +1,6 @@
 {
-  "id": "/",
-  "name": "AniDash — Discover & Watch Anime",
+  "id": "./",
+  "name": "AniDash Watch — Discover & Watch Anime",
   "short_name": "AniDash",
   "description": "Discover, search and watch anime with a fast, app-like player: episode lists, resume playback, quality and subtitle controls, library and watch history.",
   "start_url": "./",
@@ -8,12 +8,12 @@
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#0d1310",
-  "theme_color": "#0d1310",
+  "background_color": "#080910",
+  "theme_color": "#080910",
   "categories": ["entertainment"],
   "icons": [
     {
-      "src": "assets/icon-192.png",
+      "src": "./assets/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
