@@ -207,11 +207,8 @@ async function handle(req, res) {
       const settled = await Promise.allSettled(tasks);
       episodes = settled.flatMap(x => x.status === 'fulfilled' ? x.value : []);
     } else {
-      episodes = episodeCards(detail.html, detail.url);
-      if (!episodes.length) {
-        const ogImage = attr(detail.html.match(/<meta\b[^>]*property=["']og:image["'][^>]*>/i)?.[0] || '', 'content');
-        episodes = [{ id: detail.url, url: detail.url, title: 'Movie', number: 1, image: ogImage }];
-      }
+      const ogImage = attr(detail.html.match(/<meta\b[^>]*property=["']og:image["'][^>]*>/i)?.[0] || '', 'content');
+      episodes = [{ id: detail.url, url: detail.url, title: 'Movie', number: 1, image: ogImage }];
     }
     const unique = [...new Map(episodes.sort((a, b) => a.number - b.number).map(ep => [ep.url, ep])).values()];
     return res.status(200).json({ source: 'Toonstream', episodes: unique.slice(0, 500), totalEpisodes: unique.length });
