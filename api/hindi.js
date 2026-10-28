@@ -220,7 +220,7 @@ async function handle(req, res) {
   if (action === 'source') {
     const episodeUrl = safeSiteUrl(String(req.query.url || ''));
     const episodePage = await requestText(episodeUrl.toString());
-    const sources = [...extractDirectVideos(episodePage.html, episodePage.url), ...extractEmbeds(episodePage.html, episodePage.url)];
+    const sources = [...extractEmbeds(episodePage.html, episodePage.url), ...extractDirectVideos(episodePage.html, episodePage.url)];
     if (!sources.length) {
       return res.status(404).json({ error: 'No browser-compatible player link was found for this episode. Try opening the source website.' });
     }
