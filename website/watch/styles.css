@@ -2652,3 +2652,39 @@ select option{background:#141622;color:#f5f5fb}
   .hindi-source-grid{grid-template-columns:1fr}
   .hindi-source-link{padding:13px}
 }
+
+
+/* In-app Hindi catalogue and embedded-player experience */
+.trending-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.hindi-quick-link{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:7px 12px;border-radius:999px;background:rgba(167,139,250,.11);border:1px solid rgba(167,139,250,.25);color:#e0d5ff;font-size:11px;font-weight:800;white-space:nowrap}
+.hindi-quick-link span:first-child{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#a78bfa;color:#171023;font-size:9px}
+.hindi-quick-link:hover{background:rgba(167,139,250,.2)}
+.hindi-search-bar{margin:18px 0 10px;max-width:none}
+.hindi-search-bar input{min-width:0}
+.hindi-search-bar button{min-height:40px;padding:0 16px;border-radius:12px}
+.hindi-results-grid{margin-top:12px}
+.hindi-results-grid .anime-card{width:auto;max-width:none;min-width:0}
+.hindi-results-grid .anime-card .cover{aspect-ratio:2/3;height:auto;min-height:125px}
+.hindi-results-grid .anime-card strong{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.hindi-episodes-panel{margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
+.hindi-episodes-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:8px}
+.hindi-episodes-heading h3{margin:0;font-size:clamp(18px,2vw,24px);letter-spacing:-.035em}
+.hindi-episodes-heading button{min-height:40px;white-space:nowrap}
+.hindi-episode-button{width:100%;text-align:left}
+#externalPlayerFrame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;z-index:1}
+#externalPlayerFrame[hidden]{display:none!important}
+#video[hidden]{display:none!important}
+.external-embed-active #video{display:none!important}
+.external-embed-active .player-center,
+.external-embed-active .player-bottom,
+.external-embed-active .player-track-select{display:none!important}
+.external-embed-active .player-scrim{z-index:2;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.38),transparent 160px)}
+.external-embed-active .player-top{position:absolute;z-index:8;left:0;right:0;top:0}
+.external-embed-active .player-list{background:rgba(12,12,20,.72);backdrop-filter:blur(10px)}
+@media(max-width:600px){
+  .hindi-quick-link{min-height:36px;font-size:10px;padding:6px 10px}
+  .hindi-search-bar{gap:7px;padding:0 9px}
+  .hindi-search-bar button{padding:0 12px}
+  .hindi-results-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 9px}
+  .hindi-episodes-heading{align-items:flex-start}
+}
