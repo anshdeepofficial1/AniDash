@@ -2377,3 +2377,257 @@ body.subpage-open{padding-bottom:0}
   .settings-row.settings-action{transition:background .16s ease}
   .settings-row.settings-action:hover{background:color-mix(in srgb,var(--text) 5%,transparent)}
 }
+
+
+/* ==========================================================================
+   AniDash Watch · Premium PWA refresh
+   Reuses the existing search, metadata, library and playback engine.
+   ========================================================================== */
+:root{
+  color-scheme:dark;
+  --bg:#080910;
+  --surface:#11131c;
+  --surface-2:#191c28;
+  --surface-3:#222638;
+  --text:#f5f5fb;
+  --muted:#9da2b7;
+  --primary:#a78bfa;
+  --primary-soft:#292044;
+  --primary-border:#8066d8;
+  --brand:#a78bfa;
+  --brand-2:#c4b5fd;
+  --line:rgba(255,255,255,.09);
+  --shadow:0 22px 70px rgba(0,0,0,.38);
+}
+html,body{background:var(--bg);color:var(--text)}
+body{
+  background:
+    radial-gradient(ellipse at 12% -8%,rgba(124,58,237,.16),transparent 36rem),
+    radial-gradient(ellipse at 100% 22%,rgba(56,189,248,.07),transparent 34rem),
+    var(--bg);
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:contain;
+}
+button,input,select{accent-color:var(--primary)}
+button{transition:background-color .18s ease,border-color .18s ease,transform .18s ease,opacity .18s ease}
+button:active{transform:scale(.985)}
+a{color:inherit}
+#app-shell{background:transparent}
+#app{max-width:1480px}
+.page{background:transparent}
+.app-header{padding-top:14px;padding-bottom:18px}
+.avatar,.header-actions button,.library-head>button{
+  background:linear-gradient(145deg,rgba(167,139,250,.19),rgba(167,139,250,.07));
+  border:1px solid rgba(196,181,253,.13);
+  color:#e8ddff;
+  box-shadow:inset 0 1px rgba(255,255,255,.045);
+}
+.profile-copy small{color:#c4b5fd;letter-spacing:.02em}
+.profile-copy strong{letter-spacing:-.045em}
+.trending-pill{
+  border:1px solid rgba(196,181,253,.18);
+  background:rgba(167,139,250,.11);
+  color:#d9ccff;
+}
+.spotlight-rail{padding-top:12px;padding-bottom:18px}
+.spotlight-slide{
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:26px;
+  background-color:#161521;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+  isolation:isolate;
+}
+.spotlight-slide::after{
+  background:linear-gradient(180deg,rgba(7,8,14,.02) 6%,rgba(7,8,14,.14) 38%,rgba(7,8,14,.92) 100%);
+}
+.spotlight-content h1{letter-spacing:-.045em}
+.badge,.score{
+  border-color:rgba(255,255,255,.16);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+.score{background:rgba(11,10,20,.72);border:1px solid rgba(196,181,253,.32);color:#e9ddff}
+.home-block{margin-top:26px}
+.section-title h2{letter-spacing:-.035em}
+.section-title button{border:1px solid var(--line);background:rgba(255,255,255,.025);color:var(--text)}
+.anime-card .cover{
+  border-radius:15px;
+  background:linear-gradient(135deg,#1a1d2b,#101119);
+  border:1px solid rgba(255,255,255,.07);
+}
+.anime-card strong{letter-spacing:-.015em}
+.poster-grid .anime-card .cover{border:1px solid rgba(255,255,255,.075)}
+.search-bar{
+  border:1px solid rgba(255,255,255,.09);
+  background:rgba(19,21,32,.85);
+  box-shadow:inset 0 1px rgba(255,255,255,.025);
+}
+.search-bar:focus-within{border-color:rgba(167,139,250,.55);box-shadow:0 0 0 3px rgba(167,139,250,.09)}
+.chips button,.detail-tabs button,.secondary,.tonal,.outline{
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:rgba(255,255,255,.035);
+  color:var(--text);
+}
+.chips button.active,.detail-tabs button.active{
+  background:rgba(167,139,250,.15);
+  color:#ded3ff;
+  border-color:rgba(167,139,250,.4);
+}
+.primary,.btn.primary{
+  color:#120d20;
+  background:linear-gradient(135deg,#c4b5fd,#9b7bfa);
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 8px 28px rgba(124,58,237,.18);
+  font-weight:750;
+}
+.primary:hover,.btn.primary:hover{filter:brightness(1.06)}
+.secondary,.tonal{background:rgba(255,255,255,.055);border-color:var(--line)}
+input,select,textarea{
+  color:var(--text);
+  background-color:var(--surface-2);
+  border-color:var(--line);
+}
+select option{background:#141622;color:#f5f5fb}
+.desktop-info-panel,.extension-card,.settings-section,.news-card,.history-item{
+  background:linear-gradient(145deg,rgba(22,24,37,.96),rgba(15,17,27,.96));
+  border:1px solid var(--line);
+  border-radius:20px;
+  box-shadow:0 12px 36px rgba(0,0,0,.12);
+}
+.extension-card{padding:18px}
+.source-badge{border-radius:999px}
+#macSidebar{
+  background:rgba(11,12,19,.92);
+  border-right:1px solid rgba(255,255,255,.075);
+  backdrop-filter:blur(28px);
+  -webkit-backdrop-filter:blur(28px);
+}
+.mac-sidebar-head{border-bottom:1px solid rgba(255,255,255,.065)}
+.mac-brand img{border-radius:12px;box-shadow:0 6px 24px rgba(124,58,237,.2)}
+.mac-nav-section h3{color:#7f849b;letter-spacing:.14em}
+.mac-nav-item{
+  border:1px solid transparent;
+  border-radius:13px;
+  color:#aeb2c5;
+}
+.mac-nav-item:hover{background:rgba(255,255,255,.045);color:#f5f5fb}
+.mac-nav-item.active{
+  color:#e4d9ff;
+  background:linear-gradient(100deg,rgba(167,139,250,.17),rgba(167,139,250,.055));
+  border-color:rgba(167,139,250,.15);
+}
+.mac-nav-item.active .icon{color:#c4b5fd}
+#macTopbar{
+  background:rgba(8,9,16,.78);
+  border-bottom:1px solid rgba(255,255,255,.07);
+  backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+}
+.mac-spotlight-search{
+  background:rgba(255,255,255,.045);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:15px;
+}
+.mac-icon-button,.mac-topbar-actions button{
+  background:rgba(255,255,255,.045);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:12px;
+}
+.desktop-page-head h1,.page-head h1{letter-spacing:-.05em}
+.settings-appbar{border-bottom:1px solid var(--line)}
+.settings-row{border-color:rgba(255,255,255,.06)}
+.settings-row.settings-action:hover{background:rgba(255,255,255,.04)}
+.details-dialog,.utility-dialog,.account-dialog{
+  color:var(--text);
+  background:rgba(16,17,27,.98);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:26px;
+  box-shadow:0 28px 100px rgba(0,0,0,.55);
+}
+.details-dialog::backdrop,.utility-dialog::backdrop,.account-dialog::backdrop{
+  background:rgba(2,3,8,.76);
+  backdrop-filter:blur(10px);
+}
+.detail-hero{border-radius:24px;overflow:hidden}
+.detail-body{background:transparent}
+.detail-tabs{border-bottom-color:var(--line)}
+.episode{
+  background:rgba(255,255,255,.035);
+  border:1px solid var(--line);
+  border-radius:14px;
+}
+.episode:hover{border-color:rgba(167,139,250,.38);background:rgba(167,139,250,.07)}
+.player-dialog{background:#000;border:1px solid rgba(255,255,255,.12);border-radius:22px;box-shadow:0 28px 100px rgba(0,0,0,.8)}
+.player-track-select select{background:rgba(20,20,30,.9);border:1px solid rgba(255,255,255,.15);border-radius:10px}
+.bottom-nav{
+  background:rgba(16,17,27,.86);
+  border:1px solid rgba(255,255,255,.1);
+  box-shadow:0 14px 45px rgba(0,0,0,.36);
+  backdrop-filter:blur(28px) saturate(1.35);
+  -webkit-backdrop-filter:blur(28px) saturate(1.35);
+}
+.bottom-nav button{
+  min-width:44px;min-height:44px;
+  border-radius:15px;color:#9297ad;
+}
+.bottom-nav button.active{background:rgba(167,139,250,.15);color:#d9ccff}
+::selection{background:rgba(167,139,250,.3);color:#fff}
+:focus-visible{outline-color:#c4b5fd!important}
+.skeleton{background-color:#171927}
+@media(min-width:1100px){
+  body{padding-bottom:0}
+  #app{max-width:1480px}
+  .page{padding-top:25px}
+  .spotlight-rail{margin-inline:-24px}
+  .spotlight-slide{border-radius:28px}
+  .home-block .rail:not(.continue-rail) .anime-card{border:1px solid rgba(255,255,255,.07);border-radius:17px}
+}
+@media(max-width:1099px){
+  #macSidebar{display:none!important}
+  #macTopbar{display:none!important}
+  #app-shell{padding-top:0!important}
+  .page{min-height:100dvh;padding-top:calc(14px + env(safe-area-inset-top));padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+  .app-header{padding-top:8px}
+  .bottom-nav{
+    position:fixed;z-index:80;
+    left:14px;right:14px;bottom:calc(10px + env(safe-area-inset-bottom));
+    width:auto;height:64px;
+    display:flex;justify-content:space-around;align-items:center;
+    padding:6px 9px;
+    border-radius:22px;
+  }
+  .bottom-nav button{flex:1;display:grid;place-items:center}
+  .spotlight-rail{margin-inline:-10px}
+}
+@media(max-width:600px){
+  .page{padding-left:14px;padding-right:14px}
+  .spotlight-rail{margin-inline:-14px;padding-inline:5%;gap:12px}
+  .spotlight-slide{flex-basis:89%;height:clamp(250px,70svh,390px);border-radius:23px}
+  .spotlight-content{left:19px;right:19px;bottom:20px}
+  .spotlight-content h1{font-size:clamp(25px,7vw,32px)}
+  .home-block{margin-top:25px}
+  .section-title{padding-inline:1px}
+  .section-title h2{font-size:20px}
+  .home-block .rail:not(.continue-rail) .anime-card{flex-basis:138px;width:138px;height:204px;border-radius:15px}
+  .home-block .rail:not(.continue-rail) .anime-card .cover{border-radius:15px}
+  .poster-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 10px}
+  .poster-grid .anime-card .cover{border-radius:12px}
+  .search-bar{min-height:52px;border-radius:16px}
+  .details-dialog{width:100%;max-width:none;max-height:92dvh;margin:auto 0 0;border-radius:26px 26px 0 0;padding-bottom:env(safe-area-inset-bottom)}
+  .details-dialog[open]{animation:anidash-sheet-in .22s ease-out}
+  .detail-hero{border-radius:0 0 22px 22px}
+  .player-dialog{width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;border:0;border-radius:0}
+  .player-stage{height:100%;min-height:100dvh}
+  .settings-page{padding-top:calc(12px + env(safe-area-inset-top))}
+  .bottom-nav{left:12px;right:12px;bottom:calc(8px + env(safe-area-inset-bottom));height:62px}
+}
+@keyframes anidash-sheet-in{from{transform:translateY(18px);opacity:.7}to{transform:translateY(0);opacity:1}}
+@media(display-mode:standalone){
+  body{padding-top:0}
+  .page{padding-top:calc(16px + env(safe-area-inset-top))}
+  .bottom-nav{bottom:calc(10px + env(safe-area-inset-bottom))}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
+}
