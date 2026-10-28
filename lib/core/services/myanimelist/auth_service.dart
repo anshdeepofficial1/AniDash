@@ -66,6 +66,7 @@ class MyAnimeListAuthService extends BaseOAuthService {
           'client_id': _clientId,
           'redirect_uri': redirectUri,
           'code_challenge': codeChallenge,
+          'code_challenge_method': 'plain',
           'state': state,
         },
       );

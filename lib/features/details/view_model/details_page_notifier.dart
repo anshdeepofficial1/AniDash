@@ -13,7 +13,7 @@ import 'package:ani_dash/shared/providers/anime_repo_provider.dart';
 import 'package:ani_dash/shared/providers/anilist_service_provider.dart';
 import 'package:ani_dash/shared/providers/anime_match_service.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
-import 'package:ani_dash/core/repositories/source_preference_repository.dart';
+
 import 'package:ani_dash/shared/providers/anime_source_provider.dart';
 import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
@@ -76,26 +76,7 @@ class DetailsPageState {
 
 @riverpod
 class DetailsPageNotifier extends _$DetailsPageNotifier {
-  bool _isCurrentSourceHindi() {
-    final useExtensions = ref.read(experimentalProvider).useExtensions;
-    final nativeKey = ref.read(selectedProviderKeyProvider)?.toLowerCase();
-    if (nativeKey == 'justanime' || nativeKey == 'hianime' || nativeKey == 'anikoto') {
-      return false;
-    }
-    if (!useExtensions) return false;
-    final activeSource = ref.read(sourceProvider).activeAnimeSource;
-    if (activeSource == null) return false;
-    final name = (activeSource.name ?? '').toLowerCase();
-    final lang = (activeSource.lang ?? '').toLowerCase();
-    if (name.contains('justanime') || name.contains('hianime') || name.contains('anikoto')) {
-      return false;
-    }
-    return lang == 'hi' ||
-        lang == 'hin' ||
-        name.contains('toonstream') ||
-        name.contains('animedub') ||
-        name.contains('moviebox');
-  }
+
   bool _isUnreleased(UniversalMedia? media) {
     if (media == null) return false;
     final status = media.status?.toUpperCase();

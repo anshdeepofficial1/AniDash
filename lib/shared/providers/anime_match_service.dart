@@ -1,3 +1,4 @@
+import 'package:ani_dash/core/utils/language_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ani_dash/core/models/anime/anime_model.dep.dart';
 import 'package:ani_dash/core/models/universal/universal_media.dart';
@@ -34,11 +35,45 @@ class AnimeMatchService {
     String? mediaId,
     String? malId,
   }) async {
-    final titles =
-        [title.english, title.romaji, title.native]
-            .where((t) => t != null && t.trim().isNotEmpty)
-            .cast<String>()
-            .toList();
+    final rawTitles = [title.english, title.romaji, title.userPreferred, title.native];
+    final titles = <String>[];
+    final seen = <String>{};
+
+    void addTitle(String? t) {
+      if (t == null) return;
+      final trimmed = t.trim();
+      if (trimmed.isEmpty) return;
+      final lower = trimmed.toLowerCase();
+      if (seen.add(lower)) {
+        titles.add(trimmed);
+      }
+    }
+
+    for (final raw in rawTitles) {
+      if (raw == null || raw.trim().isEmpty) continue;
+      addTitle(raw);
+
+      // 1. Colon-separated prefix (e.g. "Demon Slayer: Kimetsu no Yaiba" -> "Demon Slayer")
+      if (raw.contains(':')) {
+        final prefix = raw.split(':').first.trim();
+        if (prefix.length >= 3) addTitle(prefix);
+      }
+
+      // 2. Dash-separated prefix (e.g. "Naruto Shippuden - The Movie" -> "Naruto Shippuden")
+      if (raw.contains(' - ') || raw.contains(' – ')) {
+        final prefix = raw.split(RegExp(r'\s*[-–]\s*')).first.trim();
+        if (prefix.length >= 3) addTitle(prefix);
+      }
+
+      // 3. Remove parentheses / brackets: e.g. "Attack on Titan (TV)" -> "Attack on Titan"
+      final withoutParens = raw
+          .replaceAll(RegExp(r'\s*\([^)]*\)'), '')
+          .replaceAll(RegExp(r'\s*\[[^\]]*\]'), '')
+          .trim();
+      if (withoutParens.isNotEmpty && withoutParens.length >= 3) {
+        addTitle(withoutParens);
+      }
+    }
 
     if (titles.isEmpty) {
       AppLogger.w("No valid title available for searching episodes.");
@@ -138,6 +173,56 @@ class AnimeMatchService {
       );
       _saveMatchPreference(mediaId, bestCandidate);
       return bestCandidate;
+    }
+
+    final activeSource = _ref.read(sourceProvider).activeAnimeSource;
+    final isHindiExt = useExt &&
+        activeSource != null &&
+        LanguageUtils.isHindiSourceNameOrLang(
+          name: activeSource.name,
+          lang: activeSource.lang,
+        );
+
+    // If active source is Hindi and no match was found on it (e.g. One Piece has no Hindi dub),
+    // seamlessly try fallback to official server (JustAnime) so playback does not fail or freeze!
+    if (bestCandidate == null && isHindiExt) {
+      AppLogger.w('No match found on Hindi source for "$mediaId". Trying Official JustAnime fallback...');
+      try {
+        final registry = _ref.read(animeSourceRegistryProvider);
+        final justProvider = registry.get('justanime');
+        if (justProvider != null) {
+          if (mediaId != null && int.tryParse(mediaId) != null && justProvider is JustAnimeProvider) {
+            final exists = await justProvider.probeAnimeExists(mediaId);
+            if (exists) {
+              return BaseAnimeModel(
+                id: mediaId,
+                anilistId: int.tryParse(mediaId),
+                name: title.english ?? title.romaji ?? title.userPreferred,
+              );
+            }
+          }
+          for (final t in titles) {
+            final res = await justProvider.getSearch(t, null, 1).timeout(const Duration(seconds: 10));
+            final justResults = res.results
+                .where((item) => item.id != null && item.name != null)
+                .map((item) => BaseAnimeModel(id: item.id!, name: item.name!, poster: item.poster))
+                .toList();
+            if (justResults.isNotEmpty) {
+              final matches = getBestMatches<BaseAnimeModel>(
+                results: justResults,
+                title: t,
+                nameSelector: (r) => r.name,
+                idSelector: (r) => r.id,
+              );
+              if (matches.isNotEmpty && matches.first.similarity >= 0.40) {
+                return matches.first.result;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        AppLogger.w('JustAnime fallback probe failed: $e');
+      }
     }
 
     return null;
