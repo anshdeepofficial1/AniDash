@@ -22,7 +22,7 @@ const state={
 };
 
 const DEFAULT_WEB_SETTINGS={
-  theme:'system',
+  theme:'dark',
   amoled:false,
   compactCards:false,
   spotlightAutoPlay:true,
