@@ -195,7 +195,7 @@
           </div>
         </header>
 
-        <div class="trending-row"><span class="trending-pill"><svg class="icon"><use href="#i-star"/></svg><b>Trending 25</b></span></div>
+        <div class="trending-row"><span class="trending-pill"><svg class="icon"><use href="#i-star"/></svg><b>Trending 25</b></span><button id="hindiQuickLink" class="hindi-quick-link" type="button"><span>HI</span> Hindi dubbed <span aria-hidden="true">↗</span></button></div>
         <div id="spotlightRail" class="spotlight-rail skeleton" aria-label="Trending anime"></div>
 
         <section id="continueSection" class="home-block" hidden>
@@ -259,16 +259,28 @@
           <span id="sourceHealthBadge" class="source-badge">Checking…</span>
         </div>
         <div class="desktop-info-panel hindi-source-panel">
-          <div class="hindi-source-heading"><span class="hindi-source-kicker">HINDI AUDIO</span><h2>Hindi source alternatives</h2><p>These catalogues can be opened on the web. Aniyomi APK extensions themselves cannot run in Safari; in-app playback needs a separate, browser-compatible resolver.</p></div>
+          <div class="hindi-source-heading"><span class="hindi-source-kicker">HINDI AUDIO</span><h2>Watch Hindi-dubbed anime</h2><p>Search the browser-compatible Toonstream adapter, open a title, and choose an episode. Availability and embedded servers can change independently of AniDash.</p></div>
+          <form id="hindiSearchForm" class="search-bar hindi-search-bar" role="search">
+            <svg class="icon"><use href="#i-search"/></svg>
+            <input id="hindiSearchInput" type="search" placeholder="Search Hindi anime…" autocomplete="off" autocapitalize="none">
+            <button class="primary" type="submit">Search</button>
+          </form>
+          <div id="hindiSearchStatus" class="subtle">Loading Hindi catalogue…</div>
+          <div id="hindiSearchGrid" class="poster-grid hindi-results-grid"></div>
+          <section id="hindiEpisodesPanel" class="hindi-episodes-panel" hidden>
+            <div class="hindi-episodes-heading"><div><span class="hindi-source-kicker">EPISODES</span><h3 id="hindiSelectedTitle">Select a title</h3></div><button id="hindiEpisodesBack" class="secondary" type="button">← All titles</button></div>
+            <div id="hindiEpisodesStatus" class="subtle"></div>
+            <div id="hindiEpisodeGrid" class="episode-list"></div>
+          </section>
           <div class="hindi-source-grid">
             <a class="hindi-source-link" href="https://toonstream.us/" target="_blank" rel="noopener noreferrer">
-              <span class="hindi-source-mark">TS</span><span class="hindi-source-copy"><b>Toonstream</b><small>Hindi category · Browser site</small></span><span class="hindi-source-open">Open ↗</span>
+              <span class="hindi-source-mark">TS</span><span class="hindi-source-copy"><b>Toonstream</b><small>Open source website if an embed fails</small></span><span class="hindi-source-open">Open ↗</span>
             </a>
             <a class="hindi-source-link" href="https://www.animedubhindi.link/" target="_blank" rel="noopener noreferrer">
               <span class="hindi-source-mark">AD</span><span class="hindi-source-copy"><b>AnimeDubHindi</b><small>Hindi and multi-audio catalogue</small></span><span class="hindi-source-open">Open ↗</span>
             </a>
           </div>
-          <p class="hindi-source-note">External source availability can change. Use only content you are authorized to access; these links do not claim that the catalogue is already integrated into AniDash’s native video player.</p>
+          <p class="hindi-source-note">Aniyomi APK packages cannot run in Safari or a PWA. AniDash uses a separate web adapter for this catalogue; if a provider does not expose a browser-compatible embed, open its website instead. Use only content you are authorized to access.</p>
         </div>
         <div class="desktop-info-panel"><h2>Why not install an APK here?</h2><p>iPhone Safari and web PWAs cannot load Android extension APKs. AniDash Watch keeps the web player isolated from native Android/desktop bridges so browser playback remains predictable and safer to maintain.</p></div>
       </section>
@@ -433,6 +445,7 @@
   <dialog id="playerDialog" class="player-dialog" aria-label="AniDash player">
     <div class="player-stage" id="playerStage">
       <video id="video" playsinline webkit-playsinline preload="metadata" tabindex="-1"></video>
+      <iframe id="externalPlayerFrame" title="Hindi anime player" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" loading="eager" hidden></iframe>
       <div class="player-scrim" aria-hidden="true"></div>
 
       <header class="player-top player-chrome">
