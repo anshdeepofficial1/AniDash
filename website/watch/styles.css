@@ -2688,3 +2688,7 @@ select option{background:#141622;color:#f5f5fb}
   .hindi-results-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 9px}
   .hindi-episodes-heading{align-items:flex-start}
 }
+
+.external-embed-active .player-top{opacity:1!important;visibility:visible!important;pointer-events:auto}
+.external-embed-active .player-top>*{pointer-events:auto}
+.external-embed-active .player-stage{background:#000}
