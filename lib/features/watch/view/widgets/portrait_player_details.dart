@@ -17,6 +17,7 @@ import 'package:ani_dash/features/details/view_model/details_page_notifier.dart'
 import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
 import 'package:ani_dash/core/utils/language_utils.dart';
 import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
+import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
 
 enum DiscussionMode { episodeComments, worldChat }
 
@@ -299,17 +300,35 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
 
     final streamState = ref.watch(episodeDataProvider);
     final isDub = streamState.selectedServer?.isDub == true;
-    final animeDetails = ref.watch(detailsPageProvider(widget.mediaId)).details.value;
-    final sourceLang = LanguageUtils.detectLanguage(
-      sourceLang: ref.watch(sourceProvider).activeAnimeSource?.lang,
-      genres: animeDetails?.genres,
-      title: widget.animeTitle,
-    );
-    final subShort = LanguageUtils.getShortName(sourceLang, fallback: 'Japanese');
-    final dubShort = (sourceLang != null && sourceLang != 'ja' && sourceLang != 'en' && sourceLang != 'all')
-        ? LanguageUtils.getShortName(sourceLang)
-        : 'English';
-    final audioLabel = isDub ? 'Dub $dubShort | Sub' : 'Sub $subShort | Dub';
+    final useExt = ref.watch(experimentalProvider).useExtensions;
+    final activeSource = ref.watch(sourceProvider).activeAnimeSource;
+    final isCurrentHindi = (useExt &&
+            LanguageUtils.isHindiSourceNameOrLang(
+              name: activeSource?.name,
+              lang: activeSource?.lang,
+            )) ||
+        LanguageUtils.isHindiEpisode(
+          widget.episodeTitle,
+          sourceName: activeSource?.name,
+          sourceLang: activeSource?.lang,
+        );
+
+    final String audioLabel;
+    if (isCurrentHindi) {
+      audioLabel = 'Hindi Dub (हिन्दी)';
+    } else {
+      final animeDetails = ref.watch(detailsPageProvider(widget.mediaId)).details.value;
+      final sourceLang = LanguageUtils.detectLanguage(
+        sourceLang: activeSource?.lang,
+        genres: animeDetails?.genres,
+        title: widget.animeTitle,
+      );
+      final subShort = LanguageUtils.getShortName(sourceLang, fallback: 'Japanese');
+      final dubShort = (sourceLang != null && sourceLang != 'ja' && sourceLang != 'en' && sourceLang != 'all')
+          ? LanguageUtils.getShortName(sourceLang)
+          : 'English';
+      audioLabel = isDub ? 'Dub $dubShort | Sub' : 'Sub $subShort | Dub';
+    }
 
     final detailsFormat =
         ref.watch(detailsPageProvider(widget.mediaId)).details.value?.format;

@@ -94,7 +94,6 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
   bool _isSelecting = false;
   final GlobalKey _currentEpisodeKey = GlobalKey();
   int? _autoScrollEpisode;
-  String? _lastAutoScrollToken;
   EpisodeGroupingMode _groupingMode = EpisodeGroupingMode.ranges;
   List<NamedEpisodeGroup> _namedGroups = const [];
   NamedEpisodeGroup? _selectedNamedGroup;
@@ -213,89 +212,6 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     super.dispose();
   }
 
-  void _scheduleCurrentEpisodeScroll({
-    required int episodeNumber,
-    required List<EpisodeDataModel> visibleEpisodes,
-    required String selectedRange,
-    required EpisodeViewMode viewMode,
-  }) {
-    // Disabled to prevent unwanted jumping to bottom of page
-    return;
-    if (_isRefreshing) return;
-    final targetIndex = visibleEpisodes.indexWhere(
-      (episode) => episode.number == episodeNumber,
-    );
-    if (targetIndex < 0 || visibleEpisodes.isEmpty) return;
-
-    final token = '${widget.mediaId}:$selectedRange:$episodeNumber';
-    if (_lastAutoScrollToken == token) return;
-    _lastAutoScrollToken = token;
-    _autoScrollEpisode = episodeNumber;
-
-    double estimatedRowHeight;
-    switch (viewMode) {
-      case EpisodeViewMode.compact:
-        estimatedRowHeight = 64.0;
-        break;
-      case EpisodeViewMode.banner:
-        estimatedRowHeight = 150.0;
-        break;
-      case EpisodeViewMode.grid:
-        estimatedRowHeight = 120.0;
-        break;
-      case EpisodeViewMode.block:
-        estimatedRowHeight = 22.0;
-        break;
-      case EpisodeViewMode.list:
-        estimatedRowHeight = 88.0;
-        break;
-    }
-
-    void performEpisodeScroll() async {
-      if (!mounted) return;
-      final scrollController = PrimaryScrollController.maybeOf(context);
-      if (scrollController == null || !scrollController.hasClients) return;
-
-      final positions =
-          scrollController.positions
-              .where((position) => position.hasContentDimensions)
-              .toList();
-      if (positions.isEmpty) return;
-      final position = positions.reduce(
-        (current, candidate) =>
-            candidate.maxScrollExtent > current.maxScrollExtent
-                ? candidate
-                : current,
-      );
-      final maxExtent = position.maxScrollExtent;
-      if (maxExtent > 0) {
-        final estimatedOffset = (targetIndex * estimatedRowHeight);
-        final targetOffset = estimatedOffset.clamp(0.0, maxExtent);
-        if ((position.pixels - targetOffset).abs() > 40) {
-          await position.animateTo(
-            targetOffset,
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOutCubic,
-          );
-        }
-      }
-
-      if (!mounted) return;
-      final targetContext = _currentEpisodeKey.currentContext;
-      if (targetContext != null && targetContext.mounted) {
-        await Scrollable.ensureVisible(
-          targetContext,
-          alignment: 0.35,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => performEpisodeScroll());
-    Future.delayed(const Duration(milliseconds: 120), performEpisodeScroll);
-    Future.delayed(const Duration(milliseconds: 280), performEpisodeScroll);
-  }
 
   void _onSelectionChanged() {
     if (mounted) setState(() {});
@@ -778,14 +694,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           visibleEpisodes.where((e) => e.isFiller != true).toList();
     }
 
-    final experimentalSettings = ref.watch(experimentalProvider);
-    final viewMode =
-        experimentalSettings.useEpisodeBannerStyle
-            ? EpisodeViewMode.banner
-            : EpisodeViewMode.values.firstWhere(
-              (e) => e.name == ref.watch(uiSettingsProvider).episodeViewMode,
-              orElse: () => EpisodeViewMode.list,
-            );
+
 
     // Auto-scroll disabled to prevent disruptive jumping to bottom or switching tabs
 
@@ -1738,6 +1647,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               (e) => e.name == ref.watch(uiSettingsProvider).episodeViewMode,
               orElse: () => EpisodeViewMode.list,
             );
+
 
     Widget buildItem(BuildContext context, int index) {
       final ep = visibleEpisodes[index];

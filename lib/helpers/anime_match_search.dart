@@ -1,3 +1,4 @@
+import 'package:ani_dash/core/registery/sources/anime/justanime.dart';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,7 +56,7 @@ Future<BaseAnimeModel?> providerAnimeMatchSearch({
 
     final selectedKey = ref.read(selectedProviderKeyProvider)?.toLowerCase();
     if ((directAutoMatch || selectedKey == 'justanime') && withAnimeMatch) {
-      final match = await ref
+      var match = await ref
           .read(animeMatchServiceProvider)
           .findBestMatch(
             animeMedia.title,
@@ -63,6 +64,22 @@ Future<BaseAnimeModel?> providerAnimeMatchSearch({
             mediaId: animeMedia.id.toString(),
             malId: animeMedia.idMal,
           );
+
+      if (match == null) {
+        final registry = ref.read(animeSourceRegistryProvider);
+        final justProvider = registry.get('justanime');
+        if (justProvider is JustAnimeProvider && animeMedia.id.isNotEmpty) {
+          final exists = await justProvider.probeAnimeExists(animeMedia.id);
+          if (exists) {
+            match = BaseAnimeModel(
+              id: animeMedia.id,
+              anilistId: int.tryParse(animeMedia.id),
+              name: animeMedia.title.userPreferred,
+            );
+          }
+        }
+      }
+
       if (match == null) {
         throw StateError('No matching title was found on the active source.');
       }

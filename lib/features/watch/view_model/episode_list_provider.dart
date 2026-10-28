@@ -473,10 +473,19 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         }
       }
 
-      var eps =
-          (useExtensions && activeSource != null)
-              ? await _fetchExtensionEpisodes(media)
-              : await _fetchLegacyEpisodes(animeId);
+      final isDirectAnilistId = int.tryParse(animeId ?? '') != null;
+      final isExtensionUrl = animeId != null &&
+          (animeId.startsWith('http://') ||
+           animeId.startsWith('https://') ||
+           animeId.contains('/'));
+
+      var eps = const <EpisodeDataModel>[];
+      if (useExtensions && activeSource != null && (isExtensionUrl || !isDirectAnilistId)) {
+        eps = await _fetchExtensionEpisodes(media);
+      }
+      if (eps.isEmpty) {
+        eps = await _fetchLegacyEpisodes(animeId);
+      }
       if (eps.isNotEmpty && currentKey != null) {
         state = state.copyWith(resolvedProviderKey: currentKey);
       }

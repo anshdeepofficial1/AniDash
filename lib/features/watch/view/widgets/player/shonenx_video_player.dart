@@ -609,9 +609,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
       name: activeSource?.name,
       lang: activeSource?.lang,
     );
-    final hasHindiExt = sourceState.installedAnimeExtensions.any(
-      (s) => LanguageUtils.isHindiSourceNameOrLang(name: s.name, lang: s.lang),
-    );
+
 
     final currentPref = ref.read(playerSettingsProvider).preferredAudioLanguage;
     final currentLabel = isCurrentHindi
@@ -619,7 +617,9 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
         : (currentPref == 'dub' ? 'English (DUB)' : 'Japanese (SUB)');
 
     final availableList = <String>[];
-    if (isCurrentHindi || hasHindiExt) availableList.add('Hindi 🇮🇳');
+    if (isCurrentHindi) {
+      availableList.add('Hindi 🇮🇳');
+    }
     availableList.add('Japanese (SUB)');
     availableList.add('English (DUB)');
 
