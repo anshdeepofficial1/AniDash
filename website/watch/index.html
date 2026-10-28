@@ -252,13 +252,25 @@
       </section>
 
       <section id="extensionsPage" class="page desktop-feature-page">
-        <div class="desktop-page-head"><div><small>EXTENSIONS &amp; SOURCES</small><h1>Extensions</h1><p>Web-compatible AniDash source status.</p></div><button id="checkSourceButton" class="secondary">Check Source</button></div>
+        <div class="desktop-page-head"><div><small>SOURCES &amp; AUDIO</small><h1>Sources</h1><p>Check the built-in player source and discover browser-accessible Hindi catalogues.</p></div><button id="checkSourceButton" class="secondary">Check Source</button></div>
         <div class="extension-card">
           <div class="extension-icon"><svg class="icon"><use href="#i-extension"/></svg></div>
-          <div><b>JustAnime</b><small>Built-in anime source used by AniDash Watch</small></div>
+          <div><b>JustAnime</b><small>Built-in AniDash Watch resolver · SUB/DUB availability depends on the episode</small></div>
           <span id="sourceHealthBadge" class="source-badge">Checking…</span>
         </div>
-        <div class="desktop-info-panel"><h2>Web source compatibility</h2><p>The PWA uses AniDash's server-side resolver for browser-safe playback. Native extension packages that require the desktop bridge stay inside the macOS/Android builds.</p></div>
+        <div class="desktop-info-panel hindi-source-panel">
+          <div class="hindi-source-heading"><span class="hindi-source-kicker">HINDI AUDIO</span><h2>Hindi source alternatives</h2><p>These catalogues can be opened on the web. Aniyomi APK extensions themselves cannot run in Safari; in-app playback needs a separate, browser-compatible resolver.</p></div>
+          <div class="hindi-source-grid">
+            <a class="hindi-source-link" href="https://toonstream.us/" target="_blank" rel="noopener noreferrer">
+              <span class="hindi-source-mark">TS</span><span class="hindi-source-copy"><b>Toonstream</b><small>Hindi category · Browser site</small></span><span class="hindi-source-open">Open ↗</span>
+            </a>
+            <a class="hindi-source-link" href="https://www.animedubhindi.link/" target="_blank" rel="noopener noreferrer">
+              <span class="hindi-source-mark">AD</span><span class="hindi-source-copy"><b>AnimeDubHindi</b><small>Hindi and multi-audio catalogue</small></span><span class="hindi-source-open">Open ↗</span>
+            </a>
+          </div>
+          <p class="hindi-source-note">External source availability can change. Use only content you are authorized to access; these links do not claim that the catalogue is already integrated into AniDash’s native video player.</p>
+        </div>
+        <div class="desktop-info-panel"><h2>Why not install an APK here?</h2><p>iPhone Safari and web PWAs cannot load Android extension APKs. AniDash Watch keeps the web player isolated from native Android/desktop bridges so browser playback remains predictable and safer to maintain.</p></div>
       </section>
 
       <section id="settingsPage" class="page settings-page">
