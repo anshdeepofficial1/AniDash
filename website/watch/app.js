@@ -985,7 +985,7 @@ async function playEpisode(ep,{server=''}={}){
   const dlg=$('#playerDialog'),video=$('#video'),loading=$('#playerLoading');
   if(!dlg.open) dlg.showModal();
 
-  if(state.playingEpisode&&state.playingEpisode!==ep){
+  if(state.playingEpisode&&state.playingEpisode!==ep&&state.current?.sourceProvider!=='toonstream'){
     persistPlaybackProgress(state.playingEpisode,video,{force:true});
   }
 
@@ -1028,7 +1028,22 @@ async function playEpisode(ep,{server=''}={}){
         frame.src='about:blank';
         $('#playerStage').classList.remove('external-embed-active');
         video.hidden=false;
-        video.src=chosen.url;
+        const directSource={
+          url:chosen.url,
+          server:'Toonstream',
+          type:'Hindi',
+          quality:chosen.label||'Auto',
+          isM3U8:/\.m3u8(?:$|\?)/i.test(chosen.url)
+        };
+        if(directSource.isM3U8&&globalThis.Hls&&Hls.isSupported()){
+          await tryHlsStream(video,directSource);
+        }else if(directSource.isM3U8&&video.canPlayType('application/vnd.apple.mpegurl')){
+          await tryNativeStream(video,directSource);
+        }else if(directSource.isM3U8){
+          throw Error('This browser cannot play the Hindi HLS stream directly.');
+        }else{
+          await tryNativeStream(video,directSource);
+        }
         await startAndConfirmPlayback(video);
       }else{
         const frame=$('#externalPlayerFrame');
@@ -1472,6 +1487,8 @@ function renderHindiSearchResults(results){
 async function loadHindiSearch(query=''){
   const status=$('#hindiSearchStatus');
   if(!status) return;
+  if($('#hindiEpisodesPanel')&&!$('#hindiEpisodesPanel').hidden) resetHindiEpisodes();
+  $('#hindiSearchGrid').hidden=false;
   status.textContent=query?'Searching Hindi titles…':'Loading Hindi catalogue…';
   try{
     const payload=await hindiApi({action:'search',query,page:1});
@@ -1518,6 +1535,9 @@ function resetHindiEpisodes(){
   $('#hindiEpisodesPanel').hidden=true;
   $('#hindiSearchGrid').hidden=false;
   $('#hindiSearchStatus').textContent='Choose a Hindi title to view its episodes.';
+  state.hindiCurrent=null;
+  state.current=null;
+  state.episodes=[];
 }
 function openSettingsFocus(query='',label='Settings',icon='i-settings'){
   openPage('settingsPage',{label,icon});
@@ -1665,7 +1685,7 @@ $('#aiChatInput').onkeydown=event=>{
 $('#refreshNewsButton').onclick=()=>loadDesktopNews(true);
 $('#desktopNotificationPermission').onclick=requestDesktopNotifications;
 $('#checkSourceButton').onclick=checkSourceHealth;
-$('#hindiQuickLink').onclick=()=>{openPage('extensionsPage');loadHindiSearch($('#hindiSearchInput')?.value.trim()||'')};
+$('#hindiQuickLink').onclick=()=>openPage('extensionsPage');
 $('#hindiSearchForm').onsubmit=event=>{event.preventDefault();loadHindiSearch($('#hindiSearchInput').value.trim())};
 $('#hindiEpisodesBack').onclick=resetHindiEpisodes;
 
@@ -2009,6 +2029,7 @@ function closePlayer(){
   if(state.playingEpisode&&state.current?.sourceProvider!=='toonstream') persistPlaybackProgress(state.playingEpisode,video,{force:true});
   const frame=$('#externalPlayerFrame');if(frame){frame.hidden=true;frame.src='about:blank'}
   $('#playerStage')?.classList.remove('external-embed-active');
+  if(state.current?.sourceProvider==='toonstream') state.playingEpisode=null;
   if(playerDialog.open) playerDialog.close();
 }
 
