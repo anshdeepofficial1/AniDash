@@ -2631,3 +2631,24 @@ select option{background:#141622;color:#f5f5fb}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
 }
+
+
+/* Hindi source discovery cards */
+.hindi-source-panel{margin-top:18px;padding:clamp(18px,3vw,28px)}
+.hindi-source-heading{max-width:760px}
+.hindi-source-kicker{display:inline-block;color:#c4b5fd;font-size:10px;font-weight:800;letter-spacing:.18em;margin-bottom:8px}
+.hindi-source-heading h2{margin:0 0 8px;font-size:clamp(20px,2vw,26px);letter-spacing:-.04em}
+.hindi-source-heading p,.hindi-source-note{color:var(--muted);font-size:13px;line-height:1.65}
+.hindi-source-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px}
+.hindi-source-link{display:flex;align-items:center;gap:12px;min-width:0;padding:15px;border:1px solid var(--line);border-radius:17px;background:rgba(255,255,255,.025);text-decoration:none;transition:background .18s,border-color .18s,transform .18s}
+.hindi-source-link:hover{background:rgba(167,139,250,.075);border-color:rgba(167,139,250,.35);transform:translateY(-2px)}
+.hindi-source-mark{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:13px;background:linear-gradient(145deg,rgba(167,139,250,.24),rgba(56,189,248,.1));border:1px solid rgba(196,181,253,.15);font-size:12px;font-weight:850;color:#e5ddff}
+.hindi-source-copy{display:grid;gap:4px;min-width:0}
+.hindi-source-copy b{font-size:13px;color:var(--text)}
+.hindi-source-copy small{font-size:11px;line-height:1.4;color:var(--muted)}
+.hindi-source-open{margin-left:auto;white-space:nowrap;font-size:11px;font-weight:800;color:#d3c5ff}
+.hindi-source-note{margin:16px 0 0;font-size:11px}
+@media(max-width:600px){
+  .hindi-source-grid{grid-template-columns:1fr}
+  .hindi-source-link{padding:13px}
+}
