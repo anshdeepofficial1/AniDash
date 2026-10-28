@@ -11,6 +11,8 @@ const state={
   mangaTimer:null,
   spotlightTimer:null,
   spotlightIndex:0,
+  hindiLoaded:false,
+  hindiCurrent:null,
   libraryStatus:'watching',
   browseFilter:'all',
   lastMainPage:'homePage',
@@ -31,6 +33,20 @@ const DEFAULT_WEB_SETTINGS={
   preferredAudio:'sub',
   preferredQuality:'Auto',
   nav:{browse:true,manga:true,watchlist:true}
+};
+
+const hindiApi=async(params,{timeout=18000}={})=>{
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeout);
+  try{
+    const response=await fetch('/api/hindi?'+new URLSearchParams(params),{signal:controller.signal});
+    const payload=await response.json().catch(()=>({}));
+    if(!response.ok) throw Error(payload.error||'Hindi source is temporarily unavailable');
+    return payload;
+  }catch(error){
+    if(error?.name==='AbortError') throw Error('Hindi source took too long to respond. Please retry.');
+    throw error;
+  }finally{clearTimeout(timer)}
 };
 
 function loadWebSettings(){
@@ -590,6 +606,10 @@ function destroyStream(){
 
 function resetVideoElement(video){
   destroyStream();
+  const frame=$('#externalPlayerFrame');
+  if(frame){frame.hidden=true;frame.src='about:blank'}
+  $('#playerStage')?.classList.remove('external-embed-active');
+  video.hidden=false;
   try{video.pause()}catch(_){}
   video.removeAttribute('src');
   try{video.load()}catch(_){}
@@ -997,6 +1017,32 @@ async function playEpisode(ep,{server=''}={}){
     const select=$('#audio');
     if(select) select.value=audio;
 
+    if(series?.sourceProvider==='toonstream'){
+      const payload=await hindiApi({action:'source',url:ep.url},{timeout:22000});
+      if(token!==player.token) return;
+      const chosen=(payload.sources||[])[0];
+      if(!chosen?.url) throw Error('No browser-compatible Hindi player was returned for this episode.');
+      if(chosen.kind==='video'){
+        const frame=$('#externalPlayerFrame');
+        frame.hidden=true;
+        frame.src='about:blank';
+        $('#playerStage').classList.remove('external-embed-active');
+        video.hidden=false;
+        video.src=chosen.url;
+        await startAndConfirmPlayback(video);
+      }else{
+        const frame=$('#externalPlayerFrame');
+        frame.src=chosen.url;
+        frame.hidden=false;
+        video.hidden=true;
+        $('#playerStage').classList.add('external-embed-active');
+        setPlayerStatus('Hindi · '+(chosen.label||'embedded player'));
+      }
+      loading.hidden=true;
+      state.playingEpisode=ep;
+      return;
+    }
+
     const payload=await fetchEpisodeSource(series?.id,ep.number,audio,server);
     if(token!==player.token) return;
 
@@ -1403,6 +1449,76 @@ async function checkSourceHealth(){
   }
 }
 
+function renderHindiSearchResults(results){
+  const grid=$('#hindiSearchGrid');
+  if(!grid) return;
+  if(!results.length){
+    grid.innerHTML='';
+    return;
+  }
+  grid.innerHTML=results.map(item=>`
+    <button class="anime-card hindi-result" type="button" data-hindi-url="${encodeURIComponent(item.url)}" data-hindi-title="${encodeURIComponent(item.title)}" data-hindi-image="${encodeURIComponent(item.image||'')}">
+      <div class="cover">${item.image?`<img src="${esc(item.image)}" loading="lazy" alt="">`:''}<span class="corner">HI</span></div>
+      <strong>${esc(item.title)}</strong><small>Toonstream · Hindi</small>
+    </button>`).join('');
+  grid.querySelectorAll('.hindi-result').forEach(button=>{
+    button.onclick=()=>loadHindiEpisodes({
+      url:decodeURIComponent(button.dataset.hindiUrl),
+      title:decodeURIComponent(button.dataset.hindiTitle),
+      image:decodeURIComponent(button.dataset.hindiImage||'')
+    });
+  });
+}
+async function loadHindiSearch(query=''){
+  const status=$('#hindiSearchStatus');
+  if(!status) return;
+  status.textContent=query?'Searching Hindi titles…':'Loading Hindi catalogue…';
+  try{
+    const payload=await hindiApi({action:'search',query,page:1});
+    const results=payload.results||[];
+    renderHindiSearchResults(results);
+    status.textContent=results.length?`${results.length} Hindi titles found · Toonstream`:'No titles found. Try another search or open the source website.';
+    state.hindiLoaded=true;
+  }catch(error){
+    status.textContent=error.message+' You can use the external source link below.';
+  }
+}
+async function loadHindiEpisodes(item){
+  state.hindiCurrent=item;
+  state.current={id:item.url,title:item.title,cover:item.image||'',sourceProvider:'toonstream'};
+  state.episodes=[];
+  $('#hindiSearchGrid').hidden=true;
+  $('#hindiEpisodesPanel').hidden=false;
+  $('#hindiSelectedTitle').textContent=item.title;
+  $('#hindiEpisodesStatus').textContent='Loading episodes…';
+  $('#hindiEpisodeGrid').innerHTML='';
+  try{
+    const payload=await hindiApi({action:'episodes',url:item.url});
+    state.episodes=(payload.episodes||[]).map((episode,index)=>({
+      ...episode,
+      number:Number(episode.number)||index+1,
+      title:episode.title||'Episode '+(index+1),
+      image:episode.image||item.image||''
+    }));
+    if(!state.episodes.length) throw Error('No episodes were returned by this source.');
+    $('#hindiEpisodesStatus').textContent=state.episodes.length+' episodes available · Hindi source';
+    $('#hindiEpisodeGrid').innerHTML=state.episodes.map((episode,index)=>`
+      <button class="episode hindi-episode-button" type="button" data-hindi-episode="${index}">
+        ${episode.image?`<img src="${esc(episode.image)}" loading="lazy" alt="">`:''}
+        <span><strong>${esc(episode.season?episode.season+' · ':'')}${esc(episode.title)}</strong><small>Play Hindi source</small></span>
+      </button>`).join('');
+    $('#hindiEpisodeGrid').querySelectorAll('[data-hindi-episode]').forEach(button=>{
+      button.onclick=()=>playEpisode(state.episodes[Number(button.dataset.hindiEpisode)]);
+    });
+  }catch(error){
+    $('#hindiEpisodesStatus').textContent=error.message;
+  }
+}
+function resetHindiEpisodes(){
+  $('#hindiEpisodesPanel').hidden=true;
+  $('#hindiSearchGrid').hidden=false;
+  $('#hindiSearchStatus').textContent='Choose a Hindi title to view its episodes.';
+}
 function openSettingsFocus(query='',label='Settings',icon='i-settings'){
   openPage('settingsPage',{label,icon});
   const selected=$$('.mac-settings-link').find(button=>(button.dataset.settingsFocus||'')===query);
@@ -1467,7 +1583,7 @@ function openPage(pageId,options={}){
   if(pageId==='historyPage') renderHistoryPage();
   if(pageId==='newsPage') loadDesktopNews();
   if(pageId==='notificationsPage') renderDesktopNotifications();
-  if(pageId==='extensionsPage') checkSourceHealth();
+  if(pageId==='extensionsPage'){checkSourceHealth();if(!state.hindiLoaded)loadHindiSearch('');}
   if(pageId==='settingsPage') syncSettingsControls();
   window.scrollTo({top:0,behavior:'auto'});
 }
@@ -1549,6 +1665,9 @@ $('#aiChatInput').onkeydown=event=>{
 $('#refreshNewsButton').onclick=()=>loadDesktopNews(true);
 $('#desktopNotificationPermission').onclick=requestDesktopNotifications;
 $('#checkSourceButton').onclick=checkSourceHealth;
+$('#hindiQuickLink').onclick=()=>{openPage('extensionsPage');loadHindiSearch($('#hindiSearchInput')?.value.trim()||'')};
+$('#hindiSearchForm').onsubmit=event=>{event.preventDefault();loadHindiSearch($('#hindiSearchInput').value.trim())};
+$('#hindiEpisodesBack').onclick=resetHindiEpisodes;
 
 document.addEventListener('keydown',event=>{
   const mod=event.metaKey||event.ctrlKey;
@@ -1887,7 +2006,9 @@ function playAdjacent(direction){
 
 function closePlayer(){
   const video=$('#video');
-  if(state.playingEpisode) persistPlaybackProgress(state.playingEpisode,video,{force:true});
+  if(state.playingEpisode&&state.current?.sourceProvider!=='toonstream') persistPlaybackProgress(state.playingEpisode,video,{force:true});
+  const frame=$('#externalPlayerFrame');if(frame){frame.hidden=true;frame.src='about:blank'}
+  $('#playerStage')?.classList.remove('external-embed-active');
   if(playerDialog.open) playerDialog.close();
 }
 
