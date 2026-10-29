@@ -27,11 +27,33 @@ class DownloadsScreen extends ConsumerWidget {
         allDownloads.where((d) => isAdult ? d.isAdult : !d.isAdult).toList();
     final theme = Theme.of(context);
 
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(isAdult ? '18+ Downloads' : 'Downloads'),
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: DefaultTabController(
+        length: 3,
+        child: Scaffold(
+          appBar: AppBar(
+            leading: Navigator.of(context).canPop()
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  )
+                : null,
+            title: Text(isAdult ? '18+ Downloads' : 'Downloads'),
           actions: const [AskNiaButton(compact: true), SizedBox(width: 8)],
           bottom: TabBar(
             tabs: const [
@@ -108,6 +130,7 @@ class DownloadsScreen extends ConsumerWidget {
                   child: const Icon(Iconsax.add),
                 )
                 : null,
+        ),
       ),
     );
   }

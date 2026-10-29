@@ -506,7 +506,7 @@ Future<void> _downloadWorker(_TaskConfig task) async {
 
   final ioClient =
       HttpClient()
-        ..maxConnectionsPerHost = 16
+        ..maxConnectionsPerHost = 24
         ..connectionTimeout = const Duration(seconds: 10)
         ..idleTimeout = const Duration(seconds: 45);
   final client = IOClient(ioClient);
@@ -705,7 +705,7 @@ Future<DownloadItem> _processM3U8(
   // Wi-Fi while capping concurrency to avoid provider throttling.
   // Six concurrent segments saturate typical mobile/Wi-Fi links without
   // provoking CDN throttling or starving the active video player.
-  const workerCount = 8;
+  const workerCount = 14;
   int completed = 0;
   int downloadedBytesTotal = 0;
   int? estimatedTotalBytes;
@@ -997,13 +997,13 @@ Future<Uint8List?> _fetch(String url, Map headers, http.Client client) async {
     try {
       final res = await client
           .get(Uri.parse(url), headers: headers.cast())
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 15));
       if (res.statusCode == 200 || res.statusCode == 206) {
         return res.bodyBytes;
       }
     } catch (_) {}
     if (i < 4) {
-      await Future.delayed(Duration(milliseconds: 250 * (i + 1)));
+      await Future.delayed(Duration(milliseconds: 100 * (i + 1)));
     }
   }
   return null;

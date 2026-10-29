@@ -49,6 +49,7 @@ import 'package:ani_dash/router/router_wrapper.dart';
 import 'package:ani_dash/features/ai/domain/ai_models.dart';
 import 'package:ani_dash/features/ai/view/ai_chat_screen.dart';
 import 'package:ani_dash/features/ai/view/ai_settings_screen.dart';
+import 'package:ani_dash/features/downloads/view/downloads_screen.dart';
 import 'package:ani_dash/router/desktop/desktop_adaptive_scaffold.dart';
 
 class AnimatedGoRoute extends GoRoute {
@@ -221,6 +222,12 @@ final routerConfig = GoRouter(
               ],
             );
           }).toList(),
+    ),
+    DesktopAdaptiveRoute(
+      path: '/downloads',
+      contentBuilder: (_, state) => DownloadsScreen(
+        isAdult: state.uri.queryParameters['isAdult'] == 'true',
+      ),
     ),
     DesktopAdaptiveRoute(
       path: '/extensions',

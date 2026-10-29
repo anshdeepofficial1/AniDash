@@ -70,7 +70,7 @@ final List<NavItem> navItems = [
   ),
   const NavItem(
     branchIndex: 3,
-    path: '/downloads',
+    path: '/library/downloads',
     icon: Iconsax.receive_square,
     screen: DownloadsScreen(),
     label: 'Downloads',

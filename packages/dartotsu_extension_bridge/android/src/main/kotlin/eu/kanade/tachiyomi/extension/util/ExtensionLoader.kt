@@ -322,7 +322,9 @@ internal object ExtensionLoader {
         }
         val hasFeature = pkgInfo.reqFeatures.orEmpty().any { it.name == targetFeature }
         val matchesPrefix = targetPrefix.isNotEmpty() && pkgInfo.packageName.startsWith(targetPrefix)
-        return hasFeature || matchesPrefix
+        val isAnimeExt = type == MediaType.ANIME && (pkgInfo.packageName.contains("animeextension") || pkgInfo.packageName.contains("animextension"))
+        val isMangaExt = type == MediaType.MANGA && (pkgInfo.packageName.contains(".extension.") || pkgInfo.packageName.contains(".mangaextension."))
+        return hasFeature || matchesPrefix || isAnimeExt || isMangaExt
     }
 }
 
