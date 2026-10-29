@@ -3,6 +3,7 @@
 import html
 import json
 import os
+import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -13,12 +14,19 @@ TOKEN = os.environ.get("GITHUB_TOKEN", "")
 OUT = Path("assets/badges")
 OUT.mkdir(parents=True, exist_ok=True)
 
-def fetch(url, github=True, timeout=25):
+def fetch(url, github=True, timeout=25, retries=3):
     headers = {"User-Agent": "AniDash-README-badges", "Accept": "application/vnd.github+json" if github else "application/json"}
     if github and TOKEN:
         headers["Authorization"] = f"Bearer {TOKEN}"
-    with urlopen(Request(url, headers=headers), timeout=timeout) as resp:
-        return json.load(resp)
+    for attempt in range(1, retries + 1):
+        try:
+            with urlopen(Request(url, headers=headers), timeout=timeout) as resp:
+                return json.load(resp)
+        except Exception as exc:
+            if attempt >= retries:
+                raise
+            print(f"Warning: fetch attempt {attempt} failed for {url} ({exc}), retrying...")
+            time.sleep(2 * attempt)
 
 def releases():
     result = []
