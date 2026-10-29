@@ -29,6 +29,9 @@ class AskNiaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!kAniCoreGloballyEnabled) {
+      return const SizedBox.shrink();
+    }
     return ValueListenableBuilder<int>(
       valueListenable: anyCoreSettingsRevision,
       builder: (context, _, __) {

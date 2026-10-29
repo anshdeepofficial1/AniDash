@@ -726,8 +726,6 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
       return <String>{
         'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/index.min.json',
         'https://kohiden.xyz/Kohi-den/extensions/raw/branch/main/index.min.json',
-        'https://raw.githubusercontent.com/yuzono/anime-repo/repo/index.min.json',
-        'https://raw.githubusercontent.com/Secozzi/aniyomi-extensions/refs/heads/repo/index.min.json',
         ...saved.where((url) => url.contains('index.min.json')),
       }.toList();
     }

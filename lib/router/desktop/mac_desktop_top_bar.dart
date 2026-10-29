@@ -1,3 +1,4 @@
+import 'package:ani_dash/features/ai/view/widgets/anidash_ai_emblem.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
@@ -474,6 +475,7 @@ class _MacDesktopTopBarState extends ConsumerState<MacDesktopTopBar>
                 const SizedBox(width: 16),
 
                 // 4. Quick Action Controls with tooltips & keyboard hints
+                if (kAniCoreGloballyEnabled)
                 _MacIconButton(
                   tooltip: 'Ask AniCore (${mod}K)',
                   icon: Iconsax.magicpen,

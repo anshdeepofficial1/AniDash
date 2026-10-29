@@ -130,13 +130,14 @@ class SettingsScreen extends ConsumerWidget {
                   description: 'News, episode releases, reminders',
                   onTap: () => context.push('/settings/notifications'),
                 ),
-                NormalSettingsItem(
-                  leading: const AniDashAiEmblem(size: 34),
-                  accent: colorScheme.primary,
-                  title: 'AniCore',
-                  description: 'AI visibility, names, instructions and privacy',
-                  onTap: () => context.push('/settings/ai'),
-                ),
+                if (kAniCoreGloballyEnabled)
+                  NormalSettingsItem(
+                    leading: const AniDashAiEmblem(size: 34),
+                    accent: colorScheme.primary,
+                    title: 'AniCore',
+                    description: 'AI visibility, names, instructions and privacy',
+                    onTap: () => context.push('/settings/ai'),
+                  ),
               ],
             ),
             const SizedBox(height: 10),
@@ -205,13 +206,14 @@ class SettingsScreen extends ConsumerWidget {
                   description: 'In-app report or GitHub issue',
                   onTap: () => FeedbackIssueSheet.show(context),
                 ),
-                NormalSettingsItem(
-                  icon: Icon(Iconsax.task, color: colorScheme.primary),
-                  accent: colorScheme.primary,
-                  title: 'Community Issues & Feedback',
-                  description: 'View reported bugs, replies, and status in-app',
-                  onTap: () => context.push('/settings/admin-issues'),
-                ),
+                if (!isDeveloper)
+                  NormalSettingsItem(
+                    icon: Icon(Iconsax.task, color: colorScheme.primary),
+                    accent: colorScheme.primary,
+                    title: 'Community Issues & Feedback',
+                    description: 'View reported bugs, replies, and status in-app',
+                    onTap: () => context.push('/settings/admin-issues'),
+                  ),
                 NormalSettingsItem(
                   icon: Icon(Iconsax.info_circle, color: colorScheme.primary),
                   accent: colorScheme.primary,

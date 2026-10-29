@@ -355,8 +355,6 @@ class SourceNotifier extends _$SourceNotifier {
             ] else ...[
               'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/index.min.json',
               'https://kohiden.xyz/Kohi-den/extensions/raw/branch/main/index.min.json',
-              'https://raw.githubusercontent.com/yuzono/anime-repo/repo/index.min.json',
-              'https://raw.githubusercontent.com/Secozzi/aniyomi-extensions/refs/heads/repo/index.min.json',
             ],
             ...savedList.where(
               (url) =>
@@ -370,7 +368,9 @@ class SourceNotifier extends _$SourceNotifier {
       final repos =
           <String>{
             if (!isAniyomi)
-              'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json',
+              'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main/index.json'
+            else
+              'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json',
             ...?sharedPrefs
                 .getStringList('saved_manga_repos')
                 ?.where(
