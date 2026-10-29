@@ -7,17 +7,67 @@ const BASE_HEADERS = {
   'Referer': BASE + '/',
 };
 
+const ENTITY_MAP = {
+  '&amp;': '&',
+  '&quot;': '"',
+  '&apos;': "'",
+  '&#39;': "'",
+  '&lt;': '<',
+  '&gt;': '>',
+  '&nbsp;': ' ',
+};
+
 function decodeEntities(value = '') {
-  return String(value)
-    .replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#0*39;|&apos;/gi, "'")
-    .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([\da-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
+  return String(value).replace(/&(?:#x([0-9a-f]+)|#([0-9]+)|[a-z0-9]+);/gi, (match, hex, dec) => {
+    if (hex) {
+      try {
+        const cp = parseInt(hex, 16);
+        return cp ? String.fromCodePoint(cp) : '';
+      } catch {
+        return match;
+      }
+    }
+    if (dec) {
+      try {
+        const cp = parseInt(dec, 10);
+        return cp ? String.fromCodePoint(cp) : '';
+      } catch {
+        return match;
+      }
+    }
+    const lower = match.toLowerCase();
+    return Object.prototype.hasOwnProperty.call(ENTITY_MAP, lower) ? ENTITY_MAP[lower] : match;
+  });
 }
+
+function stripHtmlTags(str = '') {
+  let insideTag = false;
+  let inQuote = null;
+  let text = '';
+  const s = String(str);
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (insideTag) {
+      if (inQuote) {
+        if (ch === inQuote) inQuote = null;
+      } else if (ch === '"' || ch === "'") {
+        inQuote = ch;
+      } else if (ch === '>') {
+        insideTag = false;
+      }
+    } else {
+      if (ch === '<') {
+        insideTag = true;
+      } else {
+        text += ch;
+      }
+    }
+  }
+  return text;
+}
+
 function plainText(value = '') {
-  return decodeEntities(String(value).replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+  return decodeEntities(stripHtmlTags(value).replace(/\s+/g, ' ').trim());
 }
 function attr(tag, name) {
   const match = String(tag).match(new RegExp('(?:^|\\s)' + name + '\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27|([^\\s>]+))', 'i'));
