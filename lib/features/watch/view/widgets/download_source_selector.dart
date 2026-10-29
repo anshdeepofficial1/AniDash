@@ -11,6 +11,7 @@ import 'package:ani_dash/features/downloads/model/download_item.dart';
 import 'package:ani_dash/features/downloads/model/download_status.dart';
 import 'package:ani_dash/features/downloads/view_model/downloads_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/download_settings_notifier.dart';
+import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
 import 'package:ani_dash/core/utils/extractors.dart' as extractor;
 import 'package:ani_dash/core/utils/video_utils.dart';
 import 'package:ani_dash/core/utils/language_utils.dart';
@@ -338,11 +339,13 @@ class _DownloadSourceSelectorState
       isAdult: widget.isAdult,
       audioLanguage: LanguageUtils.formatAudioLanguage(
         _selectedLanguage,
-        LanguageUtils.detectLanguage(
-          sourceLang: ref.read(sourceProvider).activeAnimeSource?.lang,
-          genres: widget.genres,
-          title: widget.animeTitle,
-        ),
+        ref.read(experimentalProvider).useExtensions
+            ? LanguageUtils.detectLanguage(
+                sourceLang: ref.read(sourceProvider).activeAnimeSource?.lang,
+                genres: widget.genres,
+                title: widget.animeTitle,
+              )
+            : 'ja',
       ),
     );
 
@@ -394,11 +397,15 @@ class _DownloadSourceSelectorState
 
     final basePerEpSize = _getQualitySize(_selectedQuality);
     final totalSizeMB = basePerEpSize * widget.episodeCount;
-    final activeSourceLang = LanguageUtils.detectLanguage(
-      sourceLang: ref.watch(sourceProvider).activeAnimeSource?.lang,
-      genres: widget.genres,
-      title: widget.animeTitle,
-    );
+    final useExt = ref.watch(experimentalProvider).useExtensions;
+    final activeSource = ref.watch(sourceProvider).activeAnimeSource;
+    final activeSourceLang = useExt
+        ? LanguageUtils.detectLanguage(
+            sourceLang: activeSource?.lang,
+            genres: widget.genres,
+            title: widget.animeTitle,
+          )
+        : 'ja';
     final subLabel = LanguageUtils.getSubLabel(activeSourceLang);
     final dubLabel = LanguageUtils.getDubLabel(activeSourceLang);
 
@@ -653,48 +660,51 @@ class _DownloadSourceSelectorState
                 ),
               ),
               const SizedBox(height: 10),
-              _QualityCard(
-                quality: '1080p',
-                title: '1080p (Full HD)',
-                sizeDescription:
-                    isBatch
-                        ? '${_formatSize(350)} / ep • ${_formatSize(350 * widget.episodeCount)} Total'
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 2.2,
+                children: [
+                  _QualityCard(
+                    quality: '1080p',
+                    title: '1080p (FHD)',
+                    sizeDescription: isBatch
+                        ? '${_formatSize(350)} • Total ${_formatSize(350 * widget.episodeCount)}'
                         : _formatSize(350),
-                isSelected: _selectedQuality == '1080p',
-                onTap: () => setState(() => _selectedQuality = '1080p'),
-              ),
-              const SizedBox(height: 8),
-              _QualityCard(
-                quality: '720p',
-                title: '720p (High Definition)',
-                sizeDescription:
-                    isBatch
-                        ? '${_formatSize(200)} / ep • ${_formatSize(200 * widget.episodeCount)} Total'
+                    isSelected: _selectedQuality == '1080p',
+                    onTap: () => setState(() => _selectedQuality = '1080p'),
+                  ),
+                  _QualityCard(
+                    quality: '720p',
+                    title: '720p (HD)',
+                    sizeDescription: isBatch
+                        ? '${_formatSize(200)} • Total ${_formatSize(200 * widget.episodeCount)}'
                         : _formatSize(200),
-                isSelected: _selectedQuality == '720p',
-                onTap: () => setState(() => _selectedQuality = '720p'),
-              ),
-              const SizedBox(height: 8),
-              _QualityCard(
-                quality: '480p',
-                title: '480p (Standard)',
-                sizeDescription:
-                    isBatch
-                        ? '${_formatSize(100)} / ep • ${_formatSize(100 * widget.episodeCount)} Total'
+                    isSelected: _selectedQuality == '720p',
+                    onTap: () => setState(() => _selectedQuality = '720p'),
+                  ),
+                  _QualityCard(
+                    quality: '480p',
+                    title: '480p (SD)',
+                    sizeDescription: isBatch
+                        ? '${_formatSize(100)} • Total ${_formatSize(100 * widget.episodeCount)}'
                         : _formatSize(100),
-                isSelected: _selectedQuality == '480p',
-                onTap: () => setState(() => _selectedQuality = '480p'),
-              ),
-              const SizedBox(height: 8),
-              _QualityCard(
-                quality: '360p',
-                title: '360p (Data Saver)',
-                sizeDescription:
-                    isBatch
-                        ? '${_formatSize(60)} / ep • ${_formatSize(60 * widget.episodeCount)} Total'
+                    isSelected: _selectedQuality == '480p',
+                    onTap: () => setState(() => _selectedQuality = '480p'),
+                  ),
+                  _QualityCard(
+                    quality: '360p',
+                    title: '360p (Data Saver)',
+                    sizeDescription: isBatch
+                        ? '${_formatSize(60)} • Total ${_formatSize(60 * widget.episodeCount)}'
                         : _formatSize(60),
-                isSelected: _selectedQuality == '360p',
-                onTap: () => setState(() => _selectedQuality = '360p'),
+                    isSelected: _selectedQuality == '360p',
+                    onTap: () => setState(() => _selectedQuality = '360p'),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               Container(
@@ -900,7 +910,7 @@ class _QualityCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color:
               isSelected

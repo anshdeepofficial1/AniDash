@@ -506,16 +506,25 @@ class MediaTracker extends _$MediaTracker {
             );
           }
         }
-        // Current episode is actively being watched at savedSeconds
+        // Current episode: preserve watched status if already completed or effectively finished
         final existing = episodesMap[targetProgress];
+        final isAlreadyCompleted = existing?.isCompleted == true;
+        final isEffectivelyDone = isAlreadyCompleted ||
+            (savedDuration > 0 && savedSeconds >= savedDuration) ||
+            isPlaybackEffectivelyComplete(
+              progressInSeconds: savedSeconds,
+              durationInSeconds: savedDuration,
+            );
         episodesMap[targetProgress] = EpisodeProgress(
           episodeNumber: targetProgress,
           episodeTitle: existing?.episodeTitle ?? 'Episode $targetProgress',
           episodeThumbnail: existing?.episodeThumbnail,
-          progressInSeconds: savedSeconds,
-          durationInSeconds: savedDuration,
-          isCompleted: false,
-          watchedAt: DateTime.now(),
+          progressInSeconds: isEffectivelyDone
+              ? (savedDuration > 0 ? savedDuration : 1440)
+              : savedSeconds,
+          durationInSeconds: savedDuration > 0 ? savedDuration : 1440,
+          isCompleted: isEffectivelyDone,
+          watchedAt: existing?.watchedAt ?? DateTime.now(),
         );
       } else {
         // Mark all episodes up to targetProgress as watched
@@ -546,10 +555,11 @@ class MediaTracker extends _$MediaTracker {
               : (targetProgress + 1);
       final isRemoteAhead =
           local == null || targetProgress >= local.currentEpisode;
+      final targetIsDone = episodesMap[targetProgress]?.isCompleted == true;
       final resolvedCurrentEpisode =
-          (savedSeconds != null && savedSeconds > 0)
+          (savedSeconds != null && savedSeconds > 0 && !targetIsDone)
               ? targetProgress
-              : (isRemoteAhead ? nextUpEpisode : local.currentEpisode);
+              : (isRemoteAhead ? nextUpEpisode : (local.currentEpisode));
       final effectiveLastPlayedAt =
           isRemoteAhead
               ? DateTime.now()

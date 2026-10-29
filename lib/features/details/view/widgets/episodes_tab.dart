@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:ani_dash/core/models/settings/source_model.dart';
 import 'package:ani_dash/core/repositories/source_preference_repository.dart';
 import 'package:ani_dash/data/isar/isar_source_preference.dart';
@@ -498,13 +499,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     final episodes =
         isMatchingAnime ? episodeListState.episodes : <EpisodeDataModel>[];
     final loading =
-        state.isLoading ||
-        episodeListState.isLoading ||
-        state.isSearchingMatch ||
-        (!isMatchingAnime &&
-            episodes.isEmpty &&
-            episodeListState.error == null &&
-            state.error == null);
+        episodes.isEmpty &&
+        (episodeListState.isLoading ||
+            state.isSearchingMatch ||
+            (!isMatchingAnime &&
+                episodeListState.error == null &&
+                state.error == null));
     final error =
         state.error ?? (isMatchingAnime ? episodeListState.error : null);
 
@@ -2045,8 +2045,52 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     );
   }
 
+  Widget _buildSourceIcon(
+    String? iconUrl, {
+    double size = 40,
+    IconData fallbackIcon = Icons.translate_rounded,
+    Color? fallbackColor,
+  }) {
+    if (iconUrl != null && iconUrl.isNotEmpty) {
+      if (iconUrl.startsWith('http://') || iconUrl.startsWith('https://')) {
+        return CachedNetworkImage(
+          imageUrl: iconUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          placeholder: (_, _) => Container(
+            color: (fallbackColor ?? Colors.orange).withValues(alpha: 0.15),
+            child: Icon(fallbackIcon, color: fallbackColor ?? Colors.orange, size: size * 0.5),
+          ),
+          errorWidget: (_, _, _) => Container(
+            color: (fallbackColor ?? Colors.orange).withValues(alpha: 0.15),
+            child: Icon(fallbackIcon, color: fallbackColor ?? Colors.orange, size: size * 0.5),
+          ),
+        );
+      } else if (iconUrl.startsWith('/') || iconUrl.startsWith('file://')) {
+        final clean = iconUrl.replaceFirst('file://', '');
+        final file = File(clean);
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              color: (fallbackColor ?? Colors.orange).withValues(alpha: 0.15),
+              child: Icon(fallbackIcon, color: fallbackColor ?? Colors.orange, size: size * 0.5),
+            ),
+          );
+        }
+      }
+    }
+    return Container(
+      color: (fallbackColor ?? Colors.orange).withValues(alpha: 0.15),
+      child: Icon(fallbackIcon, color: fallbackColor ?? Colors.orange, size: size * 0.5),
+    );
+  }
+
   String? _getSourceIconUrl(Source? s, String? fallbackKey) {
-    if (s?.iconUrl != null && s!.iconUrl!.isNotEmpty) return s.iconUrl;
     final name = (s?.name ?? fallbackKey ?? '').toLowerCase();
     final id = (s?.id?.toString() ?? '').toLowerCase();
 
@@ -2059,15 +2103,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     if (name.contains('moviebox') || id.contains('moviebox')) {
       return 'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/icon/eu.kanade.tachiyomi.animeextension.hi.moviebox.png';
     }
-    if (name.contains('justanime') || fallbackKey == 'justanime') {
-      return 'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.justanime.png';
-    }
-    if (name.contains('hianime') || fallbackKey == 'hianime') {
-      return 'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.hianime.png';
-    }
-    if (name.contains('anikoto') || fallbackKey == 'anikoto') {
-      return 'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.anikoto.png';
-    }
+    if (s?.iconUrl != null && s!.iconUrl!.isNotEmpty) return s.iconUrl;
     return null;
   }
 
@@ -2224,14 +2260,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               shape: BoxShape.circle,
             ),
             clipBehavior: Clip.antiAlias,
-            child: (targetSourceIcon != null && targetSourceIcon.isNotEmpty)
-                ? CachedNetworkImage(
-                    imageUrl: targetSourceIcon,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) => const Icon(Icons.translate_rounded, color: Colors.orange, size: 18),
-                    errorWidget: (_, _, _) => const Icon(Icons.translate_rounded, color: Colors.orange, size: 18),
-                  )
-                : const Icon(Icons.translate_rounded, color: Colors.orange, size: 18),
+            child: _buildSourceIcon(
+              targetSourceIcon,
+              size: 32,
+              fallbackIcon: Icons.translate_rounded,
+              fallbackColor: Colors.orange,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -2629,23 +2663,11 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                   color: Colors.orange.withValues(alpha: 0.15),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: Builder(
-                  builder: (_) {
-                    final iconUrl = _getSourceIconUrl(source, null);
-                    if (iconUrl != null && iconUrl.isNotEmpty) {
-                      return CachedNetworkImage(
-                        imageUrl: iconUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_, _) => Container(
-                          color: Colors.orange.withValues(alpha: 0.2),
-                          child: const Icon(Icons.translate_rounded, color: Colors.orange, size: 20),
-                        ),
-                        errorWidget: (_, _, _) =>
-                            const Icon(Icons.translate_rounded, color: Colors.orange, size: 20),
-                      );
-                    }
-                    return const Icon(Icons.translate_rounded, color: Colors.orange, size: 20);
-                  },
+                child: _buildSourceIcon(
+                  _getSourceIconUrl(source, null),
+                  size: 40,
+                  fallbackIcon: Icons.translate_rounded,
+                  fallbackColor: Colors.orange,
                 ),
               ),
               title: Row(

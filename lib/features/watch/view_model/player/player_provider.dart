@@ -366,13 +366,17 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
               url,
               headers: effectiveHeaders,
               videoFormat: _lastIsHls ? BetterPlayerVideoFormat.hls : null,
+              cacheConfiguration: const BetterPlayerCacheConfiguration(
+                useCache: true,
+                maxCacheSize: 512 * 1024 * 1024,
+                maxCacheFileSize: 128 * 1024 * 1024,
+                preCacheSize: 30 * 1024 * 1024,
+              ),
               bufferingConfiguration: const BetterPlayerBufferingConfiguration(
-                // Fast startup & high reservoir: start playing at 1000ms,
-                // resume after rebuffer at 1500ms, and keep up to 300s (5 mins) buffer reservoir.
-                minBufferMs: 60000,
-                maxBufferMs: 300000,
-                bufferForPlaybackMs: 1000,
-                bufferForPlaybackAfterRebufferMs: 1500,
+                minBufferMs: 120000,
+                maxBufferMs: 600000,
+                bufferForPlaybackMs: 1500,
+                bufferForPlaybackAfterRebufferMs: 6000,
               ),
             )
             : BetterPlayerDataSource.file(url);

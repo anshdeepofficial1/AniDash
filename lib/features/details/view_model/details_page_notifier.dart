@@ -115,8 +115,11 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
         isLoadingDetails: true,
         error: null,
       );
-      ref.read(episodeListProvider.notifier).reset();
-      ref.read(episodeDataProvider.notifier).reset();
+      final currentEpList = ref.read(episodeListProvider);
+      if (currentEpList.mediaId != media.id) {
+        ref.read(episodeListProvider.notifier).reset();
+        ref.read(episodeDataProvider.notifier).reset();
+      }
 
       // Eagerly prefetch filler information so episodes render with filler tags instantly
       if (!_isPlaceholderTitle(media.title)) {
@@ -137,10 +140,10 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
         if (_isUnreleased(currentMedia)) return;
         await _fetchEpisodes(currentMedia.title);
       } else {
-        // Released titles can discover episodes alongside About enrichment.
+        // Released titles discover episodes concurrently without letting slow details hold episodes hostage.
         final episodesFuture = _fetchEpisodes(media.title);
         final detailsFuture = fetchDetails();
-        await Future.wait([detailsFuture, episodesFuture]);
+        await Future.wait([episodesFuture, detailsFuture]);
       }
       if (!ref.mounted) return;
 

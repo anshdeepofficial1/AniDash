@@ -101,6 +101,7 @@ class EpisodeListState {
 
 @Riverpod(keepAlive: true)
 class EpisodeListNotifier extends _$EpisodeListNotifier {
+  static final Map<String, List<EpisodeDataModel>> _inMemoryEpisodeCache = {};
   final JikanService _jikan = JikanService();
   int _requestGeneration = 0;
 
@@ -238,7 +239,27 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
   }) async {
     final requestGeneration = ++_requestGeneration;
     final requestedMediaId = mediaId;
-    // 1. Check Cache
+    final resolvedIsMovie =
+        isMovie ||
+        animeTitle.toLowerCase().contains('the very final') ||
+        animeTitle.toLowerCase().contains('movie') ||
+        animeTitle.toLowerCase().contains('film');
+    // 1. Check Memory Cache
+    if (!force && requestedMediaId != null && _inMemoryEpisodeCache.containsKey(requestedMediaId)) {
+      final cached = _inMemoryEpisodeCache[requestedMediaId]!;
+      if (cached.isNotEmpty) {
+        AppLogger.d('Fast in-memory episode cache hit for: $animeTitle (${cached.length} eps)');
+        state = state.copyWith(
+          episodes: cached,
+          isLoading: false,
+          mediaId: requestedMediaId,
+          animeTitle: animeTitle,
+          isMovie: resolvedIsMovie,
+        );
+        return cached;
+      }
+    }
+
     if (!force &&
         state.episodes.isNotEmpty &&
         state.animeId == animeId &&
@@ -246,12 +267,6 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       AppLogger.d('Episode list cache hit for: $animeTitle');
       return state.episodes;
     }
-
-    final resolvedIsMovie =
-        isMovie ||
-        animeTitle.toLowerCase().contains('the very final') ||
-        animeTitle.toLowerCase().contains('movie') ||
-        animeTitle.toLowerCase().contains('film');
 
     state = state.copyWith(
       isLoading: true,
@@ -349,6 +364,9 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     }
 
     AppLogger.success('Successfully loaded ${fetched.length} episodes');
+    if (requestedMediaId != null && fetched.isNotEmpty) {
+      _inMemoryEpisodeCache[requestedMediaId] = fetched;
+    }
     state = state.copyWith(episodes: fetched, isLoading: false);
     _syncMetadataIfEnabled();
 

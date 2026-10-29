@@ -302,20 +302,22 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
     final isDub = streamState.selectedServer?.isDub == true;
     final useExt = ref.watch(experimentalProvider).useExtensions;
     final activeSource = ref.watch(sourceProvider).activeAnimeSource;
-    final isCurrentHindi = (useExt &&
-            LanguageUtils.isHindiSourceNameOrLang(
+    final isCurrentHindi = useExt &&
+        (LanguageUtils.isHindiSourceNameOrLang(
               name: activeSource?.name,
               lang: activeSource?.lang,
-            )) ||
-        LanguageUtils.isHindiEpisode(
-          widget.episodeTitle,
-          sourceName: activeSource?.name,
-          sourceLang: activeSource?.lang,
-        );
+            ) ||
+            LanguageUtils.isHindiEpisode(
+              widget.episodeTitle,
+              sourceName: activeSource?.name,
+              sourceLang: activeSource?.lang,
+            ));
 
     final String audioLabel;
     if (isCurrentHindi) {
       audioLabel = 'Hindi Dub (हिन्दी)';
+    } else if (!useExt) {
+      audioLabel = isDub ? 'English Dub' : 'Japanese Sub';
     } else {
       final animeDetails = ref.watch(detailsPageProvider(widget.mediaId)).details.value;
       final sourceLang = LanguageUtils.detectLanguage(
@@ -450,8 +452,10 @@ class _PortraitPlayerDetailsState extends ConsumerState<PortraitPlayerDetails> {
                       ? 'MOVIE'
                       : ((widget.animeFormat != null &&
                               widget.animeFormat!.trim().isNotEmpty)
-                          ? widget.animeFormat!
-                          : 'U/A 16+'),
+                          ? (widget.animeFormat!.trim().toUpperCase() == 'TV'
+                              ? 'TV Series'
+                              : widget.animeFormat!)
+                          : 'TV Series'),
                   style: TextStyle(
                     color: colorScheme.onSurfaceVariant,
                     fontSize: 11,
