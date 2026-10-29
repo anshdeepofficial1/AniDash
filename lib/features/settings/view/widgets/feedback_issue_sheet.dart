@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
+import 'package:ani_dash/core/utils/env_loader.dart';
 import 'package:ani_dash/core/services/feedback_service.dart';
 import 'package:ani_dash/features/settings/view/screens/admin_issues_screen.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +20,7 @@ enum FeedbackType {
   const FeedbackType(this.label, this.icon);
 }
 
-class FeedbackIssueSheet extends StatefulWidget {
+class FeedbackIssueSheet extends ConsumerStatefulWidget {
   final String? initialAnimeTitle;
   const FeedbackIssueSheet({super.key, this.initialAnimeTitle});
 
@@ -40,10 +43,10 @@ class FeedbackIssueSheet extends StatefulWidget {
   }
 
   @override
-  State<FeedbackIssueSheet> createState() => _FeedbackIssueSheetState();
+  ConsumerState<FeedbackIssueSheet> createState() => _FeedbackIssueSheetState();
 }
 
-class _FeedbackIssueSheetState extends State<FeedbackIssueSheet> {
+class _FeedbackIssueSheetState extends ConsumerState<FeedbackIssueSheet> {
   bool _showInAppForm = false;
   FeedbackType _selectedType = FeedbackType.bug;
   final _titleController = TextEditingController();
@@ -287,6 +290,7 @@ Date: ${DateTime.now().toIso8601String()}
         ),
         const SizedBox(height: 10),
         // Option: View Community Issues & Discussions In-App
+        if (ref.watch(authProvider).anilistUser?.id.toString() != ADMIN_ANILIST_ID)
         Card(
           elevation: 0,
           color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),

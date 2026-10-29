@@ -1,3 +1,4 @@
+import 'package:ani_dash/features/ai/view/widgets/anidash_ai_emblem.dart';
 import 'dart:io';
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -270,6 +271,7 @@ class _MacDesktopSidebarState extends ConsumerState<MacDesktopSidebar> {
                             context.go('/watch-history');
                           },
                         ),
+                        if (kAniCoreGloballyEnabled)
                         _SidebarTile(
                           icon: Iconsax.magicpen,
                           label: 'AniCore',

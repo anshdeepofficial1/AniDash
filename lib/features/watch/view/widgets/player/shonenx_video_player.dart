@@ -82,6 +82,7 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
   bool _initialVolumeSyncDone = false;
   Timer? _audioToastTimer;
   bool _showAudioToast = false;
+  bool _hasShownAudioToastForEpisode = false;
   String? _audioToastText;
 
   bool _isDraggingSeek = false;
@@ -851,17 +852,25 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     final uiController = ref.watch(playerUIControllerProvider.notifier);
     final isPiP = ref.watch(pipProvider);
 
+    ref.listen(episodeDataProvider.select((e) => e.selectedEpisode), (prev, next) {
+      if (prev != next) {
+        _hasShownAudioToastForEpisode = false;
+      }
+    });
+
     ref.listen(playerStateProvider.select((p) => p.isPlaying), (prev, next) {
       if (ref.read(pipProvider)) {
         ref.read(pipProvider.notifier).updatePlaybackState(next);
       }
-      if (prev != true && next == true) {
+      if (prev != true && next == true && !_hasShownAudioToastForEpisode) {
+        _hasShownAudioToastForEpisode = true;
         _triggerAudioToast();
       }
     });
 
     ref.listen(episodeDataProvider.select((e) => e.sources), (prev, next) {
-      if (prev != next && next.isNotEmpty) {
+      if (prev != next && next.isNotEmpty && !_hasShownAudioToastForEpisode && ref.read(playerStateProvider).isPlaying) {
+        _hasShownAudioToastForEpisode = true;
         _triggerAudioToast();
       }
     });
@@ -1203,9 +1212,11 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                 // Hotstar-style Audio Tracks Banner Toast
                 if (_showAudioToast && _audioToastText != null && !uiState.isLocked)
                   Positioned(
-                    bottom: uiState.isVisible ? 82 : 26,
-                    left: 16,
-                    right: 16,
+                    bottom: (MediaQuery.of(context).orientation == Orientation.landscape)
+                        ? (uiState.isVisible ? 82 : 24)
+                        : (uiState.isVisible ? 46 : 6),
+                    left: 12,
+                    right: 12,
                     child: Center(
                       child: AnimatedOpacity(
                         opacity: _showAudioToast ? 1.0 : 0.0,

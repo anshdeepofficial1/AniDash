@@ -401,10 +401,14 @@ class _WatchFabState extends ConsumerState<_WatchFab> {
               ? null
               : () async {
                 setState(() => _isWatchLoading = true);
+                final targetEp = progress?.currentEpisode ?? 1;
+                final targetPos = progress?.episodesProgress[targetEp]?.progressInSeconds;
                 await providerAnimeMatchSearch(
                   context: context,
                   ref: ref,
                   animeMedia: widget.anime,
+                  startAt: targetEp,
+                  startAtPosition: targetPos,
                 );
                 if (mounted) {
                   setState(() => _isWatchLoading = false);

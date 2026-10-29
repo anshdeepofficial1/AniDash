@@ -672,8 +672,8 @@ class _DownloadSourceSelectorState
                     quality: '1080p',
                     title: '1080p (FHD)',
                     sizeDescription: isBatch
-                        ? '${_formatSize(350)} • Total ${_formatSize(350 * widget.episodeCount)}'
-                        : _formatSize(350),
+                        ? '${_formatSize(_getQualitySize('1080p'))} • Total ${_formatSize(_getQualitySize('1080p') * widget.episodeCount)}'
+                        : _formatSize(_getQualitySize('1080p')),
                     isSelected: _selectedQuality == '1080p',
                     onTap: () => setState(() => _selectedQuality = '1080p'),
                   ),
@@ -681,8 +681,8 @@ class _DownloadSourceSelectorState
                     quality: '720p',
                     title: '720p (HD)',
                     sizeDescription: isBatch
-                        ? '${_formatSize(200)} • Total ${_formatSize(200 * widget.episodeCount)}'
-                        : _formatSize(200),
+                        ? '${_formatSize(_getQualitySize('720p'))} • Total ${_formatSize(_getQualitySize('720p') * widget.episodeCount)}'
+                        : _formatSize(_getQualitySize('720p')),
                     isSelected: _selectedQuality == '720p',
                     onTap: () => setState(() => _selectedQuality = '720p'),
                   ),
@@ -690,8 +690,8 @@ class _DownloadSourceSelectorState
                     quality: '480p',
                     title: '480p (SD)',
                     sizeDescription: isBatch
-                        ? '${_formatSize(100)} • Total ${_formatSize(100 * widget.episodeCount)}'
-                        : _formatSize(100),
+                        ? '${_formatSize(_getQualitySize('480p'))} • Total ${_formatSize(_getQualitySize('480p') * widget.episodeCount)}'
+                        : _formatSize(_getQualitySize('480p')),
                     isSelected: _selectedQuality == '480p',
                     onTap: () => setState(() => _selectedQuality = '480p'),
                   ),
@@ -699,8 +699,8 @@ class _DownloadSourceSelectorState
                     quality: '360p',
                     title: '360p (Data Saver)',
                     sizeDescription: isBatch
-                        ? '${_formatSize(60)} • Total ${_formatSize(60 * widget.episodeCount)}'
-                        : _formatSize(60),
+                        ? '${_formatSize(_getQualitySize('360p'))} • Total ${_formatSize(_getQualitySize('360p') * widget.episodeCount)}'
+                        : _formatSize(_getQualitySize('360p')),
                     isSelected: _selectedQuality == '360p',
                     onTap: () => setState(() => _selectedQuality = '360p'),
                   ),

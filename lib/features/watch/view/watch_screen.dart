@@ -220,6 +220,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   Future<void> _setupSystemUI() async {
     UIHelper.setWatchInitialLockMode();
     UIHelper.enableVolumeInterception();
+    await UIHelper.enableImmersiveMode();
     await UIHelper.forcePortrait();
   }
 
@@ -243,7 +244,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
           _isLandscapeFullscreen = false;
         });
         await Future.wait([
-          UIHelper.exitImmersiveMode(),
+          UIHelper.enableImmersiveMode(),
           UIHelper.forcePortrait(),
         ]);
       } else {
@@ -757,6 +758,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                 return Column(
                   children: [
                     SafeArea(
+                      top: false,
                       bottom: false,
                       child: AspectRatio(aspectRatio: 16 / 9, child: player),
                     ),

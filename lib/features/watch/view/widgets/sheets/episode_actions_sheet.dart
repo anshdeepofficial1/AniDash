@@ -165,19 +165,24 @@ class EpisodeActionsSheet extends ConsumerWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              onTap: () {
+              onTap: () async {
+                final playerState = ref.read(playerStateProvider);
+                final playerNotifier = ref.read(playerStateProvider.notifier);
+                final rootNav = Navigator.of(context, rootNavigator: true);
+                final rootNavContext = rootNav.context;
                 onDismiss();
+                await Future.delayed(const Duration(milliseconds: 120));
+                if (!rootNavContext.mounted) return;
                 showDialog(
-                  context: context,
+                  context: rootNavContext,
+                  useRootNavigator: true,
                   builder: (ctx) => JumpToTimeDialog(
-                    currentPosition: player.position,
-                    totalDuration: player.duration,
+                    currentPosition: playerState.position,
+                    totalDuration: playerState.duration,
                     title: 'Jump to Time',
                     actionLabel: 'Jump',
                     onJump: (targetDuration) {
-                      ref
-                          .read(playerStateProvider.notifier)
-                          .seek(targetDuration);
+                      playerNotifier.seek(targetDuration);
                     },
                   ),
                 );

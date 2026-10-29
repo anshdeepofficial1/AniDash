@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 const anyCoreLogoAnimationKey = 'anycore_logo_animation';
 const anyCoreEnabledKey = 'anycore_enabled';
+const bool kAniCoreGloballyEnabled = false;
 
 final ValueNotifier<int> anyCoreSettingsRevision = ValueNotifier<int>(0);
 
