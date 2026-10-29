@@ -87,6 +87,7 @@ repomix-output.xml
 .codex-remote-attachments/
 
 .vercel
+run_emulator.bat
 .env*
 
 # Node & dependencies

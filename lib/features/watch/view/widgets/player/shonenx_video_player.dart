@@ -1110,6 +1110,13 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                                 icon: const Icon(Icons.swap_horiz),
                                 label: const Text('Another server'),
                               ),
+                              FilledButton.tonalIcon(
+                                onPressed: () {
+                                  Navigator.of(context).maybePop();
+                                },
+                                icon: const Icon(Icons.arrow_back),
+                                label: const Text('Go back'),
+                              ),
                             ],
                           ),
                         ],

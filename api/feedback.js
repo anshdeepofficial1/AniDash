@@ -71,7 +71,7 @@ ${report.description || 'No description provided'}
     if (report.type === 'playback') labels.push('bug', 'playback');
     if (report.type === 'request') labels.push('enhancement');
 
-    const res = await fetch(`https://api.github.com/repos/${REPO}/issues`, {
+    let res = await fetch(`https://api.github.com/repos/${REPO}/issues`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -82,9 +82,26 @@ ${report.description || 'No description provided'}
       body: JSON.stringify({ title, body, labels }),
     });
 
+    if (!res.ok) {
+      console.warn(`GitHub issue creation with labels failed (${res.status}), retrying without labels...`);
+      res = await fetch(`https://api.github.com/repos/${REPO}/issues`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'AniDash-Feedback-Bot',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title, body }),
+      });
+    }
+
     if (res.ok) {
       const json = await res.json();
       return json.html_url;
+    } else {
+      const errText = await res.text();
+      console.error('GitHub forward failed:', res.status, errText);
     }
   } catch (err) {
     console.error('GitHub forward failed:', err);

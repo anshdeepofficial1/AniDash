@@ -91,7 +91,18 @@ class PiPNotifier extends Notifier<bool> {
     } catch (_) {}
   }
 
+  Future<void> syncPiPState() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final bool? isPiP = await _channel.invokeMethod<bool>('isPiP');
+      if (isPiP != null && state != isPiP) {
+        state = isPiP;
+      }
+    } catch (_) {}
+  }
+
   Future<bool> exitPiP() async {
+    state = false;
     if (!Platform.isAndroid) return false;
     try {
       final res = await _channel.invokeMethod<bool>('exitPiP');
@@ -103,6 +114,7 @@ class PiPNotifier extends Notifier<bool> {
   }
 
   Future<bool> closePiP() async {
+    state = false;
     if (!Platform.isAndroid) return false;
     try {
       final res = await _channel.invokeMethod<bool>('closePiP');

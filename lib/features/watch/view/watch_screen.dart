@@ -64,7 +64,7 @@ class WatchScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchScreenState extends ConsumerState<WatchScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _panelController;
   late final CurvedAnimation _panelAnimation;
   final ScreenshotController _screenshotController = ScreenshotController();
@@ -73,6 +73,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     try {
       WakelockPlus.enable();
     } catch (_) {}
@@ -258,34 +259,89 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   }
 
   bool _isExiting = false;
+  DateTime? _lastBackPressTime;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(pipProvider.notifier).syncPiPState();
+    }
+  }
 
   Future<void> _handleBack() async {
-    if (_isExiting) return;
+    final now = DateTime.now();
+    // Rapid back press or already exiting: immediately force exit so user is NEVER stuck!
+    if (_isExiting ||
+        (_lastBackPressTime != null &&
+            now.difference(_lastBackPressTime!).inMilliseconds < 800)) {
+      _resetSystemUI();
+      if (context.canPop()) {
+        context.pop();
+      } else if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else {
+        context.go('/');
+      }
+      return;
+    }
+    _lastBackPressTime = now;
 
+    // 1. If side panel is open, close it
     if (_panelController.isCompleted || _panelController.value > 0) {
       _panelController.reverse();
       return;
     }
 
-    if (_isLandscapeFullscreen || UIHelper.isFullscreen) {
-      // 1. First Back while in Fullscreen:
-      // Return to windowed / portrait mode without stopping video playback!
+    // 2. If in PiP mode, close PiP cleanly
+    if (ref.read(pipProvider)) {
+      try {
+        await ref.read(pipProvider.notifier).closePiP();
+      } catch (_) {}
+    }
+
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    final hasError = ref.read(episodeDataProvider).error != null;
+    final isLoading = ref.read(episodeDataProvider).isLoading;
+
+    // 3. Only toggle fullscreen if ACTUALLY currently in Landscape mode (not loading, not error)
+    if (!hasError && !isLoading && isLandscape && _isLandscapeFullscreen) {
       await _toggleFullscreen();
       return;
     }
 
-    // 2. Second Back (or Back while in windowed mode):
-    // Cleanly stop playback and pop back to previous screen.
+    // 4. In portrait mode, or if episode is loading/failed: immediately exit!
     _isExiting = true;
-    await ref.read(watchControllerProvider.notifier).cleanup();
-    await ref.read(playerStateProvider.notifier).stop();
-    if (!mounted) return;
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    } else {
-      context.go('/');
+    try {
+      _resetSystemUI();
+      // Run cleanup asynchronously in background so popping happens instantly
+      unawaited(
+        ref
+            .read(watchControllerProvider.notifier)
+            .cleanup()
+            .whenComplete(() => ref.read(playerStateProvider.notifier).stop()),
+      );
+      if (!mounted) return;
+      if (context.canPop()) {
+        context.pop();
+      } else if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else {
+        context.go('/');
+      }
+    } catch (_) {
+      if (mounted) {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/');
+        }
+      }
+    } finally {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) _isExiting = false;
+      });
     }
-    _resetSystemUI();
   }
 
   Future<void> _resetSystemUI() async {
@@ -332,6 +388,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     try {
       WakelockPlus.disable();
     } catch (_) {}

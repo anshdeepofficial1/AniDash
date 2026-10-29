@@ -14,9 +14,7 @@ import 'package:ani_dash/shared/providers/anilist_service_provider.dart';
 import 'package:ani_dash/shared/providers/anime_match_service.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
 
-import 'package:ani_dash/shared/providers/anime_source_provider.dart';
-import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
-import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
+
 
 part 'details_page_notifier.g.dart';
 
@@ -77,6 +75,18 @@ class DetailsPageState {
 @riverpod
 class DetailsPageNotifier extends _$DetailsPageNotifier {
 
+  bool _isPlaceholderTitle(UniversalTitle? title) {
+    if (title == null) return true;
+    final candidates = [title.english, title.romaji, title.native]
+        .whereType<String>()
+        .map((s) => s.trim().toLowerCase())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (candidates.isEmpty) return true;
+    const placeholders = {'anime', 'loading', 'unknown', 'null'};
+    return candidates.every((c) => placeholders.contains(c));
+  }
+
   bool _isUnreleased(UniversalMedia? media) {
     if (media == null) return false;
     final status = media.status?.toUpperCase();
@@ -109,19 +119,23 @@ class DetailsPageNotifier extends _$DetailsPageNotifier {
       ref.read(episodeDataProvider.notifier).reset();
 
       // Eagerly prefetch filler information so episodes render with filler tags instantly
-      unawaited(
-        AnimeFillerService().getFillerInfo(
-          title: media.title.userPreferred,
-          malId: int.tryParse(media.idMal ?? ''),
-        ),
-      );
+      if (!_isPlaceholderTitle(media.title)) {
+        unawaited(
+          AnimeFillerService().getFillerInfo(
+            title: media.title.userPreferred,
+            malId: int.tryParse(media.idMal ?? ''),
+          ),
+        );
+      }
 
-      // Never query streaming sources for unreleased media. Enrich metadata
-      // first because it may contain a newer release status/date.
-      if (_isUnreleased(media)) {
+      // Never query streaming sources for unreleased media or placeholder titles. Enrich metadata
+      // first because it may contain a newer release status/date and the true title.
+      if (_isUnreleased(media) || _isPlaceholderTitle(media.title)) {
         await fetchDetails();
-        if (!ref.mounted || _isUnreleased(state.details.value)) return;
-        await _fetchEpisodes(state.details.value!.title);
+        if (!ref.mounted) return;
+        final currentMedia = state.details.value ?? media;
+        if (_isUnreleased(currentMedia)) return;
+        await _fetchEpisodes(currentMedia.title);
       } else {
         // Released titles can discover episodes alongside About enrichment.
         final episodesFuture = _fetchEpisodes(media.title);

@@ -109,6 +109,28 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
               ? null
               : selectedLanguage;
 
+      bool isMatchingLang(String sourceLang, String targetLang, {String? sourceName}) {
+        final s = sourceLang.trim().toLowerCase();
+        final t = targetLang.trim().toLowerCase();
+        if (t == 'all' || t.isEmpty) return true;
+        if (s == t) return true;
+        if (t == 'hi' || t == 'hindi') {
+          if (s == 'hi' || s == 'hindi') return true;
+          if (sourceName != null) {
+            final lowerName = sourceName.toLowerCase();
+            if (lowerName.contains('hindi') ||
+                lowerName.contains('toonstream') ||
+                lowerName.contains('animedubhindi') ||
+                lowerName.contains('moviebox')) {
+              return true;
+            }
+          }
+        }
+        if ((t == 'en' || t == 'english') && (s == 'en' || s == 'english')) return true;
+        if ((t == 'ja' || t == 'japanese') && (s == 'ja' || s == 'japanese')) return true;
+        return false;
+      }
+
       final Map<String, List<Source>> grouped = {};
       final seenSourceIds = <String>{};
       for (final source in fullList) {
@@ -119,7 +141,10 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
           continue;
         }
         final lang = source.lang ?? 'Unknown';
-        if (filterLang != null && lang != filterLang) continue;
+        if (filterLang != null &&
+            !isMatchingLang(lang, filterLang, sourceName: source.name)) {
+          continue;
+        }
         if (search.isNotEmpty &&
             !searchTerms.any(
               (term) => source.name?.toLowerCase().contains(term) ?? false,
@@ -136,8 +161,27 @@ abstract class ExtensionList<T extends StatefulWidget> extends State<T> {
         grouped.putIfAbsent(lang, () => []).add(source);
       }
 
+      for (final entry in grouped.entries) {
+        entry.value.sort((a, b) {
+          int priority(Source s) {
+            final name = (s.name ?? '').toLowerCase();
+            if (name.contains('toonstream')) return 0;
+            if (name.contains('animedubhindi')) return 1;
+            if (name.contains('moviebox')) return 2;
+            if (name.contains('hindi')) return 3;
+            return 10;
+          }
+          final pA = priority(a);
+          final pB = priority(b);
+          if (pA != pB) return pA.compareTo(pB);
+          return (a.name ?? '').compareTo(b.name ?? '');
+        });
+      }
+
       final sortedEntries =
           grouped.entries.toList()..sort((a, b) {
+            if (a.key == 'hi' || a.key == 'hindi') return -1;
+            if (b.key == 'hi' || b.key == 'hindi') return 1;
             if (a.key == 'all') return -1;
             if (b.key == 'all') return 1;
             if (a.key == 'en') return -1;

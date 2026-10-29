@@ -435,7 +435,9 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     try {
       await WakelockPlus.disable();
     } catch (_) {}
-    return betterPlayerController.pause();
+    try {
+      await betterPlayerController.pause();
+    } catch (_) {}
   }
 
   Future<void> stop() async {
@@ -453,8 +455,12 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     try {
       await WakelockPlus.disable();
     } catch (_) {}
-    await betterPlayerController.pause();
-    await betterPlayerController.seekTo(Duration.zero);
+    try {
+      await betterPlayerController.pause();
+    } catch (_) {}
+    try {
+      await betterPlayerController.seekTo(Duration.zero);
+    } catch (_) {}
     state = PlayerState.initial();
   }
 

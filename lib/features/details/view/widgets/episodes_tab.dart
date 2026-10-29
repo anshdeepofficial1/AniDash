@@ -1,5 +1,6 @@
 import 'package:ani_dash/core/models/settings/source_model.dart';
 import 'package:ani_dash/core/repositories/source_preference_repository.dart';
+import 'package:ani_dash/data/isar/isar_source_preference.dart';
 import 'package:ani_dash/core/services/anime_filler_service.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -100,6 +101,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
   bool _userManuallySelectedGroup = false;
   bool _userManuallySelectedRange = false;
   bool _isRefreshing = false;
+  bool _isHindiBannerDismissed = false;
 
   @override
   void initState() {
@@ -108,6 +110,11 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     _selectionNotifier.addListener(_onSelectionChanged);
     _restoreGroupingPreference();
     _loadNamedGroups();
+    final hideForever = sharedPrefs.getBool('hide_hindi_banner_forever') ?? false;
+    final hideUntil = sharedPrefs.getInt('hide_hindi_banner_until') ?? 0;
+    if (hideForever || DateTime.now().millisecondsSinceEpoch < hideUntil) {
+      _isHindiBannerDismissed = true;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {});
   }
 
@@ -509,6 +516,10 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 ?.value
             : null;
     final franchiseEntries = franchiseOrder?.navigationItems ?? [];
+    final isContinuousLongRunner =
+        widget.mediaId == '21' ||
+        ((widget.anime?.episodes ?? 0) > 100 &&
+            (franchiseOrder?.tvSeasons.length ?? 0) <= 1);
 
     final rawExposed = state.bestMatchName?.trim();
     final exposedName = (rawExposed == null ||
@@ -718,76 +729,126 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          () {
-                            final useExt = ref.watch(experimentalProvider).useExtensions;
-                            final activeExt = ref.watch(sourceProvider).activeAnimeSource;
-                            final nativeKey = ref.watch(selectedProviderKeyProvider)?.toLowerCase();
-                            final selectedNative = ref.watch(selectedAnimeProvider);
+                  () {
+                    final useExt = ref.watch(experimentalProvider).useExtensions;
+                    final activeExt = ref.watch(sourceProvider).activeAnimeSource;
+                    final nativeKey = ref.watch(selectedProviderKeyProvider)?.toLowerCase();
+                    final selectedNative = ref.watch(selectedAnimeProvider);
 
-                            String rawName;
-                            if (useExt && activeExt != null) {
-                              rawName = activeExt.name ?? 'Extension';
-                            } else if (nativeKey != null && nativeKey.isNotEmpty) {
-                              rawName = nativeKey;
-                            } else {
-                              rawName = selectedNative?.providerName ?? 'JustAnime';
-                            }
+                    String rawName;
+                    if (useExt && activeExt != null) {
+                      rawName = activeExt.name ?? 'Extension';
+                    } else if (nativeKey != null && nativeKey.isNotEmpty) {
+                      rawName = nativeKey;
+                    } else {
+                      rawName = selectedNative?.providerName ?? 'JustAnime';
+                    }
 
-                            String formatName(String? name) {
-                              if (name == null || name.isEmpty) {
-                                return 'JustAnime';
-                              }
-                              final l = name.toLowerCase();
-                              if (l.contains('justanime')) return 'JustAnime';
-                              if (l.contains('hianime')) return 'HiAnime';
-                              if (l.contains('anikoto')) return 'AniKoto';
-                              if (l.contains('toonstream')) return 'Toonstream';
-                              if (l.contains('animedub')) return 'AnimeDubHindi';
-                              if (l.contains('moviebox')) return 'MovieBox';
-                              return name.length > 1
-                                  ? name.substring(0, 1).toUpperCase() + name.substring(1)
-                                  : name.toUpperCase();
-                            }
+                    String formatName(String? name) {
+                      if (name == null || name.isEmpty) return 'JustAnime';
+                      final l = name.toLowerCase();
+                      if (l.contains('justanime')) return 'JustAnime';
+                      if (l.contains('hianime')) return 'HiAnime';
+                      if (l.contains('anikoto')) return 'AniKoto';
+                      if (l.contains('toonstream')) return 'Toonstream';
+                      if (l.contains('animedub')) return 'AnimeDubHindi';
+                      if (l.contains('moviebox')) return 'MovieBox';
+                      return name.length > 1
+                          ? name.substring(0, 1).toUpperCase() + name.substring(1)
+                          : name.toUpperCase();
+                    }
 
-                            final formatted = formatName(rawName);
+                    final formatted = formatName(rawName);
 
-                            if (state.isSearchingMatch) {
-                              return 'SEARCHING ( via ' + formatted + ' )';
-                            }
-                            if (exposedName == null) {
-                              return 'SOURCE: ' + formatted.toUpperCase();
-                            }
-                            return 'MATCHED ( by ' + formatted + ' )';
-                          }(),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                    final Color badgeColor;
+                    final IconData badgeIcon;
+                    final String badgeLabel;
+
+                    if (state.isSearchingMatch) {
+                      badgeColor = theme.colorScheme.primary;
+                      badgeIcon = Icons.search_rounded;
+                      badgeLabel = 'SEARCHING • $formatted';
+                    } else if (exposedName != null) {
+                      badgeColor = Colors.teal;
+                      badgeIcon = Icons.check_circle_rounded;
+                      badgeLabel = 'MATCHED • $formatted';
+                    } else {
+                      badgeColor = Colors.amber.shade800;
+                      badgeIcon = Icons.help_outline_rounded;
+                      badgeLabel = 'NO MATCH • $formatted';
+                    }
+
+                    return Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: badgeColor.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (state.isSearchingMatch)
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 5.0),
+                                        child: SizedBox(
+                                          width: 10,
+                                          height: 10,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 1.5,
+                                            color: badgeColor,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 4.0),
+                                        child: Icon(badgeIcon, size: 11, color: badgeColor),
+                                      ),
+                                    Text(
+                                      badgeLabel,
+                                      style: TextStyle(
+                                        color: badgeColor,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 10,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        InkWell(
-                          onTap: exposedName == null ? () => _handleWrongMatch(context, ref, notifier) : null,
-                          borderRadius: BorderRadius.circular(6),
-                          child: Text(
-                            exposedName ?? (state.isSearchingMatch ? 'Searching for match...' : 'Tap to select match manually'),
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: exposedName == null ? theme.colorScheme.primary : null,
-                              fontStyle: exposedName == null ? FontStyle.italic : FontStyle.normal,
-                              decoration: exposedName == null ? TextDecoration.underline : null,
+                          const SizedBox(height: 5),
+                          InkWell(
+                            onTap: exposedName == null ? () => _handleWrongMatch(context, ref, notifier) : null,
+                            borderRadius: BorderRadius.circular(6),
+                            child: Text(
+                              state.isSearchingMatch
+                                  ? 'Searching for episodes on $formatted…'
+                                  : (exposedName ?? 'No match found on $formatted • Tap to select manually'),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: exposedName != null ? FontWeight.bold : FontWeight.w500,
+                                color: state.isSearchingMatch
+                                    ? theme.hintColor
+                                    : (exposedName == null ? theme.colorScheme.error : null),
+                                fontStyle: exposedName == null ? FontStyle.italic : FontStyle.normal,
+                                decoration: exposedName == null ? TextDecoration.underline : null,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        ],
+                      ),
+                    );
+                  }(),
                   IconButton(
                     icon: Icon(
                       Icons.swap_horiz_rounded,
@@ -824,7 +885,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               child: _buildHindiAvailabilityBanner(context, ref, notifier, ref.watch(sourceProvider)),
             ),
 
-          if (franchiseEntries.length > 1)
+          if (!isContinuousLongRunner && franchiseEntries.length > 1)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -872,7 +933,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 ),
               ),
             )
-          else if (seasonRelations.isNotEmpty)
+          else if (!isContinuousLongRunner && seasonRelations.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -1898,7 +1959,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return DraggableScrollableSheet(
+        return SafeArea(
+          top: false,
+          child: DraggableScrollableSheet(
           initialChildSize: 0.7,
           minChildSize: 0.5,
           maxChildSize: 0.9,
@@ -1976,6 +2039,110 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               },
             );
           },
+        ),
+      );
+    },
+    );
+  }
+
+  String? _getSourceIconUrl(Source? s, String? fallbackKey) {
+    if (s?.iconUrl != null && s!.iconUrl!.isNotEmpty) return s.iconUrl;
+    final name = (s?.name ?? fallbackKey ?? '').toLowerCase();
+    final id = (s?.id?.toString() ?? '').toLowerCase();
+
+    if (name.contains('toonstream') || id.contains('toonstream')) {
+      return 'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/icon/eu.kanade.tachiyomi.animeextension.hi.toonstream.png';
+    }
+    if (name.contains('animedub') || id.contains('animedub')) {
+      return 'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/icon/eu.kanade.tachiyomi.animeextension.hi.animedubhindi.png';
+    }
+    if (name.contains('moviebox') || id.contains('moviebox')) {
+      return 'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/icon/eu.kanade.tachiyomi.animeextension.hi.moviebox.png';
+    }
+    if (name.contains('justanime') || fallbackKey == 'justanime') {
+      return 'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.justanime.png';
+    }
+    if (name.contains('hianime') || fallbackKey == 'hianime') {
+      return 'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.hianime.png';
+    }
+    if (name.contains('anikoto') || fallbackKey == 'anikoto') {
+      return 'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.anikoto.png';
+    }
+    return null;
+  }
+
+  void _showDismissHindiBannerDialog(BuildContext context) {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final bottomInset = MediaQuery.of(ctx).padding.bottom;
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.dividerColor.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Hindi Dub Notice (हिन्दी डब सुझाव)',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Would you like to hide this notification?',
+                  style: TextStyle(fontSize: 12, color: theme.hintColor),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.schedule_rounded, color: Colors.orange),
+                  title: const Text('Show next day (कल दोबारा दिखाएं)'),
+                  subtitle: const Text('Hide this recommendation for 24 hours'),
+                  onTap: () async {
+                    final nextDay = DateTime.now().add(const Duration(hours: 24)).millisecondsSinceEpoch;
+                    await sharedPrefs.setInt('hide_hindi_banner_until', nextDay);
+                    if (mounted) setState(() => _isHindiBannerDismissed = true);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.visibility_off_outlined, color: Colors.orange),
+                  title: const Text('Do not show again (दोबारा कभी न दिखाएं)'),
+                  subtitle: const Text('Permanently hide Hindi dub recommendation'),
+                  onTap: () async {
+                    await sharedPrefs.setBool('hide_hindi_banner_forever', true);
+                    if (mounted) setState(() => _isHindiBannerDismissed = true);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.close_rounded),
+                  title: const Text('Dismiss for now (अभी के लिए हटाएं)'),
+                  onTap: () {
+                    if (mounted) setState(() => _isHindiBannerDismissed = true);
+                    Navigator.pop(ctx);
+                  },
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -2017,6 +2184,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     DetailsPageNotifier notifier,
     SourceState sourceState,
   ) {
+    if (_isHindiBannerDismissed) return const SizedBox.shrink();
     final theme = Theme.of(context);
     // Priority: Toonstream > AnimeDub > hi/hin > Moviebox
     Source? hindiSource = sourceState.installedAnimeExtensions.firstWhereOrNull(
@@ -2033,6 +2201,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     );
     if (hindiSource == null) return const SizedBox.shrink();
     final targetSource = hindiSource;
+    final targetSourceIcon = _getSourceIconUrl(targetSource, null);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -2048,12 +2217,21 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: Colors.orange.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.translate_rounded, color: Colors.orange, size: 18),
+            clipBehavior: Clip.antiAlias,
+            child: (targetSourceIcon != null && targetSourceIcon.isNotEmpty)
+                ? CachedNetworkImage(
+                    imageUrl: targetSourceIcon,
+                    fit: BoxFit.cover,
+                    placeholder: (_, _) => const Icon(Icons.translate_rounded, color: Colors.orange, size: 18),
+                    errorWidget: (_, _, _) => const Icon(Icons.translate_rounded, color: Colors.orange, size: 18),
+                  )
+                : const Icon(Icons.translate_rounded, color: Colors.orange, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -2091,13 +2269,31 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               ref.read(selectedProviderKeyProvider.notifier).clear();
               ref.read(sourceProvider.notifier).setActiveSource(targetSource);
               ref.read(experimentalProvider.notifier).toggleExtensions(true);
-              ref.read(sourcePreferenceRepositoryProvider).clearSourcePreference(widget.mediaId);
+              ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
+                widget.mediaId,
+                widget.mediaCover,
+                IsarSourcePreference(
+                  animeId: widget.mediaId,
+                  sourceId: targetSource.id?.toString(),
+                  sourceType: 'aniyomi',
+                  matchedAnimeId: null,
+                  matchedAnimeTitle: null,
+                ),
+              );
               notifier.refresh();
             },
             child: const Text(
               'Switch',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            icon: Icon(Icons.close_rounded, size: 18, color: Colors.orange.shade800),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Hide notice',
+            onPressed: () => _showDismissHindiBannerDialog(context),
           ),
         ],
       ),
@@ -2187,9 +2383,10 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         .where((s) => !isHindi(s) && !isOfficialServer(s))
         .toList();
 
+    final bottomInset = MediaQuery.of(ref.context).padding.bottom;
     return ListView(
       controller: scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.fromLTRB(8, 4, 8, bottomInset + 36),
       children: [
         // Built-in section
         if (nativeServers.isNotEmpty) ...[
@@ -2322,9 +2519,17 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                   } else {
                     ref.read(experimentalProvider.notifier).toggleExtensions(false);
                   }
-                  ref
-                      .read(sourcePreferenceRepositoryProvider)
-                      .clearSourcePreference(widget.mediaId);
+                  ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
+                    widget.mediaId,
+                    widget.mediaCover,
+                    IsarSourcePreference(
+                      animeId: widget.mediaId,
+                      sourceId: server.key,
+                      sourceType: 'legacy',
+                      matchedAnimeId: widget.mediaId,
+                      matchedAnimeTitle: widget.mediaTitle.userPreferred,
+                    ),
+                  );
                   Navigator.pop(ref.context);
                   notifier.refresh();
                 },
@@ -2334,7 +2539,70 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         ],
 
         // Hindi section
-        if (hindiExtensions.isNotEmpty) ...[
+        if (hindiExtensions.isEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Material(
+              color: Colors.orange.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  Navigator.pop(ref.context);
+                  GoRouter.of(ref.context).push(
+                    Uri(
+                      path: '/extensions',
+                      queryParameters: {
+                        'tab': '1',
+                        'repo': 'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/index.min.json',
+                      },
+                    ).toString(),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.download_rounded, color: Colors.orange, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Install Hindi Anime Sources (हिन्दी डब)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.orange,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Tap to install Toonstream, AnimeDubHindi & Moviebox',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: theme.hintColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.orange),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ] else ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 14, 12, 6),
             child: Row(
@@ -2351,7 +2619,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               ],
             ),
           ),
-          for (final source in hindiExtensions) ...[
+          for (final source in hindiExtensions)
             ListTile(
               leading: Container(
                 width: 40,
@@ -2361,14 +2629,24 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                   color: Colors.orange.withValues(alpha: 0.15),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: source.iconUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: source.iconUrl!,
+                child: Builder(
+                  builder: (_) {
+                    final iconUrl = _getSourceIconUrl(source, null);
+                    if (iconUrl != null && iconUrl.isNotEmpty) {
+                      return CachedNetworkImage(
+                        imageUrl: iconUrl,
                         fit: BoxFit.cover,
+                        placeholder: (_, _) => Container(
+                          color: Colors.orange.withValues(alpha: 0.2),
+                          child: const Icon(Icons.translate_rounded, color: Colors.orange, size: 20),
+                        ),
                         errorWidget: (_, _, _) =>
                             const Icon(Icons.translate_rounded, color: Colors.orange, size: 20),
-                      )
-                    : const Icon(Icons.translate_rounded, color: Colors.orange, size: 20),
+                      );
+                    }
+                    return const Icon(Icons.translate_rounded, color: Colors.orange, size: 20);
+                  },
+                ),
               ),
               title: Row(
                 children: [
@@ -2406,12 +2684,21 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 ref.read(selectedProviderKeyProvider.notifier).clear();
                 ref.read(sourceProvider.notifier).setActiveSource(source);
                 ref.read(experimentalProvider.notifier).toggleExtensions(true);
-                ref.read(sourcePreferenceRepositoryProvider).clearSourcePreference(widget.mediaId);
+                ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
+                  widget.mediaId,
+                  widget.mediaCover,
+                  IsarSourcePreference(
+                    animeId: widget.mediaId,
+                    sourceId: source.id?.toString(),
+                    sourceType: 'aniyomi',
+                    matchedAnimeId: null,
+                    matchedAnimeTitle: null,
+                  ),
+                );
                 Navigator.pop(ref.context);
                 notifier.refresh();
               },
             ),
-          ],
         ],
 
         // Other extensions section
@@ -2455,7 +2742,17 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 ref.read(selectedProviderKeyProvider.notifier).clear();
                 ref.read(sourceProvider.notifier).setActiveSource(source);
                 ref.read(experimentalProvider.notifier).toggleExtensions(true);
-                ref.read(sourcePreferenceRepositoryProvider).clearSourcePreference(widget.mediaId);
+                ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
+                  widget.mediaId,
+                  widget.mediaCover,
+                  IsarSourcePreference(
+                    animeId: widget.mediaId,
+                    sourceId: source.id?.toString(),
+                    sourceType: 'aniyomi',
+                    matchedAnimeId: null,
+                    matchedAnimeTitle: null,
+                  ),
+                );
                 Navigator.pop(ref.context);
                 notifier.refresh();
               },

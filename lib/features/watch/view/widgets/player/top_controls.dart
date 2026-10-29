@@ -93,9 +93,11 @@ class TopControls extends ConsumerWidget {
                     true));
 
     final mediaQuery = MediaQuery.of(context);
+    final view = View.of(context);
+    final physicalTop = view.viewPadding.top / view.devicePixelRatio;
     final topInset = math.max(
-      mediaQuery.padding.top,
-      mediaQuery.viewPadding.top,
+      math.max(mediaQuery.padding.top, mediaQuery.viewPadding.top),
+      physicalTop,
     );
     final leftInset = math.max(
       mediaQuery.padding.left,
@@ -117,10 +119,10 @@ class TopControls extends ConsumerWidget {
       ),
       child: Padding(
         padding: EdgeInsets.only(
-          top: topInset > 0 ? topInset + 4 : 12,
+          top: math.max(topInset + 6, 28.0),
           bottom: 12,
-          left: math.max(leftInset, 10),
-          right: math.max(rightInset, 10),
+          left: math.max(leftInset, 12),
+          right: math.max(rightInset, 12),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -407,7 +409,7 @@ class TopControls extends ConsumerWidget {
     if (activeKey != null && activeKey.isNotEmpty) {
       final registry = ref.watch(animeSourceRegistryProvider);
       final normalized = activeKey.replaceFirst('ext:', '');
-      final nativeName = registry.get(normalized)?.providerName;
+      final nativeName = registry.has(normalized) ? registry.get(normalized)?.providerName : null;
       if (nativeName != null) return nativeName;
       final extension = ref.watch(sourceProvider).activeAnimeSource;
       if (extension != null) return extension.name ?? 'AniDash';

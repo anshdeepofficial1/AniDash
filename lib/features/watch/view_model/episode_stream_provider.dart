@@ -189,13 +189,20 @@ class EpisodeData extends _$EpisodeData {
     final selected =
         ref.read(selectedProviderKeyProvider)?.trim().toLowerCase();
     if (selected != null && selected.isNotEmpty) return selected;
+
+    final resolved = _epList.resolvedProviderKey?.trim().toLowerCase();
+    // If the episode list was resolved by a registered native provider (e.g. JustAnime fallback),
+    // use that native provider directly for stream extraction.
+    if (resolved != null && ref.read(animeSourceRegistryProvider).has(resolved)) {
+      return resolved;
+    }
+
     // A resolved provider belongs to the old title and must not override
     // an explicitly selected installed extension.
     if (_exp.useExtensions &&
         ref.read(sourceProvider).activeAnimeSource != null) {
       return null;
     }
-    final resolved = _epList.resolvedProviderKey?.trim().toLowerCase();
     return (resolved == null || resolved.isEmpty) ? null : resolved;
   }
 
@@ -1838,8 +1845,31 @@ class EpisodeData extends _$EpisodeData {
       }
     }
     if (extensionIsSelected) {
-      // Never switch from an unavailable extension to an unrelated
-      // native stream (such as HiAnime or JustAnime) without user approval.
+      AppLogger.w('Selected extension has no sources for episode ${ep.number}. Trying Official Server fallback...');
+      final justProvider = ref.read(animeSourceRegistryProvider).get('justanime');
+      final fallbackAnimeId = (_epList.mediaId != null && int.tryParse(_epList.mediaId!) != null)
+          ? _epList.mediaId!
+          : (int.tryParse(_epList.animeId ?? '') != null ? _epList.animeId! : '');
+      if (justProvider != null && fallbackAnimeId.isNotEmpty) {
+        final targetEpId = ep.number?.toString() ?? '1';
+        final initialCategory = isDubRequested ? 'dub' : 'sub';
+        final categoriesToTry = initialCategory == 'dub' ? ['dub', 'sub'] : ['sub'];
+        for (final cat in categoriesToTry) {
+          try {
+            final res = await justProvider
+                .getSources(fallbackAnimeId, targetEpId, null, cat)
+                .timeout(const Duration(seconds: 15));
+            if (res.sources.isNotEmpty) {
+              state = state.copyWith(
+                sourceNotice: 'Playing from Official Server (${cat.toUpperCase()})',
+              );
+              return saveAndReturn(res);
+            }
+          } catch (e) {
+            AppLogger.w('Official server fallback ($cat) failed: $e');
+          }
+        }
+      }
       state = state.copyWith(sourceNotice: 'Selected extension unavailable');
       return null;
     }
