@@ -1,40 +1,25 @@
-# AniDash v2.1.5 — Offline Subtitle Engine, Accurate Quality Downloads, Multi-Language & Interactive App Tour
+## What's Changed in v3.2.2 🚀
 
-AniDash v2.1.5 resolves key community-reported issues (#60, #61, #62, #63), delivering complete offline subtitle support with ASS/SSA parsing, user-configurable subtitle auto-activation, accurate HLS video quality matching during downloads, dynamic multi-language source & genre detection, interactive guided app tour, and export/share capabilities.
+### 🧩 Extensions & Multi-Repository Overhaul (Fixes #68 & #69)
+- **Built-in vs Android Engines**: Added top segmented switcher (`⚡ Built-in (Fast)` vs `🤖 Android (AniYomi)`) to manage both extension engines effortlessly.
+- **Dedicated Repository Management Sheet**: A clean **📁 Manage Repositories** interface divides Built-in (Mangayomi) and Android (AniYomi) repositories into distinct categories with individual controls to filter, add, or delete repos.
+- **Fixed Default Extensions Disappearing**: Adding custom repositories no longer hides or overrides default repositories and extensions (#68).
+- **Preset Quick-Add**: Instantly add trusted repositories (MSR Hindi Repo, Kohi-den, Keiyoushi) with a single tap.
 
-## 🌟 What's New in v2.1.5
+### 💾 Backup & Export Improvements (Fixes #70)
+- **Direct Public Downloads Storage**: Exported backup files are now saved directly into the device's public **Downloads** directory (`/storage/emulated/0/Download/`), making them immediately accessible in any file manager without root permissions.
+- **System Share Sheet Integration**: Exporting automatically triggers the Android share sheet to save your backup directly to Google Drive, Files, WhatsApp, or Telegram.
+- **Clear File Location Alerts**: SnackBar now displays the exact storage path where your backup file was saved.
 
-### 📝 Complete Subtitle Engine & Auto-Enable Setting (#60, #62)
-- **ASS/SSA Subtitle Parser**: Added full ASS/SSA format dialogue parsing in the video player engine (`BetterPlayerSubtitle.fromAss`), automatically stripping styling override tags (such as `{\an8}`), formatting line breaks (`\N`), and rendering subtitles smoothly.
-- **Offline Subtitle Playback**: Downloaded video files now properly load and bind their local `.vtt`, `.srt`, and `.ass` subtitle sidecars during offline playback.
-- **Configurable Auto-Enable Subtitles**: Added a dedicated "Auto-Enable Subtitles" toggle in Video Player settings so users who prefer watching without subtitles are not forced, while retaining full access to all tracks in the subtitle menu.
-- **Cross-Platform File Resolution**: Fixed local file path URI parsing on Windows and Android so file-based subtitles load reliably.
+### 🎬 Player & PiP Stability Fixes
+- **Safe Controls & Display Cutout Clearance**: Added physical hardware cutout and `SafeArea` padding so top player controls, close buttons, and fullscreen icons never clip under the status bar or camera notch.
+- **Unstuck Back Navigation**: Completely overhauled Android back button handling in the player. Pressing back when an episode is loading or in portrait mode now immediately and cleanly exits without getting stuck or locked in fullscreen toggles. Rapid back presses force-exit immediately.
+- **PiP Lifecycle Synchronization**: Restoring the app from Picture-in-Picture properly resets PiP state so the screen never gets stuck in a tall black player view.
 
-### 🎮 Game-Style Interactive App Tour
-- **Interactive First-Time Walkthrough**: Added a sleek 6-step guided walkthrough on the Home screen for new users, exploring Home spotlight, pro player gestures, subtitles, downloads, and Ask Nia AI.
-- **Clear Navigation**: Features a prominent highlighted **Next** button and a subtle **Skip Tour** option, plus step indicators ("Step 1 of 6").
-- **Settings Replay**: Users can replay the tour anytime via Settings -> "Interactive App Tour".
+### 🇮🇳 Hindi Dub Servers & Continue Watching
+- **Saved Server Priority**: Continue Watching now remembers your exact last-selected server (JustAnime/JustDynamic) and resumes directly on official servers without querying Toonstream.
+- **Hindi Dub Notification Navigation**: Tapping the Hindi Dub notification directly opens the Extensions screen on the AniYomi engine, filtered to Hindi dub sources.
+- **Smart Hindi Sorting**: Hindi extensions (Toonstream, AnimeDubHindi, MovieBox) are prioritized at the top of the Available extensions list.
 
-### 🌐 Dynamic Multi-Language & Genre Detection (#61)
-- **Multi-Language Detection**: Added `LanguageUtils` mapping 18+ languages (German, French, Spanish, Italian, Portuguese, Russian, Arabic, Hindi, Japanese, English, etc.).
-- **Smart Genre & Title Detection**: Detects language dynamically from source configuration, anime genres (e.g. `['Hindi', 'Dub']`), or title tags, automatically presenting appropriate audio chips (e.g. "Hindi (SUB)" and "Hindi (DUB)").
-- **Language-Agnostic Settings**: Clarified default audio track preferences across Player and Download settings.
-
-### 📥 Accurate Quality Matching & Probed File Size (#60, #63)
-- **Explicit Quality Downloader**: Selecting 360p, 480p, 720p, or 1080p now accurately downloads that exact stream variant from HLS master playlists instead of always defaulting to highest bandwidth.
-- **Probed File Size Estimation**: Replaced static size estimates with live M3U8 bandwidth-probed size calculations, accurately reflecting true episode size (~800MB–1.1GB for 1080p) before downloading.
-
-### 🧹 Automatic Temp Cleanup & Black Screen Fix (#63)
-- **Black Screen Prevention**: Fixed an issue where tapping "View Downloads" from a landscape video player locked orientation in an immersive state, ensuring safe portrait restoration and smooth navigation.
-- **Orphaned `.temp_*` Cache Cleaner**: Temporary segment download folders are now cleanly removed upon item deletion, automatically swept at app launch, and can be manually cleared via Download Settings.
-- **Export / Share Completed Downloads**: Added an "Export / Share" button directly to completed download cards to easily send video files to external video players, file managers, or messaging apps.
-
-## 🛠️ Verification
-- Full test suite: 128/128 tests passed (`flutter test`).
-- Split-per-ABI & Universal APK builds verified:
-  - `AniDash-v2.1.5-Universal.apk`
-  - `AniDash-v2.1.5-arm64-v8a.apk`
-  - `AniDash-v2.1.5-armeabi-v7a.apk`
-  - `AniDash-v2.1.5-x86_64.apk`
-
-**Version:** 2.1.5 (Build 150)
+---
+**Full Changelog**: https://github.com/anshdeepofficial1/AniDash/compare/v3.2.1...v3.2.2
