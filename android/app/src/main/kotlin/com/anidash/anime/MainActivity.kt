@@ -174,6 +174,53 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingLandscape: Int? = null
     private var pendingLandscapeSince: Long = 0L
 
+    private fun hideSystemBars() {
+        runOnUiThread {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val controller = window.insetsController
+                    controller?.hide(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
+                    controller?.systemBarsBehavior =
+                        android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                } else {
+                    @Suppress("DEPRECATION")
+                    window.decorView.systemUiVisibility = (
+                        android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        or android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+                    )
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun showSystemBars() {
+        runOnUiThread {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val controller = window.insetsController
+                    controller?.show(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
+                } else {
+                    @Suppress("DEPRECATION")
+                    window.decorView.systemUiVisibility = (
+                        android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or android.view.View.SYSTEM_UI_FLAG_VISIBLE
+                    )
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (newConfig.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            hideSystemBars()
+        }
+    }
+
     private fun enableLandscapeRotation() {
         landscapeListener?.disable()
         landscapeListener = object : OrientationEventListener(this) {
@@ -300,6 +347,7 @@ class MainActivity : FlutterFragmentActivity() {
                     "sensorLandscape" -> {
                         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                         enableLandscapeRotation()
+                        hideSystemBars()
                         result.success(null)
                     }
                     "lockCurrent" -> {
@@ -314,6 +362,7 @@ class MainActivity : FlutterFragmentActivity() {
                             if (rotation == android.view.Surface.ROTATION_270)
                                 ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
                             else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        hideSystemBars()
                         result.success(null)
                     }
                     "toggleLandscape" -> {
@@ -321,21 +370,33 @@ class MainActivity : FlutterFragmentActivity() {
                             if (requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE)
                                 ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                             else ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                        hideSystemBars()
                         result.success(null)
                     }
                     "landscapeLeft" -> {
                         disableLandscapeRotation()
                         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        hideSystemBars()
                         result.success(null)
                     }
                     "landscapeRight" -> {
                         disableLandscapeRotation()
                         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                        hideSystemBars()
                         result.success(null)
                     }
                     "portrait" -> {
                         disableLandscapeRotation()
                         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        showSystemBars()
+                        result.success(null)
+                    }
+                    "hideSystemBars" -> {
+                        hideSystemBars()
+                        result.success(null)
+                    }
+                    "showSystemBars" -> {
+                        showSystemBars()
                         result.success(null)
                     }
                     else -> result.notImplemented()

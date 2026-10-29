@@ -220,7 +220,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   Future<void> _setupSystemUI() async {
     UIHelper.setWatchInitialLockMode();
     UIHelper.enableVolumeInterception();
-    await UIHelper.enableImmersiveMode();
+    await UIHelper.exitImmersiveMode();
     await UIHelper.forcePortrait();
   }
 
@@ -244,7 +244,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
           _isLandscapeFullscreen = false;
         });
         await Future.wait([
-          UIHelper.enableImmersiveMode(),
+          UIHelper.exitImmersiveMode(),
           UIHelper.forcePortrait(),
         ]);
       } else {
@@ -255,6 +255,11 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
           UIHelper.enableImmersiveMode(),
           UIHelper.forceLandscape(),
         ]);
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted && _isLandscapeFullscreen) {
+            UIHelper.enableImmersiveMode();
+          }
+        });
       }
     }
   }
@@ -299,6 +304,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         await ref.read(pipProvider.notifier).closePiP();
       } catch (_) {}
     }
+    if (!mounted) return;
 
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
@@ -621,6 +627,15 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                       UIHelper.exitImmersiveMode();
                     }
                   });
+                } else if (orientation == Orientation.landscape && !_isLandscapeFullscreen) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && !_isLandscapeFullscreen) {
+                      setState(() {
+                        _isLandscapeFullscreen = true;
+                      });
+                      UIHelper.enableImmersiveMode();
+                    }
+                  });
                 }
 
                 final isLandscape = orientation == Orientation.landscape;
@@ -758,7 +773,6 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                 return Column(
                   children: [
                     SafeArea(
-                      top: false,
                       bottom: false,
                       child: AspectRatio(aspectRatio: 16 / 9, child: player),
                     ),

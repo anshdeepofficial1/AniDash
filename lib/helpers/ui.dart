@@ -196,6 +196,11 @@ class UIHelper {
   /// Enable immersive mode (hide system UI)
   static Future<void> enableImmersiveMode() async {
     if (!_isDesktop) {
+      if (Platform.isAndroid) {
+        try {
+          await _orientationChannel.invokeMethod('hideSystemBars');
+        } catch (_) {}
+      }
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       _isFullscreen = true;
     }
@@ -204,6 +209,11 @@ class UIHelper {
   /// Exit immersive mode (show system UI)
   static Future<void> exitImmersiveMode() async {
     if (!_isDesktop) {
+      if (Platform.isAndroid) {
+        try {
+          await _orientationChannel.invokeMethod('showSystemBars');
+        } catch (_) {}
+      }
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       _isFullscreen = false;
     }
