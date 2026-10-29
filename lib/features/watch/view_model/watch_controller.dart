@@ -23,6 +23,11 @@ import 'package:ani_dash/shared/providers/settings/sync_settings_notifier.dart';
 import 'package:ani_dash/shared/providers/continue_watching_dismissed_provider.dart';
 import 'package:ani_dash/features/watch/view_model/player/pip_controller.dart';
 import 'package:ani_dash/features/watch/view_model/next_episode_prompt_provider.dart';
+import 'package:ani_dash/core/repositories/source_preference_repository.dart';
+import 'package:ani_dash/data/isar/isar_source_preference.dart';
+import 'package:ani_dash/shared/providers/anime_source_provider.dart';
+import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
+import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 
 part 'watch_controller.g.dart';
 
@@ -229,6 +234,40 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           isAdult: fromHentaiHub,
           isMovie: isMovie,
         );
+
+    // Ensure source preference is saved for this anime so Continue Watching
+    // restores the exact server on which it was played.
+    try {
+      final repo = ref.read(sourcePreferenceRepositoryProvider);
+      final useExtensions = ref.read(experimentalProvider).useExtensions;
+      final currentKey = ref.read(selectedProviderKeyProvider);
+      final activeSource = ref.read(sourceProvider).activeAnimeSource;
+      if (useExtensions && activeSource != null) {
+        repo.saveSourcePreference(
+          mediaId,
+          animeCover,
+          IsarSourcePreference(
+            animeId: mediaId,
+            sourceId: activeSource.id?.toString(),
+            sourceType: 'aniyomi',
+            matchedAnimeId: animeId,
+            matchedAnimeTitle: animeName,
+          ),
+        );
+      } else if (currentKey != null) {
+        repo.saveSourcePreference(
+          mediaId,
+          animeCover,
+          IsarSourcePreference(
+            animeId: mediaId,
+            sourceId: currentKey,
+            sourceType: 'legacy',
+            matchedAnimeId: animeId ?? mediaId,
+            matchedAnimeTitle: animeName,
+          ),
+        );
+      }
+    } catch (_) {}
 
     // Resolve the initial episode metadata before the first progress save.
     // Previously only later episode changes populated these fields, so the

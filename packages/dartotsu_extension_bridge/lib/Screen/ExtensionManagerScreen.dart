@@ -10,6 +10,9 @@ import '../Models/Source.dart';
 abstract class ExtensionManagerScreen<T extends StatefulWidget> extends State<T>
     with TickerProviderStateMixin {
   late TabController _tabBarController;
+  TabController get tabBarController => _tabBarController;
+  void animateToTab(int index) { if (index >= 0 && index < _tabBarController.length) _tabBarController.animateTo(index); }
+  void setLanguageFilter(String lang) { _selectedLanguage.value = lang; }
   var manager = Get.find<ExtensionManager>().currentManager;
   final _selectedLanguage = 'All'.obs;
   final _textEditingController = TextEditingController();
@@ -35,6 +38,12 @@ abstract class ExtensionManagerScreen<T extends StatefulWidget> extends State<T>
 
   /// Repository navigator supplied by apps that group extensions by JSON index.
   Widget? get repositoryDrawer => null;
+
+  /// Custom engine switcher or repo manager toolbar widget
+  Widget? get engineSelector => null;
+
+  /// Optional active repository URL filter. When provided, available tab counts match this repository.
+  String? get repositoryFilter => null;
 
   Text get title;
 
@@ -118,6 +127,7 @@ abstract class ExtensionManagerScreen<T extends StatefulWidget> extends State<T>
                   () {},
                 ), // Trigger rebuild on search change _textEditingController handles the text input
               ),
+              if (engineSelector != null) engineSelector!,
               const SizedBox(height: 8),
               Obx(
                 () => Expanded(
@@ -144,11 +154,17 @@ abstract class ExtensionManagerScreen<T extends StatefulWidget> extends State<T>
       tabs.add(tabWidget(context, 'Available $label', availableCount));
     }
 
+    int countAvailable(List<Source> all) {
+      if (repositoryFilter == null) return all.length;
+      final target = repositoryFilter!.toLowerCase().trim();
+      return all.where((s) => (s.repo ?? '').toLowerCase().trim() == target).length;
+    }
+
     if (manager.supportsAnime) {
       addTabs(
         'anime',
         manager.installedAnimeExtensions.value.length,
-        manager.availableAnimeExtensions.value.length,
+        countAvailable(manager.availableAnimeExtensions.value),
       );
     }
     if (manager.supportsManga) {

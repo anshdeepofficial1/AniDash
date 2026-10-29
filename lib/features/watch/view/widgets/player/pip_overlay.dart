@@ -67,11 +67,12 @@ class _PiPControlsOverlayState extends ConsumerState<PiPControlsOverlay> {
         duration: const Duration(milliseconds: 200),
         child: IgnorePointer(
           ignoring: !_showControls,
-          child: Container(
-            color: Colors.black45,
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: SafeArea(
+            child: Container(
+              color: Colors.black45,
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // Top Action Bar: Close & Fullscreen
                 Row(
@@ -201,6 +202,7 @@ class _PiPControlsOverlayState extends ConsumerState<PiPControlsOverlay> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

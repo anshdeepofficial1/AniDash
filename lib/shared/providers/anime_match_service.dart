@@ -39,11 +39,13 @@ class AnimeMatchService {
     final titles = <String>[];
     final seen = <String>{};
 
+    const blockedKeywords = {'anime', 'loading', 'unknown', 'null'};
     void addTitle(String? t) {
       if (t == null) return;
       final trimmed = t.trim();
       if (trimmed.isEmpty) return;
       final lower = trimmed.toLowerCase();
+      if (blockedKeywords.contains(lower)) return;
       if (seen.add(lower)) {
         titles.add(trimmed);
       }
@@ -194,6 +196,8 @@ class AnimeMatchService {
           if (mediaId != null && int.tryParse(mediaId) != null && justProvider is JustAnimeProvider) {
             final exists = await justProvider.probeAnimeExists(mediaId);
             if (exists) {
+              _ref.read(selectedProviderKeyProvider.notifier).select('justanime');
+              _ref.read(experimentalProvider.notifier).toggleExtensions(false);
               return BaseAnimeModel(
                 id: mediaId,
                 anilistId: int.tryParse(mediaId),
@@ -344,23 +348,10 @@ class AnimeMatchService {
         if (selection.sourceType == 'legacy') {
           final targetSourceKey = selection.sourceId ?? 'justanime';
           final registry = _ref.read(animeSourceRegistryProvider);
-          final selectedKey = _ref.read(selectedProviderKeyProvider);
-          // A saved native match must never override an active extension.
-          if (selectedKey == null &&
-              _ref.read(experimentalProvider).useExtensions &&
-              _ref.read(sourceProvider).activeAnimeSource != null) {
-            return null;
-          }
-          if (selectedKey != null && targetSourceKey != selectedKey) {
-            AppLogger.d(
-              'Ignoring saved $targetSourceKey match; user selected $selectedKey',
-            );
-            return null;
-          }
           final provider =
               registry.get(targetSourceKey) ?? registry.get('justanime');
-          final matchedId = selection.matchedAnimeId;
-          if (provider != null && matchedId != null && matchedId.isNotEmpty) {
+          final matchedId = selection.matchedAnimeId ?? animeId;
+          if (provider != null && matchedId.isNotEmpty) {
             try {
               if (provider is JustAnimeProvider) {
                 final exists = await provider
@@ -370,6 +361,8 @@ class AnimeMatchService {
                   AppLogger.d(
                     'Auto-Restore: Fast verified JustAnime for ID $matchedId',
                   );
+                  _ref.read(selectedProviderKeyProvider.notifier).select(targetSourceKey);
+                  _ref.read(experimentalProvider.notifier).toggleExtensions(false);
                   return BaseAnimeModel(
                     id: matchedId,
                     name: selection.matchedAnimeTitle,
@@ -384,6 +377,8 @@ class AnimeMatchService {
                 AppLogger.d(
                   'Auto-Restore: Success with ${provider.providerName}',
                 );
+                _ref.read(selectedProviderKeyProvider.notifier).select(targetSourceKey);
+                _ref.read(experimentalProvider.notifier).toggleExtensions(false);
                 return BaseAnimeModel(
                   id: matchedId,
                   name: selection.matchedAnimeTitle,
@@ -397,24 +392,15 @@ class AnimeMatchService {
             AppLogger.w('Auto-Restore: Legacy provider not found');
           }
         } else if (['mangayomi', 'aniyomi'].contains(selection.sourceType)) {
-          final selectedKey = _ref.read(selectedProviderKeyProvider);
-          final useExtensions = _ref.read(experimentalProvider).useExtensions;
-          final activeSource = _ref.read(sourceProvider).activeAnimeSource;
-
-          // If user currently selected a native provider, DO NOT restore an extension!
-          if (selectedKey != null || !useExtensions) {
-            AppLogger.d(
-              'Ignoring saved extension match; user selected native $selectedKey',
-            );
-            return null;
-          }
-
-          // If user selected a different extension than saved selection, DO NOT restore the old extension!
-          if (activeSource != null && activeSource.id?.toString() != selection.sourceId) {
-            AppLogger.d(
-              'Ignoring saved extension ${selection.sourceId}; user selected ${activeSource.name}',
-            );
-            return null;
+          final targetSourceId = selection.sourceId;
+          final bridge = _ref.read(sourceProvider);
+          final matchingSource = bridge.installedAnimeExtensions.firstWhereOrNull(
+            (s) => s.id?.toString() == targetSourceId,
+          );
+          if (matchingSource != null) {
+            _ref.read(selectedProviderKeyProvider.notifier).clear();
+            _ref.read(sourceProvider.notifier).setActiveSource(matchingSource);
+            _ref.read(experimentalProvider.notifier).toggleExtensions(true);
           }
 
           // Don't restore if title was "None" or empty or invalid

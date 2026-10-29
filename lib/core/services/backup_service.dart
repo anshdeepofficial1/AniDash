@@ -33,7 +33,7 @@ class BackupService {
 
   static const String _progressBox = 'anime_watch_progress';
 
-  Future<void> exportData({
+  Future<String?> exportData({
     required bool includeWatchlist,
     required bool includeSettings,
   }) async {
@@ -133,39 +133,55 @@ class BackupService {
       final jsonString = jsonEncode(backupData);
       final fileName =
           'AniDash_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+      String? savedPath;
 
       if (Platform.isAndroid) {
-        bool saved = false;
         try {
-          final hasPermission =
-              await _ref
-                  .read(permissionsProvider.notifier)
-                  .requestStoragePermission();
-
-          if (hasPermission) {
-            final dir = await StorageProvider.getDefaultDirectory();
-            if (dir != null) {
-              final file = File('${dir.path}/$fileName');
-              await file.writeAsString(jsonString);
-              AppLogger.i('Backup saved to ${file.path}');
-              saved = true;
-              return;
-            }
+          final downloadDir = Directory('/storage/emulated/0/Download');
+          if (await downloadDir.exists()) {
+            final file = File('${downloadDir.path}/$fileName');
+            await file.writeAsString(jsonString);
+            AppLogger.i('Backup saved directly to Downloads: ${file.path}');
+            savedPath = file.path;
           }
         } catch (err) {
-          AppLogger.w(
-            'Storage permission check failed or denied, sharing backup file: $err',
-          );
+          AppLogger.w('Direct Download folder write error: $err');
         }
 
-        if (!saved) {
-          final tempDir = await getTemporaryDirectory();
-          final file = File('${tempDir.path}/$fileName');
-          await file.writeAsString(jsonString);
-          await SharePlus.instance.share(
-            ShareParams(files: [XFile(file.path)], text: 'AniDash Backup'),
-          );
+        if (savedPath == null) {
+          try {
+            final hasPermission =
+                await _ref
+                    .read(permissionsProvider.notifier)
+                    .requestStoragePermission();
+
+            if (hasPermission) {
+              final dir = await StorageProvider.getDefaultDirectory();
+              if (dir != null) {
+                final file = File('${dir.path}/$fileName');
+                await file.writeAsString(jsonString);
+                AppLogger.i('Backup saved to ${file.path}');
+                savedPath = file.path;
+              }
+            }
+          } catch (err) {
+            AppLogger.w('Storage permission check failed: $err');
+          }
         }
+
+        // Always invoke system share sheet so user can choose to Save to Drive, Files, etc.
+        final tempDir = await getTemporaryDirectory();
+        final shareFile = File('${tempDir.path}/$fileName');
+        await shareFile.writeAsString(jsonString);
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(shareFile.path)],
+            text: savedPath != null
+                ? 'AniDash Backup saved to Downloads ($fileName)'
+                : 'AniDash Backup ($fileName)',
+          ),
+        );
+        return savedPath ?? shareFile.path;
       } else {
         final result = await FilePicker.saveFile(
           dialogTitle: 'Save Backup',
@@ -178,7 +194,9 @@ class BackupService {
           final file = File(result);
           await file.writeAsString(jsonString);
           AppLogger.i('Backup saved to ${file.path}');
+          return file.path;
         }
+        return null;
       }
     } catch (e, s) {
       AppLogger.e('Failed to export data', e, s);

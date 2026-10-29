@@ -207,12 +207,18 @@ class _DataSettingsScreenState extends ConsumerState<DataSettingsScreen> {
     bool settings,
   ) async {
     try {
-      await ref
+      final savedPath = await ref
           .read(backupServiceProvider)
           .exportData(includeWatchlist: watchlist, includeSettings: settings);
       if (context.mounted) {
+        final message = savedPath != null
+            ? '📁 Saved to: $savedPath'
+            : 'Export completed successfully';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Export completed successfully')),
+          SnackBar(
+            content: Text(message),
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     } catch (e) {

@@ -309,9 +309,7 @@ class NotificationService {
               NotificationInboxService().markReadByRouteOrMedia(route, null),
             );
             _instance.notificationRouteController.add(route);
-          } else if (payload == '/downloads' ||
-              payload == '/news' ||
-              payload == '/watchlist') {
+          } else if (payload.startsWith('/')) {
             unawaited(
               NotificationInboxService().markReadByRouteOrMedia(payload, null),
             );

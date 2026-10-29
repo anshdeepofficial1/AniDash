@@ -283,7 +283,7 @@ class Initialization extends _$Initialization {
       NotificationInboxService().add(
         title: 'अब आप हिन्दी में भी देख सकते हो! 🇮🇳',
         body: 'Hindi Dubbed anime sources (Toonstream, AnimeDubHindi, MovieBox) are now available in Extensions! Tap here to check them out.',
-        route: '/extensions',
+        route: '/extensions?tab=1&engine=aniyomi&lang=hi',
         dedupeKey: 'hindi_dub_announcement_v1',
         notificationType: 'system',
       ),

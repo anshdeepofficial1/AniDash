@@ -224,7 +224,19 @@ final routerConfig = GoRouter(
     ),
     DesktopAdaptiveRoute(
       path: '/extensions',
-      contentBuilder: (_, _) => const ExtensionScreen(),
+      contentBuilder: (_, state) {
+        final tabStr = state.uri.queryParameters['tab'];
+        final tab = int.tryParse(tabStr ?? '') ?? 0;
+        final repo = state.uri.queryParameters['repo'];
+        final lang = state.uri.queryParameters['lang'];
+        final engine = state.uri.queryParameters['engine'];
+        return ExtensionScreen(
+          initialTabIndex: tab,
+          initialRepo: repo,
+          initialLanguage: lang,
+          initialEngine: engine,
+        );
+      },
     ),
     DesktopAdaptiveRoute(
       path: '/news',
@@ -270,10 +282,7 @@ final routerConfig = GoRouter(
                 ? state.extra as UniversalMedia
                 : UniversalMedia(
                   id: state.pathParameters['id']!,
-                  title: const UniversalTitle(
-                    english: 'Anime',
-                    romaji: 'Anime',
-                  ),
+                  title: const UniversalTitle(),
                   coverImage: const UniversalCoverImage(),
                 );
         final tabParam = state.uri.queryParameters['tab'];
@@ -295,10 +304,7 @@ final routerConfig = GoRouter(
                 ? state.extra as UniversalMedia
                 : UniversalMedia(
                   id: state.pathParameters['id']!,
-                  title: const UniversalTitle(
-                    english: 'Anime',
-                    romaji: 'Anime',
-                  ),
+                  title: const UniversalTitle(),
                   coverImage: const UniversalCoverImage(),
                 );
         final tabParam = state.uri.queryParameters['tab'];
@@ -437,7 +443,12 @@ final routerConfig = GoRouter(
         ),
         DesktopAdaptiveRoute(
           path: 'extensions',
-          contentBuilder: (_, _) => const ExtensionScreen(),
+          contentBuilder: (_, state) {
+            final tabStr = state.uri.queryParameters['tab'];
+            final tab = int.tryParse(tabStr ?? '') ?? 0;
+            final repo = state.uri.queryParameters['repo'];
+            return ExtensionScreen(initialTabIndex: tab, initialRepo: repo);
+          },
           routes: [
             DesktopAdaptiveRoute(
               path: 'extension-preference',

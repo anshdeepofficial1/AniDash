@@ -13,13 +13,26 @@ import 'package:ani_dash/main.dart';
 import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 
 class ExtensionScreen extends StatefulWidget {
-  const ExtensionScreen({super.key});
+  final int initialTabIndex;
+  final String? initialRepo;
+  final String? initialLanguage;
+  final String? initialEngine;
+
+  const ExtensionScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.initialRepo,
+    this.initialLanguage,
+    this.initialEngine,
+  });
 
   @override
   State<ExtensionScreen> createState() => _ExtensionScreenState();
 }
 
 class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
+  @override
+  String? get repositoryFilter => _selectedRepository;
   String? _selectedRepository;
   bool _restoringDefaults = false;
 
@@ -140,6 +153,35 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
   @override
   void initState() {
     super.initState();
+    final isAniyomiTarget = widget.initialEngine == 'aniyomi' ||
+        (widget.initialLanguage != null &&
+            (widget.initialLanguage!.toLowerCase() == 'hi' ||
+                widget.initialLanguage!.toLowerCase() == 'hindi')) ||
+        (widget.initialRepo != null && widget.initialRepo!.contains('index.min.json'));
+
+    if (Platform.isAndroid && isAniyomiTarget) {
+      try {
+        final extensionManager = Get.find<ExtensionManager>();
+        if (ExtensionType.fromManager(extensionManager.currentManager) != ExtensionType.aniyomi) {
+          extensionManager.setCurrentManager(ExtensionType.aniyomi);
+          manager = extensionManager.currentManager;
+        }
+      } catch (_) {}
+    }
+
+    if (widget.initialRepo != null && widget.initialRepo!.isNotEmpty) {
+      _selectedRepository = widget.initialRepo;
+    }
+    if (widget.initialLanguage != null && widget.initialLanguage!.isNotEmpty) {
+      setLanguageFilter(widget.initialLanguage!);
+    }
+    if (widget.initialTabIndex > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          animateToTab(widget.initialTabIndex);
+        }
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _refreshRepositories());
   }
 
@@ -255,6 +297,427 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
     );
   };
 
+  @override
+  Widget get engineSelector {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final extensionManager = Get.find<ExtensionManager>();
+    final currentEngine = ExtensionType.fromManager(extensionManager.currentManager);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: SegmentedButton<ExtensionType>(
+                  segments: [
+                    const ButtonSegment<ExtensionType>(
+                      value: ExtensionType.mangayomi,
+                      icon: Icon(Icons.bolt, size: 16),
+                      label: Text('Built-in (Fast)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                    if (Platform.isAndroid)
+                      const ButtonSegment<ExtensionType>(
+                        value: ExtensionType.aniyomi,
+                        icon: Icon(Icons.android, size: 16),
+                        label: Text('Android (AniYomi)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                  ],
+                  selected: {currentEngine},
+                  onSelectionChanged: (Set<ExtensionType> newSelection) async {
+                    final selected = newSelection.first;
+                    if (selected != currentEngine) {
+                      extensionManager.setCurrentManager(selected);
+                      manager = extensionManager.currentManager;
+                      await ProviderScope.containerOf(
+                        context,
+                      ).read(sourceProvider.notifier).initialize();
+                      setState(() {
+                        _selectedRepository = null;
+                      });
+                      await _refreshRepositories();
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                tooltip: 'Manage Repositories',
+                icon: const Icon(Icons.folder_copy_outlined, size: 20),
+                onPressed: _showManageReposSheet,
+              ),
+            ],
+          ),
+          if (_selectedRepository != null) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.filter_alt, size: 14, color: colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Filtered: ${_repoLabel(_selectedRepository!)}',
+                      style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onPrimaryContainer),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => setState(() => _selectedRepository = null),
+                    child: const Icon(Icons.close, size: 16),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showManageReposSheet() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final extensionManager = Get.find<ExtensionManager>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final mangayomi = ExtensionType.mangayomi.getManager();
+            final aniyomi = Platform.isAndroid ? ExtensionType.aniyomi.getManager() : null;
+            final currentEngine = ExtensionType.fromManager(extensionManager.currentManager);
+            final savedAnime = sharedPrefs.getStringList('saved_anime_repos') ?? <String>[];
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.85,
+              minChildSize: 0.5,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (_, scrollController) {
+                return ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        const Icon(Icons.folder_special, size: 28),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Manage Repositories',
+                                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                'Separated by Mangayomi & AniYomi categories',
+                                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(sheetContext),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    Card(
+                      elevation: 0,
+                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'ACTIVE EXTENSION ENGINE',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SegmentedButton<ExtensionType>(
+                              segments: [
+                                const ButtonSegment(
+                                  value: ExtensionType.mangayomi,
+                                  icon: Icon(Icons.bolt, size: 16),
+                                  label: Text('Built-in (Mangayomi)'),
+                                ),
+                                if (Platform.isAndroid)
+                                  const ButtonSegment(
+                                    value: ExtensionType.aniyomi,
+                                    icon: Icon(Icons.android, size: 16),
+                                    label: Text('Android (AniYomi)'),
+                                  ),
+                              ],
+                              selected: {currentEngine},
+                              onSelectionChanged: (set) async {
+                                final sel = set.first;
+                                extensionManager.setCurrentManager(sel);
+                                manager = extensionManager.currentManager;
+                                await ProviderScope.containerOf(context)
+                                    .read(sourceProvider.notifier)
+                                    .initialize();
+                                setState(() => _selectedRepository = null);
+                                setSheetState(() {});
+                                await _refreshRepositories();
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    Text(
+                      '⚡ BUILT-IN / MANGAYOMI REPOSITORIES',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    for (final repo in _getSavedAnimeRepos(mangayomi))
+                      _buildRepoTile(
+                        repo: repo,
+                        isCustom: savedAnime.contains(repo),
+                        engine: ExtensionType.mangayomi,
+                        type: ItemType.anime,
+                        onDeleted: () async {
+                          final updated = savedAnime.where((r) => r != repo).toList();
+                          await sharedPrefs.setStringList('saved_anime_repos', updated);
+                          await _refreshRepositories();
+                          setSheetState(() {});
+                          setState(() {});
+                        },
+                      ),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Mangayomi Repository'),
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        _showAddRepoDialog(context, tabBarController, manager.onRepoSaved);
+                      },
+                    ),
+                    const SizedBox(height: 20),
+
+                    if (aniyomi != null) ...[
+                      Text(
+                        '🤖 ANDROID / ANIYOMI REPOSITORIES (HINDI + APKS)',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      for (final repo in _getSavedAnimeRepos(aniyomi))
+                        _buildRepoTile(
+                          repo: repo,
+                          isCustom: savedAnime.contains(repo),
+                          engine: ExtensionType.aniyomi,
+                          type: ItemType.anime,
+                          onDeleted: () async {
+                            final updated = savedAnime.where((r) => r != repo).toList();
+                            await sharedPrefs.setStringList('saved_anime_repos', updated);
+                            await _refreshRepositories();
+                            setSheetState(() {});
+                            setState(() {});
+                          },
+                        ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Quick Presets:',
+                        style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ActionChip(
+                            avatar: const Text('🇮🇳'),
+                            label: const Text('Hindi Anime Dub (MSR)'),
+                            onPressed: () => _addQuickPreset(
+                              'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/index.min.json',
+                              ExtensionType.aniyomi,
+                              ItemType.anime,
+                              sheetContext,
+                            ),
+                          ),
+                          ActionChip(
+                            avatar: const Text('📺'),
+                            label: const Text('Kohi-den Repo'),
+                            onPressed: () => _addQuickPreset(
+                              'https://kohiden.xyz/Kohi-den/extensions/raw/branch/main/index.min.json',
+                              ExtensionType.aniyomi,
+                              ItemType.anime,
+                              sheetContext,
+                            ),
+                          ),
+                          ActionChip(
+                            avatar: const Text('📖'),
+                            label: const Text('Keiyoushi Manga'),
+                            onPressed: () => _addQuickPreset(
+                              'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json',
+                              ExtensionType.aniyomi,
+                              ItemType.manga,
+                              sheetContext,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Add AniYomi Repository URL'),
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          _showAddRepoDialog(context, tabBarController, manager.onRepoSaved);
+                        },
+                      ),
+                    ],
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRepoTile({
+    required String repo,
+    required bool isCustom,
+    required ExtensionType engine,
+    required ItemType type,
+    required VoidCallback onDeleted,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isSelected = _selectedRepository == repo;
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      color: isSelected
+          ? colorScheme.primaryContainer.withValues(alpha: 0.3)
+          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: isSelected ? colorScheme.primary : colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: ListTile(
+        dense: true,
+        leading: Icon(
+          engine == ExtensionType.aniyomi ? Icons.android : Icons.bolt,
+          color: engine == ExtensionType.aniyomi ? Colors.orange : colorScheme.primary,
+          size: 20,
+        ),
+        title: Text(
+          _repoLabel(repo),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          repo,
+          style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: colorScheme.onSurfaceVariant),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(
+                isSelected ? Icons.check_circle : Icons.filter_alt_outlined,
+                size: 18,
+                color: isSelected ? colorScheme.primary : null,
+              ),
+              tooltip: isSelected ? 'Active filter (tap to clear)' : 'Filter by this repo',
+              onPressed: () {
+                setState(() {
+                  _selectedRepository = isSelected ? null : repo;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            if (isCustom)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                tooltip: 'Remove repository',
+                onPressed: onDeleted,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addQuickPreset(
+    String url,
+    ExtensionType engine,
+    ItemType type,
+    BuildContext sheetContext,
+  ) async {
+    final saved = sharedPrefs.getStringList(
+      type == ItemType.manga ? 'saved_manga_repos' : 'saved_anime_repos',
+    ) ?? <String>[];
+    if (!saved.contains(url)) {
+      await sharedPrefs.setStringList(
+        type == ItemType.manga ? 'saved_manga_repos' : 'saved_anime_repos',
+        [...saved, url],
+      );
+    }
+    final extensionManager = Get.find<ExtensionManager>();
+    extensionManager.setCurrentManager(engine);
+    manager = extensionManager.currentManager;
+    await ProviderScope.containerOf(context)
+        .read(sourceProvider.notifier)
+        .initialize();
+    setState(() => _selectedRepository = null);
+    await _refreshRepositories();
+    if (mounted && sheetContext.mounted) {
+      Navigator.pop(sheetContext);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Preset added: ${_repoLabel(url)}')),
+      );
+    }
+  }
+
   List<String> _getSavedAnimeRepos(dynamic manager) {
     final isAniyomi =
         ExtensionType.fromManager(manager) == ExtensionType.aniyomi;
@@ -307,6 +770,11 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
   ) {
     return [
       IconButton(
+        tooltip: 'Manage Repositories',
+        icon: const Icon(Icons.folder_copy_outlined),
+        onPressed: _showManageReposSheet,
+      ),
+      IconButton(
         onPressed:
             () => _showAddRepoDialog(context, tabController, onRepoSaved),
         icon: const Icon(Iconsax.add),
@@ -347,6 +815,7 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
         itemBuilder: (context) {
           final languages = [
             'All',
+            'hi',
             'en',
             'es',
             'fr',
@@ -364,9 +833,14 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
             'tr',
           ];
           return languages.map((lang) {
+            String label = lang;
+            if (lang == 'All') label = 'All Languages';
+            else if (lang == 'hi') label = 'Hindi (हिन्दी)';
+            else if (lang == 'en') label = 'English';
+            else if (lang == 'ja') label = 'Japanese';
             return PopupMenuItem(
               value: lang,
-              child: Text(lang == 'All' ? 'All Languages' : lang),
+              child: Text(label),
             );
           }).toList();
         },
@@ -677,7 +1151,7 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
                                 extensionManager.setCurrentManager(targetType);
                                 manager = extensionManager.currentManager;
                                 if (mounted) {
-                                  setState(() => _selectedRepository = url);
+                                  setState(() => _selectedRepository = null);
                                 }
                                 await sourceContainer
                                     .read(sourceProvider.notifier)

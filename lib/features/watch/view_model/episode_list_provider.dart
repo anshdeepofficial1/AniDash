@@ -118,14 +118,14 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
   ) =>
       // v2 intentionally invalidates the old cache which could persist titles
       // from a mismatched catalogue result (notably One Piece 183-200).
-      'corrected_episode_titles_v2_${mediaId ?? animeId ?? animeTitle.toLowerCase().trim()}';
+      'corrected_episode_titles_v3_${mediaId ?? animeId ?? animeTitle.toLowerCase().trim()}';
 
   String _correctedThumbnailCacheKey(
     String? mediaId,
     String? animeId,
     String animeTitle,
   ) =>
-      'corrected_episode_thumbnails_v2_${mediaId ?? animeId ?? animeTitle.toLowerCase().trim()}';
+      'corrected_episode_thumbnails_v3_${mediaId ?? animeId ?? animeTitle.toLowerCase().trim()}';
 
   Future<List<EpisodeDataModel>> _applyPersistedCorrectedTitles(
     List<EpisodeDataModel> episodes, {
@@ -490,6 +490,27 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         state = state.copyWith(resolvedProviderKey: currentKey);
       }
 
+      // Fast, rock-solid fallback: If selected source returned 0 episodes,
+      // probe JustAnime by AniList mediaId so One Piece and long-runners NEVER fail!
+      if (eps.isEmpty && state.mediaId != null && int.tryParse(state.mediaId!) != null) {
+        final justProvider = registry.get('justanime');
+        if (justProvider != null) {
+          try {
+            final fallback = await justProvider
+                .getEpisodes(state.mediaId!)
+                .timeout(const Duration(seconds: 25));
+            final justEps = fallback.episodes ?? [];
+            if (justEps.isNotEmpty) {
+              AppLogger.success('Recovered ${justEps.length} episodes via JustAnime direct AniList ID fallback');
+              state = state.copyWith(resolvedProviderKey: 'justanime');
+              return justEps;
+            }
+          } catch (e) {
+            AppLogger.w('JustAnime direct fallback probe failed: $e');
+          }
+        }
+      }
+
       // Only auto-discover a native fallback when the user did not explicitly
       // select an installed extension. Otherwise a failing extension must
       // show its error rather than silently switching to JustAnime.
@@ -548,7 +569,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
                     null,
                     1,
                   )
-                  .timeout(const Duration(seconds: 5));
+                  .timeout(const Duration(seconds: 15));
               final matches = getBestMatches(
                 results: searchResults.results,
                 title: state.animeTitle!,
@@ -561,7 +582,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             if (matchId != null && matchId.isNotEmpty) {
               final altResult = await altProvider
                   .getEpisodes(matchId)
-                  .timeout(const Duration(seconds: 5));
+                  .timeout(const Duration(seconds: 25));
               final altEps = altResult.episodes ?? [];
               if (altEps.isNotEmpty) {
                 return (key: altKey, id: matchId, episodes: altEps);
@@ -689,7 +710,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         final episodes =
             (await provider
                 .getEpisodes(targetId)
-                .timeout(const Duration(seconds: 3))).episodes ??
+                .timeout(const Duration(seconds: 25))).episodes ??
             [];
         if (episodes.isNotEmpty) return episodes;
       } catch (e) {
@@ -823,10 +844,20 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     }
   }
 
+  bool _isPlaceholder(String? title) {
+    if (title == null) return true;
+    final trimmed = title.trim().toLowerCase();
+    return trimmed.isEmpty ||
+        trimmed == 'anime' ||
+        trimmed == 'loading' ||
+        trimmed == 'unknown' ||
+        trimmed == 'null';
+  }
+
   Future<void> _syncMissingThumbnailsFromTvMaze() async {
     final currentEpisodes = state.episodes;
     final currentTitle = state.animeTitle?.trim();
-    if (currentEpisodes.isEmpty || currentTitle == null) return;
+    if (currentTitle == null || currentEpisodes.isEmpty || _isPlaceholder(currentTitle)) return;
 
     final missingCount =
         currentEpisodes
@@ -890,12 +921,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
           }
         }
 
-        // Fallback: first animation show
-        matchedShow ??= searchResults
-            .map((r) => Map<String, dynamic>.from((r as Map)['show'] as Map))
-            .firstWhereOrNull(
-              (s) => s['type']?.toString().toLowerCase() == 'animation',
-            );
+// Fallback removed to prevent matching unrelated animation shows
 
         if (matchedShow == null) return;
 
@@ -1001,7 +1027,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
 
   Future<void> _syncWithKitsu() async {
     final animeTitle = state.animeTitle?.trim();
-    if (animeTitle == null || animeTitle.isEmpty || state.episodes.isEmpty) {
+    if (animeTitle == null || _isPlaceholder(animeTitle) || state.episodes.isEmpty) {
       return;
     }
     final mediaId = state.mediaId;
@@ -1188,7 +1214,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
   }
 
   Future<void> _syncWithJustAnime() async {
-    if (state.episodes.isEmpty || state.animeTitle == null) return;
+    if (state.episodes.isEmpty || _isPlaceholder(state.animeTitle)) return;
 
     final currentTitle = state.animeTitle!;
     final mediaId = state.mediaId;
@@ -1401,6 +1427,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
   }
 
   Future<void> _syncWithJikan() async {
+    if (state.episodes.isEmpty || _isPlaceholder(state.animeTitle)) return;
     try {
       final currentTitle = state.animeTitle!;
       int? malId = state.malId;
