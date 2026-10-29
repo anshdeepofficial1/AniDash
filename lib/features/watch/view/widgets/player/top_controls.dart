@@ -93,20 +93,42 @@ class TopControls extends ConsumerWidget {
                     true));
 
     final mediaQuery = MediaQuery.of(context);
-    final view = View.of(context);
-    final physicalTop = view.viewPadding.top / view.devicePixelRatio;
-    final topInset = math.max(
-      math.max(mediaQuery.padding.top, mediaQuery.viewPadding.top),
-      physicalTop,
-    );
-    final leftInset = math.max(
-      mediaQuery.padding.left,
-      mediaQuery.viewPadding.left,
-    );
-    final rightInset = math.max(
-      mediaQuery.padding.right,
-      mediaQuery.viewPadding.right,
-    );
+    final isLandscape = mediaQuery.orientation == Orientation.landscape;
+
+    final double topPadding;
+    final double leftPadding;
+    final double rightPadding;
+    final double bottomPadding;
+
+    if (isLandscape) {
+      final view = View.of(context);
+      final physicalTop = view.viewPadding.top / view.devicePixelRatio;
+      final topInset = math.max(
+        math.max(mediaQuery.padding.top, mediaQuery.viewPadding.top),
+        physicalTop,
+      );
+      final leftInset = math.max(
+        mediaQuery.padding.left,
+        mediaQuery.viewPadding.left,
+      );
+      final rightInset = math.max(
+        mediaQuery.padding.right,
+        mediaQuery.viewPadding.right,
+      );
+      topPadding = math.max(topInset + 4, 12.0);
+      bottomPadding = 12.0;
+      leftPadding = math.max(leftInset, 16.0);
+      rightPadding = math.max(rightInset, 16.0);
+    } else {
+      // In portrait mode: The 16:9 player container is already positioned below the system status bar
+      // by SafeArea in WatchScreen.
+      // Use minimal top padding (4px) so the episode title, website tag and back button sit neatly
+      // at the top of the video instead of being pushed down into the center of the 16:9 container.
+      topPadding = 4.0;
+      bottomPadding = 8.0;
+      leftPadding = 6.0;
+      rightPadding = 6.0;
+    }
 
     return Container(
       decoration: const BoxDecoration(
@@ -119,10 +141,10 @@ class TopControls extends ConsumerWidget {
       ),
       child: Padding(
         padding: EdgeInsets.only(
-          top: math.max(topInset + 6, 28.0),
-          bottom: 12,
-          left: math.max(leftInset, 12),
-          right: math.max(rightInset, 12),
+          top: topPadding,
+          bottom: bottomPadding,
+          left: leftPadding,
+          right: rightPadding,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
