@@ -98,6 +98,12 @@ class EpisodeBlockItem extends StatelessWidget {
                 child: Icon(
                   download!.state == DownloadStatus.downloaded
                       ? Icons.download_done
+                      : download!.state == DownloadStatus.paused
+                      ? Icons.pause_circle_outline
+                      : download!.state == DownloadStatus.queued
+                      ? Icons.hourglass_top_rounded
+                      : download!.state == DownloadStatus.failed
+                      ? Icons.replay_rounded
                       : Icons.downloading,
                   size: 14,
                   color: theme.colorScheme.primary,

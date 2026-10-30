@@ -37,6 +37,52 @@ class EpisodeGridItem extends StatelessWidget {
     this.isSelectionMode = false,
   });
 
+
+  Widget _buildGridDownloadIcon(ThemeData theme) {
+    if (download == null) {
+      return const Icon(
+        Icons.download_rounded,
+        size: 14,
+        color: Colors.white,
+      );
+    }
+    switch (download!.state) {
+      case DownloadStatus.downloading:
+        return const SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Colors.white,
+          ),
+        );
+      case DownloadStatus.paused:
+        return const Icon(
+          Icons.play_arrow_rounded,
+          size: 14,
+          color: Colors.orangeAccent,
+        );
+      case DownloadStatus.queued:
+        return const Icon(
+          Icons.hourglass_top_rounded,
+          size: 14,
+          color: Colors.white70,
+        );
+      case DownloadStatus.failed || DownloadStatus.error:
+        return const Icon(
+          Icons.replay_rounded,
+          size: 14,
+          color: Colors.redAccent,
+        );
+      case DownloadStatus.downloaded:
+        return const Icon(
+          Icons.download_done_rounded,
+          size: 14,
+          color: Colors.greenAccent,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -135,23 +181,19 @@ class EpisodeGridItem extends StatelessWidget {
                         ),
                       ),
                   ],
-                  if (onDownload != null)
+                  if (download != null || onDownload != null)
                     Positioned(
                       bottom: 4,
                       right: 4,
                       child: InkWell(
-                        onTap: onDownload,
+                        onTap: download?.state == DownloadStatus.downloaded ? onMoreOptions : onDownload,
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             color: Colors.black54,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Icon(
-                            Icons.download_rounded,
-                            size: 16,
-                            color: Colors.white,
-                          ),
+                          child: _buildGridDownloadIcon(theme),
                         ),
                       ),
                     ),

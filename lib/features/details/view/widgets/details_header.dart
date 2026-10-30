@@ -437,8 +437,8 @@ class _DetailsHeaderState extends ConsumerState<DetailsHeader> {
     return SliverAppBar(
       expandedHeight: 340,
       pinned: false,
-      floating: true,
-      snap: true,
+      floating: false,
+      snap: false,
       stretch: true,
       elevation: 0,
       backgroundColor: colorScheme.surfaceContainerLowest,

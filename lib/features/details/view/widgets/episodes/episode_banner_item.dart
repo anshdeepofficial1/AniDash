@@ -410,7 +410,7 @@ class EpisodeBannerItem extends StatelessWidget {
         color = Colors.greenAccent;
         icon = Icons.check_circle_outline;
         break;
-      case DownloadStatus.failed:
+      case DownloadStatus.failed || DownloadStatus.error:
         text = 'Failed';
         color = Colors.redAccent;
         icon = Icons.error_outline;

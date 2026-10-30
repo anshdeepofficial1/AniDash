@@ -110,12 +110,7 @@ class EpisodeListItem extends StatelessWidget {
                     : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (onDownload != null)
-                          IconButton(
-                            icon: const Icon(Icons.download_rounded),
-                            tooltip: 'Download',
-                            onPressed: onDownload,
-                          ),
+                        _buildDownloadButton(context, theme),
                         IconButton(
                           icon: const Icon(Icons.more_vert),
                           tooltip: 'More options',
@@ -223,6 +218,82 @@ class EpisodeListItem extends StatelessWidget {
       color: theme.colorScheme.surfaceContainerHighest,
       child: Icon(Icons.image_not_supported, color: theme.colorScheme.outline),
     );
+  }
+
+  Widget _buildDownloadButton(BuildContext context, ThemeData theme) {
+    if (download == null) {
+      if (onDownload == null) return const SizedBox.shrink();
+      return IconButton(
+        icon: const Icon(Icons.download_rounded),
+        tooltip: 'Download',
+        onPressed: onDownload,
+      );
+    }
+
+    switch (download!.state) {
+      case DownloadStatus.downloading:
+        final progress = (download!.progressPercentage * 100).toStringAsFixed(0);
+        return IconButton(
+          icon: SizedBox(
+            width: 22,
+            height: 22,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: download!.progressPercentage > 0 ? download!.progressPercentage : null,
+                  strokeWidth: 2.5,
+                  color: theme.colorScheme.primary,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                ),
+                Icon(
+                  Icons.pause_rounded,
+                  size: 13,
+                  color: theme.colorScheme.primary,
+                ),
+              ],
+            ),
+          ),
+          tooltip: 'Pause Download ($progress%)',
+          onPressed: onDownload,
+        );
+      case DownloadStatus.paused:
+        return IconButton(
+          icon: Icon(
+            Icons.play_arrow_rounded,
+            color: theme.colorScheme.tertiary,
+          ),
+          tooltip: 'Resume Download',
+          onPressed: onDownload,
+        );
+      case DownloadStatus.queued:
+        return IconButton(
+          icon: Icon(
+            Icons.hourglass_top_rounded,
+            color: theme.colorScheme.secondary,
+          ),
+          tooltip: 'Queued (Tap to cancel)',
+          onPressed: onDownload,
+        );
+      case DownloadStatus.failed || DownloadStatus.error:
+        return IconButton(
+          icon: Icon(
+            Icons.replay_rounded,
+            color: theme.colorScheme.error,
+          ),
+          tooltip: 'Retry Download',
+          onPressed: onDownload,
+        );
+      case DownloadStatus.downloaded:
+        return IconButton(
+          icon: Icon(
+            Icons.download_done_rounded,
+            color: theme.colorScheme.primary,
+          ),
+          tooltip: 'Downloaded',
+          onPressed: onMoreOptions,
+        );
+    }
   }
 
   Widget _buildDownloadStatus(ThemeData theme, DownloadItem download) {
