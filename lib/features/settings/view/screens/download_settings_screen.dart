@@ -53,8 +53,27 @@ class DownloadSettingsScreen extends ConsumerWidget {
                   icon: Icon(Iconsax.folder, color: colorScheme.primary),
                   accent: colorScheme.primary,
                   title: 'Storage Directory',
-                  description: 'Internal app storage (managed automatically)',
-                  onTap: () {},
+                  description:
+                      'Internal app storage (Enable Custom Path to view in File Manager)',
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Download Storage Location'),
+                        content: const Text(
+                          'By default, downloads are saved in AniDash\'s private internal storage to protect them from accidental system cleaner deletion.\n\n'
+                          'Because this is private app data, phone File Managers cannot see the files directly.\n\n'
+                          'To save episodes to your phone\'s public \'Download\' or \'Movies\' folder where your File Manager can browse and share them, enable \'Custom Download Path\' above and choose your desired folder.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Got it'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               if (settings.useCustomPath)
                 NormalSettingsItem(

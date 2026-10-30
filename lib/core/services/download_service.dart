@@ -705,7 +705,7 @@ Future<DownloadItem> _processM3U8(
   // Wi-Fi while capping concurrency to avoid provider throttling.
   // Six concurrent segments saturate typical mobile/Wi-Fi links without
   // provoking CDN throttling or starving the active video player.
-  const workerCount = 14;
+  const workerCount = 6;
   int completed = 0;
   int downloadedBytesTotal = 0;
   int? estimatedTotalBytes;
@@ -993,17 +993,17 @@ Future<List<_Segment>> _parsePlaylist(
 }
 
 Future<Uint8List?> _fetch(String url, Map headers, http.Client client) async {
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 3; i++) {
     try {
       final res = await client
           .get(Uri.parse(url), headers: headers.cast())
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 20));
       if (res.statusCode == 200 || res.statusCode == 206) {
         return res.bodyBytes;
       }
     } catch (_) {}
-    if (i < 4) {
-      await Future.delayed(Duration(milliseconds: 100 * (i + 1)));
+    if (i < 2) {
+      await Future.delayed(Duration(milliseconds: 250 * (i + 1)));
     }
   }
   return null;

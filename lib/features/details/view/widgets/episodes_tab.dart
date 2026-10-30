@@ -260,6 +260,84 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         s.length >= visibleNums.length ? {} : visibleNums;
   }
 
+
+  void _pauseSelectedDownloads() {
+    if (_selectedEpisodes.isEmpty) return;
+    final animeTitle =
+        ref.read(detailsPageProvider(widget.mediaId)).bestMatchName ??
+        widget.mediaTitle.english ??
+        widget.mediaTitle.romaji ??
+        widget.mediaTitle.native ??
+        'Anime';
+    final downloads = ref.read(downloadsProvider).downloads.where(
+      (d) => (d.animeTitle == animeTitle || d.animeId == widget.mediaId) &&
+          _selectedEpisodes.contains(d.episodeNumber) &&
+          d.state == DownloadStatus.downloading,
+    ).toList();
+    for (final d in downloads) {
+      ref.read(downloadsProvider.notifier).pauseDownload(d);
+    }
+    if (downloads.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Paused ${downloads.length} downloads'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _resumeSelectedDownloads() {
+    if (_selectedEpisodes.isEmpty) return;
+    final animeTitle =
+        ref.read(detailsPageProvider(widget.mediaId)).bestMatchName ??
+        widget.mediaTitle.english ??
+        widget.mediaTitle.romaji ??
+        widget.mediaTitle.native ??
+        'Anime';
+    final downloads = ref.read(downloadsProvider).downloads.where(
+      (d) => (d.animeTitle == animeTitle || d.animeId == widget.mediaId) &&
+          _selectedEpisodes.contains(d.episodeNumber) &&
+          d.state == DownloadStatus.paused,
+    ).toList();
+    for (final d in downloads) {
+      ref.read(downloadsProvider.notifier).resumeDownload(d);
+    }
+    if (downloads.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Resumed ${downloads.length} downloads'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _cancelSelectedDownloads() {
+    if (_selectedEpisodes.isEmpty) return;
+    final animeTitle =
+        ref.read(detailsPageProvider(widget.mediaId)).bestMatchName ??
+        widget.mediaTitle.english ??
+        widget.mediaTitle.romaji ??
+        widget.mediaTitle.native ??
+        'Anime';
+    final downloads = ref.read(downloadsProvider).downloads.where(
+      (d) => (d.animeTitle == animeTitle || d.animeId == widget.mediaId) &&
+          _selectedEpisodes.contains(d.episodeNumber),
+    ).toList();
+    for (final d in downloads) {
+      ref.read(downloadsProvider.notifier).deleteDownload(d);
+    }
+    if (downloads.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cancelled/removed ${downloads.length} downloads'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Future<void> _markSelectedAsWatched({required bool watched}) async {
     if (_selectedEpisodes.isEmpty) return;
 
@@ -1215,6 +1293,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                           _markSelectedAsWatched(
                                             watched: false,
                                           );
+                                        } else if (val == 'pause_downloads') {
+                                          _pauseSelectedDownloads();
+                                        } else if (val == 'resume_downloads') {
+                                          _resumeSelectedDownloads();
+                                        } else if (val == 'cancel_downloads') {
+                                          _cancelSelectedDownloads();
                                         }
                                       },
                                       itemBuilder:
@@ -1242,6 +1326,52 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                                   ),
                                                   SizedBox(width: 8),
                                                   Text('Mark as Unwatched'),
+                                                ],
+                                              ),
+                                            ),
+                                            const PopupMenuDivider(),
+                                            const PopupMenuItem(
+                                              value: 'pause_downloads',
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.pause_circle_outline_rounded,
+                                                    size: 18,
+                                                    color: Colors.orange,
+                                                  ),
+                                                  SizedBox(width: 8),
+                                                  Text('Pause Selected Downloads'),
+                                                ],
+                                              ),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'resume_downloads',
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.play_circle_outline_rounded,
+                                                    size: 18,
+                                                    color: Colors.green,
+                                                  ),
+                                                  SizedBox(width: 8),
+                                                  Text('Resume Selected Downloads'),
+                                                ],
+                                              ),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'cancel_downloads',
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.cancel_outlined,
+                                                    size: 18,
+                                                    color: Colors.red,
+                                                  ),
+                                                  SizedBox(width: 8),
+                                                  Text(
+                                                    'Cancel Selected Downloads',
+                                                    style: TextStyle(color: Colors.red),
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -1730,12 +1860,42 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
       final download = downloadState.downloads.firstWhereOrNull(
         (d) => d.animeTitle == animeTitle && d.episodeNumber == ep.number,
       );
-      final isDownloaded = download?.state == DownloadStatus.downloaded;
 
       final fallbackCover = widget.mediaCover;
 
       void onDownloadItem() {
-        ref.read(episodeDataProvider.notifier).downloadEpisode(context, epNum);
+        if (download == null) {
+          ref.read(episodeDataProvider.notifier).downloadEpisode(context, epNum);
+        } else if (download.state == DownloadStatus.downloading) {
+          ref.read(downloadsProvider.notifier).pauseDownload(download);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Paused download for Episode $epNum'),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        } else if (download.state == DownloadStatus.paused) {
+          ref.read(downloadsProvider.notifier).resumeDownload(download);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Resumed download for Episode $epNum'),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        } else if (download.state == DownloadStatus.queued) {
+          ref.read(downloadsProvider.notifier).deleteDownload(download);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cancelled queued download for Episode $epNum'),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        } else if (download.state == DownloadStatus.failed) {
+          ref.read(episodeDataProvider.notifier).downloadEpisode(context, epNum);
+        }
       }
 
       void onLongPressItem() {
@@ -1765,7 +1925,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           fallbackCover: fallbackCover,
           onTap: onItemTap,
           onLongPress: onLongPressItem,
-          onDownload: isDownloaded ? null : onDownloadItem,
+          onDownload: onDownloadItem,
           onMoreOptions:
               () =>
                   _showEpisodeMenu(context, ep, isWatched, download: download),
@@ -1783,7 +1943,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           onMoreOptions:
               () =>
                   _showEpisodeMenu(context, ep, isWatched, download: download),
-          onDownload: isDownloaded ? null : onDownloadItem,
+          onDownload: onDownloadItem,
           onLongPress: onLongPressItem,
           isSelected: isSelected,
           isSelectionMode: _isSelectionMode,
@@ -1797,7 +1957,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           download: download,
           onTap: onItemTap,
           onLongPress: onLongPressItem,
-          onDownload: isDownloaded ? null : onDownloadItem,
+          onDownload: onDownloadItem,
           isSelected: isSelected,
           isSelectionMode: _isSelectionMode,
         ),
@@ -1813,7 +1973,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           onMoreOptions:
               () =>
                   _showEpisodeMenu(context, ep, isWatched, download: download),
-          onDownload: isDownloaded ? null : onDownloadItem,
+          onDownload: onDownloadItem,
           onLongPress: onLongPressItem,
           isSelected: isSelected,
           isSelectionMode: _isSelectionMode,
@@ -1830,7 +1990,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           onMoreOptions:
               () =>
                   _showEpisodeMenu(context, ep, isWatched, download: download),
-          onDownload: isDownloaded ? null : onDownloadItem,
+          onDownload: onDownloadItem,
           onLongPress: onLongPressItem,
           isSelected: isSelected,
           isSelectionMode: _isSelectionMode,
@@ -3054,32 +3214,212 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                     }
                   },
                 ),
-                if (isDownloaded)
+                if (download != null) ...[
+                  if (download.state == DownloadStatus.downloading) ...[
+                    ListTile(
+                      leading: const Icon(
+                        Icons.pause_circle_outline_rounded,
+                        color: Colors.orange,
+                      ),
+                      title: const Text(
+                        'Pause Download',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      onTap: () {
+                        ref
+                            .read(downloadsProvider.notifier)
+                            .pauseDownload(download);
+                        Navigator.pop(sheetContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Paused download for Episode $epNum'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.cancel_outlined,
+                        color: Colors.red,
+                      ),
+                      title: const Text(
+                        'Cancel Download',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onTap: () {
+                        ref
+                            .read(downloadsProvider.notifier)
+                            .deleteDownload(download);
+                        Navigator.pop(sheetContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Cancelled download for Episode $epNum'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                  ] else if (download.state == DownloadStatus.paused) ...[
+                    ListTile(
+                      leading: const Icon(
+                        Icons.play_circle_outline_rounded,
+                        color: Colors.green,
+                      ),
+                      title: const Text(
+                        'Resume Download',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      onTap: () {
+                        ref
+                            .read(downloadsProvider.notifier)
+                            .resumeDownload(download);
+                        Navigator.pop(sheetContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Resumed download for Episode $epNum'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.cancel_outlined,
+                        color: Colors.red,
+                      ),
+                      title: const Text(
+                        'Cancel Download',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onTap: () {
+                        ref
+                            .read(downloadsProvider.notifier)
+                            .deleteDownload(download);
+                        Navigator.pop(sheetContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Cancelled download for Episode $epNum'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                  ] else if (download.state == DownloadStatus.queued) ...[
+                    ListTile(
+                      leading: const Icon(
+                        Icons.cancel_outlined,
+                        color: Colors.red,
+                      ),
+                      title: const Text(
+                        'Cancel Queued Download',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onTap: () {
+                        ref
+                            .read(downloadsProvider.notifier)
+                            .deleteDownload(download);
+                        Navigator.pop(sheetContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Cancelled download for Episode $epNum'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                  ] else if (download.state == DownloadStatus.failed) ...[
+                    ListTile(
+                      leading: const Icon(
+                        Icons.replay_rounded,
+                        color: Colors.orange,
+                      ),
+                      title: const Text(
+                        'Retry Download',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        ref.read(episodeDataProvider.notifier).downloadEpisode(context, epNum);
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.cancel_outlined,
+                        color: Colors.red,
+                      ),
+                      title: const Text(
+                        'Cancel Download',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onTap: () {
+                        ref
+                            .read(downloadsProvider.notifier)
+                            .deleteDownload(download);
+                        Navigator.pop(sheetContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Removed download for Episode $epNum'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                  ] else if (isDownloaded) ...[
+                    ListTile(
+                      leading: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Colors.red,
+                      ),
+                      title: const Text(
+                        'Remove Download',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onTap: () {
+                        ref
+                            .read(downloadsProvider.notifier)
+                            .deleteDownload(download);
+                        Navigator.pop(sheetContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Removed download for Episode $epNum'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ] else ...[
                   ListTile(
                     leading: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: Colors.red,
+                      Icons.download_rounded,
+                      color: Colors.blueAccent,
                     ),
                     title: const Text(
-                      'Remove Download',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      'Download Episode',
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                     onTap: () {
-                      ref
-                          .read(downloadsProvider.notifier)
-                          .deleteDownload(download);
                       Navigator.pop(sheetContext);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Removed download for Episode $epNum'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
+                      ref.read(episodeDataProvider.notifier).downloadEpisode(context, epNum);
                     },
                   ),
+                ],
                 const SizedBox(height: 8),
               ],
             ),

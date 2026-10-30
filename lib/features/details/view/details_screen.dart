@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:ani_dash/core/models/universal/universal_media.dart';
@@ -36,6 +37,7 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late UniversalMedia _activeMedia;
+  bool _isFabExtended = true;
 
   @override
   void initState() {
@@ -112,11 +114,21 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
       backgroundColor: colorScheme.surfaceContainerLowest,
       body: SafeArea(
         bottom: false,
-        child: NestedScrollView(
-          // Give downward drags to the floating cover header before the
-          // active tab consumes them. This lets every tab reveal the cover
-          // again without first switching back to About.
-          floatHeaderSlivers: true,
+        child: NotificationListener<UserScrollNotification>(
+          onNotification: (notification) {
+            if (notification.direction == ScrollDirection.reverse) {
+              if (_isFabExtended) {
+                setState(() => _isFabExtended = false);
+              }
+            } else if (notification.direction == ScrollDirection.forward) {
+              if (!_isFabExtended) {
+                setState(() => _isFabExtended = true);
+              }
+            }
+            return false;
+          },
+          child: NestedScrollView(
+            floatHeaderSlivers: false,
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
               DetailsHeader(
@@ -222,6 +234,7 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
             ),
           ),
         ),
+        ),
       ),
       bottomNavigationBar:
           isDesktop
@@ -251,7 +264,7 @@ class _AnimeDetailsScreenState extends ConsumerState<AnimeDetailsScreen>
                 ),
               ),
       floatingActionButton:
-          !useExtensions ? _WatchFab(anime: displayedAnime) : null,
+          !useExtensions ? _WatchFab(anime: displayedAnime, isExtended: _isFabExtended) : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
@@ -377,7 +390,8 @@ class _DetailsTabBarDelegate extends SliverPersistentHeaderDelegate {
 
 class _WatchFab extends ConsumerStatefulWidget {
   final UniversalMedia anime;
-  const _WatchFab({required this.anime});
+  final bool isExtended;
+  const _WatchFab({required this.anime, this.isExtended = true});
 
   @override
   ConsumerState<_WatchFab> createState() => _WatchFabState();
@@ -396,6 +410,7 @@ class _WatchFabState extends ConsumerState<_WatchFab> {
 
     return FloatingActionButton.extended(
       heroTag: 'watch_btn',
+      isExtended: widget.isExtended,
       onPressed:
           _isWatchLoading
               ? null
