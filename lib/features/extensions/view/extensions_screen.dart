@@ -705,6 +705,7 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
     final extensionManager = Get.find<ExtensionManager>();
     extensionManager.setCurrentManager(engine);
     manager = extensionManager.currentManager;
+    if (!mounted) return;
     await ProviderScope.containerOf(context)
         .read(sourceProvider.notifier)
         .initialize();
@@ -832,10 +833,15 @@ class _ExtensionScreenState extends ExtensionManagerScreen<ExtensionScreen> {
           ];
           return languages.map((lang) {
             String label = lang;
-            if (lang == 'All') label = 'All Languages';
-            else if (lang == 'hi') label = 'Hindi (हिन्दी)';
-            else if (lang == 'en') label = 'English';
-            else if (lang == 'ja') label = 'Japanese';
+            if (lang == 'All') {
+              label = 'All Languages';
+            } else if (lang == 'hi') {
+              label = 'Hindi (हिन्दी)';
+            } else if (lang == 'en') {
+              label = 'English';
+            } else if (lang == 'ja') {
+              label = 'Japanese';
+            }
             return PopupMenuItem(
               value: lang,
               child: Text(label),
