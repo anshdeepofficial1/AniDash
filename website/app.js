@@ -98,7 +98,7 @@ async function fetchLatestReleases() {
     if (!releases.length) return;
 
     const newest = releases[0];
-    const latestTag = newest.tag_name || "v3.2.7";
+    const latestTag = newest.tag_name || "v3.3.0";
     setText("[data-version]", latestTag);
     setText("[data-latest-tag]", latestTag);
 

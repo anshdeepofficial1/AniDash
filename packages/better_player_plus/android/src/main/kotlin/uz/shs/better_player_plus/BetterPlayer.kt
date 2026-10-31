@@ -49,6 +49,8 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.LoadControl
 import androidx.media3.exoplayer.dash.DashMediaSource
@@ -123,7 +125,11 @@ internal class BetterPlayer(
         loadBuilder.setPrioritizeTimeOverSizeThresholds(true)
         loadBuilder.setBackBuffer(30000, false)
         loadControl = loadBuilder.build()
-        exoPlayer = ExoPlayer.Builder(context)
+        val renderersFactory = DefaultRenderersFactory(context)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+            .setEnableDecoderFallback(true)
+
+        exoPlayer = ExoPlayer.Builder(context, renderersFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .build()
@@ -434,15 +440,10 @@ internal class BetterPlayer(
             }.createMediaSource(mediaItem)
 
             C.CONTENT_TYPE_HLS -> {
-                val extractorFactory = DefaultHlsExtractorFactory(
-                    DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
-                    DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES,
-                    true
-                )
+                val extractorFactory = DefaultHlsExtractorFactory()
                 val loadErrorHandlingPolicy = DefaultLoadErrorHandlingPolicy(8)
                 HlsMediaSource.Factory(mediaDataSourceFactory)
                     .setExtractorFactory(extractorFactory)
-                    .setAllowChunklessPreparation(true)
                     .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
                     .apply {
                         if (drmSessionManagerProvider != null) {
@@ -483,6 +484,30 @@ internal class BetterPlayer(
         surface = Surface(textureEntry.surfaceTexture())
         exoPlayer?.setVideoSurface(surface)
         setAudioAttributes(exoPlayer, true)
+        exoPlayer?.addAnalyticsListener(object : AnalyticsListener {
+            private var droppedCount = 0
+            private var lastDropTime = 0L
+
+            override fun onDroppedVideoFrames(
+                eventTime: AnalyticsListener.EventTime,
+                droppedFrames: Int,
+                elapsedMs: Long
+            ) {
+                val now = System.currentTimeMillis()
+                if (now - lastDropTime > 2000) {
+                    droppedCount = 0
+                }
+                lastDropTime = now
+                droppedCount += droppedFrames
+                // If more than 50 video frames dropped in 2 seconds while audio is playing,
+                // video decoder is stalled. Flush decoder pipeline by seeking to current position.
+                if (droppedCount > 50 && exoPlayer?.isPlaying == true) {
+                    droppedCount = 0
+                    val currentPos = exoPlayer?.currentPosition ?: 0L
+                    exoPlayer?.seekTo(currentPos)
+                }
+            }
+        })
         exoPlayer?.addListener(object : Player.Listener {
             override fun onIsLoadingChanged(isLoading: Boolean) {
                 sendBufferingUpdate(false)

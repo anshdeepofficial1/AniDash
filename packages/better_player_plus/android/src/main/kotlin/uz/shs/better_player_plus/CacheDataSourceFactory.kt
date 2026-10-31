@@ -33,19 +33,22 @@ internal class CacheDataSourceFactory(
         val betterPlayerCache = BetterPlayerCache.createCache(context, maxCacheSize)
             ?: throw IllegalStateException("Cache can't be null.")
 
-        val upstream = defaultDatasourceFactory?.createDataSource()
+        // Distinct upstream instances to avoid concurrent socket corruption
+        val upstreamForCache = defaultDatasourceFactory?.createDataSource()
+            ?: FileDataSource()
+        val upstreamForDirect = defaultDatasourceFactory?.createDataSource()
             ?: FileDataSource()
 
         val cacheDataSource = CacheDataSource(
             betterPlayerCache,
-            upstream,
+            upstreamForCache,
             FileDataSource(),
             CacheDataSink(betterPlayerCache, maxFileSize),
             CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR,
             null
         )
 
-        return FilterPlaylistCacheDataSource(cacheDataSource, upstream)
+        return FilterPlaylistCacheDataSource(cacheDataSource, upstreamForDirect)
     }
 }
 
@@ -63,10 +66,13 @@ internal class FilterPlaylistCacheDataSource(
 
     override fun open(dataSpec: DataSpec): Long {
         val uriStr = dataSpec.uri.toString().lowercase()
-        // Never cache playlists, manifests, or keys in SimpleCache.
-        // Caching m3u8 playlists causes stale window/segment lockups where ExoPlayer
-        // stops fetching further chunks because it reads the cached playlist snapshot!
-        activeSource = if (uriStr.contains(".m3u8") || uriStr.contains(".mpd") || uriStr.contains("key")) {
+        // Never cache manifests (.m3u8, .mpd) or decryption keys (.key) in SimpleCache.
+        val isManifestOrKey = uriStr.contains(".m3u8") ||
+                              uriStr.contains(".mpd") ||
+                              uriStr.endsWith(".key") ||
+                              uriStr.contains("/key/") ||
+                              uriStr.contains("key.php")
+        activeSource = if (isManifestOrKey) {
             upstreamDataSource
         } else {
             cacheDataSource

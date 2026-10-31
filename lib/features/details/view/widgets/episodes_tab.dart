@@ -814,10 +814,13 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                     final selectedNative = ref.watch(selectedAnimeProvider);
 
                     String rawName;
-                    if (useExt && activeExt != null) {
+                    final selectedKind = sharedPrefs.getString('selected_playback_source_kind');
+                    if (selectedKind == 'extension' && useExt && activeExt != null) {
                       rawName = activeExt.name ?? 'Extension';
                     } else if (nativeKey != null && nativeKey.isNotEmpty) {
                       rawName = nativeKey;
+                    } else if (useExt && activeExt != null && selectedKind != 'native') {
+                      rawName = activeExt.name ?? 'Extension';
                     } else {
                       rawName = selectedNative?.providerName ?? 'JustAnime';
                     }

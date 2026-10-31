@@ -7,7 +7,7 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "ci(security)"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
 
   # Dart / Flutter dependencies: Security updates only (disable routine minor version spam)
   - package-ecosystem: "pub"

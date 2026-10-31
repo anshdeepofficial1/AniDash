@@ -36,8 +36,9 @@ class SelectedProviderKeyNotifier extends Notifier<String?> {
       }
     } catch (_) {}
 
+    final kind = sharedPrefs.getString('selected_playback_source_kind');
     // A user-selected extension must remain selected after app restart.
-    if (sharedPrefs.getString('selected_playback_source_kind') == 'extension') {
+    if (kind == 'extension') {
       return null;
     }
     final selectedKey =
@@ -45,6 +46,7 @@ class SelectedProviderKeyNotifier extends Notifier<String?> {
     AppLogger.w("[Registry] Selected $selectedKey");
     if (selectedKey == null || selectedKey.isEmpty) {
       sharedPrefs.setString(selectedProvider, 'justanime');
+      sharedPrefs.setString('selected_playback_source_kind', 'native');
       return 'justanime';
     }
     return selectedKey;

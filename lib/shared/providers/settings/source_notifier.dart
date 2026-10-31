@@ -221,16 +221,18 @@ class SourceNotifier extends _$SourceNotifier {
 
   void _restoreActiveSources() {
     final savedAnimeId = _repo.getActiveAnimeSourceId();
-    final activeAnime =
-        state.installedAnimeExtensions.firstWhereOrNull(
-          (s) =>
-              (s.id == savedAnimeId || s.name == savedAnimeId) &&
-              !_isAdultSource(s),
-        ) ??
-        state.installedAnimeExtensions.firstWhereOrNull(
-          (s) => (s.name ?? '').toLowerCase().contains('justanime'),
-        ) ??
-        state.installedAnimeExtensions.firstOrNull;
+    final isExplicitExtension = sharedPrefs.getString('selected_playback_source_kind') == 'extension';
+    final activeAnime = (savedAnimeId != null || isExplicitExtension)
+        ? (state.installedAnimeExtensions.firstWhereOrNull(
+            (s) =>
+                (s.id == savedAnimeId || s.name == savedAnimeId) &&
+                !_isAdultSource(s),
+          ) ??
+          state.installedAnimeExtensions.firstWhereOrNull(
+            (s) => (s.name ?? '').toLowerCase().contains('justanime'),
+          ) ??
+          (isExplicitExtension ? state.installedAnimeExtensions.firstOrNull : null))
+        : null;
 
     final activeAdult = state.installedAdultAnimeExtensions.firstOrNull;
 

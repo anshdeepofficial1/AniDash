@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=3.2.7">
+  <link rel="stylesheet" href="/styles.css?v=3.3.0">
 </head>
 <body>
   <div id="site-header"></div>
@@ -38,12 +38,33 @@
 
     <section>
       <div class="wrap timeline">
+        <!-- v3.3.0 -->
+        <div class="card release">
+          <div>
+            <div class="ver">v3.3.0</div>
+            <div class="copy">Latest Release</div>
+            <span class="status live" style="margin-top: 8px; display: inline-block;">Current Stable</span>
+          </div>
+          <div>
+            <h3>Official JustAnime Default & Video Freeze Fix 🚀</h3>
+            <ul style="color: var(--muted); padding-left: 20px; line-height: 1.7; font-size: 14px;">
+              <li><strong>Official JustAnime Default:</strong> Resolved an issue where initial app launch defaulted to third-party extension sources. The app now cleanly opens on official native JustAnime by default while retaining user-selected extensions.</li>
+              <li><strong>Resolved Video Freeze / Audio Desync:</strong> Fixed decoder lockup where video would freeze while audio continued playing. Removed non-IDR access point overrides and isolated upstream DataSource connections.</li>
+              <li><strong>MediaCodec Hardware Fallback:</strong> Enabled automatic decoder fallback and live dropped-frame recovery to resync video output on hardware glitches.</li>
+            </ul>
+            <div class="actions" style="margin-top: 18px;">
+              <a class="btn primary" href="/downloads">Download v3.3.0</a>
+              <a class="btn outline" href="https://github.com/anshdeepofficial1/AniDash/releases/tag/v3.3.0" target="_blank" rel="noopener">Release Notes ↗</a>
+            </div>
+          </div>
+        </div>
+
         <!-- v3.2.7 -->
         <div class="card release">
           <div>
             <div class="ver">v3.2.7</div>
-            <div class="copy">Latest Release</div>
-            <span class="status live" style="margin-top: 8px; display: inline-block;">Current Stable</span>
+            <div class="copy">Earlier</div>
+            
           </div>
           <div>
             <h3>Zero-Stall Streaming, Multi-Audio & Watchdog Recovery 🚀</h3>
@@ -137,6 +158,6 @@
   </main>
 
   <div id="site-footer"></div>
-  <script src="/app.js?v=3.2.7"></script>
+  <script src="/app.js?v=3.3.0"></script>
 </body>
 </html>
