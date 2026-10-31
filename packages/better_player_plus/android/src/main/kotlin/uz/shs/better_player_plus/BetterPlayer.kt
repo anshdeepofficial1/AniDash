@@ -62,6 +62,9 @@ import androidx.media3.exoplayer.drm.HttpMediaDrmCallback
 import androidx.media3.exoplayer.drm.LocalMediaDrmCallback
 import androidx.media3.exoplayer.drm.UnsupportedDrmException
 import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.smoothstreaming.DefaultSsChunkSource
 import androidx.media3.exoplayer.smoothstreaming.SsMediaSource
 import androidx.media3.exoplayer.source.ClippingMediaSource
@@ -118,7 +121,7 @@ internal class BetterPlayer(
         // cap despite AniDash requesting 120 seconds.  Time is the user-facing
         // contract here, so keep loading until the configured duration target.
         loadBuilder.setPrioritizeTimeOverSizeThresholds(true)
-        loadBuilder.setBackBuffer(120000, true)
+        loadBuilder.setBackBuffer(30000, false)
         loadControl = loadBuilder.build()
         exoPlayer = ExoPlayer.Builder(context)
             .setTrackSelector(trackSelector)
@@ -344,6 +347,7 @@ internal class BetterPlayer(
                     .build()
             }
             mediaSession?.setPlaybackState(playbackState)
+            sendBufferingUpdate(false)
             refreshHandler?.postDelayed(refreshRunnable!!, 1000)
         }
         refreshHandler?.postDelayed(refreshRunnable!!, 0)
@@ -429,12 +433,23 @@ internal class BetterPlayer(
                 }
             }.createMediaSource(mediaItem)
 
-            C.CONTENT_TYPE_HLS -> HlsMediaSource.Factory(mediaDataSourceFactory)
-                .apply {
-                    if (drmSessionManagerProvider != null) {
-                        setDrmSessionManagerProvider(drmSessionManagerProvider)
-                    }
-                }.createMediaSource(mediaItem)
+            C.CONTENT_TYPE_HLS -> {
+                val extractorFactory = DefaultHlsExtractorFactory(
+                    DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
+                    DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES,
+                    true
+                )
+                val loadErrorHandlingPolicy = DefaultLoadErrorHandlingPolicy(8)
+                HlsMediaSource.Factory(mediaDataSourceFactory)
+                    .setExtractorFactory(extractorFactory)
+                    .setAllowChunklessPreparation(true)
+                    .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
+                    .apply {
+                        if (drmSessionManagerProvider != null) {
+                            setDrmSessionManagerProvider(drmSessionManagerProvider)
+                        }
+                    }.createMediaSource(mediaItem)
+            }
 
             C.CONTENT_TYPE_OTHER -> ProgressiveMediaSource.Factory(
                 mediaDataSourceFactory,
@@ -469,6 +484,10 @@ internal class BetterPlayer(
         exoPlayer?.setVideoSurface(surface)
         setAudioAttributes(exoPlayer, true)
         exoPlayer?.addListener(object : Player.Listener {
+            override fun onIsLoadingChanged(isLoading: Boolean) {
+                sendBufferingUpdate(false)
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 when (playbackState) {
                     Player.STATE_BUFFERING -> {

@@ -26,19 +26,17 @@ internal class CustomDefaultLoadControl {
     val bufferForPlaybackMs: Int
 
     /**
-     * he default duration of media that must be buffered for playback to resume after a rebuffer,
-     * in milliseconds. A rebuffer is defined to be caused by buffer depletion rather than a user
-     * action.
+     * The default duration of media that must be buffered for playback to resume after a rebuffer,
+     * in milliseconds.
      */
     @JvmField
     val bufferForPlaybackAfterRebufferMs: Int
 
     constructor() {
-        minBufferMs = DefaultLoadControl.DEFAULT_MIN_BUFFER_MS
-        maxBufferMs = DefaultLoadControl.DEFAULT_MAX_BUFFER_MS
-        bufferForPlaybackMs = DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS
-        bufferForPlaybackAfterRebufferMs =
-            DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
+        minBufferMs = 60000
+        maxBufferMs = 180000
+        bufferForPlaybackMs = 1500
+        bufferForPlaybackAfterRebufferMs = 3000
     }
 
     constructor(
@@ -47,11 +45,9 @@ internal class CustomDefaultLoadControl {
         bufferForPlaybackMs: Int?,
         bufferForPlaybackAfterRebufferMs: Int?
     ) {
-        this.minBufferMs = minBufferMs ?: DefaultLoadControl.DEFAULT_MIN_BUFFER_MS
-        this.maxBufferMs = maxBufferMs ?: DefaultLoadControl.DEFAULT_MAX_BUFFER_MS
-        this.bufferForPlaybackMs =
-            bufferForPlaybackMs ?: DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS
-        this.bufferForPlaybackAfterRebufferMs = bufferForPlaybackAfterRebufferMs
-            ?: DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
+        this.minBufferMs = minBufferMs ?: 60000
+        this.maxBufferMs = maxBufferMs ?: 180000
+        this.bufferForPlaybackMs = bufferForPlaybackMs ?: 1500
+        this.bufferForPlaybackAfterRebufferMs = bufferForPlaybackAfterRebufferMs ?: 3000
     }
 }
