@@ -123,6 +123,11 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   bool _completionEmitted = false;
   bool _videoListenerAttached = false;
   bool _isEpisodeTransition = false;
+  Timer? _stallWatchdogTimer;
+  Duration _lastObservedPosition = Duration.zero;
+  Duration _lastObservedBuffer = Duration.zero;
+  int _stallTickCount = 0;
+  bool _isAutoRecovering = false;
 
   String? get activeMediaId => _activeMediaId;
   int? get activeEpisode => _activeEpisode;
@@ -212,6 +217,11 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         }
       case BetterPlayerEventType.exception:
         _startupTimer?.cancel();
+        if (state.position > const Duration(seconds: 5) && !_isAutoRecovering) {
+          AppLogger.w('⚠️ Mid-stream exception encountered. Auto-recovering...');
+          _recoverPlayback(state.position);
+          return;
+        }
         state = state.copyWith(
           isOpening: false,
           isBuffering: false,
@@ -360,30 +370,12 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       oldVideo?.removeListener(_syncVideoState);
       _videoListenerAttached = false;
     }
-    final source =
-        url.startsWith('http')
-            ? BetterPlayerDataSource.network(
-              url,
-              headers: effectiveHeaders,
-              videoFormat: _lastIsHls ? BetterPlayerVideoFormat.hls : null,
-              cacheConfiguration: const BetterPlayerCacheConfiguration(
-                useCache: true,
-                maxCacheSize: 512 * 1024 * 1024,
-                maxCacheFileSize: 128 * 1024 * 1024,
-                preCacheSize: 30 * 1024 * 1024,
-              ),
-              bufferingConfiguration: const BetterPlayerBufferingConfiguration(
-                minBufferMs: 120000,
-                maxBufferMs: 600000,
-                bufferForPlaybackMs: 1500,
-                bufferForPlaybackAfterRebufferMs: 6000,
-              ),
-            )
-            : BetterPlayerDataSource.file(url);
+    final source = _buildDataSource(url, effectiveHeaders, isHls: _lastIsHls);
     try {
       await betterPlayerController.setupDataSource(source);
       if (generation != _openGeneration) return;
       _attachVideoListener();
+      _startStallWatchdog();
       if (effectiveStartAt > Duration.zero) {
         await betterPlayerController.seekTo(effectiveStartAt);
       }
@@ -398,6 +390,111 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
               'This server could not play the episode. Try another server.',
         );
       }
+    }
+  }
+
+  BetterPlayerDataSource _buildDataSource(
+    String url,
+    Map<String, String>? headers, {
+    required bool isHls,
+  }) {
+    if (!url.startsWith('http')) {
+      return BetterPlayerDataSource.file(url);
+    }
+    return BetterPlayerDataSource.network(
+      url,
+      headers: headers,
+      videoFormat: isHls ? BetterPlayerVideoFormat.hls : null,
+      cacheConfiguration: const BetterPlayerCacheConfiguration(
+        useCache: true,
+        maxCacheSize: 256 * 1024 * 1024,
+        maxCacheFileSize: 32 * 1024 * 1024,
+        preCacheSize: 20 * 1024 * 1024,
+      ),
+      bufferingConfiguration: const BetterPlayerBufferingConfiguration(
+        minBufferMs: 60000,
+        maxBufferMs: 180000,
+        bufferForPlaybackMs: 1500,
+        bufferForPlaybackAfterRebufferMs: 3000,
+      ),
+    );
+  }
+
+  void _startStallWatchdog() {
+    _stallWatchdogTimer?.cancel();
+    _stallTickCount = 0;
+    _lastObservedPosition = Duration.zero;
+    _lastObservedBuffer = Duration.zero;
+    _stallWatchdogTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _checkPlaybackHealth();
+    });
+  }
+
+  void _checkPlaybackHealth() {
+    if (!state.isPlaying || state.isOpening || _isAutoRecovering || state.isSeeking) {
+      _stallTickCount = 0;
+      _lastObservedPosition = state.position;
+      _lastObservedBuffer = state.buffer;
+      return;
+    }
+
+    final pos = state.position;
+    final buffer = state.buffer;
+    final dur = state.duration;
+
+    if (dur > Duration.zero && pos >= dur - const Duration(seconds: 4)) {
+      _stallTickCount = 0;
+      return;
+    }
+
+    final positionAdvanced = pos > _lastObservedPosition + const Duration(milliseconds: 300);
+    final bufferAdvanced = buffer > _lastObservedBuffer + const Duration(milliseconds: 300);
+
+    if (positionAdvanced) {
+      _stallTickCount = 0;
+      _lastObservedPosition = pos;
+      _lastObservedBuffer = buffer;
+      return;
+    }
+
+    final isAtBufferEdge = buffer <= pos + const Duration(seconds: 2);
+    final isStuck = state.isBuffering || isAtBufferEdge;
+
+    if (isStuck && !bufferAdvanced) {
+      _stallTickCount++;
+      if (_stallTickCount == 4) {
+        AppLogger.w('⚠️ Playback stalled at s (buffer: s). Nudging loader...');
+        betterPlayerController.seekTo(pos);
+      } else if (_stallTickCount >= 7) {
+        _stallTickCount = 0;
+        _recoverPlayback(pos);
+      }
+    } else {
+      _stallTickCount = 0;
+    }
+
+    _lastObservedPosition = pos;
+    _lastObservedBuffer = buffer;
+  }
+
+  Future<void> _recoverPlayback(Duration resumePos) async {
+    if (_isAutoRecovering) return;
+    final url = _lastUrl;
+    if (url == null) return;
+    _isAutoRecovering = true;
+    AppLogger.w('⚡ Auto-recovering stalled playback at s...');
+    try {
+      final source = _buildDataSource(url, _lastHeaders, isHls: _lastIsHls);
+      await betterPlayerController.setupDataSource(source);
+      _attachVideoListener();
+      if (resumePos > Duration.zero) {
+        await betterPlayerController.seekTo(resumePos);
+      }
+      await betterPlayerController.play();
+    } catch (e) {
+      AppLogger.e('Auto-recovery failed: ');
+    } finally {
+      _isAutoRecovering = false;
     }
   }
 
@@ -448,6 +545,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     _openGeneration++;
     _seekTimeout?.cancel();
     _startupTimer?.cancel();
+    _stallWatchdogTimer?.cancel();
+    _stallWatchdogTimer = null;
+    _stallTickCount = 0;
+    _isAutoRecovering = false;
     _pendingSeekTarget = null;
     _lastUrl = null;
     _lastHeaders = null;
@@ -609,6 +710,8 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   void _dispose() {
     _seekTimeout?.cancel();
     _startupTimer?.cancel();
+    _stallWatchdogTimer?.cancel();
+    _stallWatchdogTimer = null;
     try {
       unawaited(WakelockPlus.disable());
     } catch (_) {}
