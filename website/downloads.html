@@ -1,5 +1,200 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#120e0f"><meta name="description" content="Download AniDash for Android, Windows and macOS. Get the latest Android APK, Windows installer or portable ZIP, and macOS DMG from official releases."><title>Download AniDash — Android, Windows & macOS</title><link rel="icon" type="image/png" href="/assets/anidash_logo.png"><link rel="apple-touch-icon" href="/assets/anidash_logo.png"><link rel="canonical" href="https://anidashweb.vercel.app/downloads"><link rel="manifest" href="/manifest.webmanifest"><meta name="application-name" content="AniDash"><meta name="apple-mobile-web-app-title" content="AniDash"><meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"><meta name="author" content="Anshdeep Singh"><meta property="og:type" content="website"><meta property="og:site_name" content="AniDash"><meta property="og:title" content="Download AniDash — Android, Windows & macOS"><meta property="og:description" content="Download the newest available AniDash builds for Android, Windows and macOS from the official GitHub releases."><meta property="og:url" content="https://anidashweb.vercel.app/downloads"><meta property="og:image" content="https://anidashweb.vercel.app/assets/anidash_logo.png"><meta property="og:image:alt" content="AniDash logo"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Download AniDash — Android, Windows & macOS"><meta name="twitter:description" content="Download the newest available AniDash builds for Android, Windows and macOS from the official GitHub releases."><meta name="twitter:image" content="https://anidashweb.vercel.app/assets/anidash_logo.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Download AniDash — Android, Windows & macOS","url":"https://anidashweb.vercel.app/downloads","description":"Download AniDash for Android, Windows and macOS from official GitHub releases."}</script><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/styles.css"></head><body><div id="site-header"></div><main><div class="wrap pagehead"><div class="kicker">Downloads</div><h1>Get AniDash.</h1><p class="lead">Choose your platform. The website automatically points each button to the newest available build published in the official GitHub releases.</p></div><section><div class="wrap"><div class="grid3">
-<div class="downloadbox"><div class="icon">A</div><h3>Android</h3><p class="copy">Download the newest available universal APK from the official repository.</p><div class="chips"><span class="chip" data-android-version>Latest available</span><span class="chip" data-android-info data-download-status>Checking release…</span></div><div class="actions"><a class="btn primary" data-apk href="https://github.com/anshdeepofficial1/AniDash/releases">Download APK</a></div></div>
-<div class="downloadbox"><div class="icon">W</div><h3>Windows</h3><p class="copy">Use the normal Setup installer or download the portable ZIP if you do not want an installer.</p><div class="chips"><span class="chip" data-windows-version>Latest available</span><span class="chip" data-windows-info data-download-status>Checking release…</span></div><div class="actions"><a class="btn primary" data-windows href="https://github.com/anshdeepofficial1/AniDash/releases">Download Setup</a><a class="btn outline" data-windows-portable href="https://github.com/anshdeepofficial1/AniDash/releases">Portable ZIP</a></div><div class="chips compact"><span class="chip" data-windows-portable-info></span></div></div>
-<div class="downloadbox"><div class="icon">M</div><h3>macOS</h3><p class="copy">Download the newest available native macOS build packaged as a DMG.</p><div class="chips"><span class="chip" data-macos-version>Latest available</span><span class="chip" data-macos-info data-download-status>Checking release…</span></div><div class="actions"><a class="btn primary" data-macos href="https://github.com/anshdeepofficial1/AniDash/releases">Download DMG</a></div></div>
-</div></div></section><section><div class="wrap"><div class="kicker">Android update options</div><h2>Prefer a store or update tracker?</h2><div class="grid2"><div class="downloadbox"><h3>Orion Store</h3><p class="copy">Install AniDash through its Orion Store listing.</p><div class="actions"><a class="btn tonal" target="_blank" rel="noopener" href="https://rookieenough.github.io/Orion-Data/redirect.html?id=anidash">Open Orion Store</a></div></div><div class="downloadbox"><h3>Obtainium</h3><p class="copy">Follow official GitHub releases through Obtainium for Android update tracking.</p><div class="actions"><a class="btn outline" target="_blank" rel="noopener" href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/anshdeepofficial1/AniDash">Add to Obtainium</a></div></div></div></div></section><section><div class="wrap"><div class="kicker">Installation</div><h2>Simple on every supported platform.</h2><div class="grid3"><div class="card"><h3>Android</h3><p>Download the APK, allow installation from your browser or file manager if Android asks, then install normally. Updating over the existing app should preserve local data as long as the app is not uninstalled first.</p></div><div class="card"><h3>Windows</h3><p>The Setup build is the normal choice for installation and in-place updates. The portable ZIP can be extracted and run without a traditional installer.</p></div><div class="card"><h3>macOS</h3><p>Open the downloaded DMG and install AniDash as a normal macOS desktop application. Newer DMG builds published in GitHub releases are picked up automatically by this page.</p></div></div></div></section></main><div id="site-footer"></div><script src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09070c">
+  <meta name="description" content="Download AniDash for Android, Windows and macOS. Get specific Android APK architectures (arm64-v8a, Universal, armeabi-v7a), Windows Setup, and macOS DMG.">
+  <title>Download AniDash — Android, Windows & macOS Builds</title>
+  <link rel="icon" type="image/png" href="/assets/anidash_logo.png">
+  <link rel="apple-touch-icon" href="/assets/anidash_logo.png">
+  <link rel="canonical" href="https://anidashweb.vercel.app/downloads">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="application-name" content="AniDash">
+  <meta name="apple-mobile-web-app-title" content="AniDash">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <meta name="author" content="Anshdeep Singh">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AniDash">
+  <meta property="og:title" content="Download AniDash — Official Releases">
+  <meta property="og:description" content="Download official, virus-free AniDash builds for Android (arm64, Universal), Windows and macOS.">
+  <meta property="og:url" content="https://anidashweb.vercel.app/downloads">
+  <meta property="og:image" content="https://anidashweb.vercel.app/assets/anidash_logo.png">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <div class="wrap pagehead">
+      <div class="kicker">Downloads</div>
+      <h1>Get AniDash.</h1>
+      <p class="lead">
+        Choose your platform and architecture. All downloads point to the newest verified release published directly on our official GitHub repository.
+      </p>
+    </div>
+
+    <!-- Android Builds Grid -->
+    <section>
+      <div class="wrap">
+        <div class="kicker">Android Builds</div>
+        <h2>Choose your Android architecture.</h2>
+        <p class="copy">
+          Most modern smartphones use <strong>arm64-v8a</strong>, which downloads faster and takes up less storage. If you are unsure which one your device needs, download the <strong>Universal APK</strong>.
+        </p>
+
+        <div class="grid4">
+          <div class="downloadbox">
+            <span class="status live" style="align-self: flex-start; margin-bottom: 12px;">Recommended</span>
+            <h3>arm64-v8a</h3>
+            <p class="copy">Modern 64-bit phones (Snapdragon, MediaTek, Exynos, Tensor). Fastest performance and smaller size.</p>
+            <div class="chips">
+              <span class="chip highlight" data-android-version>v3.2.6</span>
+              <span class="chip" data-apk-arm64-size>~34.1 MB</span>
+            </div>
+            <div class="actions">
+              <a class="btn primary" data-apk-arm64 href="https://github.com/anshdeepofficial1/AniDash/releases">Download arm64</a>
+            </div>
+          </div>
+
+          <div class="downloadbox">
+            <span class="status" style="align-self: flex-start; margin-bottom: 12px; background: rgba(255, 255, 255, 0.1);">Compatible</span>
+            <h3>Universal APK</h3>
+            <p class="copy">Works on all Android devices (arm64, armeabi-v7a, x86_64). Contains native libraries for all hardware.</p>
+            <div class="chips">
+              <span class="chip highlight" data-android-version>v3.2.6</span>
+              <span class="chip" data-apk-universal-size>~78.6 MB</span>
+            </div>
+            <div class="actions">
+              <a class="btn tonal" data-apk-universal href="https://github.com/anshdeepofficial1/AniDash/releases">Download Universal</a>
+            </div>
+          </div>
+
+          <div class="downloadbox">
+            <span class="status" style="align-self: flex-start; margin-bottom: 12px; background: rgba(255, 255, 255, 0.1);">Legacy</span>
+            <h3>armeabi-v7a</h3>
+            <p class="copy">Older 32-bit Android phones and low-end devices. Optimized for older CPU architectures.</p>
+            <div class="chips">
+              <span class="chip highlight" data-android-version>v3.2.6</span>
+              <span class="chip" data-apk-arm32-size>~34.1 MB</span>
+            </div>
+            <div class="actions">
+              <a class="btn outline" data-apk-arm32 href="https://github.com/anshdeepofficial1/AniDash/releases">Download arm32</a>
+            </div>
+          </div>
+
+          <div class="downloadbox">
+            <span class="status" style="align-self: flex-start; margin-bottom: 12px; background: rgba(255, 255, 255, 0.1);">Emulators</span>
+            <h3>x86_64</h3>
+            <p class="copy">For Android emulators on PC (BlueStacks, LDPlayer, Android Studio emulator) and Intel ChromeOS devices.</p>
+            <div class="chips">
+              <span class="chip highlight" data-android-version>v3.2.6</span>
+              <span class="chip" data-apk-x86-size>~35.2 MB</span>
+            </div>
+            <div class="actions">
+              <a class="btn outline" data-apk-x86 href="https://github.com/anshdeepofficial1/AniDash/releases">Download x86_64</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Desktop Builds Section -->
+    <section style="background: rgba(19, 15, 23, 0.4); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="wrap">
+        <div class="kicker">Desktop Apps</div>
+        <h2>Windows & macOS Native Builds.</h2>
+
+        <div class="grid2">
+          <div class="downloadbox">
+            <div class="icon">🪟</div>
+            <h3>Windows (64-bit)</h3>
+            <p class="copy">Native desktop client with seamless keyboard navigation, 4K video rendering, and window management.</p>
+            <div class="chips">
+              <span class="chip highlight" data-windows-version>Latest</span>
+              <span class="chip">Windows 10 / 11</span>
+            </div>
+            <div class="actions">
+              <a class="btn primary" data-windows href="https://github.com/anshdeepofficial1/AniDash/releases">Download Setup (.exe)</a>
+              <a class="btn outline" data-windows-portable href="https://github.com/anshdeepofficial1/AniDash/releases">Portable ZIP</a>
+            </div>
+          </div>
+
+          <div class="downloadbox">
+            <div class="icon">🍎</div>
+            <h3>macOS (Universal)</h3>
+            <p class="copy">Packaged as a standard macOS Disk Image (.dmg). Compatible with Apple Silicon (M1/M2/M3/M4) and Intel Macs.</p>
+            <div class="chips">
+              <span class="chip highlight" data-macos-version>Latest</span>
+              <span class="chip">macOS 11+</span>
+            </div>
+            <div class="actions">
+              <a class="btn primary" data-macos href="https://github.com/anshdeepofficial1/AniDash/releases">Download DMG</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- App Stores & Update Trackers -->
+    <section>
+      <div class="wrap">
+        <div class="kicker">Update Trackers</div>
+        <h2>Automatic update managers.</h2>
+
+        <div class="grid2">
+          <div class="downloadbox">
+            <div class="icon">⚡</div>
+            <h3>Orion Store</h3>
+            <p class="copy">Install and receive silent automatic updates through your Orion Store application manager.</p>
+            <div class="actions">
+              <a class="btn tonal" target="_blank" rel="noopener" href="https://rookieenough.github.io/Orion-Data/redirect.html?id=anidash">Open in Orion Store ↗</a>
+            </div>
+          </div>
+
+          <div class="downloadbox">
+            <div class="icon">🔄</div>
+            <h3>Obtainium Tracker</h3>
+            <p class="copy">Automatically follow official GitHub releases and receive notifications whenever a new AniDash build drops.</p>
+            <div class="actions">
+              <a class="btn outline" target="_blank" rel="noopener" href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/anshdeepofficial1/AniDash">Add to Obtainium ↗</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Installation & Security Guide -->
+    <section style="background: rgba(19, 15, 23, 0.4); border-top: 1px solid var(--line);">
+      <div class="wrap">
+        <div class="kicker">Installation Guide</div>
+        <h2>Safe, private, and simple.</h2>
+
+        <div class="grid3">
+          <div class="card">
+            <h3>1. Download the APK</h3>
+            <p>Choose <strong>arm64-v8a</strong> for modern smartphones or <strong>Universal</strong> for all devices. Chrome or your browser may show a "File might be harmful" prompt — this is standard for all side-loaded open-source APKs.</p>
+          </div>
+
+          <div class="card">
+            <h3>2. Allow Unknown Sources</h3>
+            <p>When opening the downloaded APK, tap <strong>Settings</strong> if prompted and toggle on <em>"Allow from this source"</em> for your browser or file manager.</p>
+          </div>
+
+          <div class="card">
+            <h3>3. In-Place Updates</h3>
+            <p>When installing a newer version over an older one, your watch history, bookmarked anime, downloaded episodes, and custom themes are 100% preserved!</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

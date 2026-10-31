@@ -1,25 +1,120 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#120e0f"><meta name="description" content="See the latest AniDash release notes, version history and update information from the official GitHub repository."><title>AniDash Changelogs — Latest Releases & Updates</title><link rel="icon" type="image/png" href="/assets/anidash_logo.png"><link rel="apple-touch-icon" href="/assets/anidash_logo.png"><link rel="canonical" href="https://anidashweb.vercel.app/changelogs"><link rel="manifest" href="/manifest.webmanifest"><meta name="application-name" content="AniDash"><meta name="apple-mobile-web-app-title" content="AniDash"><meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"><meta name="author" content="Anshdeep Singh"><meta property="og:type" content="website"><meta property="og:site_name" content="AniDash"><meta property="og:title" content="AniDash Changelogs — Latest Releases & Updates"><meta property="og:description" content="See the latest AniDash release notes, version history and update information from the official GitHub repository."><meta property="og:url" content="https://anidashweb.vercel.app/changelogs"><meta property="og:image" content="https://anidashweb.vercel.app/assets/anidash_logo.png"><meta property="og:image:alt" content="AniDash logo"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="AniDash Changelogs — Latest Releases & Updates"><meta name="twitter:description" content="See the latest AniDash release notes, version history and update information from the official GitHub repository."><meta name="twitter:image" content="https://anidashweb.vercel.app/assets/anidash_logo.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"AniDash Changelogs — Latest Releases & Updates","url":"https://anidashweb.vercel.app/changelogs","description":"See the latest AniDash release notes, version history and update information from the official GitHub repository.","isPartOf":{"@id":"https://anidashweb.vercel.app/#website"},"about":{"@id":"https://anidashweb.vercel.app/#app"}}</script>
-<link rel="apple-touch-icon" href="/assets/anidash_logo.png">
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09070c">
+  <meta name="description" content="See the latest AniDash release notes, version history and update information from the official GitHub repository.">
+  <title>AniDash Changelogs — Release Notes & Version History</title>
+  <link rel="icon" type="image/png" href="/assets/anidash_logo.png">
+  <link rel="apple-touch-icon" href="/assets/anidash_logo.png">
+  <link rel="canonical" href="https://anidashweb.vercel.app/changelogs">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="application-name" content="AniDash">
+  <meta name="apple-mobile-web-app-title" content="AniDash">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <meta name="author" content="Anshdeep Singh">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AniDash">
+  <meta property="og:title" content="AniDash Changelogs — Latest Releases">
+  <meta property="og:description" content="Discover what's new in each version of AniDash.">
+  <meta property="og:url" content="https://anidashweb.vercel.app/changelogs">
+  <meta property="og:image" content="https://anidashweb.vercel.app/assets/anidash_logo.png">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="site-header"></div>
 
+  <main>
+    <div class="wrap pagehead">
+      <div class="kicker">Changelogs</div>
+      <h1>What changed.</h1>
+      <p class="lead">Follow the latest stable release updates, feature additions, and bug fixes directly from the AniDash development team.</p>
+    </div>
 
+    <section>
+      <div class="wrap timeline">
+        <!-- v3.2.6 -->
+        <div class="card release">
+          <div>
+            <div class="ver">v3.2.6</div>
+            <div class="copy">Latest Release</div>
+            <span class="status live" style="margin-top: 8px; display: inline-block;">Current Stable</span>
+          </div>
+          <div>
+            <h3>Zero-Stall Streaming & Direct Download Controls 🚀</h3>
+            <ul style="color: var(--muted); padding-left: 20px; line-height: 1.7; font-size: 14px;">
+              <li><strong>Zero-Stall Stream Watchdog:</strong> Implemented active buffer recovery and bypassed playlist caching in ExoPlayer to eliminate HLS playback freezes.</li>
+              <li><strong>Interactive Episode Download Rings:</strong> Tap downloading episodes to Pause, tap paused episodes to Resume, and tap queued episodes to Cancel directly on episode cards.</li>
+              <li><strong>Batch Multi-Select Controls:</strong> Pause, Resume, or Cancel multiple selected downloads in the Episodes tab with one tap.</li>
+              <li><strong>Cellular Data Protection:</strong> Tuned HLS download concurrency down to 6 workers to eliminate CDN socket timeouts and retry loops on 4G networks.</li>
+              <li><strong>UI Overlap Fix:</strong> Fixed details screen cover banner drop-down overlap and made the "Watch Now" FAB collapse automatically on downward scroll.</li>
+            </ul>
+            <div class="actions" style="margin-top: 18px;">
+              <a class="btn primary" href="/downloads">Download v3.2.6</a>
+              <a class="btn outline" href="https://github.com/anshdeepofficial1/AniDash/releases/tag/v3.2.6" target="_blank" rel="noopener">Release Notes ↗</a>
+            </div>
+          </div>
+        </div>
 
+        <!-- v3.2.5 -->
+        <div class="card release">
+          <div>
+            <div class="ver">v3.2.5</div>
+            <div class="copy">Oct 2026</div>
+          </div>
+          <div>
+            <h3>Compact 16:9 Player Header & Precision Alignment</h3>
+            <ul style="color: var(--muted); padding-left: 20px; line-height: 1.7; font-size: 14px;">
+              <li><strong>Eliminated Top Empty Space:</strong> Cleaned up excess 50px top padding in the 16:9 portrait player. Source name and episode title now align with precision.</li>
+              <li><strong>Orientation Inset Handling:</strong> Preserved notch margins in fullscreen landscape while keeping portrait mode edge-to-edge.</li>
+            </ul>
+            <div class="actions" style="margin-top: 18px;">
+              <a class="btn tonal" href="https://github.com/anshdeepofficial1/AniDash/releases/tag/v3.2.5" target="_blank" rel="noopener">View v3.2.5 Notes ↗</a>
+            </div>
+          </div>
+        </div>
 
+        <!-- v3.2.4 -->
+        <div class="card release">
+          <div>
+            <div class="ver">v3.2.4</div>
+            <div class="copy">Oct 2026</div>
+          </div>
+          <div>
+            <h3>Sub/Dub Search Filters & Engine Hardening</h3>
+            <ul style="color: var(--muted); padding-left: 20px; line-height: 1.7; font-size: 14px;">
+              <li><strong>Sub/Dub Audio Filter:</strong> Quickly filter search results by Subtitled or English Dub availability.</li>
+              <li><strong>Player Lifecycle Optimizations:</strong> Faster startup times and smoother transitions between episodes.</li>
+            </ul>
+            <div class="actions" style="margin-top: 18px;">
+              <a class="btn tonal" href="https://github.com/anshdeepofficial1/AniDash/releases/tag/v3.2.4" target="_blank" rel="noopener">View v3.2.4 Notes ↗</a>
+            </div>
+          </div>
+        </div>
 
+        <!-- History Link -->
+        <div class="card release" style="background: rgba(255, 255, 255, 0.02);">
+          <div>
+            <div class="ver" style="color: var(--muted);">Full History</div>
+          </div>
+          <div>
+            <h3>Older Releases & GitHub Commits</h3>
+            <p style="color: var(--muted); font-size: 14px;">Browse every published version, source code tags, and commit histories on GitHub.</p>
+            <div class="actions" style="margin-top: 18px;">
+              <a class="btn outline" href="https://github.com/anshdeepofficial1/AniDash/releases" target="_blank" rel="noopener">View All GitHub Releases ↗</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/styles.css"></head><body><div id="site-header"></div><main><div class="wrap pagehead"><div class="kicker">Changelogs</div><h1>What changed.</h1><p class="lead">Follow the latest stable release and the full release history from the official repository.</p></div><section><div class="wrap timeline">
-<div class="card release"><div><div class="ver" data-version>Latest</div><div class="copy">Current stable</div></div><div><h3>Latest Android release</h3><p>Version details and the complete release notes are fetched and published through GitHub Releases.</p><div class="actions"><a class="btn primary" href="https://github.com/anshdeepofficial1/AniDash/releases/latest" target="_blank">Open latest release</a></div></div></div>
-<div class="card release"><div><div class="ver">History</div></div><div><h3>All releases</h3><p>Browse every published AniDash release and its notes.</p><div class="actions"><a class="btn tonal" href="https://github.com/anshdeepofficial1/AniDash/releases" target="_blank">View release history</a></div></div></div>
-</div></section></main><div id="site-footer"></div><script src="/app.js"></script></body></html>
+  <div id="site-footer"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
