@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#09070c">
-  <meta name="description" content="Explore AniDash features: Zero-Stall anime playback, offline multi-worker downloader, AniList & MAL sync, MangaDex reader, Material You theming and more.">
-  <title>AniDash Features — Streaming, Downloads, Manga & Tracking</title>
+  <meta name="description" content="Explore AniDash features: Japanese SUB, English DUB, and Hindi Dubbed anime, Zero-Stall playback engine, direct episode downloads, AniList sync, and MangaDex reader.">
+  <title>AniDash Features — SUB, DUB, Hindi Dubbed, Zero-Stall Playback & Manga</title>
   <link rel="icon" type="image/png" href="/assets/anidash_logo.png">
   <link rel="apple-touch-icon" href="/assets/anidash_logo.png">
   <link rel="canonical" href="https://anidashweb.vercel.app/features">
@@ -16,104 +16,222 @@
   <meta name="author" content="Anshdeep Singh">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AniDash">
-  <meta property="og:title" content="AniDash Features — Modern Anime Experience">
-  <meta property="og:description" content="Discover everything AniDash offers: Zero-stall player, offline downloads, manga reader, and cloud sync.">
+  <meta property="og:title" content="AniDash Features — Stream in SUB, DUB & Hindi Dubbed">
+  <meta property="og:description" content="Explore everything AniDash offers: SUB, DUB & Hindi Dubbed anime, Zero-Stall player, offline downloads, manga reader, and AniList cloud sync.">
   <meta property="og:url" content="https://anidashweb.vercel.app/features">
   <meta property="og:image" content="https://anidashweb.vercel.app/assets/anidash_logo.png">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=3.2.7">
 </head>
 <body>
   <div id="site-header"></div>
 
   <main>
     <div class="wrap pagehead">
-      <div class="kicker">Features</div>
-      <h1>More than just a player.</h1>
-      <p class="lead">AniDash unites lightning-fast streaming, an intelligent offline downloader, AniList sync, and a full manga reader in one seamless dark interface.</p>
+      <div class="kicker">Full Feature Guide</div>
+      <h1>Everything built for anime fans.</h1>
+      <p class="lead">AniDash unites multi-audio streaming (SUB, DUB & Hindi), a zero-stall video player, an intelligent offline downloader, AniList sync, and a full manga reader in one seamless dark interface.</p>
     </div>
 
+    <!-- Category 1: Multi-Audio Streaming (SUB, DUB & HINDI) -->
     <section>
       <div class="wrap">
+        <div class="category-header">
+          <span class="kicker">Audio & Languages</span>
+          <h2>1. Stream in SUB, DUB or Hindi (हिन्दी डब)</h2>
+          <p>Watch anime in your preferred language without having to switch between different apps or websites.</p>
+        </div>
+
         <div class="grid3">
           <div class="card">
-            <div class="icon">⚡</div>
-            <h3>Zero-Stall Playback</h3>
-            <p>Smart buffer watchdog detects stalled network segments and auto-recovers the stream in the background without needing to exit the player.</p>
+            <div class="icon">🇯🇵</div>
+            <h3>Japanese SUB (Original Audio)</h3>
+            <p>Experience the passion of original Japanese voice actors with perfectly synchronized subtitles in English, Spanish, and multiple languages.</p>
           </div>
 
           <div class="card">
+            <div class="icon">🇺🇸</div>
+            <h3>English DUB Catalog</h3>
+            <p>Enjoy massive libraries of English dubbed anime with professional voice casts. Perfect for multitasking or action-packed battle sequences.</p>
+          </div>
+
+          <div class="card" style="border-color: rgba(245, 158, 11, 0.4); background: linear-gradient(145deg, rgba(38, 26, 18, 0.8), rgba(20, 15, 24, 0.9));">
+            <div class="icon" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">🇮🇳</div>
+            <h3 style="color: #fbbf24;">Hindi Dubbed Anime (हिन्दी डब)</h3>
+            <p>Specially curated for Indian fans! Stream and download popular series like Naruto, Dragon Ball Super, Demon Slayer, Jujutsu Kaisen, and Solo Leveling in Hindi audio.</p>
+          </div>
+
+          <div class="card">
+            <div class="icon">🎛️</div>
+            <h3>1-Tap Audio Switcher</h3>
+            <p>Switch between SUB, DUB, and HINDI audio tracks in seconds right inside the player controls or from the episode details menu.</p>
+          </div>
+
+          <div class="card">
+            <div class="icon">🧠</div>
+            <h3>Smart Language Memory</h3>
+            <p>Set your default language preference once, and AniDash automatically plays every subsequent episode in your favorite audio track whenever available.</p>
+          </div>
+
+          <div class="card">
+            <div class="icon">⚙️</div>
+            <h3>Custom Subtitle Tuning</h3>
+            <p>Fine-tune subtitle delay by milliseconds (+/-), adjust font sizes, change text shadow, background opacity, and font styling for maximum readability.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Category 2: Zero-Stall Streaming Engine (v3.2.7) -->
+    <section style="background: rgba(19, 15, 23, 0.4); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="wrap">
+        <div class="category-header">
+          <span class="kicker">Playback Engine</span>
+          <h2>2. Zero-Stall Streaming & Video Player</h2>
+          <p>Powered by an optimized ExoPlayer engine with intelligent auto-recovery that eliminates buffer freezing.</p>
+        </div>
+
+        <div class="grid3">
+          <div class="card">
+            <div class="icon">⚡</div>
+            <h3>Smart Buffer Watchdog</h3>
+            <p>Real-time playback health monitor detects network stalls, micro-nudges the stream at 4s, and soft-recovers at 7s without user interruption.</p>
+          </div>
+
+          <div class="card">
+            <div class="icon">🛡️</div>
+            <h3>Playlist Cache Bypass</h3>
+            <p>Ensures HLS .m3u8 manifest files are always fetched fresh from upstream, eliminating the bug where streams froze after ~100s.</p>
+          </div>
+
+          <div class="card">
+            <div class="icon">👆</div>
+            <h3>Intuitive Touch Gestures</h3>
+            <p>Swipe up/down on the left side for brightness, on the right side for volume, and double-tap left/right for instantaneous 10s seek.</p>
+          </div>
+
+          <div class="card">
+            <div class="icon">📐</div>
+            <h3>Precision 16:9 & Notch Alignment</h3>
+            <p>Edge-to-edge immersive portrait view with no empty top padding, plus safe-area notch margins in fullscreen landscape mode.</p>
+          </div>
+
+          <div class="card">
+            <div class="icon">🖼️</div>
+            <h3>Picture-in-Picture (PiP)</h3>
+            <p>Seamlessly minimize video into a floating window so you can browse other apps or chat while keeping your anime playing.</p>
+          </div>
+
+          <div class="card">
+            <div class="icon">⏭️</div>
+            <h3>Skip Intro & Outro</h3>
+            <p>Convenient one-tap buttons to jump over opening and ending themes so you dive straight into the story.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Category 3: Smart Downloader & Cellular Protection -->
+    <section>
+      <div class="wrap">
+        <div class="category-header">
+          <span class="kicker">Offline Viewing</span>
+          <h2>3. Intelligent Offline Downloader</h2>
+          <p>Download full anime episodes for flights, road trips, and offline watching with live controls.</p>
+        </div>
+
+        <div class="grid3">
+          <div class="card">
             <div class="icon">📥</div>
-            <h3>Direct Episode Downloads</h3>
-            <p>Interactive progress rings on every episode card. Tap to pause, resume, or cancel downloads directly without jumping to the download screen.</p>
+            <h3>Direct Episode Download Rings</h3>
+            <p>Interactive progress rings on every episode card. Tap to pause, resume, or cancel downloads directly without jumping to the download tab.</p>
           </div>
 
           <div class="card">
             <div class="icon">📱</div>
             <h3>Cellular Data Protection</h3>
-            <p>Optimized 6-worker HLS segment downloading eliminates CDN socket drops, timeouts, and aggressive retry data consumption on 4G networks.</p>
+            <p>Optimized 6-worker HLS segment downloading eliminates CDN socket timeouts and aggressive retry data consumption on 4G networks.</p>
           </div>
 
           <div class="card">
             <div class="icon">📂</div>
             <h3>Custom Storage Paths</h3>
-            <p>Choose between internal app sandbox or public phone storage (<code>Download</code>/<code>Movies</code>) to easily access videos in external players.</p>
+            <p>Choose between internal app sandbox or public phone storage (<code>Download</code>/<code>Movies</code>) to easily access videos in VLC or external apps.</p>
           </div>
 
           <div class="card">
-            <div class="icon">🔊</div>
-            <h3>SUB / DUB Preference</h3>
-            <p>Set your default language preference once, and AniDash will automatically pick English Dub or Original Japanese Sub whenever available.</p>
+            <div class="icon">📦</div>
+            <h3>Batch Download Controls</h3>
+            <p>Select multiple episodes in the Episodes tab and pause, resume, or cancel the whole batch with a single tap.</p>
+          </div>
+
+          <div class="card">
+            <div class="icon">🔄</div>
+            <h3>Background Download Queue</h3>
+            <p>Queues episodes reliably in the background with persistent foreground notification service so downloads never get killed by Android.</p>
           </div>
 
           <div class="card">
             <div class="icon">✓</div>
-            <h3>Continue Watching</h3>
-            <p>Instant resume from the exact second you stopped, syncing timestamps across online streams and downloaded offline files.</p>
+            <h3>Seamless Resume</h3>
+            <p>Play offline downloaded episodes seamlessly with full resume timestamp tracking synchronized with your online watch history.</p>
           </div>
+        </div>
+      </div>
+    </section>
 
-          <div class="card">
-            <div class="icon">⌕</div>
-            <h3>Discovery & Smart Search</h3>
-            <p>Explore trending anime, seasonal lineups, top-rated series, and search with instant filters for genres, status, and sub/dub audio.</p>
-          </div>
+    <!-- Category 4: Multi-Source Extensions & Tracking -->
+    <section style="background: rgba(19, 15, 23, 0.4); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="wrap">
+        <div class="category-header">
+          <span class="kicker">Ecosystem & Tracking</span>
+          <h2>4. Extensions, MangaDex & Cloud Sync</h2>
+          <p>Uncapped source extensions, integrated manga reading, and two-way AniList/MAL synchronization.</p>
+        </div>
 
+        <div class="grid3">
           <div class="card">
-            <div class="icon">▤</div>
-            <h3>AniList & MAL Sync</h3>
-            <p>Two-way cloud synchronization for Watching, Completed, Planning, Paused and Dropped anime lists with episode progress tracking.</p>
+            <div class="icon">🌐</div>
+            <h3>Multi-Source Extensions</h3>
+            <p>Built-in scrapers for Hianime, Jdudu, Hindi providers, Consumet, and AnimePahe. If one source is slow, switch in seconds without losing progress.</p>
           </div>
 
           <div class="card">
             <div class="icon">📚</div>
-            <h3>Integrated Manga Reader</h3>
-            <p>Browse and read thousands of manga through MangaDex with page prefetching, continuous vertical scroll, chapter history, and offline saving.</p>
+            <h3>Integrated MangaDex Reader</h3>
+            <p>Read 50,000+ manga titles with continuous vertical webtoon scroll, chapter prefetching, reading history, and offline saving.</p>
+          </div>
+
+          <div class="card">
+            <div class="icon">▤</div>
+            <h3>AniList & MAL Cloud Sync</h3>
+            <p>Two-way cloud synchronization for Watching, Completed, Planning, Paused and Dropped lists with automatic episode progress tracking.</p>
           </div>
 
           <div class="card">
             <div class="icon">🎨</div>
-            <h3>Material You & AMOLED</h3>
-            <p>Light, Dark, Pure Black AMOLED, and full custom hex color palette generator to customize the app's visual identity to your style.</p>
+            <h3>Pure Black AMOLED Themes</h3>
+            <p>Light, Dark, and Pure Black AMOLED modes with a full custom hex color palette picker to customize the app's visual identity.</p>
           </div>
 
           <div class="card">
             <div class="icon">▦</div>
-            <h3>5 Layout Display Styles</h3>
-            <p>Switch between Compact List, Rich Banner, Dense Grid, Minimalist Block, and Classic List views for episodes and library cards.</p>
+            <h3>5 Episode Layout Styles</h3>
+            <p>Switch between Compact List, Rich Banner, Dense Grid, Minimalist Block, and Classic List views for episodes and library items.</p>
           </div>
 
           <div class="card">
-            <div class="icon">🌐</div>
-            <h3>Multiple Source Extensions</h3>
-            <p>Built-in support for top sources like Jdudu, Hindi streams, visuals, and raw sources for maximum availability and server reliability.</p>
+            <div class="icon">🛡️</div>
+            <h3>100% Ad-Free & Private</h3>
+            <p>Zero advertisements, zero tracking, zero telemetry, and no account required to watch. Completely open-source under Apache 2.0.</p>
           </div>
         </div>
 
         <div class="actions" style="margin-top: 48px; justify-content: center;">
-          <a class="btn primary" href="/downloads">Download AniDash Now ⚡</a>
+          <a class="btn primary" href="/downloads">Download AniDash v3.2.7 ⚡</a>
           <a class="btn outline" href="/screens">Browse App Screenshots</a>
         </div>
       </div>
@@ -121,6 +239,6 @@
   </main>
 
   <div id="site-footer"></div>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=3.2.7"></script>
 </body>
 </html>

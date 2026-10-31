@@ -1,4 +1,14 @@
-const pages = [
+const navPages = [
+  ["Home", "/"],
+  ["Features", "/features"],
+  ["Screens", "/screens"],
+  ["Watch", "/watch"],
+  ["Downloads", "/downloads"],
+  ["Changelogs", "/changelogs"],
+  ["FAQ", "/faq"]
+];
+
+const allPages = [
   ["Home", "/"],
   ["Watch", "/watch"],
   ["Features", "/features"],
@@ -19,17 +29,26 @@ if (header) {
     '<div class="navshell"><div class="wrap"><nav>' +
     '<a class="brand" href="/"><img src="/assets/anidash_logo.png" alt="AniDash"><span>AniDash</span></a>' +
     '<div class="navlinks">' +
-    pages.map(([n, u]) => '<a class="' + (path === u ? "active" : "") + '" href="' + u + '">' + n + '</a>').join("") +
-    '<a class="btn primary" href="/downloads">Get AniDash ⚡</a></div>' +
-    '<a class="btn primary mobile" href="/downloads">Get App</a>' +
+    navPages.map(([n, u]) => '<a class="' + (path === u ? "active" : "") + '" href="' + u + '">' + n + '</a>').join("") +
+    '</div>' +
+    '<a class="btn nav-cta desktop-cta" href="/downloads">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+      '<span>Get AniDash</span>' +
+    '</a>' +
+    '<a class="btn nav-cta mobile" href="/downloads">' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+      '<span>Get AniDash</span>' +
+    '</a>' +
     '</nav></div></div>';
 }
 
 const footer = document.getElementById("site-footer");
 if (footer) {
+  const footerLinks = allPages.map(([n, u]) => '<a href="' + u + '" style="color: var(--muted); margin: 0 8px; font-size: 13px;">' + n + '</a>').join('·');
   footer.innerHTML =
     '<footer><div class="wrap"><div class="foot">' +
     '<div class="brand"><img src="/assets/anidash_logo.png" alt=""><span>AniDash</span></div>' +
+    '<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin: 8px 0;">' + footerLinks + '</div>' +
     '<div>Android · Windows · macOS · Open Source · Apache 2.0 · Designed with ❤️ by Anshdeep Singh</div>' +
     '</div></div></footer>';
 }
@@ -79,7 +98,7 @@ async function fetchLatestReleases() {
     if (!releases.length) return;
 
     const newest = releases[0];
-    const latestTag = newest.tag_name || "v3.2.6";
+    const latestTag = newest.tag_name || "v3.2.7";
     setText("[data-version]", latestTag);
     setText("[data-latest-tag]", latestTag);
 

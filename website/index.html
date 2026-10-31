@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#09070c">
-  <meta name="description" content="Discover, stream with zero stalls, download offline, read manga and track anime with AniDash. Available now on Android, Windows and macOS.">
-  <title>AniDash — Open-Source Anime Streaming, Manga & Tracking App</title>
+  <meta name="description" content="Discover, stream with zero stalls, download offline, read manga and watch anime in Japanese SUB, English DUB, and Hindi Dubbed with AniDash. Available now on Android, Windows and macOS.">
+  <title>AniDash — Stream Anime in SUB, DUB & Hindi Dubbed · Zero-Stall Playback</title>
   <link rel="icon" type="image/png" href="/assets/anidash_logo.png">
   <link rel="apple-touch-icon" href="/assets/anidash_logo.png">
   <link rel="canonical" href="https://anidashweb.vercel.app/">
@@ -16,35 +16,36 @@
   <meta name="author" content="Anshdeep Singh">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AniDash">
-  <meta property="og:title" content="AniDash — Modern Anime Streaming & Manga App">
-  <meta property="og:description" content="Stream anime with zero stalls, download offline episodes, read manga and sync with AniList across Android, Windows & macOS.">
+  <meta property="og:title" content="AniDash — Stream Anime in SUB, DUB & Hindi Dubbed">
+  <meta property="og:description" content="Stream anime with zero stalls, download offline episodes, read manga, and watch in Japanese SUB, English DUB, and Hindi Dubbed across Android, Windows & macOS.">
   <meta property="og:url" content="https://anidashweb.vercel.app/">
   <meta property="og:image" content="https://anidashweb.vercel.app/assets/anidash_logo.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="AniDash — Anime & Manga App">
-  <meta name="twitter:description" content="Open-source anime streaming, manga reading and tracking for Android, Windows & macOS.">
+  <meta name="twitter:title" content="AniDash — Anime in SUB, DUB & Hindi Dubbed">
+  <meta name="twitter:description" content="Open-source anime streaming, offline downloads, manga reading and tracking for Android, Windows & macOS.">
   <meta name="twitter:image" content="https://anidashweb.vercel.app/assets/anidash_logo.png">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=3.2.7">
 </head>
 <body>
   <div id="site-header"></div>
 
   <main>
+    <!-- Hero Section -->
     <div class="wrap">
       <div class="hero">
         <div>
           <a class="announcement" href="/changelogs">
             <span class="pulse-dot"></span>
-            <span>AniDash <span data-latest-tag>v3.2.6</span> is Live · Zero-Stall Streaming ⚡</span>
+            <span>AniDash <span data-latest-tag>v3.2.7</span> is Live · Zero-Stall Streaming & Multi-Audio ⚡</span>
           </a>
           
           <h1>Your anime.<br><span class="accent">One clean place.</span></h1>
           <p class="lead">
-            Discover, stream with zero stalls, download episodes for offline viewing, read manga and sync with AniList — completely ad-free, open-source and customizable.
+            Discover, stream with zero stalls, download episodes for offline viewing, and watch in <strong>Japanese SUB</strong>, <strong>English DUB</strong>, or <strong>Hindi Dubbed (हिन्दी)</strong> — completely ad-free, open-source and customizable.
           </p>
           
           <div class="actions">
@@ -64,10 +65,12 @@
           </div>
 
           <div class="chips" style="margin-top: 22px;">
-            <span class="chip highlight"><span data-version>Latest release</span></span>
+            <span class="chip highlight"><span data-version>v3.2.7</span></span>
+            <span class="chip">🇯🇵 Japanese SUB</span>
+            <span class="chip">🇺🇸 English DUB</span>
+            <span class="chip" style="color: #fbbf24; border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.1);">🇮🇳 Hindi Dubbed (हिन्दी)</span>
+            <span class="chip">⚡ Zero-Stall Playback</span>
             <span class="chip">🛡️ 100% Ad-Free & Free</span>
-            <span class="chip">🚀 Multi-Worker Downloader</span>
-            <span class="chip">📱 No Account Needed</span>
           </div>
         </div>
 
@@ -83,14 +86,98 @@
       </div>
     </div>
 
+    <!-- Multi-Audio Showcase: SUB, DUB & HINDI -->
+    <section class="audio-showcase-section">
+      <div class="wrap">
+        <div class="audio-showcase-header">
+          <span class="kicker">Multi-Audio Freedom</span>
+          <h2>Watch in SUB, DUB or Hindi. <br><span class="accent">Your Language, Your Experience.</span></h2>
+          <p class="copy">
+            No more switching between sketchy pirate websites or hunting for Hindi voiceovers. AniDash gives you instant access to Japanese originals with synced subtitles, English dubs, and official/community Hindi dubbed anime in one unified player.
+          </p>
+        </div>
+
+        <div class="grid3" style="margin-top: 36px;">
+          <!-- Card 1: Japanese SUB -->
+          <div class="audio-card">
+            <div class="audio-card-head">
+              <span class="flag-pill">🇯🇵 Japanese</span>
+              <span class="type-pill sub">SUBTITLED</span>
+            </div>
+            <h3>Original Japanese Audio with Synced Subs</h3>
+            <p>
+              Experience the emotion and intensity of original voice actors with pristine Japanese audio tracks and perfectly synchronized subtitles.
+            </p>
+            <ul class="feature-check-list">
+              <li><span>✓</span> Ultra-crisp English, Spanish, and multi-language subtitles</li>
+              <li><span>✓</span> Full subtitle customization: font size, shadow & opacity</li>
+              <li><span>✓</span> Millisecond subtitle delay tuner directly inside player controls</li>
+            </ul>
+          </div>
+
+          <!-- Card 2: English DUB -->
+          <div class="audio-card">
+            <div class="audio-card-head">
+              <span class="flag-pill">🇺🇸 English</span>
+              <span class="type-pill dub">ENGLISH DUB</span>
+            </div>
+            <h3>English Dubbed Anime Collection</h3>
+            <p>
+              Don't want to read subtitles during fast-paced battle scenes? Enjoy massive catalogs of high-quality English dubbed anime with stellar voice casts.
+            </p>
+            <ul class="feature-check-list">
+              <li><span>✓</span> 10,000+ English dubbed episodes across all major series</li>
+              <li><span>✓</span> Fast release updates for ongoing weekly simul-dubs</li>
+              <li><span>✓</span> High-fidelity stereo audio with clear voice clarity</li>
+            </ul>
+          </div>
+
+          <!-- Card 3: Hindi Dubbed Anime -->
+          <div class="audio-card highlight-hindi">
+            <div class="audio-card-head">
+              <span class="flag-pill">🇮🇳 हिन्दी</span>
+              <span class="type-pill hindi">HINDI DUB</span>
+            </div>
+            <h3>Hindi Dubbed Anime (हिन्दी डब)</h3>
+            <p>
+              Specially curated for Indian anime fans! Stream and download popular series like Dragon Ball, Naruto, Demon Slayer, Jujutsu Kaisen, and Solo Leveling in Hindi.
+            </p>
+            <ul class="feature-check-list">
+              <li><span>✓</span> Integrated Hindi scrapers & multi-audio stream providers</li>
+              <li><span>✓</span> Official TV broadcast dubs and high-quality fan Hindi audio</li>
+              <li><span>✓</span> Download Hindi dubbed episodes to phone storage for offline viewing</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 1-Click Audio Switcher Banner -->
+        <div class="audio-switcher-banner">
+          <div class="switcher-info">
+            <div class="switcher-icon">🎛️</div>
+            <div>
+              <h4>1-Tap Audio Switcher & Smart Preference Memory</h4>
+              <p>
+                Switch between <strong>SUB</strong>, <strong>DUB</strong>, and <strong>HINDI</strong> instantly right inside the player with 1 tap. Choose your preferred language once, and AniDash automatically plays every upcoming episode in that audio track!
+              </p>
+            </div>
+          </div>
+          <div class="switcher-badges">
+            <span class="audio-btn active">🇯🇵 SUB</span>
+            <span class="audio-btn">🇺🇸 DUB</span>
+            <span class="audio-btn" style="color: #fbbf24; border-color: rgba(245, 158, 11, 0.4);">🇮🇳 HINDI</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Feature Showcase Banner -->
-    <div class="wrap">
+    <div class="wrap" style="padding-top: 48px;">
       <div class="feature-banner">
         <div>
-          <span class="feature-tag">Featured Update</span>
-          <h3>Zero-Stall Streaming & Direct Downloads</h3>
+          <span class="feature-tag">Latest Update v3.2.7</span>
+          <h3>Zero-Stall Streaming & Direct Episode Downloads</h3>
           <p class="copy" style="margin-bottom: 20px;">
-            Enjoy uninterrupted anime playback with our intelligent stream watchdog that prevents buffer freezing. Manage downloads right on episode cards with live progress rings, pause, resume, and batch actions!
+            Enjoy uninterrupted anime playback with our intelligent stream watchdog that eliminates buffer freezing beyond 100s. Manage downloads right on episode cards with live progress rings, pause, resume, and batch actions!
           </p>
           <div class="actions">
             <a class="btn primary" href="/downloads">Get Latest Update</a>
@@ -120,38 +207,38 @@
         <div class="grid3">
           <div class="card">
             <div class="icon">⚡</div>
-            <h3>Zero-Stall Playback</h3>
-            <p>Advanced ExoPlayer engine featuring smart buffering, swipe brightness/volume gestures, subtitle delay adjustment, and dynamic 16:9 header alignment.</p>
+            <h3>Zero-Stall Playback Engine</h3>
+            <p>Advanced ExoPlayer engine featuring smart buffer recovery, swipe brightness/volume gestures, subtitle delay adjustment, and dynamic 16:9 header alignment.</p>
+          </div>
+
+          <div class="card">
+            <div class="icon">🎙️</div>
+            <h3>Multi-Audio: SUB, DUB & Hindi</h3>
+            <p>Stream in Japanese with synced subtitles, English Dubs, or Hindi Dubbed audio. Set your preference once and AniDash remembers it automatically.</p>
           </div>
 
           <div class="card">
             <div class="icon">📥</div>
-            <h3>Intelligent Downloader</h3>
-            <p>HLS multi-worker downloads optimized for cellular data stability. Live percentage rings, pause/resume, and optional custom SD storage paths.</p>
+            <h3>Intelligent Downloader & Data Guard</h3>
+            <p>HLS multi-worker downloads optimized for cellular data stability. Live percentage rings, pause/resume, and optional custom phone storage paths.</p>
           </div>
 
           <div class="card">
             <div class="icon">📚</div>
             <h3>Built-In Manga Reader</h3>
-            <p>Integrated MangaDex browser and reader with page prefetching, continuous vertical scroll, chapter history, and offline storage.</p>
+            <p>Integrated MangaDex browser and reader with page prefetching, continuous vertical webtoon scroll, chapter history, and offline chapter storage.</p>
           </div>
 
           <div class="card">
             <div class="icon">🔄</div>
-            <h3>AniList & MAL Sync</h3>
-            <p>Keep your watching, completed, paused and planning lists in sync automatically across all your devices without losing progress.</p>
-          </div>
-
-          <div class="card">
-            <div class="icon">🌐</div>
-            <h3>Multi-Source Extensions</h3>
-            <p>Choose from top providers including Jdudu, Hindi dubs & subs, visual stream providers, and community extensions for maximum availability.</p>
+            <h3>Two-Way AniList & MAL Sync</h3>
+            <p>Keep your watching, completed, paused and planning lists in sync automatically across all your devices with episode progress tracking.</p>
           </div>
 
           <div class="card">
             <div class="icon">🎨</div>
-            <h3>AMOLED & Material You</h3>
-            <p>Full custom hex palette picker, Pure Black AMOLED mode, adaptive colors, and multiple episode grid styles (List, Compact, Grid, Banner, Block).</p>
+            <h3>AMOLED Black & 5 Layout Styles</h3>
+            <p>Full custom hex palette picker, Pure Black AMOLED mode, adaptive colors, and multiple episode layout styles (Compact, Grid, List, Banner, Block).</p>
           </div>
         </div>
       </div>
@@ -170,7 +257,7 @@
             <h3>Android</h3>
             <p class="copy">Universal APK, arm64-v8a (smaller & faster), and 32-bit builds supported on Android 7.0+.</p>
             <div class="chips">
-              <span class="chip highlight" data-android-version>v3.2.6</span>
+              <span class="chip highlight" data-android-version>v3.2.7</span>
               <span class="chip" data-apk-arm64-size>~34 MB</span>
             </div>
             <div class="actions">
@@ -184,7 +271,7 @@
             <h3>Windows</h3>
             <p class="copy">Native 64-bit desktop app with Setup installer and portable ZIP for zero-install viewing.</p>
             <div class="chips">
-              <span class="chip highlight" data-windows-version>Latest</span>
+              <span class="chip highlight" data-windows-version>v3.2.7</span>
               <span class="chip" data-windows-info>Installer</span>
             </div>
             <div class="actions">
@@ -198,7 +285,7 @@
             <h3>macOS</h3>
             <p class="copy">Native macOS build packaged as a standalone DMG. Apple Silicon and Intel supported.</p>
             <div class="chips">
-              <span class="chip highlight" data-macos-version>Latest</span>
+              <span class="chip highlight" data-macos-version>v3.2.7</span>
               <span class="chip" data-macos-info>DMG package</span>
             </div>
             <div class="actions">
@@ -216,6 +303,6 @@
   </main>
 
   <div id="site-footer"></div>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=3.2.7"></script>
 </body>
 </html>
