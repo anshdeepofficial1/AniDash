@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "AniDash — Anime Streaming",
+  "short_name": "AniDash",
+  "description": "Discover anime and stream from your connected sources.",
+  "start_url": "/#/home",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#090a10",
+  "theme_color": "#090a10",
+  "icons": [{"src": "/icons/anidash-icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any maskable"}],
+  "categories": ["entertainment", "video"]
+}

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "providers": [
+    {
+      "id": "my-authorised-source",
+      "name": "My Anime Source",
+      "language": "Japanese / English",
+      "baseUrl": "https://your-source.example/api/",
+      "endpoints": {
+        "search": "search?query={query}&page={page}",
+        "episodes": "anime/{id}/episodes",
+        "streams": "episode/{episodeId}/streams?server={server}&category={category}"
+      }
+    }
+  ]
+}
