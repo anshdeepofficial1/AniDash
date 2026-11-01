@@ -10,6 +10,12 @@ This document records the current web-player contract before connecting addition
 - The player accepts browser-playable HTTPS HLS playlists (`.m3u8`) and MP4 files. HLS uses native playback where supported (notably Safari) and hls.js where Media Source Extensions are available.
 - Watch history and Continue Watching are currently stored in browser-local storage. That is device-local, not account sync.
 
+## Known integration gaps
+
+- The visible Hindi catalogue/player path calls `/api/hindi`, but there is no matching `website/api/hindi.js` route in the current website deployment. That section is not fully wired and must be connected to an authorised browser-compatible provider.
+- The repository has both `website/api/*` and `website/watch/api/*` handlers. The main website deployment uses the root `website/api/*` routes; keep the duplicate watch-only handlers in sync only if the watch app is deployed as a separate Vercel project.
+- AniList is currently the metadata source. MyAnimeList is not currently queried by the watch web app.
+
 ## Important ID mapping issue
 
 The current web UI sends the AniList media ID as the `id` to the episode/source endpoint. A content provider normally has its own catalogue ID; those ID namespaces must **not** be assumed to match.
