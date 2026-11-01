@@ -300,6 +300,8 @@ async function showAnime(id) {
   state.view = "anime";
   state.current = null;
   state.provider = null;
+  state.currentEpisode = null;
+  state.streams = [];
   state.episodes = [];
   state.providerChoices = [];
   updateNavigation("");
@@ -643,14 +645,27 @@ function populateServerSelect() {
 function populateQualitySelect() {
   const select = $("#qualitySelect");
   if (!select) return;
+  select.dataset.hls = "0";
   const values = unique(["Auto"].concat(state.streams.map(source => source.quality).filter(Boolean)));
   select.innerHTML = values.map(value => '<option value="' + escapeHtml(value) + '">' + escapeHtml(value) + '</option>').join("");
   select.value = "Auto";
+}
+function populateHlsQualitySelect(hls) {
+  const select = $("#qualitySelect");
+  if (!select || !hls || !hls.levels || !hls.levels.length) return;
+  select.dataset.hls = "1";
+  const levels = hls.levels.map((level, index) => ({ index, height: Number(level.height) || 0, bitrate: Number(level.bitrate) || 0 }));
+  levels.sort((a, b) => b.height - a.height || b.bitrate - a.bitrate);
+  select.innerHTML = '<option value="-1">Auto</option>' + levels.map(level =>
+    '<option value="' + level.index + '">' + (level.height ? level.height + 'p' : Math.round(level.bitrate / 1000) + ' kbps') + '</option>'
+  ).join("");
+  select.value = "-1";
 }
 async function attachStream(source, token) {
   const video = $("#video");
   if (!video || !source || token !== state.loadingToken) return;
   if (state.hls) { try { state.hls.destroy(); } catch (_) {} state.hls = null; }
+  populateQualitySelect();
   video.pause();
   video.removeAttribute("src");
   video.querySelectorAll("track").forEach(track => track.remove());
@@ -685,7 +700,7 @@ async function attachStream(source, token) {
       const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 60, maxBufferLength: 30, maxMaxBufferLength: 60 });
       state.hls = hls;
       hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(source.url));
-      hls.on(Hls.Events.MANIFEST_PARSED, () => play());
+      hls.on(Hls.Events.MANIFEST_PARSED, () => { populateHlsQualitySelect(hls); play(); });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (data && data.fatal && token === state.loadingToken) {
           if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
@@ -712,6 +727,12 @@ async function attachStream(source, token) {
   }
 }
 async function openWatch(mediaId, episodeNumber) {
+  if (state.view === "watch") { saveProgress(true); destroyPlayer(); }
+  state.provider = null;
+  state.currentEpisode = null;
+  state.streams = [];
+  state.episodes = [];
+  state.providerChoices = [];
   state.view = "watch";
   app.innerHTML = cacheMarkup();
   try {
@@ -730,7 +751,13 @@ async function openWatch(mediaId, episodeNumber) {
     bindPlayerEvents();
     await playCurrentEpisode();
   } catch (error) {
-    app.innerHTML = '<div class="empty-state"><h2>Could not start this episode</h2><p>' + escapeHtml(error.message) + '</p><a class="btn btn-secondary" href="#anime/' + escapeHtml(mediaId) + '">Back to anime</a></div>';
+    if (state.providerChoices.length && state.current) {
+      app.innerHTML = '<div class="empty-state"><span class="empty-icon">↔</span><h2>Choose the correct catalogue match</h2><p>' + escapeHtml(error.message) + '</p></div>' +
+        '<section class="panel"><div id="providerStatus" class="provider-note">Pick the matching title to continue.</div><div id="providerChoices" class="provider-list"></div><div id="episodeCount" class="subtle"></div><div id="episodeList" class="episode-grid"></div></section>';
+      renderProviderChoices();
+    } else {
+      app.innerHTML = '<div class="empty-state"><h2>Could not start this episode</h2><p>' + escapeHtml(error.message) + '</p><a class="btn btn-secondary" href="#anime/' + escapeHtml(mediaId) + '">Back to anime</a></div>';
+    }
   }
 }
 function bindPlayerEvents() {
@@ -771,6 +798,7 @@ async function route() {
   const value = decodeURIComponent((location.hash || "#home").slice(1));
   const parts = value.split("/");
   const root = parts[0] || "home";
+  if (state.view === "watch" && root !== "watch") { saveProgress(true); destroyPlayer(); }
   if (state.heroTimer && root !== "home") { clearInterval(state.heroTimer); state.heroTimer = null; }
   if (root === "home") return loadHome();
   if (root === "explore") return loadExplore("");
@@ -851,6 +879,10 @@ function setupEvents() {
       }
     }
     if (event.target.id === "qualitySelect") {
+      if (state.hls && event.target.dataset.hls === "1") {
+        state.hls.currentLevel = Number(event.target.value);
+        return;
+      }
       const value = event.target.value;
       const index = state.streams.findIndex(source => source.quality === value);
       if (index >= 0) {
