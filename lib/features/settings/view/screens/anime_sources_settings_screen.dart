@@ -5,6 +5,8 @@ import 'package:ani_dash/shared/providers/settings/experimental_notifier.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ani_dash/features/settings/view/widgets/settings_item.dart';
+import 'package:ani_dash/features/extensions/view/extension_catalog_screen.dart';
+import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
 
 final providerStatusProvider = FutureProvider<Map<String, dynamic>>((
   ref,
@@ -53,6 +55,10 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
     final selectedAnimeSource = ref.watch(selectedAnimeProvider);
     final animeSources = ref.read(animeSourceRegistryProvider).keys;
     final providerStatus = ref.watch(providerStatusProvider);
+    final sourceState = ref.watch(sourceProvider);
+    final installedExtensions = sourceState.installedAnimeExtensions;
+    final useExtensions = ref.watch(experimentalProvider).useExtensions;
+    final activeExt = sourceState.activeAnimeSource;
 
     return Scaffold(
       appBar: AppBar(
@@ -84,38 +90,157 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
             Expanded(
               child: providerStatus.when(
                 data:
-                    (statusData) => ListView.builder(
-                      itemCount: animeSources.length,
-                      itemBuilder: (context, index) {
-                        final provider = animeSources[index];
-                        final statusInfo = statusData[provider];
-                        final status = statusInfo?['status'] as String?;
-                        final latency = statusInfo?['latencyMs'] as int?;
-                        final isSelected =
-                            selectedAnimeSource?.providerName ==
-                            provider.toLowerCase();
-                        return Padding(
+                    (statusData) => ListView(
+                      children: [
+                        Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
-                          child: SelectableSettingsItem(
-                            icon: Icon(_getStatusIcon(status)),
-                            iconColor: _getStatusColor(status),
-                            accent: _getStatusColor(status),
-                            title: provider.toUpperCase(),
-                            description:
-                                'Status: ${_getFriendlyStatus(status)}${latency == null ? '' : ' (${latency}ms)'}\nAvailable: ${_getSubDub(provider)}',
-                            isInSelectionMode: true,
-                            isSelected: isSelected,
-                            onTap: () {
-                              ref
-                                  .read(selectedProviderKeyProvider.notifier)
-                                  .select(provider);
-                              ref
-                                  .read(experimentalProvider.notifier)
-                                  .toggleExtensions(false);
+                          child: Text(
+                            'OFFICIAL BUILT-IN SOURCES',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.1,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                        for (final provider in animeSources) ...[
+                          Builder(
+                            builder: (context) {
+                              final statusInfo = statusData[provider];
+                              final status = statusInfo?['status'] as String?;
+                              final latency = statusInfo?['latencyMs'] as int?;
+                              final isSelected = !useExtensions &&
+                                  selectedAnimeSource?.providerName ==
+                                      provider.toLowerCase();
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: SelectableSettingsItem(
+                                  icon: Icon(_getStatusIcon(status)),
+                                  iconColor: _getStatusColor(status),
+                                  accent: _getStatusColor(status),
+                                  title: provider.toUpperCase(),
+                                  description:
+                                      'Status: ${_getFriendlyStatus(status)}${latency == null ? '' : ' (${latency}ms)'}\nAvailable: ${_getSubDub(provider)}',
+                                  isInSelectionMode: true,
+                                  isSelected: isSelected,
+                                  onTap: () {
+                                    ref
+                                        .read(selectedProviderKeyProvider.notifier)
+                                        .select(provider);
+                                    ref
+                                        .read(experimentalProvider.notifier)
+                                        .toggleExtensions(false);
+                                  },
+                                ),
+                              );
                             },
                           ),
-                        );
-                      },
+                        ],
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'EXTENSIONS AS PROVIDERS',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.1,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: () => context.push('/extensions'),
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text('Manage Extensions'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        if (installedExtensions.isEmpty)
+                          Card(
+                            elevation: 0,
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                children: [
+                                  const Icon(Icons.extension_off, size: 36, color: Colors.grey),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'No Anime Extensions Installed',
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Install Anikoto, Aniyomi, or custom repositories to stream directly through extensions.',
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  FilledButton.tonal(
+                                    onPressed: () => context.push('/extensions'),
+                                    child: const Text('Explore Extension Repositories'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          for (final ext in installedExtensions) ...[
+                            Builder(
+                              builder: (context) {
+                                final isSelected = useExtensions &&
+                                    (activeExt?.id == ext.id ||
+                                        activeExt?.name == ext.name);
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: SelectableSettingsItem(
+                                          icon: const Icon(Icons.extension),
+                                          iconColor: isSelected
+                                              ? Theme.of(context).colorScheme.primary
+                                              : Colors.grey,
+                                          title: ext.name ?? 'Unknown Extension',
+                                          description:
+                                              'v${ext.version ?? "1.0"} • ${ext.lang ?? "en"}${isSelected ? " • Active Provider" : ""}',
+                                          isInSelectionMode: true,
+                                          isSelected: isSelected,
+                                          onTap: () {
+                                            ref
+                                                .read(sourceProvider.notifier)
+                                                .setActiveSource(ext);
+                                            ref
+                                                .read(experimentalProvider.notifier)
+                                                .toggleExtensions(true);
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton.filledTonal(
+                                        tooltip: 'Browse ${ext.name}',
+                                        icon: const Icon(Iconsax.discover, size: 20),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  ExtensionCatalogScreen(source: ext),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        const SizedBox(height: 24),
+                      ],
                     ),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error:

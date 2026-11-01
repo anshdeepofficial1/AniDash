@@ -90,6 +90,16 @@ class _DownloadSourceSelectorState
     }
   }
 
+  bool _isSourceDub(Source s) {
+    if (s.isDub) return true;
+    if (_selectedServer?.isDub == true) return true;
+    final q = (s.quality ?? '').toLowerCase();
+    if (q.contains('dub')) return true;
+    final url = (s.url ?? '').toLowerCase();
+    if (url.contains('dub')) return true;
+    return false;
+  }
+
   Future<void> _initSources() async {
     setState(() {
       _loading = true;
@@ -105,7 +115,7 @@ class _DownloadSourceSelectorState
 
       if (data != null && data.sources.isNotEmpty) {
         final hasDub =
-            data.sources.any((s) => s.isDub) ||
+            data.sources.any((s) => _isSourceDub(s)) ||
             widget.availableServers.any((server) => server.isDub);
 
         setState(() {
@@ -113,11 +123,17 @@ class _DownloadSourceSelectorState
           _subtitles = data.tracks;
           _hasDub = hasDub;
           _loading = false;
+          if (!hasDub && _selectedLanguage == 'dub') {
+            _selectedLanguage = 'sub';
+          }
           _selectedSource = _findMatchingSource(data.sources, _selectedLanguage, _selectedQuality);
         });
         unawaited(_probeSizes());
       } else {
-        setState(() => _loading = false);
+        setState(() {
+          _loading = false;
+          _error = 'No streaming links found from this server. Try another server.';
+        });
       }
     } catch (e) {
       if (!mounted) return;
@@ -130,7 +146,8 @@ class _DownloadSourceSelectorState
 
   Source? _findMatchingSource(List<Source> sources, String language, String quality) {
     if (sources.isEmpty) return null;
-    final langSources = sources.where((s) => language == 'dub' ? s.isDub : !s.isDub).toList();
+    final isDubTarget = language == 'dub';
+    final langSources = sources.where((s) => isDubTarget ? _isSourceDub(s) : !_isSourceDub(s)).toList();
     final candidates = langSources.isNotEmpty ? langSources : sources;
 
     // 1. Direct quality match in candidate sources (e.g. 1080p, 720p, 360p)
@@ -259,18 +276,19 @@ class _DownloadSourceSelectorState
     final epNum = widget.episode!.number ?? 0;
     Source? matchedSource = _selectedSource ?? _findMatchingSource(_sources, _selectedLanguage, _selectedQuality);
 
-    if (matchedSource == null ||
-        !VideoUtils.isValidNetworkUrl(matchedSource.url) ||
-        (_selectedLanguage == 'dub' &&
-            !matchedSource.isDub &&
-            _selectedServer?.isDub != true &&
-            _sources.any((s) => s.isDub))) {
+    if (matchedSource == null || !VideoUtils.isValidNetworkUrl(matchedSource.url)) {
       if (!mounted) return;
       setState(() {
-        _error =
-            _selectedLanguage == 'dub'
-                ? 'English DUB is unavailable from this server. Choose SUB or another server.'
-                : 'This server did not provide a valid download. Choose another server.';
+        _error = 'This server did not provide a valid streaming link. Choose another server.';
+      });
+      return;
+    }
+
+    final isDubSource = _isSourceDub(matchedSource);
+    if (_selectedLanguage == 'dub' && !isDubSource && !_sources.any((s) => _isSourceDub(s)) && _selectedServer?.isDub != true) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'English DUB is unavailable from this server. Choose SUB or another server.';
       });
       return;
     }
@@ -676,13 +694,13 @@ class _DownloadSourceSelectorState
                 ),
               ),
               const SizedBox(height: 10),
-              if (_sources.isNotEmpty) ...[
-                Builder(
-                  builder: (context) {
-                    final langSources = _sources.where((s) => _selectedLanguage == 'dub' ? s.isDub : !s.isDub).toList();
-                    final availableStreams = langSources.isNotEmpty ? langSources : _sources;
-                    if (availableStreams.length <= 1) return const SizedBox.shrink();
+              Builder(
+                builder: (context) {
+                  final langSources = _sources.where((s) => _selectedLanguage == 'dub' ? _isSourceDub(s) : !_isSourceDub(s)).toList();
+                  final availableStreams = langSources.isNotEmpty ? langSources : _sources;
+                  final hasSpecificStreams = !isBatch && availableStreams.length > 1;
 
+                  if (hasSpecificStreams) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -772,57 +790,57 @@ class _DownloadSourceSelectorState
                             );
                           },
                         ),
-                        const SizedBox(height: 18),
                       ],
                     );
-                  },
-                ),
-              ],
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 2.2,
-                children: [
-                  _QualityCard(
-                    quality: '1080p',
-                    title: '1080p (FHD)',
-                    sizeDescription: isBatch
-                        ? '${_formatSize(_getQualitySize('1080p'))} • Total ${_formatSize(_getQualitySize('1080p') * widget.episodeCount)}'
-                        : _formatSize(_getQualitySize('1080p')),
-                    isSelected: _selectedQuality == '1080p',
-                    onTap: () => _selectQuality('1080p'),
-                  ),
-                  _QualityCard(
-                    quality: '720p',
-                    title: '720p (HD)',
-                    sizeDescription: isBatch
-                        ? '${_formatSize(_getQualitySize('720p'))} • Total ${_formatSize(_getQualitySize('720p') * widget.episodeCount)}'
-                        : _formatSize(_getQualitySize('720p')),
-                    isSelected: _selectedQuality == '720p',
-                    onTap: () => _selectQuality('720p'),
-                  ),
-                  _QualityCard(
-                    quality: '480p',
-                    title: '480p (SD)',
-                    sizeDescription: isBatch
-                        ? '${_formatSize(_getQualitySize('480p'))} • Total ${_formatSize(_getQualitySize('480p') * widget.episodeCount)}'
-                        : _formatSize(_getQualitySize('480p')),
-                    isSelected: _selectedQuality == '480p',
-                    onTap: () => _selectQuality('480p'),
-                  ),
-                  _QualityCard(
-                    quality: '360p',
-                    title: '360p (Data Saver)',
-                    sizeDescription: isBatch
-                        ? '${_formatSize(_getQualitySize('360p'))} • Total ${_formatSize(_getQualitySize('360p') * widget.episodeCount)}'
-                        : _formatSize(_getQualitySize('360p')),
-                    isSelected: _selectedQuality == '360p',
-                    onTap: () => _selectQuality('360p'),
-                  ),
-                ],
+                  }
+
+                  return GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 2.2,
+                    children: [
+                      _QualityCard(
+                        quality: '1080p',
+                        title: '1080p (FHD)',
+                        sizeDescription: isBatch
+                            ? '${_formatSize(_getQualitySize('1080p'))} • Total ${_formatSize(_getQualitySize('1080p') * widget.episodeCount)}'
+                            : _formatSize(_getQualitySize('1080p')),
+                        isSelected: _selectedQuality == '1080p',
+                        onTap: () => _selectQuality('1080p'),
+                      ),
+                      _QualityCard(
+                        quality: '720p',
+                        title: '720p (HD)',
+                        sizeDescription: isBatch
+                            ? '${_formatSize(_getQualitySize('720p'))} • Total ${_formatSize(_getQualitySize('720p') * widget.episodeCount)}'
+                            : _formatSize(_getQualitySize('720p')),
+                        isSelected: _selectedQuality == '720p',
+                        onTap: () => _selectQuality('720p'),
+                      ),
+                      _QualityCard(
+                        quality: '480p',
+                        title: '480p (SD)',
+                        sizeDescription: isBatch
+                            ? '${_formatSize(_getQualitySize('480p'))} • Total ${_formatSize(_getQualitySize('480p') * widget.episodeCount)}'
+                            : _formatSize(_getQualitySize('480p')),
+                        isSelected: _selectedQuality == '480p',
+                        onTap: () => _selectQuality('480p'),
+                      ),
+                      _QualityCard(
+                        quality: '360p',
+                        title: '360p (Data Saver)',
+                        sizeDescription: isBatch
+                            ? '${_formatSize(_getQualitySize('360p'))} • Total ${_formatSize(_getQualitySize('360p') * widget.episodeCount)}'
+                            : _formatSize(_getQualitySize('360p')),
+                        isSelected: _selectedQuality == '360p',
+                        onTap: () => _selectQuality('360p'),
+                      ),
+                    ],
+                  );
+                },
               ),              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.symmetric(

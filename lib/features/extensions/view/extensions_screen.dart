@@ -11,6 +11,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ani_dash/main.dart';
 import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
+import 'extension_catalog_screen.dart';
 
 class ExtensionScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -1348,11 +1349,13 @@ class _ExtensionListWidgetState extends ExtensionList<ExtensionListWidget> {
         }
       },
       onTap: () async {
-        // Open details or settings if installed
+        // Open extension catalog browser if installed
         if (widget.isInstalled) {
-          context.push(
-            '/settings/extensions/extension-preference',
-            extra: source,
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ExtensionCatalogScreen(source: source),
+            ),
           );
         } else {
           try {
@@ -1517,6 +1520,12 @@ class ExtensionListItem extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (isInstalled)
+              IconButton(
+                icon: const Icon(Iconsax.discover, color: Colors.blueAccent),
+                onPressed: onTap,
+                tooltip: 'Browse Catalog',
+              ),
             if (source.hasUpdate == true && isInstalled)
               IconButton(
                 icon: const Icon(Icons.update, color: Colors.orange),
