@@ -69,8 +69,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .section-head p{margin:4px 0 0;color:var(--muted);font-size:11px}
 .section-link{border:0;background:none;color:var(--accent);font-size:11px;font-weight:800;cursor:pointer}
 .rail{display:grid;grid-auto-flow:column;grid-auto-columns:155px;gap:15px;overflow-x:auto;padding:1px 1px 12px;scrollbar-width:thin;scrollbar-color:#344451 transparent;scroll-snap-type:x mandatory}
-.anime-card{min-width:0;position:relative;scroll-snap-align:start;cursor:pointer}
-.poster-wrap{position:relative;aspect-ratio:2/2.88;overflow:hidden;border-radius:13px;background:var(--panel-2);border:1px solid rgba(255,255,255,.06);box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.anime-card{display:block;width:100%;min-width:0;position:relative;padding:0;border:0;background:transparent;color:inherit;text-align:left;font:inherit;scroll-snap-align:start;cursor:pointer}
+.poster-wrap{display:block;position:relative;aspect-ratio:2/2.88;overflow:hidden;border-radius:13px;background:var(--panel-2);border:1px solid rgba(255,255,255,.06);box-shadow:0 6px 20px rgba(0,0,0,.18)}
 .poster-wrap img{width:100%;height:100%;display:block;object-fit:cover;transition:transform .35s,filter .35s}
 .anime-card:hover .poster-wrap img{transform:scale(1.055);filter:saturate(1.08)}
 .poster-gradient{position:absolute;inset:45% 0 0;background:linear-gradient(0deg,rgba(0,0,0,.75),transparent);pointer-events:none}
@@ -82,7 +82,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .card-progress{height:3px;margin-top:8px;overflow:hidden;border-radius:6px;background:#27313c}
 .card-progress span{height:100%;display:block;border-radius:6px;background:var(--accent)}
 .continue-rail{grid-auto-columns:240px}
-.continue-card{display:grid;grid-template-columns:82px 1fr;gap:11px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--panel);cursor:pointer;scroll-snap-align:start}
+.continue-card{display:grid;grid-template-columns:82px 1fr;text-align:left;color:inherit;gap:11px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--panel);cursor:pointer;scroll-snap-align:start}
 .continue-card img{width:82px;aspect-ratio:2/2.65;object-fit:cover;border-radius:8px}
 .continue-card b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:11px;line-height:1.4}
 .continue-card small{display:block;margin-top:7px;color:var(--muted);font-size:9px}
@@ -158,7 +158,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .empty-state .empty-icon{width:48px;height:48px;margin:0 auto 12px;display:grid;place-items:center;border-radius:14px;background:var(--accent-dark);color:var(--accent);font-size:20px}
 .empty-state h2{margin:0 0 6px;font:800 16px Manrope}.empty-state p{margin:0 auto 17px;max-width:420px;color:var(--muted);font-size:11px;line-height:1.6}
 .history-list{display:grid;gap:10px}
-.history-row{display:grid;grid-template-columns:78px 1fr auto;align-items:center;gap:13px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);cursor:pointer}
+.history-row{display:grid;grid-template-columns:78px 1fr auto;text-align:left;color:inherit;align-items:center;gap:13px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);cursor:pointer}
 .history-row img{width:78px;aspect-ratio:2/2.7;object-fit:cover;border-radius:7px}
 .history-row b{font-size:11px}.history-row small{display:block;margin-top:5px;color:var(--muted);font-size:9px}
 .library-tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:17px}

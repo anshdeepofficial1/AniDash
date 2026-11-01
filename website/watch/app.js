@@ -741,10 +741,11 @@ async function openWatch(mediaId, episodeNumber) {
     const saved = mappedProvider(media.id);
     if (saved) state.provider = saved;
     else state.provider = await findProviderTitle(media);
-    const payload = await providerApi({ action: "episodes", id: state.provider.id, page: "1" }, 20000);
-    state.episodes = normaliseEpisodes(payload);
+    const firstPage = await providerApi({ action: "episodes", id: state.provider.id, page: "1" }, 20000);
+    state.episodes = await fetchAllEpisodePages(state.provider, firstPage);
     if (!state.episodes.length) throw new Error("No episodes were returned by the streaming catalogue.");
     const index = state.episodes.findIndex(item => String(item.number) === String(episodeNumber));
+    if (index < 0 && Number(episodeNumber) > 1) throw new Error("Episode " + episodeNumber + " is not present in the current provider episode list.");
     state.currentEpisode = state.episodes[index >= 0 ? index : 0];
     state.activeAudio = state.settings.audio || "sub";
     renderWatchPage();
