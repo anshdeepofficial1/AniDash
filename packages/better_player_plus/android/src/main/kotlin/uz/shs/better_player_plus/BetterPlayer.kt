@@ -117,13 +117,9 @@ internal class BetterPlayer(
             this.customDefaultLoadControl.bufferForPlaybackMs,
             this.customDefaultLoadControl.bufferForPlaybackAfterRebufferMs
         )
-        // The stock Media3 load control may stop loading once its estimated
-        // byte target is reached, even when the requested time reservoir has
-        // not been filled.  At high bitrates that looked like a 40-50 second
-        // cap despite AniDash requesting 120 seconds.  Time is the user-facing
-        // contract here, so keep loading until the configured duration target.
-        loadBuilder.setPrioritizeTimeOverSizeThresholds(true)
-        loadBuilder.setBackBuffer(30000, false)
+        // Keep buffer balanced within memory limits to avoid GC thrashing and OOM
+        loadBuilder.setPrioritizeTimeOverSizeThresholds(false)
+        loadBuilder.setBackBuffer(15000, false)
         loadControl = loadBuilder.build()
         val renderersFactory = DefaultRenderersFactory(context)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)

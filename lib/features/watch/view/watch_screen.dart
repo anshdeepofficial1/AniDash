@@ -274,20 +274,14 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     }
   }
 
-  Future<void> _handleBack() async {
+  Future<void> _handleBack({bool forceExit = false}) async {
     final now = DateTime.now();
-    // Rapid back press or already exiting: immediately force exit so user is NEVER stuck!
-    if (_isExiting ||
+    // Rapid back press (within 1.2s), already exiting, or forceExit: immediately force exit so user is NEVER stuck!
+    if (forceExit ||
+        _isExiting ||
         (_lastBackPressTime != null &&
-            now.difference(_lastBackPressTime!).inMilliseconds < 800)) {
-      _resetSystemUI();
-      if (context.canPop()) {
-        context.pop();
-      } else if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      } else {
-        context.go('/');
-      }
+            now.difference(_lastBackPressTime!).inMilliseconds < 1200)) {
+      _exitWatchScreen();
       return;
     }
     _lastBackPressTime = now;
@@ -310,25 +304,38 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         MediaQuery.of(context).orientation == Orientation.landscape;
     final hasError = ref.read(episodeDataProvider).error != null;
     final isLoading = ref.read(episodeDataProvider).isLoading;
+    final playerState = ref.read(playerStateProvider);
+    final isStuckOrStalled = playerState.isBuffering ||
+        playerState.isOpening ||
+        playerState.playbackError != null ||
+        !playerState.isPlaying;
 
-    // 3. Only toggle fullscreen if ACTUALLY currently in Landscape mode (not loading, not error)
-    if (!hasError && !isLoading && isLandscape && _isLandscapeFullscreen) {
-      await _toggleFullscreen();
+    // 3. If player is stalled, buffering, or errored: DO NOT lock user in landscape toggle, EXIT immediately!
+    if (hasError || isLoading || isStuckOrStalled || !isLandscape || !_isLandscapeFullscreen) {
+      _exitWatchScreen();
       return;
     }
 
-    // 4. In portrait mode, or if episode is loading/failed: immediately exit!
-    _isExiting = true;
+    // 4. In landscape with smooth playback, first back press tries to exit fullscreen to portrait
     try {
-      _resetSystemUI();
-      // Run cleanup asynchronously in background so popping happens instantly
-      unawaited(
-        ref
-            .read(watchControllerProvider.notifier)
-            .cleanup()
-            .whenComplete(() => ref.read(playerStateProvider.notifier).stop()),
-      );
-      if (!mounted) return;
+      await _toggleFullscreen();
+    } catch (_) {
+      _exitWatchScreen();
+    }
+  }
+
+  void _exitWatchScreen() {
+    if (_isExiting) return;
+    _isExiting = true;
+    _resetSystemUI();
+    unawaited(
+      ref
+          .read(watchControllerProvider.notifier)
+          .cleanup()
+          .whenComplete(() => ref.read(playerStateProvider.notifier).stop()),
+    );
+    if (!mounted) return;
+    try {
       if (context.canPop()) {
         context.pop();
       } else if (Navigator.of(context).canPop()) {
@@ -337,13 +344,9 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         context.go('/');
       }
     } catch (_) {
-      if (mounted) {
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          context.go('/');
-        }
-      }
+      try {
+        context.go('/');
+      } catch (_) {}
     } finally {
       Future.delayed(const Duration(milliseconds: 600), () {
         if (mounted) _isExiting = false;
@@ -660,7 +663,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                         animeName: widget.animeName,
                         episodeNumber: selectedEp,
                         animeFormat: resolvedFormat,
-                        onBack: _handleBack,
+                        onBack: () => _handleBack(forceExit: true),
                         onToggleFullscreen: _toggleFullscreen,
                       ),
                       Expanded(

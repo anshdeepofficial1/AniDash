@@ -43,5 +43,5 @@ jobs:
             echo "Badges are already current"
             exit 0
           fi
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "docs: refresh README badge counts"
+          git -c user.name="Anshdeep Singh" -c user.email="anshdeepofficial@users.noreply.github.com" commit -m "docs: refresh README badge counts"
           git push origin HEAD:readme-badge-data

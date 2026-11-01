@@ -26,6 +26,7 @@
         android:extractNativeLibs="true"
         android:icon="@mipmap/ic_launcher"
         android:supportsRtl="false"
+        android:largeHeap="true"
         android:appCategory="video"
         android:isGame="false"
         android:enableOnBackInvokedCallback="true"
