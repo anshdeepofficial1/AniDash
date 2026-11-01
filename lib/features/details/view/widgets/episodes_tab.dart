@@ -440,7 +440,11 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         widget.mediaTitle.romaji ??
         'Anime';
 
-    if (downloadSettings.rememberDownloadPreferences) {
+    final useExt = ref.read(experimentalProvider).useExtensions;
+    final activeSource = ref.read(sourceProvider).activeAnimeSource;
+    final isExtension = useExt && activeSource != null;
+
+    if (downloadSettings.rememberDownloadPreferences && !isExtension) {
       _exitSelectionMode();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

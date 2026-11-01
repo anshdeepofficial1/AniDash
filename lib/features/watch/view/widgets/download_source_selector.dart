@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -71,6 +72,7 @@ class _DownloadSourceSelectorState
   bool _rememberChoice = false;
   bool _hasDub = true;
   late ServerData? _selectedServer;
+  Source? _selectedSource;
   bool _downloadSubtitles = true;
   final Map<String, int> _probedQualityBytes = {};
 
@@ -111,6 +113,7 @@ class _DownloadSourceSelectorState
           _subtitles = data.tracks;
           _hasDub = hasDub;
           _loading = false;
+          _selectedSource = _findMatchingSource(data.sources, _selectedLanguage, _selectedQuality);
         });
         unawaited(_probeSizes());
       } else {
@@ -125,8 +128,27 @@ class _DownloadSourceSelectorState
     }
   }
 
+  Source? _findMatchingSource(List<Source> sources, String language, String quality) {
+    if (sources.isEmpty) return null;
+    final langSources = sources.where((s) => language == 'dub' ? s.isDub : !s.isDub).toList();
+    final candidates = langSources.isNotEmpty ? langSources : sources;
+
+    // 1. Direct quality match in candidate sources (e.g. 1080p, 720p, 360p)
+    final directMatch = candidates.firstWhereOrNull(
+      (s) => s.quality != null && s.quality!.toLowerCase().contains(quality.toLowerCase()),
+    );
+    if (directMatch != null) return directMatch;
+
+    // 2. Fallback to M3U8 source for variant playlist extraction
+    final m3u8 = candidates.firstWhereOrNull((s) => s.isM3U8 || (s.url?.contains('.m3u8') ?? false));
+    return m3u8 ?? candidates.firstOrNull;
+  }
+
   Future<void> _selectLanguage(String language) async {
-    setState(() => _selectedLanguage = language);
+    setState(() {
+      _selectedLanguage = language;
+      _selectedSource = _findMatchingSource(_sources, language, _selectedQuality);
+    });
     final wantsDub = language == 'dub';
     final matching =
         widget.availableServers
@@ -147,12 +169,16 @@ class _DownloadSourceSelectorState
     await _initSources();
   }
 
+  void _selectQuality(String quality) {
+    setState(() {
+      _selectedQuality = quality;
+      _selectedSource = _findMatchingSource(_sources, _selectedLanguage, quality);
+    });
+  }
+
   Source? _getMatchedSource() {
-    if (_sources.isEmpty) return null;
-    if (_selectedLanguage == 'dub') {
-      return _sources.where((s) => s.isDub).firstOrNull ?? _sources.first;
-    }
-    return _sources.where((s) => !s.isDub).firstOrNull ?? _sources.first;
+    if (_selectedSource != null) return _selectedSource;
+    return _findMatchingSource(_sources, _selectedLanguage, _selectedQuality);
   }
 
   Future<void> _probeSizes() async {
@@ -231,31 +257,14 @@ class _DownloadSourceSelectorState
     if (widget.episode == null) return;
 
     final epNum = widget.episode!.number ?? 0;
-    Source? matchedSource;
-
-    if (_sources.isNotEmpty) {
-      if (_selectedLanguage == 'dub') {
-        for (final source in _sources) {
-          if (source.isDub) {
-            matchedSource = source;
-            break;
-          }
-        }
-      } else {
-        for (final source in _sources) {
-          if (!source.isDub) {
-            matchedSource = source;
-            break;
-          }
-        }
-      }
-    }
+    Source? matchedSource = _selectedSource ?? _findMatchingSource(_sources, _selectedLanguage, _selectedQuality);
 
     if (matchedSource == null ||
         !VideoUtils.isValidNetworkUrl(matchedSource.url) ||
         (_selectedLanguage == 'dub' &&
             !matchedSource.isDub &&
-            _selectedServer?.isDub != true)) {
+            _selectedServer?.isDub != true &&
+            _sources.any((s) => s.isDub))) {
       if (!mounted) return;
       setState(() {
         _error =
@@ -268,6 +277,7 @@ class _DownloadSourceSelectorState
 
     String downloadUrl = matchedSource.url!;
     final isM3U8 = matchedSource.isM3U8 || downloadUrl.contains('.m3u8');
+    String finalQuality = matchedSource.quality?.trim() ?? _selectedQuality;
 
     // If source is M3U8, try to extract matching quality sub-playlist
     if (isM3U8) {
@@ -280,12 +290,18 @@ class _DownloadSourceSelectorState
             )
             .timeout(const Duration(seconds: 8));
 
-        final target = extracted.firstWhere(
-          (q) => (q['quality'] as String).contains(_selectedQuality),
-          orElse: () => extracted.first,
+        final target = extracted.firstWhereOrNull(
+          (q) => (q['quality'] as String).toLowerCase().contains(_selectedQuality.toLowerCase()),
         );
-        if (VideoUtils.isValidNetworkUrl(target['url']?.toString())) {
+        if (target != null && VideoUtils.isValidNetworkUrl(target['url']?.toString())) {
           downloadUrl = target['url'] as String;
+          finalQuality = _selectedQuality;
+        } else if (extracted.isNotEmpty) {
+          final first = extracted.first;
+          if (VideoUtils.isValidNetworkUrl(first['url']?.toString())) {
+            downloadUrl = first['url'] as String;
+            finalQuality = (first['quality'] as String?) ?? _selectedQuality;
+          }
         }
       } catch (_) {}
     }
@@ -304,7 +320,7 @@ class _DownloadSourceSelectorState
       RegExp(r'[\\/:*?"<>|]'),
       '_',
     );
-    final qualityName = _selectedQuality.replaceAll(
+    final qualityName = finalQuality.replaceAll(
       RegExp(r'[\\/:*?"<>|]'),
       '_',
     );
@@ -324,7 +340,7 @@ class _DownloadSourceSelectorState
       state: DownloadStatus.queued,
       progress: 0,
       downloadUrl: downloadUrl,
-      quality: _selectedQuality,
+      quality: finalQuality,
       filePath: fileName,
       subtitles:
           _downloadSubtitles
@@ -660,6 +676,108 @@ class _DownloadSourceSelectorState
                 ),
               ),
               const SizedBox(height: 10),
+              if (_sources.isNotEmpty) ...[
+                Builder(
+                  builder: (context) {
+                    final langSources = _sources.where((s) => _selectedLanguage == 'dub' ? s.isDub : !s.isDub).toList();
+                    final availableStreams = langSources.isNotEmpty ? langSources : _sources;
+                    if (availableStreams.length <= 1) return const SizedBox.shrink();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Available Streams',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: availableStreams.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 6),
+                          itemBuilder: (context, index) {
+                            final src = availableStreams[index];
+                            final isSelected = _selectedSource == src;
+                            final qText = src.quality?.trim();
+                            final displayName = (qText != null && qText.isNotEmpty) ? qText : 'Stream ${index + 1}';
+                            return InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _selectedSource = src;
+                                  final lower = displayName.toLowerCase();
+                                  if (lower.contains('1080')) {
+                                    _selectedQuality = '1080p';
+                                  } else if (lower.contains('720')) {
+                                    _selectedQuality = '720p';
+                                  } else if (lower.contains('480')) {
+                                    _selectedQuality = '480p';
+                                  } else if (lower.contains('360')) {
+                                    _selectedQuality = '360p';
+                                  }
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? colorScheme.primary.withValues(alpha: 0.12)
+                                      : colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSelected ? colorScheme.primary : colorScheme.outlineVariant.withValues(alpha: 0.4),
+                                    width: isSelected ? 1.5 : 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                                      color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        displayName,
+                                        style: TextStyle(
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                          color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.surfaceContainerHigh,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        src.isM3U8 || (src.url?.contains('.m3u8') ?? false) ? 'HLS' : 'MP4',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                      ],
+                    );
+                  },
+                ),
+              ],
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
@@ -675,7 +793,7 @@ class _DownloadSourceSelectorState
                         ? '${_formatSize(_getQualitySize('1080p'))} • Total ${_formatSize(_getQualitySize('1080p') * widget.episodeCount)}'
                         : _formatSize(_getQualitySize('1080p')),
                     isSelected: _selectedQuality == '1080p',
-                    onTap: () => setState(() => _selectedQuality = '1080p'),
+                    onTap: () => _selectQuality('1080p'),
                   ),
                   _QualityCard(
                     quality: '720p',
@@ -684,7 +802,7 @@ class _DownloadSourceSelectorState
                         ? '${_formatSize(_getQualitySize('720p'))} • Total ${_formatSize(_getQualitySize('720p') * widget.episodeCount)}'
                         : _formatSize(_getQualitySize('720p')),
                     isSelected: _selectedQuality == '720p',
-                    onTap: () => setState(() => _selectedQuality = '720p'),
+                    onTap: () => _selectQuality('720p'),
                   ),
                   _QualityCard(
                     quality: '480p',
@@ -693,7 +811,7 @@ class _DownloadSourceSelectorState
                         ? '${_formatSize(_getQualitySize('480p'))} • Total ${_formatSize(_getQualitySize('480p') * widget.episodeCount)}'
                         : _formatSize(_getQualitySize('480p')),
                     isSelected: _selectedQuality == '480p',
-                    onTap: () => setState(() => _selectedQuality = '480p'),
+                    onTap: () => _selectQuality('480p'),
                   ),
                   _QualityCard(
                     quality: '360p',
@@ -702,11 +820,10 @@ class _DownloadSourceSelectorState
                         ? '${_formatSize(_getQualitySize('360p'))} • Total ${_formatSize(_getQualitySize('360p') * widget.episodeCount)}'
                         : _formatSize(_getQualitySize('360p')),
                     isSelected: _selectedQuality == '360p',
-                    onTap: () => setState(() => _selectedQuality = '360p'),
+                    onTap: () => _selectQuality('360p'),
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
+              ),              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,

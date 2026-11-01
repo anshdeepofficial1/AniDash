@@ -127,7 +127,6 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   Duration _lastObservedPosition = Duration.zero;
   Duration _lastObservedBuffer = Duration.zero;
   int _stallTickCount = 0;
-  bool _isAutoRecovering = false;
 
   String? get activeMediaId => _activeMediaId;
   int? get activeEpisode => _activeEpisode;
@@ -217,17 +216,17 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         }
       case BetterPlayerEventType.exception:
         _startupTimer?.cancel();
-        if (state.position > const Duration(seconds: 5) && !_isAutoRecovering) {
-          AppLogger.w('⚠️ Mid-stream exception encountered. Auto-recovering...');
-          _recoverPlayback(state.position);
-          return;
+        AppLogger.w("Playback exception encountered at ${state.position}");
+        // Try gentle play resumption without resetting data source or rewinding position
+        betterPlayerController.play();
+        if (state.position == Duration.zero) {
+          state = state.copyWith(
+            isOpening: false,
+            isBuffering: false,
+            playbackError:
+                "This server could not play the episode. Try another server.",
+          );
         }
-        state = state.copyWith(
-          isOpening: false,
-          isBuffering: false,
-          playbackError:
-              'This server could not play the episode. Try another server.',
-        );
       default:
         break;
     }
@@ -431,7 +430,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   }
 
   void _checkPlaybackHealth() {
-    if (!state.isPlaying || state.isOpening || _isAutoRecovering || state.isSeeking) {
+    if (!state.isPlaying || state.isOpening || state.isSeeking) {
       _stallTickCount = 0;
       _lastObservedPosition = state.position;
       _lastObservedBuffer = state.buffer;
@@ -463,11 +462,18 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     if (isStuck && !bufferAdvanced) {
       _stallTickCount++;
       if (_stallTickCount == 4) {
-        AppLogger.w('⚠️ Playback stalled at s (buffer: s). Nudging loader...');
+        AppLogger.w("Playback stalled at $pos (buffer: $buffer). Nudging playback...");
+        betterPlayerController.play();
+      } else if (_stallTickCount == 8) {
+        AppLogger.w("Playback still stalled at $pos. Performing soft buffer refresh...");
         betterPlayerController.seekTo(pos);
-      } else if (_stallTickCount >= 7) {
+      } else if (_stallTickCount >= 20) {
         _stallTickCount = 0;
-        _recoverPlayback(pos);
+        AppLogger.w("Prolonged stall at $pos. Notifying playback issue...");
+        state = state.copyWith(
+          isBuffering: false,
+          playbackError: "Playback stalled on this server. Tap retry or switch server.",
+        );
       }
     } else {
       _stallTickCount = 0;
@@ -475,27 +481,6 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
 
     _lastObservedPosition = pos;
     _lastObservedBuffer = buffer;
-  }
-
-  Future<void> _recoverPlayback(Duration resumePos) async {
-    if (_isAutoRecovering) return;
-    final url = _lastUrl;
-    if (url == null) return;
-    _isAutoRecovering = true;
-    AppLogger.w('⚡ Auto-recovering stalled playback at s...');
-    try {
-      final source = _buildDataSource(url, _lastHeaders, isHls: _lastIsHls);
-      await betterPlayerController.setupDataSource(source);
-      _attachVideoListener();
-      if (resumePos > Duration.zero) {
-        await betterPlayerController.seekTo(resumePos);
-      }
-      await betterPlayerController.play();
-    } catch (e) {
-      AppLogger.e('Auto-recovery failed: ');
-    } finally {
-      _isAutoRecovering = false;
-    }
   }
 
   Future<void> retry() async {
@@ -548,7 +533,6 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     _stallWatchdogTimer?.cancel();
     _stallWatchdogTimer = null;
     _stallTickCount = 0;
-    _isAutoRecovering = false;
     _pendingSeekTarget = null;
     _lastUrl = null;
     _lastHeaders = null;

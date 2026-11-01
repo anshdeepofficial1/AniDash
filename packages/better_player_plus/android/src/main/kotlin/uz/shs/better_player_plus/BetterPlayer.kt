@@ -369,7 +369,6 @@ internal class BetterPlayer(
         exoPlayerEventListener?.let { exoPlayerEventListener ->
             exoPlayer?.addListener(exoPlayerEventListener)
         }
-        exoPlayer?.seekTo(0)
     }
 
     fun disposeRemoteNotifications() {
@@ -485,27 +484,12 @@ internal class BetterPlayer(
         exoPlayer?.setVideoSurface(surface)
         setAudioAttributes(exoPlayer, true)
         exoPlayer?.addAnalyticsListener(object : AnalyticsListener {
-            private var droppedCount = 0
-            private var lastDropTime = 0L
-
             override fun onDroppedVideoFrames(
                 eventTime: AnalyticsListener.EventTime,
                 droppedFrames: Int,
                 elapsedMs: Long
             ) {
-                val now = System.currentTimeMillis()
-                if (now - lastDropTime > 2000) {
-                    droppedCount = 0
-                }
-                lastDropTime = now
-                droppedCount += droppedFrames
-                // If more than 50 video frames dropped in 2 seconds while audio is playing,
-                // video decoder is stalled. Flush decoder pipeline by seeking to current position.
-                if (droppedCount > 50 && exoPlayer?.isPlaying == true) {
-                    droppedCount = 0
-                    val currentPos = exoPlayer?.currentPosition ?: 0L
-                    exoPlayer?.seekTo(currentPos)
-                }
+                // Keep track of dropped frames passively without triggering disruptive seeks mid-playback
             }
         })
         exoPlayer?.addListener(object : Player.Listener {

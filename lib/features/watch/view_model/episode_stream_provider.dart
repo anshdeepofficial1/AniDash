@@ -774,7 +774,10 @@ class EpisodeData extends _$EpisodeData {
       if (ep == null) return;
 
       final dlSettings = ref.read(downloadSettingsProvider);
-      if (dlSettings.rememberDownloadPreferences) {
+      final isExtension = !_isNativeProvider &&
+          _exp.useExtensions &&
+          ref.read(sourceProvider).activeAnimeSource != null;
+      if (dlSettings.rememberDownloadPreferences && !isExtension) {
         final queued = await _directDownloadSingle(
           context,
           ep,
@@ -912,14 +915,22 @@ class EpisodeData extends _$EpisodeData {
         return false;
       }
 
-      Source? matchedSource;
-      if (language == 'dub') {
-        matchedSource = data.sources.firstWhereOrNull((s) => s.isDub);
-        matchedSource ??=
-            preferredServer?.isDub == true ? data.sources.firstOrNull : null;
-      } else {
-        matchedSource = data.sources.firstWhereOrNull((s) => !s.isDub);
-      }
+      final langSources = data.sources.where((s) => language == 'dub' ? s.isDub : !s.isDub).toList();
+      final candidateSources = langSources.isNotEmpty ? langSources : data.sources;
+
+      // 1. Direct quality match on extension-provided sources
+      Source? matchedSource = candidateSources.firstWhereOrNull(
+        (s) => s.quality != null && s.quality!.toLowerCase().contains(quality.toLowerCase()),
+      );
+
+      // 2. If no direct quality match, check for an M3U8 source for variant playlist extraction
+      matchedSource ??= candidateSources.firstWhereOrNull(
+        (s) => s.isM3U8 || (s.url?.contains('.m3u8') ?? false),
+      );
+
+      // 3. Fallback to first candidate
+      matchedSource ??= candidateSources.firstOrNull;
+
       if (matchedSource == null && language == 'dub') {
         if (showUnavailableMessage) {
           _showSnack(
@@ -929,7 +940,6 @@ class EpisodeData extends _$EpisodeData {
         }
         return false;
       }
-      matchedSource ??= data.sources.firstOrNull;
 
       if (matchedSource == null ||
           !VideoUtils.isValidNetworkUrl(matchedSource.url)) {
@@ -953,7 +963,7 @@ class EpisodeData extends _$EpisodeData {
               .timeout(const Duration(seconds: 6));
 
           final target = extracted.firstWhereOrNull(
-            (q) => (q['quality'] as String).contains(quality),
+            (q) => (q['quality'] as String).toLowerCase().contains(quality.toLowerCase()),
           );
           if (target != null &&
               VideoUtils.isValidNetworkUrl(target['url']?.toString())) {
@@ -1077,19 +1087,26 @@ class EpisodeData extends _$EpisodeData {
           continue;
         }
 
-        Source? source;
-        if (targetLang == 'dub') {
-          source = data.sources.firstWhereOrNull((s) => s.isDub);
-          source ??=
-              preferredServer?.isDub == true ? data.sources.firstOrNull : null;
-        } else {
-          source = data.sources.firstWhereOrNull((s) => !s.isDub);
-        }
+        final langSources = data.sources.where((s) => targetLang == 'dub' ? s.isDub : !s.isDub).toList();
+        final candidateSources = langSources.isNotEmpty ? langSources : data.sources;
+
+        // 1. Direct quality match on extension sources
+        Source? source = candidateSources.firstWhereOrNull(
+          (s) => s.quality != null && s.quality!.toLowerCase().contains(targetQuality.toLowerCase()),
+        );
+
+        // 2. Fallback to M3U8 source for variant playlist extraction
+        source ??= candidateSources.firstWhereOrNull(
+          (s) => s.isM3U8 || (s.url?.contains('.m3u8') ?? false),
+        );
+
+        // 3. Fallback to first candidate
+        source ??= candidateSources.firstOrNull;
+
         if (source == null && targetLang == 'dub') {
           AppLogger.w('Batch download: DUB not verified for Ep $epNum');
           continue;
         }
-        source ??= data.sources.firstOrNull;
 
         if (source == null || !VideoUtils.isValidNetworkUrl(source.url)) {
           continue;
@@ -1105,7 +1122,7 @@ class EpisodeData extends _$EpisodeData {
                 .timeout(const Duration(seconds: 5));
 
             final target = extracted.firstWhereOrNull(
-              (q) => (q['quality'] as String).contains(targetQuality),
+              (q) => (q['quality'] as String).toLowerCase().contains(targetQuality.toLowerCase()),
             );
             if (target != null &&
                 VideoUtils.isValidNetworkUrl(target['url']?.toString())) {
