@@ -826,6 +826,8 @@ function setupEvents() {
     if (first) { go("#watch/" + first.dataset.watchFirst + "/1"); return; }
     const dot = target.closest("[data-hero-dot]");
     if (dot && state.home) { state.heroIndex = Number(dot.dataset.heroDot); renderHero(state.home.trending.slice(0, 5)); return; }
+    const sectionLink = target.closest("[data-section]");
+    if (sectionLink) { go("#explore"); return; }
     const action = target.closest("[data-action]");
     if (action) {
       const name = action.dataset.action;
