@@ -117,8 +117,9 @@ internal class BetterPlayer(
             this.customDefaultLoadControl.bufferForPlaybackMs,
             this.customDefaultLoadControl.bufferForPlaybackAfterRebufferMs
         )
-        // Keep buffer balanced within memory limits to avoid GC thrashing and OOM
-        loadBuilder.setPrioritizeTimeOverSizeThresholds(false)
+        // Ensure buffer duration threshold (>100s) is prioritized over default 13MB size cap
+        loadBuilder.setPrioritizeTimeOverSizeThresholds(true)
+        loadBuilder.setTargetBufferBytes(100 * 1024 * 1024)
         loadBuilder.setBackBuffer(15000, false)
         loadControl = loadBuilder.build()
         val renderersFactory = DefaultRenderersFactory(context)
@@ -438,6 +439,7 @@ internal class BetterPlayer(
                 val extractorFactory = DefaultHlsExtractorFactory()
                 val loadErrorHandlingPolicy = DefaultLoadErrorHandlingPolicy(8)
                 HlsMediaSource.Factory(mediaDataSourceFactory)
+                    .setAllowChunklessPreparation(true)
                     .setExtractorFactory(extractorFactory)
                     .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
                     .apply {

@@ -411,10 +411,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         preCacheSize: 20 * 1024 * 1024,
       ),
       bufferingConfiguration: const BetterPlayerBufferingConfiguration(
-        minBufferMs: 25000,
-        maxBufferMs: 50000,
-        bufferForPlaybackMs: 2000,
-        bufferForPlaybackAfterRebufferMs: 4000,
+        minBufferMs: 120000,
+        maxBufferMs: 300000,
+        bufferForPlaybackMs: 1500,
+        bufferForPlaybackAfterRebufferMs: 3000,
       ),
     );
   }

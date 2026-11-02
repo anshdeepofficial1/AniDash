@@ -117,6 +117,7 @@ class AnimeWatchProgressEntry {
 
   bool get hasAnyWatchProgress {
     if (episodesProgress.isEmpty) return false;
+    if (status.toLowerCase() == 'watching') return true;
     return episodesProgress.values.any(
       (ep) =>
           ep.isCompleted ||

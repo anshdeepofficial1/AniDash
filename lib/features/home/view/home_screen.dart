@@ -262,6 +262,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ? media.highResCoverImage
                 : media.highResCoverImage;
 
+        final targetEpNum = unfinishedLocalEpisode?.episodeNumber ?? nextEpisode;
+        if (local != null &&
+            local.currentEpisode == targetEpNum &&
+            local.episodesProgress.length >= watchedCount &&
+            watchedCount > 0) {
+          continue;
+        }
+
         final isRemoteAhead =
             local == null || watchedCount >= local.currentEpisode;
         final effectiveLastPlayedAt =
@@ -319,6 +327,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: HeaderSection(isDesktop: isDesktop),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: _ContinueWatchingSection(),
             ),
             const _HomeLoadingSkeleton(),
           ],
@@ -633,6 +645,28 @@ class _ContinueWatchingSection extends ConsumerWidget {
       final progressSec = notesBelongToTarget ? (parsed?.seconds ?? 0) : 0;
       final durationSec = parsed?.duration ?? 1440;
 
+      final episodesMap = <int, EpisodeProgress>{};
+      for (int i = 1; i <= cloudItem.progress; i++) {
+        episodesMap[i] = EpisodeProgress(
+          episodeNumber: i,
+          episodeTitle: 'Episode $i',
+          episodeThumbnail: media.highResCoverImage,
+          progressInSeconds: 1440,
+          durationInSeconds: 1440,
+          isCompleted: true,
+          watchedAt: DateTime.fromMillisecondsSinceEpoch(0),
+        );
+      }
+      episodesMap[targetProgress] = EpisodeProgress(
+        episodeNumber: targetProgress,
+        episodeTitle: 'Episode $targetProgress',
+        episodeThumbnail: media.highResCoverImage,
+        progressInSeconds: progressSec,
+        durationInSeconds: durationSec,
+        isCompleted: false,
+        watchedAt: DateTime.fromMillisecondsSinceEpoch(0),
+      );
+
       return AnimeWatchProgressEntry(
         animeId: media.id,
         animeTitle:
@@ -641,25 +675,9 @@ class _ContinueWatchingSection extends ConsumerWidget {
             media.title.native ??
             '',
         animeFormat: media.format,
-        animeCover:
-            media.highResCoverImage.isNotEmpty
-                ? media.highResCoverImage
-                : media.highResCoverImage,
+        animeCover: media.highResCoverImage,
         totalEpisodes: media.episodes ?? 0,
-        episodesProgress: {
-          targetProgress: EpisodeProgress(
-            episodeNumber: targetProgress,
-            episodeTitle: 'Episode $targetProgress',
-            episodeThumbnail:
-                media.highResCoverImage.isNotEmpty
-                    ? media.highResCoverImage
-                    : media.highResCoverImage,
-            progressInSeconds: progressSec,
-            durationInSeconds: durationSec,
-            isCompleted: false,
-            watchedAt: DateTime.fromMillisecondsSinceEpoch(0),
-          ),
-        },
+        episodesProgress: episodesMap,
         lastUpdated: DateTime.fromMillisecondsSinceEpoch(0),
         currentEpisode: targetProgress,
         status: 'watching',
@@ -681,28 +699,46 @@ class _ContinueWatchingSection extends ConsumerWidget {
           final media = cloudItem.media;
           final cloudEntry = createCloudProgressEntry(cloudItem);
           final local = merged[media.id];
-          // Trackers only store whole episode counts and may be one episode
-          // ahead while a local position sync is still settling. Never let
-          // that transient value replace a fresh, genuinely unfinished local
-          // episode; otherwise Continue Watching jumps ahead or disappears.
-          final freshLocalPartial =
-              local?.episodesProgress.values.any((ep) {
-                final watchedAt = ep.watchedAt;
-                final position = ep.progressInSeconds ?? 0;
-                return position > 0 &&
-                    !isEpisodeProgressEffectivelyComplete(ep) &&
-                    watchedAt != null &&
-                    DateTime.now().difference(watchedAt).abs() <
-                        const Duration(hours: 24);
-              }) ??
-              false;
-          final cloudOnlyOneAhead =
-              local != null &&
-              cloudEntry.currentEpisode <= local.currentEpisode + 1;
-          if (local == null ||
-              (local.currentEpisode < cloudEntry.currentEpisode &&
-                  !(freshLocalPartial && cloudOnlyOneAhead))) {
+          if (local == null) {
             merged[media.id] = cloudEntry;
+          } else {
+            // Trackers only store whole episode counts and may be one episode
+            // ahead while a local position sync is still settling. Never let
+            // that transient value replace a fresh, genuinely unfinished local
+            // episode; otherwise Continue Watching jumps ahead or disappears.
+            final freshLocalPartial =
+                local.episodesProgress.values.any((ep) {
+                  final watchedAt = ep.watchedAt;
+                  final position = ep.progressInSeconds ?? 0;
+                  return position > 0 &&
+                      !isEpisodeProgressEffectivelyComplete(ep) &&
+                      watchedAt != null &&
+                      DateTime.now().difference(watchedAt).abs() <
+                          const Duration(hours: 24);
+                });
+            final cloudOnlyOneAhead =
+                cloudEntry.currentEpisode <= local.currentEpisode + 1;
+            final targetEp = (local.currentEpisode < cloudEntry.currentEpisode &&
+                    !(freshLocalPartial && cloudOnlyOneAhead))
+                ? cloudEntry.currentEpisode
+                : local.currentEpisode;
+
+            final mergedEpisodes = Map<int, EpisodeProgress>.from(local.episodesProgress);
+            for (final entry in cloudEntry.episodesProgress.entries) {
+              mergedEpisodes.putIfAbsent(entry.key, () => entry.value);
+            }
+
+            final localUpdated = local.lastUpdated;
+            final cloudUpdated = cloudEntry.lastUpdated;
+            final effectiveUpdated = (localUpdated != null && cloudUpdated != null)
+                ? (localUpdated.isAfter(cloudUpdated) ? localUpdated : cloudUpdated)
+                : (localUpdated ?? cloudUpdated);
+
+            merged[media.id] = local.copyWith(
+              currentEpisode: targetEp,
+              episodesProgress: mergedEpisodes,
+              lastUpdated: effectiveUpdated,
+            );
           }
         }
 

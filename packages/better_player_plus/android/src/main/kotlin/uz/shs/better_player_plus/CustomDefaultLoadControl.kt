@@ -33,10 +33,10 @@ internal class CustomDefaultLoadControl {
     val bufferForPlaybackAfterRebufferMs: Int
 
     constructor() {
-        minBufferMs = 25000
-        maxBufferMs = 50000
-        bufferForPlaybackMs = 2000
-        bufferForPlaybackAfterRebufferMs = 4000
+        minBufferMs = 120000
+        maxBufferMs = 300000
+        bufferForPlaybackMs = 1500
+        bufferForPlaybackAfterRebufferMs = 3000
     }
 
     constructor(
@@ -45,9 +45,9 @@ internal class CustomDefaultLoadControl {
         bufferForPlaybackMs: Int?,
         bufferForPlaybackAfterRebufferMs: Int?
     ) {
-        this.minBufferMs = minBufferMs ?: 25000
-        this.maxBufferMs = maxBufferMs ?: 50000
-        this.bufferForPlaybackMs = bufferForPlaybackMs ?: 2000
-        this.bufferForPlaybackAfterRebufferMs = bufferForPlaybackAfterRebufferMs ?: 4000
+        this.minBufferMs = minBufferMs ?: 120000
+        this.maxBufferMs = maxBufferMs ?: 300000
+        this.bufferForPlaybackMs = bufferForPlaybackMs ?: 1500
+        this.bufferForPlaybackAfterRebufferMs = bufferForPlaybackAfterRebufferMs ?: 3000
     }
 }
