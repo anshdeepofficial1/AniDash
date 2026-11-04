@@ -214,10 +214,25 @@ class AnikotoProvider extends AnimeProvider {
     String? serverName,
     String? category,
   ) async {
+    String animeSession;
+    String epSession;
     final parts = episodeId.split("+");
-    if (parts.length < 2) throw Exception("Invalid ID format");
-    final String animeSession = parts[0];
-    final String epSession = parts[1];
+    if (parts.length >= 2) {
+      animeSession = parts[0];
+      epSession = parts[1];
+    } else {
+      final epNum = int.tryParse(episodeId) ?? 1;
+      final epList = await getEpisodes(animeId).timeout(const Duration(seconds: 15));
+      final match = epList.episodes?.firstWhereOrNull((e) => e.number == epNum) ??
+          epList.episodes?.firstOrNull;
+      if (match?.id != null && match!.id!.contains('+')) {
+        final matchParts = match.id!.split('+');
+        animeSession = matchParts[0];
+        epSession = matchParts[1];
+      } else {
+        throw Exception("Invalid AniKoto episode ID format: $episodeId");
+      }
+    }
 
     final episodeUrl = "$baseUrl/play/$animeSession/$epSession";
     final bool isRequestingDub = category?.toLowerCase() == 'dub';

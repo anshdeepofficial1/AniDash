@@ -1,5 +1,7 @@
 import 'package:ani_dash/core/utils/language_utils.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:dartotsu_extension_bridge/dartotsu_extension_bridge.dart';
 import 'package:ani_dash/core/models/anime/anime_model.dep.dart';
 import 'package:ani_dash/core/models/universal/universal_media.dart';
 import 'package:ani_dash/core/repositories/source_preference_repository.dart';
@@ -20,10 +22,94 @@ AnimeMatchService animeMatchService(Ref ref) {
   return AnimeMatchService(ref);
 }
 
+final hindiDubAvailabilityProvider = FutureProvider.autoDispose
+    .family<bool, ({String mediaId, UniversalTitle title})>((ref, arg) async {
+  return ref
+      .read(animeMatchServiceProvider)
+      .probeHindiDubAvailability(arg.title, mediaId: arg.mediaId);
+});
+
 class AnimeMatchService {
   final Ref _ref;
+  static final Map<String, bool> _hindiAvailabilityCache = {};
 
   AnimeMatchService(this._ref);
+
+  static bool? isHindiAvailableCached(String? mediaId) {
+    if (mediaId == null || mediaId.isEmpty) return null;
+    return _hindiAvailabilityCache[mediaId];
+  }
+
+  /// Probes whether Hindi dub is available for the given anime across installed Hindi extensions.
+  Future<bool> probeHindiDubAvailability(
+    UniversalTitle title, {
+    String? mediaId,
+  }) async {
+    final cacheKey = mediaId ?? title.english ?? title.romaji ?? title.userPreferred;
+    if (_hindiAvailabilityCache.containsKey(cacheKey)) {
+      return _hindiAvailabilityCache[cacheKey]!;
+    }
+
+    final installedExtensions = _ref.read(sourceProvider).installedAnimeExtensions;
+    final hindiExtensions = installedExtensions.where(
+      (s) => LanguageUtils.isHindiSourceNameOrLang(name: s.name, lang: s.lang),
+    ).toList();
+
+    if (hindiExtensions.isEmpty) {
+      _hindiAvailabilityCache[cacheKey] = false;
+      return false;
+    }
+
+    final candidateQueries = <String>[];
+    void addQuery(String? raw) {
+      if (raw == null || raw.trim().isEmpty) return;
+      final clean = raw
+          .replaceAll(RegExp(r'\s*\([^)]*\)'), '')
+          .replaceAll(RegExp(r'\s*\[[^\]]*\]'), '')
+          .replaceAll(':', ' ')
+          .replaceAll('-', ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      if (clean.length >= 3 && !candidateQueries.contains(clean)) {
+        candidateQueries.add(clean);
+      }
+    }
+
+    addQuery(title.english);
+    addQuery(title.romaji);
+    addQuery(title.userPreferred);
+
+    if (candidateQueries.isEmpty) {
+      _hindiAvailabilityCache[cacheKey] = false;
+      return false;
+    }
+
+    for (final ext in hindiExtensions) {
+      for (final query in candidateQueries.take(2)) {
+        try {
+          final res = await ext.methods.search(query, 1, const []).timeout(const Duration(seconds: 4));
+          if (res.list.isNotEmpty) {
+            final matches = getBestMatches(
+              results: res.list,
+              title: query,
+              nameSelector: (r) => r.title,
+              idSelector: (r) => r.url,
+              minThreshold: 0.40,
+            );
+            if (matches.isNotEmpty) {
+              _hindiAvailabilityCache[cacheKey] = true;
+              return true;
+            }
+          }
+        } catch (_) {
+          // Continue to next extension/query
+        }
+      }
+    }
+
+    _hindiAvailabilityCache[cacheKey] = false;
+    return false;
+  }
 
   /// Finds the best match for the given [title] using the active source.
   ///
@@ -185,10 +271,18 @@ class AnimeMatchService {
           lang: activeSource.lang,
         );
 
+    if (bestCandidate != null && isHindiExt && mediaId != null && mediaId.isNotEmpty) {
+      _hindiAvailabilityCache[mediaId] = true;
+    }
+
     // If active source is Hindi and no match was found on it (e.g. One Piece has no Hindi dub),
-    // seamlessly try fallback to official server (JustAnime) so playback does not fail or freeze!
+    // seamlessly try fallback to official server (JustAnime) for this anime without altering
+    // the user's global Hindi source preference!
     if (bestCandidate == null && isHindiExt) {
       AppLogger.w('No match found on Hindi source for "$mediaId". Trying Official JustAnime fallback...');
+      if (mediaId != null && mediaId.isNotEmpty) {
+        _hindiAvailabilityCache[mediaId] = false;
+      }
       try {
         final registry = _ref.read(animeSourceRegistryProvider);
         final justProvider = registry.get('justanime');
@@ -196,8 +290,6 @@ class AnimeMatchService {
           if (mediaId != null && int.tryParse(mediaId) != null && justProvider is JustAnimeProvider) {
             final exists = await justProvider.probeAnimeExists(mediaId);
             if (exists) {
-              _ref.read(selectedProviderKeyProvider.notifier).select('justanime');
-              _ref.read(experimentalProvider.notifier).toggleExtensions(false);
               return BaseAnimeModel(
                 id: mediaId,
                 anilistId: int.tryParse(mediaId),

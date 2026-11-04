@@ -41,6 +41,7 @@ import 'package:ani_dash/main.dart';
 import 'package:ani_dash/features/episode_groups/model/named_episode_group.dart';
 import 'package:ani_dash/features/episode_groups/repository/episode_grouping_repository.dart';
 import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
+import 'package:ani_dash/shared/providers/anime_match_service.dart';
 
 enum EpisodeViewMode { list, compact, grid, block, banner }
 
@@ -2515,6 +2516,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         sourceState.activeAnimeSource?.id;
     final currentNativeKey =
         ref.watch(selectedProviderKeyProvider)?.toLowerCase() ?? 'justanime';
+    final hindiDubAsync = ref.watch(
+      hindiDubAvailabilityProvider((
+        mediaId: widget.mediaId,
+        title: widget.mediaTitle,
+      )),
+    );
 
     final allAvailable = <Source>[
       ...sourceState.installedAdultAnimeExtensions,
@@ -2623,13 +2630,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       ? matchingExt.iconUrl
                       : fallbackIcon;
 
-              final isExtensionActive = useExtensions && sourceState.activeAnimeSource != null;
-              final activeExtName = (sourceState.activeAnimeSource?.name ?? '').toLowerCase();
-              final activeExtId = (sourceState.activeAnimeSource?.id ?? '').toLowerCase();
-
-              final isSelected = (!isExtensionActive && currentNativeKey == server.key) ||
-                  (isExtensionActive &&
-                      (activeExtName.contains(server.key) || activeExtId.contains(server.key)));
+              final isSelected = !useExtensions && currentNativeKey == server.key;
 
               return ListTile(
                 leading: Container(
@@ -2712,14 +2713,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                     : null,
                 onTap: () {
                   ref.read(selectedProviderKeyProvider.notifier).select(server.key);
-                  if (server.key == 'justanime') {
-                    ref.read(experimentalProvider.notifier).toggleExtensions(false);
-                  } else if (matchingExt != null) {
-                    ref.read(sourceProvider.notifier).setActiveSource(matchingExt);
-                    ref.read(experimentalProvider.notifier).toggleExtensions(true);
-                  } else {
-                    ref.read(experimentalProvider.notifier).toggleExtensions(false);
-                  }
+                  ref.read(experimentalProvider.notifier).toggleExtensions(false);
                   ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
                     widget.mediaId,
                     widget.mediaCover,
@@ -2820,74 +2814,123 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               ],
             ),
           ),
-          for (final source in hindiExtensions)
-            ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: Colors.orange.withValues(alpha: 0.15),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: _buildSourceIcon(
-                  _getSourceIconUrl(source, null),
-                  size: 40,
-                  fallbackIcon: Icons.translate_rounded,
-                  fallbackColor: Colors.orange,
-                ),
-              ),
-              title: Row(
-                children: [
-                  Text(
-                    source.name ?? 'Hindi Source',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+          for (final source in hindiExtensions) () {
+            final isUnavailable = hindiDubAsync.hasValue && hindiDubAsync.value == false;
+            return Opacity(
+              opacity: isUnavailable ? 0.42 : 1.0,
+              child: ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: isUnavailable
+                        ? theme.colorScheme.surfaceContainerHighest
+                        : Colors.orange.withValues(alpha: 0.15),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'HINDI',
-                      style: TextStyle(
-                        color: Colors.orange,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 9,
+                  clipBehavior: Clip.antiAlias,
+                  child: _buildSourceIcon(
+                    _getSourceIconUrl(source, null),
+                    size: 40,
+                    fallbackIcon: Icons.translate_rounded,
+                    fallbackColor: isUnavailable ? theme.hintColor : Colors.orange,
+                  ),
+                ),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        source.name ?? 'Hindi Source',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isUnavailable ? theme.hintColor : null,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: isUnavailable
+                            ? theme.colorScheme.surfaceContainerHighest
+                            : Colors.orange.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: isUnavailable
+                            ? Border.all(color: theme.hintColor.withValues(alpha: 0.3))
+                            : null,
+                      ),
+                      child: Text(
+                        isUnavailable ? 'NOT AVAILABLE' : 'AVAILABLE • HINDI',
+                        style: TextStyle(
+                          color: isUnavailable ? theme.hintColor : Colors.orange,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                subtitle: Text(
+                  isUnavailable
+                      ? 'Hindi dub not available for this anime'
+                      : 'हिन्दी Audio Dub & Sub • Extension',
+                  style: TextStyle(fontSize: 12, color: theme.hintColor),
+                ),
+                selected: !isUnavailable && useExtensions && source.id == activeId,
+                trailing: (!isUnavailable && useExtensions && source.id == activeId)
+                    ? const Icon(Icons.check_circle_rounded, color: Colors.orange)
+                    : (isUnavailable ? const Icon(Icons.block_rounded, size: 18, color: Colors.grey) : null),
+                onTap: () {
+                  if (isUnavailable) {
+                    ScaffoldMessenger.of(ref.context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Hindi dub is not available for this anime. Switched to Official Server (JustAnime).',
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                    ref.read(selectedProviderKeyProvider.notifier).select('justanime');
+                    ref.read(experimentalProvider.notifier).toggleExtensions(false);
+                    ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
+                      widget.mediaId,
+                      widget.mediaCover,
+                      IsarSourcePreference(
+                        animeId: widget.mediaId,
+                        sourceId: 'justanime',
+                        sourceType: 'legacy',
+                        matchedAnimeId: widget.mediaId,
+                        matchedAnimeTitle: widget.mediaTitle.userPreferred,
+                      ),
+                    );
+                    Navigator.pop(ref.context);
+                    notifier.refresh();
+                    return;
+                  }
+
+                  ref.read(selectedProviderKeyProvider.notifier).clear();
+                  ref.read(sourceProvider.notifier).setActiveSource(source);
+                  ref.read(experimentalProvider.notifier).toggleExtensions(true);
+                  ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
+                    widget.mediaId,
+                    widget.mediaCover,
+                    IsarSourcePreference(
+                      animeId: widget.mediaId,
+                      sourceId: source.id?.toString(),
+                      sourceType: 'aniyomi',
+                      matchedAnimeId: null,
+                      matchedAnimeTitle: null,
+                    ),
+                  );
+                  Navigator.pop(ref.context);
+                  notifier.refresh();
+                },
               ),
-              subtitle: Text(
-                'हिन्दी Audio Dub & Sub • Extension',
-                style: TextStyle(fontSize: 12, color: theme.hintColor),
-              ),
-              selected: useExtensions && source.id == activeId,
-              trailing: (useExtensions && source.id == activeId)
-                  ? const Icon(Icons.check_circle_rounded, color: Colors.orange)
-                  : null,
-              onTap: () {
-                ref.read(selectedProviderKeyProvider.notifier).clear();
-                ref.read(sourceProvider.notifier).setActiveSource(source);
-                ref.read(experimentalProvider.notifier).toggleExtensions(true);
-                ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
-                  widget.mediaId,
-                  widget.mediaCover,
-                  IsarSourcePreference(
-                    animeId: widget.mediaId,
-                    sourceId: source.id?.toString(),
-                    sourceType: 'aniyomi',
-                    matchedAnimeId: null,
-                    matchedAnimeTitle: null,
-                  ),
-                );
-                Navigator.pop(ref.context);
-                notifier.refresh();
-              },
-            ),
+            );
+          }(),
         ],
 
         // Other extensions section

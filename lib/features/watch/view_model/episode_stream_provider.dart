@@ -514,6 +514,7 @@ class EpisodeData extends _$EpisodeData {
     await _player.pause();
 
     ref.read(selectedProviderKeyProvider.notifier).select(key);
+    ref.read(experimentalProvider.notifier).toggleExtensions(false);
     _prefetchedEpNum = null;
     _prefetchedSourceData = null;
     _prefetchedIsDub = null;
@@ -1770,6 +1771,8 @@ class EpisodeData extends _$EpisodeData {
         _exp.useExtensions &&
         epTargetUrl != null &&
         epTargetUrl.isNotEmpty) {
+      final extName = ref.read(sourceProvider).activeAnimeSource?.name?.toUpperCase() ?? 'EXTENSION';
+      state = state.copyWith(sourceNotice: 'Loading from $extName…');
       try {
         final res = await _srcNotifier
             .getSources(
@@ -1937,7 +1940,7 @@ class EpisodeData extends _$EpisodeData {
           );
           final searchRes = await effectiveProvider
               .getSearch(_epList.animeTitle!, null, 1)
-              .timeout(const Duration(seconds: 2));
+              .timeout(const Duration(seconds: 8));
           final bestMatches = getBestMatches(
             results: searchRes.results,
             title: _epList.animeTitle!,
@@ -1952,7 +1955,7 @@ class EpisodeData extends _$EpisodeData {
               try {
                 final epListRes = await effectiveProvider
                     .getEpisodes(bestId)
-                    .timeout(const Duration(seconds: 2));
+                    .timeout(const Duration(seconds: 8));
                 final matchEp = epListRes.episodes?.firstWhereOrNull(
                   (e) => e.number == ep.number,
                 );
@@ -1963,7 +1966,7 @@ class EpisodeData extends _$EpisodeData {
             }
             final res = await effectiveProvider
                 .getSources(bestId, resolvedTargetEpId, server?.id, category)
-                .timeout(const Duration(seconds: 3));
+                .timeout(const Duration(seconds: 10));
             if (res.sources.isNotEmpty) {
               AppLogger.success(
                 'Resolved stream on ${effectiveProvider.providerName}',
@@ -2028,7 +2031,7 @@ class EpisodeData extends _$EpisodeData {
                 null,
                 1,
               )
-              .timeout(const Duration(seconds: 2));
+              .timeout(const Duration(seconds: 8));
           if (activeGeneration != _loadGeneration) return null;
 
           final bestMatches = getBestMatches(
@@ -2053,7 +2056,7 @@ class EpisodeData extends _$EpisodeData {
             if (altEpsList == null) {
               final altEps = await altProvider
                   .getEpisodes(altMatchId)
-                  .timeout(const Duration(seconds: 2));
+                  .timeout(const Duration(seconds: 8));
               if (activeGeneration != _loadGeneration) return null;
               altEpsList = altEps.episodes;
               if (altEpsList != null) {
@@ -2074,7 +2077,7 @@ class EpisodeData extends _$EpisodeData {
         if (activeGeneration != _loadGeneration) return null;
         final altSources = await altProvider
             .getSources(altMatchId, resolvedEpId, null, category)
-            .timeout(const Duration(seconds: 3));
+            .timeout(const Duration(seconds: 10));
         if (activeGeneration != _loadGeneration) return null;
         if (altSources.sources.isNotEmpty) {
           AppLogger.success('Provider $altKey found sources!');
