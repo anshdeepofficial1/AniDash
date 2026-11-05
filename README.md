@@ -22,6 +22,11 @@
   <a href="LICENSE.md"><img src="https://raw.githubusercontent.com/anshdeepofficial1/AniDash/readme-badge-data/assets/badges/license.svg" alt="Apache License 2.0" height="26" /></a>
 </p>
 
+<!-- XERJ Corpus Hub -->
+<p align="center">
+  <a href="https://hub.xerj.org/contributors/anshdeepofficial1"><img src="https://hub.xerj.org/contributors/anshdeepofficial1/badge.svg" alt="XERJ Corpus Hub contributor" /></a>
+</p>
+
 <!-- Platforms and technology -->
 <p align="center">
   <img src="assets/badges/android.svg" alt="Android 6.0+" height="26" />
