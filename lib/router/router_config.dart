@@ -152,34 +152,65 @@ final routerConfig = GoRouter(
       return '/settings/ui';
     }
 
-    // Handle incoming deep links (e.g. anidash://anime/123, https://anidashweb.vercel.app/anime/123, https://anilist.co/anime/123/...)
+    // Handle incoming deep links (e.g. anidash://anime/123, anidash://anime?title=...&id=..., https://anidashweb.vercel.app/anime/123, etc.)
     final uri = state.uri;
     final path = uri.path;
     final host = uri.host.toLowerCase();
 
+    final queryAnimeId = uri.queryParameters['id'] ??
+        uri.queryParameters['anime_id'] ??
+        uri.queryParameters['media_id'];
+    final queryTitle = uri.queryParameters['title'] ??
+        uri.queryParameters['anime_title'] ??
+        uri.queryParameters['keyword'] ??
+        uri.queryParameters['q'];
+    final queryEpisode = uri.queryParameters['episode'] ??
+        uri.queryParameters['episode_number'] ??
+        uri.queryParameters['ep'];
+
     // 1. Anime details deep links
-    if (path.startsWith('/anime/') || (uri.scheme == 'anidash' && host == 'anime')) {
+    if (path.startsWith('/anime/') || (uri.scheme == 'anidash' && (host == 'anime' || host == 'details' || host == 'app'))) {
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
-      final id = (host == 'anime')
-          ? (segments.isNotEmpty ? segments.first : null)
-          : (segments.length >= 2 ? segments[1] : null);
-      if (id != null && id.isNotEmpty) {
+      final id = (host == 'anime' || host == 'details' || host == 'app')
+          ? (segments.isNotEmpty ? segments.first : queryAnimeId)
+          : (segments.length >= 2 ? segments[1] : queryAnimeId);
+      if (id != null && id.isNotEmpty && id.toLowerCase() != 'null') {
+        if (queryEpisode != null && queryEpisode.isNotEmpty) {
+          return '/details/$id?tab=episodes&episode=$queryEpisode';
+        }
         return '/details/$id';
+      }
+      if (queryTitle != null && queryTitle.trim().isNotEmpty) {
+        return '/browse?keyword=${Uri.encodeComponent(queryTitle.trim())}';
       }
     }
 
-    // 2. Episode deep links -> open anime details
-    if (path.startsWith('/episode/') || (uri.scheme == 'anidash' && host == 'episode')) {
+    // 2. Episode deep links -> open anime details or watch
+    if (path.startsWith('/episode/') || (uri.scheme == 'anidash' && (host == 'episode' || host == 'watch'))) {
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
-      final id = (host == 'episode')
-          ? (segments.isNotEmpty ? segments.first : null)
-          : (segments.length >= 2 ? segments[1] : null);
-      if (id != null && id.isNotEmpty) {
+      final id = (host == 'episode' || host == 'watch')
+          ? (segments.isNotEmpty ? segments.first : queryAnimeId)
+          : (segments.length >= 2 ? segments[1] : queryAnimeId);
+      final ep = segments.length >= 2 ? segments[1] : queryEpisode;
+      if (id != null && id.isNotEmpty && id.toLowerCase() != 'null') {
+        if (ep != null && ep.isNotEmpty) {
+          return '/episode/$id/$ep?title=${Uri.encodeComponent(queryTitle ?? 'Anime')}';
+        }
         return '/details/$id';
+      }
+      if (queryTitle != null && queryTitle.trim().isNotEmpty) {
+        return '/browse?keyword=${Uri.encodeComponent(queryTitle.trim())}';
       }
     }
 
-    // 3. Shared chat deep links
+    // 3. Browse / Search deep links
+    if (path.startsWith('/browse') || (uri.scheme == 'anidash' && (host == 'browse' || host == 'search'))) {
+      if (queryTitle != null && queryTitle.trim().isNotEmpty) {
+        return '/browse?keyword=${Uri.encodeComponent(queryTitle.trim())}';
+      }
+    }
+
+    // 4. Shared chat deep links
     if (path.startsWith('/c/') || (uri.scheme == 'anidash' && host == 'c')) {
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
       final id = (host == 'c')

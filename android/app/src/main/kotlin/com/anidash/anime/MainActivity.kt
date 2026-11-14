@@ -717,9 +717,33 @@ class MainActivity : FlutterFragmentActivity() {
         return super.dispatchKeyEvent(event)
     }
 
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        handleIncomingIntent(intent)
+        super.onCreate(savedInstanceState)
+    }
+
     override fun onNewIntent(intent: Intent) {
+        handleIncomingIntent(intent)
         super.onNewIntent(intent)
         setIntent(intent)
+    }
+
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+        if (intent.data == null) {
+            val animeId = intent.getStringExtra("anime_id")
+            val animeTitle = intent.getStringExtra("anime_title")
+            val season = if (intent.hasExtra("season_number")) intent.getIntExtra("season_number", 1) else null
+            val episode = if (intent.hasExtra("episode_number")) intent.getIntExtra("episode_number", 1) else null
+            if (!animeId.isNullOrBlank() || !animeTitle.isNullOrBlank()) {
+                val uriBuilder = java.lang.StringBuilder("anidash://anime?")
+                if (!animeId.isNullOrBlank()) uriBuilder.append("id=").append(Uri.encode(animeId)).append("&")
+                if (!animeTitle.isNullOrBlank()) uriBuilder.append("title=").append(Uri.encode(animeTitle)).append("&")
+                if (season != null) uriBuilder.append("season=").append(season).append("&")
+                if (episode != null) uriBuilder.append("episode=").append(episode).append("&")
+                intent.data = Uri.parse(uriBuilder.toString().trimEnd('&', '?'))
+            }
+        }
     }
 
     override fun onDestroy() {
