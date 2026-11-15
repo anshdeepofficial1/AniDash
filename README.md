@@ -169,3 +169,7 @@ Made by <a href="https://github.com/anshdeepofficial1">Anshdeep Singh</a>
 <a href="https://github.com/sponsors/anshdeepofficial1">Sponsor on GitHub</a> • <a href="https://buymeacoffee.com/anshdeepofficial1">Buy Me a Coffee</a>
 
 </div>
+
+---
+
+**Developer profile:** This repository is part of the public project portfolio of [Anshdeep Singh](https://github.com/anshdeepofficial1). [Official portfolio](https://anshdeepofficial1.vercel.app/about) · [Public project directory](https://anshdeepofficial1.vercel.app/work).
