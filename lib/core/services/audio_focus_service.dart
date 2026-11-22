@@ -12,13 +12,13 @@ class AudioFocusService {
   bool isPausedByInterruption = false;
   bool isSessionActive = false;
 
-  Future<void> Function()? _onPauseRequested;
-  Future<void> Function()? _onResumeRequested;
+  Future<bool> Function()? _onPauseRequested;
+  Future<bool> Function()? _onResumeRequested;
   bool _isInitialized = false;
 
   void initialize({
-    required Future<void> Function() onPauseRequested,
-    required Future<void> Function() onResumeRequested,
+    required Future<bool> Function() onPauseRequested,
+    required Future<bool> Function() onResumeRequested,
   }) {
     _onPauseRequested = onPauseRequested;
     _onResumeRequested = onResumeRequested;
@@ -34,36 +34,48 @@ class AudioFocusService {
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     if (!isSessionActive) {
-      AppLogger.d('[AudioFocusService] Ignored focus event (${call.method}): session inactive');
+      AppLogger.d(
+        '[AudioFocusService] Ignored focus event (${call.method}): session inactive',
+      );
       return;
     }
 
     switch (call.method) {
       case 'onAudioFocusLossTransient':
-        AppLogger.w('[AudioFocusService] Transient focus loss (incoming call / alarm). Pausing video...');
-        isPausedByInterruption = true;
+        AppLogger.w(
+          '[AudioFocusService] Transient focus loss (incoming call / alarm). Pausing video...',
+        );
         if (_onPauseRequested != null) {
-          await _onPauseRequested!();
+          final shouldResume = await _onPauseRequested!();
+          // Duplicate focus-loss/call-state events must not erase an already
+          // pending resume after the first event has paused the player.
+          isPausedByInterruption = isPausedByInterruption || shouldResume;
         }
         break;
 
       case 'onAudioFocusGain':
         AppLogger.success('[AudioFocusService] Audio focus regained.');
         if (isSessionActive && isPausedByInterruption) {
-          isPausedByInterruption = false;
-          AppLogger.i('[AudioFocusService] Call ended. Auto-resuming video playback...');
+          AppLogger.i(
+            '[AudioFocusService] Call ended. Checking whether playback may resume...',
+          );
           if (_onResumeRequested != null) {
-            await _onResumeRequested!();
+            final didResume = await _onResumeRequested!();
+            // Keep the interruption pending while AniDash is backgrounded.
+            // The watch controller consumes it only after the app resumes.
+            if (didResume) isPausedByInterruption = false;
           }
         }
         break;
 
       case 'onAudioFocusLoss':
-        AppLogger.w('[AudioFocusService] Permanent focus loss. Pausing video...');
-        isPausedByInterruption = false;
+        AppLogger.w(
+          '[AudioFocusService] Permanent focus loss. Pausing video...',
+        );
         if (_onPauseRequested != null) {
           await _onPauseRequested!();
         }
+        isPausedByInterruption = false;
         break;
 
       default:

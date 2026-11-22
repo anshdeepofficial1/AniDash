@@ -56,6 +56,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
   bool _episodeTransitionInProgress = false;
   bool _wasPlayingBeforeLock = false;
   bool _isAppInBackground = false;
+  bool _isAppForeground = true;
   int _savedPosBeforeLock = 0;
 
   @override
@@ -89,6 +90,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
     _isDisposed = true;
     _wasPlayingBeforeLock = false;
     _isAppInBackground = false;
+    _isAppForeground = false;
     _completedSubscription?.cancel();
     _playbackActionSubscription?.cancel();
     NotificationService().hidePlaybackNotification();
@@ -102,6 +104,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
+      _isAppForeground = false;
       if (ref.read(pipProvider)) {
         // App is playing in Picture-in-Picture! Do not pause.
         _isAppInBackground = false;
@@ -119,6 +122,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         _triggerSave(targetPos: _savedPosBeforeLock);
       }
     } else if (state == AppLifecycleState.resumed) {
+      _isAppForeground = true;
       if (_isDisposed || !AudioFocusService().isSessionActive) {
         _wasPlayingBeforeLock = false;
         _isAppInBackground = false;
@@ -184,6 +188,7 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
   }) async {
     _isDisposed = false;
     _wasPlayingBeforeLock = false;
+    _isAppForeground = true;
 
     // If the player has an active session for a different anime, stop and clear it
     final playerNotifier = ref.read(playerStateProvider.notifier);
@@ -292,16 +297,19 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
 
     AudioFocusService().initialize(
       onPauseRequested: () async {
-        if (_isDisposed) return;
+        if (_isDisposed) return false;
         final wasPlaying = ref.read(playerStateProvider).isPlaying;
-        AudioFocusService().isPausedByInterruption = wasPlaying;
+        final shouldResumeLater = wasPlaying || _wasPlayingBeforeLock;
         if (wasPlaying) {
           await ref.read(playerStateProvider.notifier).pause();
         }
+        return shouldResumeLater;
       },
       onResumeRequested: () async {
-        if (_isDisposed) return;
+        if (_isDisposed || !_isAppForeground) return false;
         await ref.read(playerStateProvider.notifier).play();
+        _wasPlayingBeforeLock = false;
+        return true;
       },
     );
 

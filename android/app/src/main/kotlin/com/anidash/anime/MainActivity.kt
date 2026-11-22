@@ -45,6 +45,9 @@ class MainActivity : FlutterFragmentActivity() {
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     private var hasAudioFocus = false
+    private val callStateHandler = Handler(Looper.getMainLooper())
+    private var callStateMonitorRunning = false
+    private var wasCallAudioActive = false
     private val updateTaskPrefs by lazy {
         getSharedPreferences("anidash_updater", Context.MODE_PRIVATE)
     }
@@ -89,8 +92,12 @@ class MainActivity : FlutterFragmentActivity() {
                     audioFocusChannel?.invokeMethod("onAudioFocusLossTransient", null)
                 }
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                    // Short notification sounds may temporarily duck media,
-                    // but must not pause and resume video playback.
+                    // Ordinary notifications may duck without pausing. Some
+                    // OEM dialers and VoIP apps also report an active call as
+                    // CAN_DUCK, so pause only when Android is in a call mode.
+                    if (isCallAudioActive()) {
+                        audioFocusChannel?.invokeMethod("onAudioFocusLossTransient", null)
+                    }
                 }
                 AudioManager.AUDIOFOCUS_LOSS -> {
                     hasAudioFocus = false
@@ -104,6 +111,46 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    private fun isCallAudioActive(): Boolean {
+        val mode = (audioManager ?: getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.mode
+            ?: return false
+        return mode == AudioManager.MODE_RINGTONE ||
+            mode == AudioManager.MODE_IN_CALL ||
+            mode == AudioManager.MODE_IN_COMMUNICATION ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                mode == AudioManager.MODE_CALL_SCREENING)
+    }
+
+    private val callStateMonitor = object : Runnable {
+        override fun run() {
+            if (!callStateMonitorRunning) return
+            val callActive = isCallAudioActive()
+            if (callActive != wasCallAudioActive) {
+                wasCallAudioActive = callActive
+                audioFocusChannel?.invokeMethod(
+                    if (callActive) "onAudioFocusLossTransient" else "onAudioFocusGain",
+                    null
+                )
+            }
+            callStateHandler.postDelayed(this, 250L)
+        }
+    }
+
+    private fun startCallStateMonitor() {
+        if (callStateMonitorRunning) return
+        callStateMonitorRunning = true
+        // Start from a neutral state so an already-active call is reported on
+        // the first poll instead of being silently treated as the baseline.
+        wasCallAudioActive = false
+        callStateHandler.post(callStateMonitor)
+    }
+
+    private fun stopCallStateMonitor() {
+        callStateMonitorRunning = false
+        callStateHandler.removeCallbacks(callStateMonitor)
+        wasCallAudioActive = false
+    }
+
     private fun requestAudioFocus(): Boolean {
         val am = audioManager ?: (getSystemService(Context.AUDIO_SERVICE) as? AudioManager).also { audioManager = it }
         if (am == null) return false
@@ -113,6 +160,7 @@ class MainActivity : FlutterFragmentActivity() {
         // request first emits a focus-loss callback on some Android devices,
         // making AniDash pause its own video after the first second or two.
         // An already-held focus grant is valid and must be reused.
+        startCallStateMonitor()
         if (hasAudioFocus) return true
 
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -141,6 +189,7 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     private fun abandonAudioFocus() {
+        stopCallStateMonitor()
         val am = audioManager ?: return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
@@ -748,6 +797,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onDestroy() {
         disableLandscapeRotation()
+        stopCallStateMonitor()
         abandonAudioFocus()
         try {
             val lp = window.attributes
