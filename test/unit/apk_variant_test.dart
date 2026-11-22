@@ -21,4 +21,15 @@ void main() {
 
     expect(selectAndroidApkAsset(assets), isNull);
   });
+
+  test('universal channel waits when a release has only ABI APKs', () {
+    final assets = <Map<String, String>>[
+      {'name': 'AniDash-v2-arm64-v8a.apk', 'browser_download_url': 'arm64'},
+      {'name': 'AniDash-v2-armeabi-v7a.apk', 'browser_download_url': 'armv7'},
+      {'name': 'AniDash-v2-x86_64.apk', 'browser_download_url': 'x86'},
+    ];
+
+    expect(installedApkVariant, 'universal');
+    expect(selectAndroidApkAsset(assets), isNull);
+  });
 }

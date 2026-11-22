@@ -27,18 +27,8 @@ dynamic selectAndroidApkAsset(List<dynamic> assets) {
     if (matches(asset, installedApkVariant)) return asset;
   }
 
-  // A matching architecture may safely fall back to the universal APK, but
-  // never to a different architecture-specific package.
-  for (final asset in assets) {
-    if (matches(asset, 'universal')) return asset;
-  }
-
-  // General fallback: if neither variant nor universal is found, fallback to arm64 or any valid APK
-  for (final asset in assets) {
-    if (matches(asset, 'arm64-v8a')) return asset;
-  }
-  for (final asset in assets) {
-    if (isApk(asset)) return asset;
-  }
+  // Do not silently move an installation between APK channels. In particular,
+  // a universal install must wait for a universal update, and an ABI-specific
+  // install must wait for an update built for the same ABI.
   return null;
 }
