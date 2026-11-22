@@ -43,6 +43,11 @@ jobs:
           MENTION: ${{ github.event.inputs.mention_everyone == 'true' && '@everyone' || '' }}
           TAG: ${{ steps.fetch_data.outputs.tag }}
         run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "DISCORD_WEBHOOK is not configured; skipping optional Discord notification."
+            exit 0
+          fi
+
           NOTES=$(cat release_notes.txt)
           ASSETS=$(cat asset_list.txt)
           FULL_DESC=$(printf "### Changelog\n%s\n\n### Downloads\n%s" "$NOTES" "$ASSETS")
@@ -61,4 +66,4 @@ jobs:
 
           jq --arg desc "$FULL_DESC" '.embeds[0].description = $desc' discord_payload.json > final_payload.json
 
-          curl -H "Content-Type: application/json" -X POST -d @final_payload.json "$DISCORD_WEBHOOK"
+          curl --fail-with-body -H "Content-Type: application/json" -X POST -d @final_payload.json "$DISCORD_WEBHOOK"
