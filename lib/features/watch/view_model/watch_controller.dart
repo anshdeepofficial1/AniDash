@@ -57,7 +57,6 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
   bool _wasPlayingBeforeLock = false;
   bool _isAppInBackground = false;
   int _savedPosBeforeLock = 0;
-  Timer? _pendingAutoSkipTimer;
 
   @override
   void build() {
@@ -92,7 +91,6 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
     _isAppInBackground = false;
     _completedSubscription?.cancel();
     _playbackActionSubscription?.cancel();
-    _pendingAutoSkipTimer?.cancel();
     NotificationService().hidePlaybackNotification();
     AudioFocusService().reset();
     try {
@@ -612,7 +610,8 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         // show the Next Episode prompt pop-up.
         final remainingSeconds = _dur - _pos;
         final shouldTriggerNextPrompt =
-            isInDetectedOutro || (remainingSeconds <= 30 && remainingSeconds > 0 && _dur > 30);
+            isInDetectedOutro ||
+            (remainingSeconds <= 30 && remainingSeconds > 0 && _dur > 30);
 
         final hasNextEpisode =
             (_epNum ?? 0) > 0 && (_totalEps <= 0 || (_epNum ?? 0) < _totalEps);
@@ -624,7 +623,9 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           if (settings.showNextEpisodePrompt) {
             ref.read(nextEpisodePromptProvider.notifier).show();
           }
-        } else if (_nextPromptTriggered && remainingSeconds > 35 && !isInDetectedOutro) {
+        } else if (_nextPromptTriggered &&
+            remainingSeconds > 35 &&
+            !isInDetectedOutro) {
           // If user seeks backwards, allow prompt to trigger again when reaching the end
           _nextPromptTriggered = false;
         }
@@ -667,7 +668,6 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         _episodeTransitionInProgress = true;
         ref.read(aniSkipProvider.notifier).clear();
         _autoSkippedRangeKeys.clear();
-        _pendingAutoSkipTimer?.cancel();
         _lastAniSkipEpisode = null;
         _lastAniSkipDuration = null;
         _epNum = next;
@@ -677,7 +677,9 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
         _prefetchTriggered = false;
         _nextPromptTriggered = false;
         _isPlayerReady = false;
-        ref.read(playerStateProvider.notifier).resetForNewEpisode(episode: next);
+        ref
+            .read(playerStateProvider.notifier)
+            .resetForNewEpisode(episode: next);
         ref
             .read(nextEpisodePromptProvider.notifier)
             .dismissForEpisodeTransition();
@@ -840,18 +842,21 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
 
       final isIntro =
           (skip.skipType == SkipType.op ||
-              (skip.skipType == SkipType.mixed && skip.interval!.startTime <= 300)) &&
+              (skip.skipType == SkipType.mixed &&
+                  skip.interval!.startTime <= 300)) &&
           skip.interval!.startTime <= 600;
       final isOutro =
           (skip.skipType == SkipType.ed ||
-              (skip.skipType == SkipType.mixed && skip.interval!.startTime > 300)) &&
+              (skip.skipType == SkipType.mixed &&
+                  skip.interval!.startTime > 300)) &&
           skip.interval!.startTime >= 360;
       final isRecap = skip.skipType == SkipType.recap;
 
       final start = Duration(seconds: startSec);
       final end = Duration(seconds: endSec);
 
-      final validType = isIntro || isOutro || isRecap || skip.skipType == SkipType.mixed;
+      final validType =
+          isIntro || isOutro || isRecap || skip.skipType == SkipType.mixed;
       final length = end - start;
 
       final validTiming =
@@ -860,16 +865,12 @@ class WatchController extends _$WatchController with WidgetsBindingObserver {
           (_dur <= 0 || end <= Duration(seconds: _dur + 5)) &&
           length <= const Duration(minutes: 6);
 
-      if (validType &&
-          validTiming &&
-          position >= start &&
-          position < end) {
-        _pendingAutoSkipTimer ??= Timer(const Duration(seconds: 2), () {
-          _pendingAutoSkipTimer = null;
-          if (_isDisposed) return;
-          _autoSkippedRangeKeys.add(rangeKey);
-          ref.read(playerStateProvider.notifier).seek(end);
-        });
+      if (validType && validTiming && position >= start && position < end) {
+        // Seek immediately once a validated range is reached. The former
+        // delayed timer could be cancelled by an episode/lifecycle transition
+        // before firing, which made auto-skip appear intermittent.
+        _autoSkippedRangeKeys.add(rangeKey);
+        unawaited(ref.read(playerStateProvider.notifier).seek(end));
         return;
       }
     }

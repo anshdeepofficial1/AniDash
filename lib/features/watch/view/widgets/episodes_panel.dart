@@ -21,12 +21,14 @@ class EpisodesPanel extends ConsumerStatefulWidget {
   final AnimationController panelAnimation;
   final String mediaId;
   final VoidCallback? onEpisodeSelected;
+  final ScrollController? scrollController;
 
   const EpisodesPanel({
     super.key,
     required this.panelAnimation,
     required this.mediaId,
     this.onEpisodeSelected,
+    this.scrollController,
   });
 
   @override
@@ -44,11 +46,14 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
   List<NamedEpisodeGroup> _namedGroups = const [];
   NamedEpisodeGroup? _selectedNamedGroup;
   String? _groupsLoadedFor;
-  final ScrollController _scrollController = ScrollController();
+  late final ScrollController _scrollController;
+  late final bool _ownsScrollController;
 
   @override
   void initState() {
     super.initState();
+    _ownsScrollController = widget.scrollController == null;
+    _scrollController = widget.scrollController ?? ScrollController();
     _loadRangeSize();
     final stored = sharedPrefs.getString('episode_grouping_mode');
     _useNamedGroups = stored != 'ranges';
@@ -124,7 +129,9 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
   @override
   void dispose() {
     widget.panelAnimation.removeStatusListener(_onPanelStatusChanged);
-    _scrollController.dispose();
+    if (_ownsScrollController) {
+      _scrollController.dispose();
+    }
     super.dispose();
   }
 

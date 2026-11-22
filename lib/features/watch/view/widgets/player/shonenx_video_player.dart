@@ -606,16 +606,18 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     final useExt = ref.read(experimentalProvider).useExtensions;
     final sourceState = ref.read(sourceProvider);
     final activeSource = sourceState.activeAnimeSource;
-    final isCurrentHindi = useExt && LanguageUtils.isHindiSourceNameOrLang(
-      name: activeSource?.name,
-      lang: activeSource?.lang,
-    );
-
+    final isCurrentHindi =
+        useExt &&
+        LanguageUtils.isHindiSourceNameOrLang(
+          name: activeSource?.name,
+          lang: activeSource?.lang,
+        );
 
     final currentPref = ref.read(playerSettingsProvider).preferredAudioLanguage;
-    final currentLabel = isCurrentHindi
-        ? 'Hindi (हिन्दी)'
-        : (currentPref == 'dub' ? 'English (DUB)' : 'Japanese (SUB)');
+    final currentLabel =
+        isCurrentHindi
+            ? 'Hindi (हिन्दी)'
+            : (currentPref == 'dub' ? 'English (DUB)' : 'Japanese (SUB)');
 
     final availableList = <String>[];
     if (isCurrentHindi) {
@@ -626,7 +628,8 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
 
     if (!mounted) return;
     setState(() {
-      _audioToastText = '🎧 Playing: $currentLabel • Available in: ${availableList.join(" • ")}';
+      _audioToastText =
+          '🎧 Playing: $currentLabel • Available in: ${availableList.join(" • ")}';
       _showAudioToast = true;
     });
 
@@ -643,10 +646,12 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     final useExt = ref.read(experimentalProvider).useExtensions;
     final sourceState = ref.read(sourceProvider);
     final activeSource = sourceState.activeAnimeSource;
-    final isCurrentHindi = useExt && LanguageUtils.isHindiSourceNameOrLang(
-      name: activeSource?.name,
-      lang: activeSource?.lang,
-    );
+    final isCurrentHindi =
+        useExt &&
+        LanguageUtils.isHindiSourceNameOrLang(
+          name: activeSource?.name,
+          lang: activeSource?.lang,
+        );
 
     final animeTitle = ref.read(episodeListProvider).animeTitle;
     final sourceLang = LanguageUtils.detectLanguage(
@@ -656,9 +661,11 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     final subName = LanguageUtils.getSubLabel(sourceLang);
     final dubName = LanguageUtils.getDubLabel(sourceLang);
 
-    final hindiExtension = sourceState.installedAnimeExtensions.firstWhereOrNull(
-      (s) => LanguageUtils.isHindiSourceNameOrLang(name: s.name, lang: s.lang),
-    );
+    final hindiExtension = sourceState.installedAnimeExtensions
+        .firstWhereOrNull(
+          (s) =>
+              LanguageUtils.isHindiSourceNameOrLang(name: s.name, lang: s.lang),
+        );
 
     final options = <(String, String, String, VoidCallback)>[
       (
@@ -705,51 +712,59 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Audio & Language', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'Audio & Language',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 8),
-              for (final option in options) () {
-                final isSelected = option.$1 == 'hindi'
-                    ? isCurrentHindi
-                    : (!isCurrentHindi && currentPref == option.$1);
-                return ListTile(
-                  leading: Icon(
-                    isSelected
-                        ? Icons.radio_button_checked_rounded
-                        : Icons.radio_button_off_rounded,
-                    color: option.$1 == 'hindi' ? Colors.orange : null,
-                  ),
-                  title: Row(
-                    children: [
-                      Text(option.$2),
-                      if (option.$1 == 'hindi') ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'HINDI',
-                            style: TextStyle(
-                              color: Colors.orange,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 9,
+              for (final option in options)
+                () {
+                  final isSelected =
+                      option.$1 == 'hindi'
+                          ? isCurrentHindi
+                          : (!isCurrentHindi && currentPref == option.$1);
+                  return ListTile(
+                    leading: Icon(
+                      isSelected
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      color: option.$1 == 'hindi' ? Colors.orange : null,
+                    ),
+                    title: Row(
+                      children: [
+                        Text(option.$2),
+                        if (option.$1 == 'hindi') ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'HINDI',
+                              style: TextStyle(
+                                color: Colors.orange,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 9,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
-                  subtitle: Text(option.$3),
-                  onTap: () {
-                    Navigator.pop(context);
-                    if (!isSelected) {
-                      option.$4();
-                    }
-                  },
-                );
-              }(),
+                    ),
+                    subtitle: Text(option.$3),
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (!isSelected) {
+                        option.$4();
+                      }
+                    },
+                  );
+                }(),
             ],
           ),
         ),
@@ -852,16 +867,20 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     final uiController = ref.watch(playerUIControllerProvider.notifier);
     final isPiP = ref.watch(pipProvider);
 
-    ref.listen(episodeDataProvider.select((e) => e.selectedEpisode), (prev, next) {
+    ref.listen(episodeDataProvider.select((e) => e.selectedEpisode), (
+      prev,
+      next,
+    ) {
       if (prev != next) {
         _hasShownAudioToastForEpisode = false;
       }
     });
 
     ref.listen(playerStateProvider.select((p) => p.isPlaying), (prev, next) {
-      if (ref.read(pipProvider)) {
-        ref.read(pipProvider.notifier).updatePlaybackState(next);
-      }
+      // Keep Android's pending PiP state in sync even before PiP opens. This
+      // prevents onUserLeaveHint from using its default `playing` value when
+      // the user paused the video immediately before leaving the app.
+      ref.read(pipProvider.notifier).updatePlaybackState(next);
       if (prev != true && next == true && !_hasShownAudioToastForEpisode) {
         _hasShownAudioToastForEpisode = true;
         _triggerAudioToast();
@@ -869,7 +888,10 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     });
 
     ref.listen(episodeDataProvider.select((e) => e.sources), (prev, next) {
-      if (prev != next && next.isNotEmpty && !_hasShownAudioToastForEpisode && ref.read(playerStateProvider).isPlaying) {
+      if (prev != next &&
+          next.isNotEmpty &&
+          !_hasShownAudioToastForEpisode &&
+          ref.read(playerStateProvider).isPlaying) {
         _hasShownAudioToastForEpisode = true;
         _triggerAudioToast();
       }
@@ -1210,11 +1232,15 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                   ),
 
                 // Hotstar-style Audio Tracks Banner Toast
-                if (_showAudioToast && _audioToastText != null && !uiState.isLocked)
+                if (_showAudioToast &&
+                    _audioToastText != null &&
+                    !uiState.isLocked)
                   Positioned(
-                    bottom: (MediaQuery.of(context).orientation == Orientation.landscape)
-                        ? (uiState.isVisible ? 82 : 24)
-                        : (uiState.isVisible ? 46 : 6),
+                    bottom:
+                        (MediaQuery.of(context).orientation ==
+                                Orientation.landscape)
+                            ? (uiState.isVisible ? 82 : 24)
+                            : (uiState.isVisible ? 46 : 6),
                     left: 12,
                     right: 12,
                     child: Center(
@@ -1271,10 +1297,14 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                                     vertical: 3,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.orangeAccent.withValues(alpha: 0.25),
+                                    color: Colors.orangeAccent.withValues(
+                                      alpha: 0.25,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
-                                      color: Colors.orangeAccent.withValues(alpha: 0.6),
+                                      color: Colors.orangeAccent.withValues(
+                                        alpha: 0.6,
+                                      ),
                                       width: 0.8,
                                     ),
                                   ),

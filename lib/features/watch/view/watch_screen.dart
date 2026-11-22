@@ -168,6 +168,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                         child: EpisodesPanel(
                           panelAnimation: _panelController,
                           mediaId: widget.mediaId,
+                          scrollController: scrollController,
                           onEpisodeSelected: () => Navigator.of(ctx).pop(),
                         ),
                       ),
@@ -305,13 +306,18 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     final hasError = ref.read(episodeDataProvider).error != null;
     final isLoading = ref.read(episodeDataProvider).isLoading;
     final playerState = ref.read(playerStateProvider);
-    final isStuckOrStalled = playerState.isBuffering ||
+    final isStuckOrStalled =
+        playerState.isBuffering ||
         playerState.isOpening ||
         playerState.playbackError != null ||
         !playerState.isPlaying;
 
     // 3. If player is stalled, buffering, or errored: DO NOT lock user in landscape toggle, EXIT immediately!
-    if (hasError || isLoading || isStuckOrStalled || !isLandscape || !_isLandscapeFullscreen) {
+    if (hasError ||
+        isLoading ||
+        isStuckOrStalled ||
+        !isLandscape ||
+        !_isLandscapeFullscreen) {
       _exitWatchScreen();
       return;
     }
@@ -621,7 +627,8 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
 
                 // If physical phone orientation rotated to portrait while fullscreen was on,
                 // smoothly sync state and exit immersive mode back to portrait view.
-                if (orientation == Orientation.portrait && _isLandscapeFullscreen) {
+                if (orientation == Orientation.portrait &&
+                    _isLandscapeFullscreen) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted && _isLandscapeFullscreen) {
                       setState(() {
@@ -630,7 +637,8 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                       UIHelper.exitImmersiveMode();
                     }
                   });
-                } else if (orientation == Orientation.landscape && !_isLandscapeFullscreen) {
+                } else if (orientation == Orientation.landscape &&
+                    !_isLandscapeFullscreen) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted && !_isLandscapeFullscreen) {
                       setState(() {

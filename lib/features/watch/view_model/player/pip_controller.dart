@@ -6,9 +6,7 @@ import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/features/watch/view_model/player/player_provider.dart';
 import 'package:ani_dash/features/watch/view_model/episode_stream_provider.dart';
 
-final pipProvider = NotifierProvider<PiPNotifier, bool>(
-  PiPNotifier.new,
-);
+final pipProvider = NotifierProvider<PiPNotifier, bool>(PiPNotifier.new);
 
 class PiPNotifier extends Notifier<bool> {
   static const MethodChannel _channel = MethodChannel('shonenx/pip');
@@ -37,13 +35,14 @@ class PiPNotifier extends Notifier<bool> {
       AppLogger.i('PiP state changed: $inPiP');
       state = inPiP;
       if (inPiP) {
-        // When entering PiP, ensure audio focus is held and video continues playing smoothly
-        await AudioFocusService().requestAudioFocus();
+        // Preserve the user's playback intent when entering PiP. In
+        // particular, a video paused before leaving the app must remain
+        // paused instead of being restarted by the PiP transition.
         final isPlaying = ref.read(playerStateProvider).isPlaying;
-        if (!isPlaying) {
-          await ref.read(playerStateProvider.notifier).play();
+        if (isPlaying) {
+          await AudioFocusService().requestAudioFocus();
         }
-        await updatePlaybackState(true);
+        await updatePlaybackState(isPlaying);
       }
     } else if (call.method == 'onPiPAction') {
       final String action = call.arguments?.toString() ?? '';
@@ -72,7 +71,9 @@ class PiPNotifier extends Notifier<bool> {
     try {
       state = true;
       final playing = isPlaying ?? ref.read(playerStateProvider).isPlaying;
-      final res = await _channel.invokeMethod<bool>('enterPiP', {'isPlaying': playing});
+      final res = await _channel.invokeMethod<bool>('enterPiP', {
+        'isPlaying': playing,
+      });
       if (res != true) {
         state = false;
       }
@@ -87,7 +88,9 @@ class PiPNotifier extends Notifier<bool> {
   Future<void> updatePlaybackState(bool isPlaying) async {
     if (!Platform.isAndroid) return;
     try {
-      await _channel.invokeMethod<void>('updatePlaybackState', {'isPlaying': isPlaying});
+      await _channel.invokeMethod<void>('updatePlaybackState', {
+        'isPlaying': isPlaying,
+      });
     } catch (_) {}
   }
 
