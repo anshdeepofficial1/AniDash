@@ -57,7 +57,7 @@ class CacheWorker(
                     dataSourceFactory
                 )
                 cacheWriter = CacheWriter(
-                    cacheDataSourceFactory.createDataSource(),
+                    cacheDataSourceFactory.createCacheDataSource(),
                     dataSpec,
                     null
                 ) { _: Long, bytesCached: Long, _: Long ->

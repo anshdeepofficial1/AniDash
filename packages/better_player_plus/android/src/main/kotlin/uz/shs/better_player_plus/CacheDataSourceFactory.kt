@@ -29,17 +29,14 @@ internal class CacheDataSourceFactory(
         }
     }
 
-    override fun createDataSource(): DataSource {
+    internal fun createCacheDataSource(): CacheDataSource {
         val betterPlayerCache = BetterPlayerCache.createCache(context, maxCacheSize)
             ?: throw IllegalStateException("Cache can't be null.")
 
-        // Distinct upstream instances to avoid concurrent socket corruption
         val upstreamForCache = defaultDatasourceFactory?.createDataSource()
             ?: FileDataSource()
-        val upstreamForDirect = defaultDatasourceFactory?.createDataSource()
-            ?: FileDataSource()
 
-        val cacheDataSource = CacheDataSource(
+        return CacheDataSource(
             betterPlayerCache,
             upstreamForCache,
             FileDataSource(),
@@ -47,6 +44,14 @@ internal class CacheDataSourceFactory(
             CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR,
             null
         )
+    }
+
+    override fun createDataSource(): DataSource {
+        // Distinct upstream instances avoid concurrent socket corruption while
+        // manifests and keys bypass the media cache.
+        val cacheDataSource = createCacheDataSource()
+        val upstreamForDirect = defaultDatasourceFactory?.createDataSource()
+            ?: FileDataSource()
 
         return FilterPlaylistCacheDataSource(cacheDataSource, upstreamForDirect)
     }

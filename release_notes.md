@@ -13,6 +13,7 @@
 - Entering Picture-in-Picture no longer forces a video that the user had paused to start playing.
 - Native Picture-in-Picture state is synchronized with the actual player state before the transition.
 - Intro/outro auto-skip seeks immediately when the current position enters a validated skip range.
+- The pre-cache worker now uses the correctly typed Media3 cache source, restoring clean signed release builds without changing playback behavior.
 
 ### Episode navigation
 - The player episode sheet now uses the draggable sheet's own scroll controller, restoring smooth scrolling through long episode lists.
