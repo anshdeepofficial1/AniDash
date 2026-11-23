@@ -140,41 +140,34 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
       enableDrag: true,
       backgroundColor: Colors.transparent,
       builder:
-          (ctx) => DraggableScrollableSheet(
-            expand: false,
-            initialChildSize: 0.75,
-            minChildSize: 0.5,
-            maxChildSize: 0.95,
-            builder:
-                (_, scrollController) => Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF141416),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(20),
+          (ctx) => FractionallySizedBox(
+            heightFactor: 0.88,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF141416),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 6),
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.only(top: 10, bottom: 6),
-                        width: 44,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      Expanded(
-                        child: EpisodesPanel(
-                          panelAnimation: _panelController,
-                          mediaId: widget.mediaId,
-                          scrollController: scrollController,
-                          onEpisodeSelected: () => Navigator.of(ctx).pop(),
-                        ),
-                      ),
-                    ],
+                  Expanded(
+                    child: EpisodesPanel(
+                      panelAnimation: _panelController,
+                      mediaId: widget.mediaId,
+                      onEpisodeSelected: () => Navigator.of(ctx).pop(),
+                    ),
                   ),
-                ),
+                ],
+              ),
+            ),
           ),
     );
   }
