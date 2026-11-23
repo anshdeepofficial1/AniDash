@@ -15,11 +15,17 @@ class AniwatchExtractorBase {
   EpisodesModel extractCommonEpisodes(dom.Element anime) {
     return EpisodesModel(
       sub: parseNumber(
-          anime.querySelector('.sc-detail .tick-item.tick-sub')?.text ?? anime.querySelector('.sc-detail .tick-item tick-sub')?.text),
+        anime.querySelector('.sc-detail .tick-item.tick-sub')?.text ??
+            anime.querySelector('.sc-detail .tick-item tick-sub')?.text,
+      ),
       dub: parseNumber(
-          anime.querySelector('.sc-detail .tick-item.tick-dub')?.text ?? anime.querySelector('.sc-detail .tick-item tick-dub')?.text),
+        anime.querySelector('.sc-detail .tick-item.tick-dub')?.text ??
+            anime.querySelector('.sc-detail .tick-item tick-dub')?.text,
+      ),
       total: parseNumber(
-          anime.querySelector('.sc-detail .tick-item.tick-eps')?.text ?? anime.querySelector('.sc-detail .tick-item tick-eps')?.text),
+        anime.querySelector('.sc-detail .tick-item.tick-eps')?.text ??
+            anime.querySelector('.sc-detail .tick-item tick-eps')?.text,
+      ),
     );
   }
 }
@@ -27,13 +33,21 @@ class AniwatchExtractorBase {
 class SearchExtractor extends AniwatchExtractorBase {
   const SearchExtractor();
 
-  SearchPage parseSearch(dom.Document document, String baseUrl,
-      {required String keyword, required int page}) {
+  SearchPage parseSearch(
+    dom.Document document,
+    String baseUrl, {
+    required String keyword,
+    required int page,
+  }) {
     return _parseSearchPage(document, baseUrl, page);
   }
 
-  SearchPage parsePage(dom.Document document, String baseUrl,
-      {required String route, required int page}) {
+  SearchPage parsePage(
+    dom.Document document,
+    String baseUrl, {
+    required String route,
+    required int page,
+  }) {
     return _parseSearchPage(document, baseUrl, page);
   }
 
@@ -46,32 +60,66 @@ class SearchExtractor extends AniwatchExtractorBase {
   }
 
   int? _extractTotalPages(dom.Document document) {
-    final lastPageLink =
-        document.querySelector('ul.pagination > li:last-child > a');
+    final pages =
+        document.querySelectorAll('ul.pagination a, .pagination a').map((link) {
+          final href = link.attributes['href'];
+          if (href == null) return null;
+          return int.tryParse(
+            Uri.tryParse(href)?.queryParameters['page'] ?? '',
+          );
+        }).whereType<int>();
+    if (pages.isNotEmpty) return pages.reduce((a, b) => a > b ? a : b);
+
+    final lastPageLink = document.querySelector(
+      'ul.pagination > li:last-child > a',
+    );
     return parseNumber(lastPageLink?.attributes['href']?.split('=').last);
   }
 
   List<BaseAnimeModel> _extractAnimeResults(
-      dom.Document document, String baseUrl) {
+    dom.Document document,
+    String baseUrl,
+  ) {
     return document
-        .querySelectorAll('.flw-item')
+        .querySelectorAll('.flw-item, .hk-tile')
         .map((anime) => _parseAnime(anime, baseUrl))
+        .where(
+          (anime) =>
+              anime.id?.isNotEmpty == true && anime.name?.isNotEmpty == true,
+        )
         .toList();
   }
 
   BaseAnimeModel _parseAnime(dom.Element element, String baseUrl) {
     final id = _extractAnimeId(element);
-    final poster = element.querySelector('img')?.attributes['data-src'];
-    final name = element.querySelector('.film-name > a')?.text;
-    final jname = element.querySelector('.film-name a')?.attributes['data-jname'];
-    final extra = element.querySelectorAll('.fd-infor .fdi-item');
-    final type = extra.isNotEmpty ? extra.first.text : null;
-    final duration = extra.length > 1 ? extra.last.text : null;
+    final image = element.querySelector('img');
+    final poster = image?.attributes['data-src'] ?? image?.attributes['src'];
+    final oldTitle = element.querySelector('.film-name > a');
+    final newTitle = element.querySelector('.hk-tile__name a');
+    final dualTitle = newTitle?.querySelector('.hk-dual');
+    final name =
+        oldTitle?.text.trim() ??
+        dualTitle?.attributes['data-en']?.trim() ??
+        newTitle?.text.trim();
+    final jname =
+        oldTitle?.attributes['data-jname'] ?? dualTitle?.attributes['data-jp'];
+    final oldExtra = element.querySelectorAll('.fd-infor .fdi-item');
+    final newExtra = element.querySelectorAll('.hk-tile__meta > span');
+    final type =
+        oldExtra.isNotEmpty
+            ? oldExtra.first.text.trim()
+            : (newExtra.isNotEmpty ? newExtra.first.text.trim() : null);
+    final duration = oldExtra.length > 1 ? oldExtra.last.text.trim() : null;
+    final href = _extractAnimeHref(element);
+    final resolvedUrl =
+        href == null
+            ? null
+            : (Uri.tryParse(href)?.hasScheme == true ? href : '$baseUrl$href');
 
     return BaseAnimeModel(
       id: id,
       poster: poster,
-      url: '$baseUrl${element.querySelector('a')?.attributes['href']}',
+      url: resolvedUrl,
       name: name,
       jname: jname,
       type: type,
@@ -80,13 +128,13 @@ class SearchExtractor extends AniwatchExtractorBase {
   }
 
   String? _extractAnimeId(dom.Element element) {
-    return element
-        .querySelector('a')
-        ?.attributes['href']
-        ?.split('/')
-        .last
-        .split('?')
-        .first;
+    return _extractAnimeHref(element)?.split('/').last.split('?').first;
+  }
+
+  String? _extractAnimeHref(dom.Element element) {
+    return element.querySelector('.hk-tile__link')?.attributes['href'] ??
+        element.querySelector('.hk-tile__name a')?.attributes['href'] ??
+        element.querySelector('a')?.attributes['href'];
   }
 }
 
@@ -113,9 +161,9 @@ class HomeExtractor extends AniwatchExtractorBase {
   }
 
   List<BaseAnimeModel> parseSpotlight(dom.Document document, String baseUrl) {
-    return document
-        .querySelectorAll('.swiper-wrapper .deslide-item')
-        .map((anime) {
+    return document.querySelectorAll('.swiper-wrapper .deslide-item').map((
+      anime,
+    ) {
       return _parseSpotlightAnime(anime, baseUrl);
     }).toList();
   }
@@ -130,9 +178,14 @@ class HomeExtractor extends AniwatchExtractorBase {
       jname: anime.querySelector('.desi-head-title')?.attributes['data-jname'],
       description: anime.querySelector('.desi-description')?.text.trim(),
       rank: parseNumber(
-          anime.querySelector('.desi-sub-text')?.text.split(' ')[0].substring(1)),
-      type: anime.querySelector('.sc-detail .scd-item:first-child')?.text.trim(),
-      duration: anime.querySelectorAll('.sc-detail .scd-item').length > 1 ? anime.querySelectorAll('.sc-detail .scd-item')[1].text.trim() : null,
+        anime.querySelector('.desi-sub-text')?.text.split(' ')[0].substring(1),
+      ),
+      type:
+          anime.querySelector('.sc-detail .scd-item:first-child')?.text.trim(),
+      duration:
+          anime.querySelectorAll('.sc-detail .scd-item').length > 1
+              ? anime.querySelectorAll('.sc-detail .scd-item')[1].text.trim()
+              : null,
       releaseDate:
           anime.querySelector('.sc-detail .scd-item.m-hide')?.text.trim(),
       episodes: extractCommonEpisodes(anime),
@@ -143,19 +196,21 @@ class HomeExtractor extends AniwatchExtractorBase {
     final List<Featured> sections = [];
     final sectionsFound = <String>[];
 
-    document
-        .querySelectorAll('#anime-featured div.anif-block')
-        .forEach((section) {
+    document.querySelectorAll('#anime-featured div.anif-block').forEach((
+      section,
+    ) {
       final sectionTitle = section.querySelector('.anif-block-header')?.text;
       final sectionInUrlPath =
           section.querySelector('.more a')?.attributes['href']?.split('/').last;
 
       final sectionAnimes = _extractFeaturedAnimes(section, baseUrl);
-      sections.add(Featured(
-        path: sectionInUrlPath,
-        title: sectionTitle,
-        animes: sectionAnimes,
-      ));
+      sections.add(
+        Featured(
+          path: sectionInUrlPath,
+          title: sectionTitle,
+          animes: sectionAnimes,
+        ),
+      );
       sectionsFound.add(sectionTitle ?? 'Untitled');
     });
 
@@ -164,7 +219,9 @@ class HomeExtractor extends AniwatchExtractorBase {
   }
 
   List<BaseAnimeModel> _extractFeaturedAnimes(
-      dom.Element section, String baseUrl) {
+    dom.Element section,
+    String baseUrl,
+  ) {
     return section.querySelectorAll('.anif-block-ul li').map((anime) {
       return _parseFeaturedAnime(anime, baseUrl);
     }).toList();
@@ -196,32 +253,52 @@ class HomeExtractor extends AniwatchExtractorBase {
 class DetailExtractor extends AniwatchExtractorBase {
   const DetailExtractor();
 
-  DetailPage parseDetail(dom.Document document, String baseUrl,
-      {required String animeId}) {
-    final BaseAnimeModel anime = _extractDetailAnime(document, baseUrl, animeId);
+  DetailPage parseDetail(
+    dom.Document document,
+    String baseUrl, {
+    required String animeId,
+  }) {
+    final BaseAnimeModel anime = _extractDetailAnime(
+      document,
+      baseUrl,
+      animeId,
+    );
     return DetailPage(anime: anime);
   }
 
   BaseAnimeModel _extractDetailAnime(
-      dom.Document document, String baseUrl, String animeId) {
+    dom.Document document,
+    String baseUrl,
+    String animeId,
+  ) {
     return BaseAnimeModel(
       id: animeId,
       anilistId: parseNumber(
-          jsonDecode(document.querySelector('#syncData')!.text)['anilist_id']),
+        jsonDecode(document.querySelector('#syncData')!.text)['anilist_id'],
+      ),
       url: '$baseUrl$animeId',
       name: document.querySelector('.anisc-detail .film-name')?.text,
-      jname: document
-          .querySelector('.anisc-detail .film-name')
-          ?.attributes['data-jname'],
-      poster: document
-          .querySelector('.anisc-poster .film-poster-img')
-          ?.attributes['src'],
-      description: document
-          .querySelector('.anisc-detail .film-description .text')
-          ?.text
-          .trim(),
-      type: document.querySelectorAll('.film-stats .tick .item').isNotEmpty ? document.querySelectorAll('.film-stats .tick .item').first.text : null,
-      duration: document.querySelectorAll('.film-stats .tick .item').isNotEmpty ? document.querySelectorAll('.film-stats .tick .item').last.text : null,
+      jname:
+          document
+              .querySelector('.anisc-detail .film-name')
+              ?.attributes['data-jname'],
+      poster:
+          document
+              .querySelector('.anisc-poster .film-poster-img')
+              ?.attributes['src'],
+      description:
+          document
+              .querySelector('.anisc-detail .film-description .text')
+              ?.text
+              .trim(),
+      type:
+          document.querySelectorAll('.film-stats .tick .item').isNotEmpty
+              ? document.querySelectorAll('.film-stats .tick .item').first.text
+              : null,
+      duration:
+          document.querySelectorAll('.film-stats .tick .item').isNotEmpty
+              ? document.querySelectorAll('.film-stats .tick .item').last.text
+              : null,
       genres: _extractGenres(document),
       episodes: _extractDetailEpisodes(document),
     );
@@ -237,11 +314,14 @@ class DetailExtractor extends AniwatchExtractorBase {
   EpisodesModel _extractDetailEpisodes(dom.Document document) {
     return EpisodesModel(
       sub: parseNumber(
-          document.querySelector('.anisc-detail .film-stats .tick-sub')?.text),
+        document.querySelector('.anisc-detail .film-stats .tick-sub')?.text,
+      ),
       dub: parseNumber(
-          document.querySelector('.anisc-detail .film-stats .tick-dub')?.text),
+        document.querySelector('.anisc-detail .film-stats .tick-dub')?.text,
+      ),
       total: parseNumber(
-          document.querySelector('.anisc-detail .film-stats .tick-eps')?.text),
+        document.querySelector('.anisc-detail .film-stats .tick-eps')?.text,
+      ),
     );
   }
 }
@@ -249,8 +329,11 @@ class DetailExtractor extends AniwatchExtractorBase {
 class WatchExtractor extends AniwatchExtractorBase {
   const WatchExtractor();
 
-  WatchPage parseWatch(dom.Document document, String baseUrl,
-      {required String animeId}) {
+  WatchPage parseWatch(
+    dom.Document document,
+    String baseUrl, {
+    required String animeId,
+  }) {
     return WatchPage(
       totalEpisodes: _extractTotalEpisodes(document),
       anime: _extractWatchAnime(document, baseUrl, animeId),
@@ -270,23 +353,30 @@ class WatchExtractor extends AniwatchExtractorBase {
   }
 
   BaseAnimeModel _extractWatchAnime(
-      dom.Document document, String baseUrl, String animeId) {
+    dom.Document document,
+    String baseUrl,
+    String animeId,
+  ) {
     return BaseAnimeModel(
       id: animeId,
       url: '$baseUrl/$animeId',
       name: document.querySelector('.anis-detail .film-name a')?.text,
-      jname: document
-          .querySelector('.anis-detail .film-name a')
-          ?.attributes['data-jname'],
-      poster: document.querySelector('.anis-poster img')?.attributes['data-src'],
+      jname:
+          document
+              .querySelector('.anis-detail .film-name a')
+              ?.attributes['data-jname'],
+      poster:
+          document.querySelector('.anis-poster img')?.attributes['data-src'],
       description:
           document.querySelector('.anis-detail .film-description .text')?.text,
-      type: document
-          .querySelector('.anisc-detail .film-stats .item:first-child')
-          ?.text,
-      duration: document
-          .querySelector('.anisc-detail .film-stats .item:last-child')
-          ?.text,
+      type:
+          document
+              .querySelector('.anisc-detail .film-stats .item:first-child')
+              ?.text,
+      duration:
+          document
+              .querySelector('.anisc-detail .film-stats .item:last-child')
+              ?.text,
       episodes: _extractWatchEpisodes(document),
     );
   }
@@ -294,28 +384,33 @@ class WatchExtractor extends AniwatchExtractorBase {
   EpisodesModel _extractWatchEpisodes(dom.Document document) {
     return EpisodesModel(
       sub: parseNumber(
-          document.querySelector('.anisc-detail .film-stats .tick-sub')?.text),
+        document.querySelector('.anisc-detail .film-stats .tick-sub')?.text,
+      ),
       dub: parseNumber(
-          document.querySelector('.anisc-detail .film-stats .tick-dub')?.text),
+        document.querySelector('.anisc-detail .film-stats .tick-dub')?.text,
+      ),
       total: parseNumber(
-          document.querySelector('.anisc-detail .film-stats .tick-eps')?.text),
+        document.querySelector('.anisc-detail .film-stats .tick-eps')?.text,
+      ),
     );
   }
 
-  BaseEpisodeModel parseEpisodes(dom.Document document, String baseUrl,
-      {required String animeId}) {
+  BaseEpisodeModel parseEpisodes(
+    dom.Document document,
+    String baseUrl, {
+    required String animeId,
+  }) {
     final episodes = _extractEpisodesList(document, baseUrl);
-    return BaseEpisodeModel(
-      totalEpisodes: episodes.length,
-      episodes: episodes,
-    );
+    return BaseEpisodeModel(totalEpisodes: episodes.length, episodes: episodes);
   }
 
   List<EpisodeDataModel> _extractEpisodesList(
-      dom.Document document, String baseUrl) {
-    return document
-        .querySelectorAll('.ss-list > a.ssl-item.ep-item')
-        .map((episode) {
+    dom.Document document,
+    String baseUrl,
+  ) {
+    return document.querySelectorAll('.ss-list > a.ssl-item.ep-item').map((
+      episode,
+    ) {
       return _parseEpisode(episode, baseUrl);
     }).toList();
   }
@@ -344,10 +439,7 @@ class WatchExtractor extends AniwatchExtractorBase {
     log("Sub servers: ${subServers.length}");
     log("Dub servers: ${dubServers.length}");
 
-    return BaseServerModel(
-      sub: subServers,
-      dub: dubServers,
-    );
+    return BaseServerModel(sub: subServers, dub: dubServers);
   }
 
   List<ServerData> _extractServers(dom.Document document, String type) {
@@ -356,11 +448,12 @@ class WatchExtractor extends AniwatchExtractorBase {
         .querySelectorAll('.server-item')
         .where((value) => value.attributes['data-type'] == type)
         .map((value) {
-      return ServerData(
-        name: value.querySelector('a')?.text,
-        id: value.attributes['data-id'],
-        isDub: isDub,
-      );
-    }).toList();
+          return ServerData(
+            name: value.querySelector('a')?.text,
+            id: value.attributes['data-id'],
+            isDub: isDub,
+          );
+        })
+        .toList();
   }
 }

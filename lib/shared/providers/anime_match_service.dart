@@ -24,10 +24,10 @@ AnimeMatchService animeMatchService(Ref ref) {
 
 final hindiDubAvailabilityProvider = FutureProvider.autoDispose
     .family<bool, ({String mediaId, UniversalTitle title})>((ref, arg) async {
-  return ref
-      .read(animeMatchServiceProvider)
-      .probeHindiDubAvailability(arg.title, mediaId: arg.mediaId);
-});
+      return ref
+          .read(animeMatchServiceProvider)
+          .probeHindiDubAvailability(arg.title, mediaId: arg.mediaId);
+    });
 
 class AnimeMatchService {
   final Ref _ref;
@@ -45,15 +45,23 @@ class AnimeMatchService {
     UniversalTitle title, {
     String? mediaId,
   }) async {
-    final cacheKey = mediaId ?? title.english ?? title.romaji ?? title.userPreferred;
+    final cacheKey =
+        mediaId ?? title.english ?? title.romaji ?? title.userPreferred;
     if (_hindiAvailabilityCache.containsKey(cacheKey)) {
       return _hindiAvailabilityCache[cacheKey]!;
     }
 
-    final installedExtensions = _ref.read(sourceProvider).installedAnimeExtensions;
-    final hindiExtensions = installedExtensions.where(
-      (s) => LanguageUtils.isHindiSourceNameOrLang(name: s.name, lang: s.lang),
-    ).toList();
+    final installedExtensions =
+        _ref.read(sourceProvider).installedAnimeExtensions;
+    final hindiExtensions =
+        installedExtensions
+            .where(
+              (s) => LanguageUtils.isHindiSourceNameOrLang(
+                name: s.name,
+                lang: s.lang,
+              ),
+            )
+            .toList();
 
     if (hindiExtensions.isEmpty) {
       _hindiAvailabilityCache[cacheKey] = false;
@@ -63,13 +71,14 @@ class AnimeMatchService {
     final candidateQueries = <String>[];
     void addQuery(String? raw) {
       if (raw == null || raw.trim().isEmpty) return;
-      final clean = raw
-          .replaceAll(RegExp(r'\s*\([^)]*\)'), '')
-          .replaceAll(RegExp(r'\s*\[[^\]]*\]'), '')
-          .replaceAll(':', ' ')
-          .replaceAll('-', ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
+      final clean =
+          raw
+              .replaceAll(RegExp(r'\s*\([^)]*\)'), '')
+              .replaceAll(RegExp(r'\s*\[[^\]]*\]'), '')
+              .replaceAll(':', ' ')
+              .replaceAll('-', ' ')
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .trim();
       if (clean.length >= 3 && !candidateQueries.contains(clean)) {
         candidateQueries.add(clean);
       }
@@ -87,7 +96,9 @@ class AnimeMatchService {
     for (final ext in hindiExtensions) {
       for (final query in candidateQueries.take(2)) {
         try {
-          final res = await ext.methods.search(query, 1, const []).timeout(const Duration(seconds: 4));
+          final res = await ext.methods
+              .search(query, 1, const [])
+              .timeout(const Duration(seconds: 4));
           if (res.list.isNotEmpty) {
             final matches = getBestMatches(
               results: res.list,
@@ -121,7 +132,12 @@ class AnimeMatchService {
     String? mediaId,
     String? malId,
   }) async {
-    final rawTitles = [title.english, title.romaji, title.userPreferred, title.native];
+    final rawTitles = [
+      title.english,
+      title.romaji,
+      title.userPreferred,
+      title.native,
+    ];
     final titles = <String>[];
     final seen = <String>{};
 
@@ -154,10 +170,11 @@ class AnimeMatchService {
       }
 
       // 3. Remove parentheses / brackets: e.g. "Attack on Titan (TV)" -> "Attack on Titan"
-      final withoutParens = raw
-          .replaceAll(RegExp(r'\s*\([^)]*\)'), '')
-          .replaceAll(RegExp(r'\s*\[[^\]]*\]'), '')
-          .trim();
+      final withoutParens =
+          raw
+              .replaceAll(RegExp(r'\s*\([^)]*\)'), '')
+              .replaceAll(RegExp(r'\s*\[[^\]]*\]'), '')
+              .trim();
       if (withoutParens.isNotEmpty && withoutParens.length >= 3) {
         addTitle(withoutParens);
       }
@@ -217,9 +234,7 @@ class AnimeMatchService {
           }
         }
         if (malId != null && malId.isNotEmpty) {
-          final malMatch = results.firstWhereOrNull(
-            (r) => r.id == malId,
-          );
+          final malMatch = results.firstWhereOrNull((r) => r.id == malId);
           if (malMatch != null) {
             AppLogger.d(
               'Direct MAL ID match found: ${malMatch.name} (malId: $malId)',
@@ -264,61 +279,28 @@ class AnimeMatchService {
     }
 
     final activeSource = _ref.read(sourceProvider).activeAnimeSource;
-    final isHindiExt = useExt &&
+    final isHindiExt =
+        useExt &&
         activeSource != null &&
         LanguageUtils.isHindiSourceNameOrLang(
           name: activeSource.name,
           lang: activeSource.lang,
         );
 
-    if (bestCandidate != null && isHindiExt && mediaId != null && mediaId.isNotEmpty) {
+    if (bestCandidate != null &&
+        isHindiExt &&
+        mediaId != null &&
+        mediaId.isNotEmpty) {
       _hindiAvailabilityCache[mediaId] = true;
     }
 
-    // If active source is Hindi and no match was found on it (e.g. One Piece has no Hindi dub),
-    // seamlessly try fallback to official server (JustAnime) for this anime without altering
-    // the user's global Hindi source preference!
-    if (bestCandidate == null && isHindiExt) {
-      AppLogger.w('No match found on Hindi source for "$mediaId". Trying Official JustAnime fallback...');
-      if (mediaId != null && mediaId.isNotEmpty) {
-        _hindiAvailabilityCache[mediaId] = false;
-      }
-      try {
-        final registry = _ref.read(animeSourceRegistryProvider);
-        final justProvider = registry.get('justanime');
-        if (justProvider != null) {
-          if (mediaId != null && int.tryParse(mediaId) != null && justProvider is JustAnimeProvider) {
-            final exists = await justProvider.probeAnimeExists(mediaId);
-            if (exists) {
-              return BaseAnimeModel(
-                id: mediaId,
-                anilistId: int.tryParse(mediaId),
-                name: title.english ?? title.romaji ?? title.userPreferred,
-              );
-            }
-          }
-          for (final t in titles) {
-            final res = await justProvider.getSearch(t, null, 1).timeout(const Duration(seconds: 10));
-            final justResults = res.results
-                .where((item) => item.id != null && item.name != null)
-                .map((item) => BaseAnimeModel(id: item.id!, name: item.name!, poster: item.poster))
-                .toList();
-            if (justResults.isNotEmpty) {
-              final matches = getBestMatches<BaseAnimeModel>(
-                results: justResults,
-                title: t,
-                nameSelector: (r) => r.name,
-                idSelector: (r) => r.id,
-              );
-              if (matches.isNotEmpty && matches.first.similarity >= 0.40) {
-                return matches.first.result;
-              }
-            }
-          }
-        }
-      } catch (e) {
-        AppLogger.w('JustAnime fallback probe failed: $e');
-      }
+    if (bestCandidate == null &&
+        isHindiExt &&
+        mediaId != null &&
+        mediaId.isNotEmpty) {
+      // Keep the source the user selected. A failed Hindi lookup must not
+      // silently route back to JustAnime (especially while it is offline).
+      _hindiAvailabilityCache[mediaId] = false;
     }
 
     return null;
@@ -347,7 +329,8 @@ class AnimeMatchService {
           repo.saveSourcePreference(mediaId, anime.poster ?? '', selection);
         }
       } else {
-        final currentKey = _ref.read(selectedProviderKeyProvider) ?? 'justanime';
+        final currentKey =
+            _ref.read(selectedProviderKeyProvider) ?? 'justanime';
         final selection = IsarSourcePreference(
           animeId: mediaId,
           sourceId: currentKey,
@@ -377,7 +360,9 @@ class AnimeMatchService {
 
         return res.list
             .where((r) => r.title != null && r.url != null)
-            .map((r) => BaseAnimeModel(id: r.url, name: r.title, poster: r.cover))
+            .map(
+              (r) => BaseAnimeModel(id: r.url, name: r.title, poster: r.cover),
+            )
             .toList();
       } catch (e) {
         AppLogger.w('Extension search for "$query" failed: $e');
@@ -453,8 +438,12 @@ class AnimeMatchService {
                   AppLogger.d(
                     'Auto-Restore: Fast verified JustAnime for ID $matchedId',
                   );
-                  _ref.read(selectedProviderKeyProvider.notifier).select(targetSourceKey);
-                  _ref.read(experimentalProvider.notifier).toggleExtensions(false);
+                  _ref
+                      .read(selectedProviderKeyProvider.notifier)
+                      .select(targetSourceKey);
+                  _ref
+                      .read(experimentalProvider.notifier)
+                      .toggleExtensions(false);
                   return BaseAnimeModel(
                     id: matchedId,
                     name: selection.matchedAnimeTitle,
@@ -469,8 +458,12 @@ class AnimeMatchService {
                 AppLogger.d(
                   'Auto-Restore: Success with ${provider.providerName}',
                 );
-                _ref.read(selectedProviderKeyProvider.notifier).select(targetSourceKey);
-                _ref.read(experimentalProvider.notifier).toggleExtensions(false);
+                _ref
+                    .read(selectedProviderKeyProvider.notifier)
+                    .select(targetSourceKey);
+                _ref
+                    .read(experimentalProvider.notifier)
+                    .toggleExtensions(false);
                 return BaseAnimeModel(
                   id: matchedId,
                   name: selection.matchedAnimeTitle,
@@ -486,9 +479,8 @@ class AnimeMatchService {
         } else if (['mangayomi', 'aniyomi'].contains(selection.sourceType)) {
           final targetSourceId = selection.sourceId;
           final bridge = _ref.read(sourceProvider);
-          final matchingSource = bridge.installedAnimeExtensions.firstWhereOrNull(
-            (s) => s.id?.toString() == targetSourceId,
-          );
+          final matchingSource = bridge.installedAnimeExtensions
+              .firstWhereOrNull((s) => s.id?.toString() == targetSourceId);
           if (matchingSource != null) {
             _ref.read(selectedProviderKeyProvider.notifier).clear();
             _ref.read(sourceProvider.notifier).setActiveSource(matchingSource);

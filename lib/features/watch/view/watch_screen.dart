@@ -137,7 +137,10 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
       useRootNavigator: true,
       isScrollControlled: true,
       isDismissible: true,
-      enableDrag: true,
+      // Let EpisodesPanel own vertical gestures. Modal sheet dragging wins the
+      // gesture arena on some Android devices and makes long lists appear
+      // frozen (or dismisses the sheet instead of scrolling it).
+      enableDrag: false,
       backgroundColor: Colors.transparent,
       builder:
           (ctx) => FractionallySizedBox(

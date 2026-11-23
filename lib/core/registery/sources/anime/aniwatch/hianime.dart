@@ -27,6 +27,9 @@ class HiAnimeProvider extends AnimeProvider {
 
   static const _vidNestBase = 'https://new.vidnest.fun';
   static const _vidNestSecret = 'wSnEvGgWkkxb7nO1yyFgMxhDvogX_Q7Dr0Fi1E4qvn0';
+  static const _megaPlayBase = 'https://megaplay.buzz';
+  static const _megaPlaySourceKey = 'i?LMTAx0Q6,:}50U';
+  static const _megaPlaySourceIv = "W0;27ToaUpl_P%'c";
 
   HiAnimeProvider({
     String? customApiUrl,
@@ -158,10 +161,14 @@ class HiAnimeProvider extends AnimeProvider {
         headers: headers,
         cacheConfig: CacheConfig.medium,
       );
-      final match = RegExp(
+      final embedMatch = RegExp(
         r'(?:vidnest\.fun|tryembed[^/]*)(?:/embed)?/anime/(\d+)/',
       ).firstMatch(response.body);
-      final id = match?.group(1);
+      final anilistLinkMatch = RegExp(
+        r'https?://(?:www\.)?anilist\.co/anime/(\d+)',
+        caseSensitive: false,
+      ).firstMatch(response.body);
+      final id = embedMatch?.group(1) ?? anilistLinkMatch?.group(1);
       if (id != null) _anilistIds[animeId] = id;
       return id;
     } catch (_) {
@@ -226,6 +233,138 @@ class HiAnimeProvider extends AnimeProvider {
       normalized += '=';
     }
     return Uint8List.fromList(base64Decode(normalized));
+  }
+
+  Uint8List _zeroPaddedUtf8(String value, int length) {
+    final result = Uint8List(length);
+    final bytes = utf8.encode(value);
+    result.setRange(0, min(bytes.length, length), bytes);
+    return result;
+  }
+
+  Map<String, dynamic> _decryptMegaPlaySource(String payload) {
+    final aes = encrypt.Encrypter(
+      encrypt.AES(
+        encrypt.Key(_zeroPaddedUtf8(_megaPlaySourceKey, 32)),
+        mode: encrypt.AESMode.cbc,
+      ),
+    );
+    final plain = aes.decrypt(
+      encrypt.Encrypted(_decodeBase64Url(payload)),
+      iv: encrypt.IV(_zeroPaddedUtf8(_megaPlaySourceIv, 16)),
+    );
+    return Map<String, dynamic>.from(jsonDecode(plain) as Map);
+  }
+
+  String _normalizeMegaPlayUrl(String value) {
+    if (value.startsWith('httpq~L/')) {
+      return 'https://${value.substring('httpq~L/'.length)}';
+    }
+    return value;
+  }
+
+  Future<BaseSourcesModel> _getMegaPlaySources(
+    String anilistId,
+    String episode,
+    String category,
+  ) async {
+    final embedUri = Uri.parse(
+      '$_megaPlayBase/stream/ani/$anilistId/$episode/$category',
+    );
+    final embedResponse = await UniversalHttpClient.instance.get(
+      embedUri,
+      headers: {
+        ...headers,
+        'Referer': 'https://hianimes.re/',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      cacheConfig: CacheConfig.none,
+    );
+    if (embedResponse.statusCode != 200) {
+      throw StateError(
+        'HiAnime stream page returned ${embedResponse.statusCode}',
+      );
+    }
+
+    final fileId = RegExp(
+      r'data-id="([^"]+)"',
+    ).firstMatch(embedResponse.body)?.group(1);
+    if (fileId == null || fileId.isEmpty) {
+      throw StateError('HiAnime stream ID was not found');
+    }
+
+    final sourceResponse = await UniversalHttpClient.instance.get(
+      Uri.parse('$_megaPlayBase/stream/getSources?id=$fileId&id=$fileId'),
+      headers: {
+        ...headers,
+        'Referer': '$_megaPlayBase/',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      cacheConfig: CacheConfig.none,
+    );
+    if (sourceResponse.statusCode != 200) {
+      throw StateError(
+        'HiAnime stream data returned ${sourceResponse.statusCode}',
+      );
+    }
+
+    final envelope = Map<String, dynamic>.from(
+      jsonDecode(sourceResponse.body) as Map,
+    );
+    final decoded =
+        envelope['enc'] is String
+            ? _decryptMegaPlaySource(envelope['enc'] as String)
+            : envelope;
+    final rawUrl =
+        (decoded['file'] ?? decoded['url'] ?? envelope['file'])?.toString();
+    if (rawUrl == null || rawUrl.isEmpty) {
+      throw StateError('HiAnime returned no playable stream');
+    }
+    final streamUrl = _normalizeMegaPlayUrl(rawUrl);
+
+    final rawTracks = envelope['tracks'] as List? ?? const [];
+    final tracks = <Subtitle>[];
+    Subtitle? preview;
+    for (final raw in rawTracks.whereType<Map>()) {
+      final item = Map<String, dynamic>.from(raw);
+      final url = item['file']?.toString();
+      if (url == null || url.isEmpty) continue;
+      final isPreview = item['kind']?.toString() == 'thumbnails';
+      final track = Subtitle(
+        url: url,
+        lang: item['label']?.toString() ?? item['kind']?.toString(),
+        isSub: !isPreview,
+      );
+      if (isPreview) {
+        preview = track;
+      } else {
+        tracks.add(track);
+      }
+    }
+
+    Intro? parseSkip(dynamic value) {
+      if (value is! Map) return null;
+      return Intro.fromJson(Map<String, dynamic>.from(value));
+    }
+
+    return BaseSourcesModel(
+      headers: {'Referer': '$_megaPlayBase/'},
+      sources: [
+        Source(
+          url: streamUrl,
+          quality: 'Auto',
+          isM3U8: streamUrl.contains('.m3u8'),
+          isDub: category == 'dub',
+          type: 'HiAnime',
+          headers: {'Referer': '$_megaPlayBase/'},
+        ),
+      ],
+      tracks: tracks,
+      preview: preview,
+      intro: parseSkip(envelope['intro']),
+      outro: parseSkip(envelope['outro']),
+      anilistID: int.tryParse(anilistId),
+    );
   }
 
   Future<Map<String, dynamic>> _fetchVidNest(String path) async {
@@ -397,6 +536,15 @@ class HiAnimeProvider extends AnimeProvider {
             .whereType<String>()
             .lastOrNull ??
         '1';
+    try {
+      return await _getMegaPlaySources(
+        anilistId,
+        episode,
+        category,
+      ).timeout(const Duration(seconds: 8));
+    } catch (error) {
+      AppLogger.w('HiAnime direct stream resolver failed: $error');
+    }
     final requestedServer = serverName?.toLowerCase() ?? '';
     final paths = <String>[
       if (requestedServer.contains('hianime') ||

@@ -14,7 +14,7 @@ import 'package:ani_dash/shared/providers/anime_source_provider.dart';
 import 'package:ani_dash/shared/ui/cards/anime/anime_card_mode.dart';
 import 'package:ani_dash/shared/ui/cards/spotlight/spotlight_card_mode.dart';
 import 'package:ani_dash/shared/auth/widgets/auth_button.dart';
-import 'package:ani_dash/features/settings/view/screens/anime_sources_settings_screen.dart';
+import 'package:ani_dash/shared/providers/anime_source_health_provider.dart';
 import 'package:ani_dash/features/settings/view/screens/home_settings_screen.dart';
 import 'package:ani_dash/features/settings/view/screens/ui_settings_screen.dart';
 import 'package:ani_dash/features/settings/view/widgets/settings_item.dart';
@@ -662,7 +662,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     const preferredOrder = ['justanime', 'hianime', 'anikoto'];
     final registry = ref.read(animeSourceRegistryProvider);
     final animeSources = preferredOrder.where(registry.has).toList();
-    final providerStatus = ref.watch(providerStatusProvider);
+    final providerStatus = ref.watch(animeSourceHealthProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -698,6 +698,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           final isSelected =
                               selectedAnimeSource?.providerName ==
                               provider.toLowerCase();
+                          final isOffline = status == 'offline';
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: SelectableSettingsItem(
@@ -709,16 +710,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                       ? 'JUSTANIME  •  RECOMMENDED'
                                       : provider.toUpperCase(),
                               description:
-                                  provider == 'justanime'
+                                  isOffline
+                                      ? 'NOT AVAILABLE'
+                                      : provider == 'justanime'
                                       ? '${status.toUpperCase()} • Preselected'
                                       : status.toUpperCase(),
                               isInSelectionMode: true,
-                              isSelected: isSelected,
-                              onTap: () {
-                                ref
-                                    .read(selectedProviderKeyProvider.notifier)
-                                    .select(provider);
-                              },
+                              isSelected: isSelected && !isOffline,
+                              onTap:
+                                  isOffline
+                                      ? null
+                                      : () {
+                                        ref
+                                            .read(
+                                              selectedProviderKeyProvider
+                                                  .notifier,
+                                            )
+                                            .select(provider);
+                                      },
                             ),
                           );
                         },

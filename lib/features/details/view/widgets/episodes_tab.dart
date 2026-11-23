@@ -41,7 +41,7 @@ import 'package:ani_dash/main.dart';
 import 'package:ani_dash/features/episode_groups/model/named_episode_group.dart';
 import 'package:ani_dash/features/episode_groups/repository/episode_grouping_repository.dart';
 import 'package:ani_dash/features/ai/view/widgets/ask_nia_button.dart';
-import 'package:ani_dash/shared/providers/anime_match_service.dart';
+import 'package:ani_dash/shared/providers/anime_source_health_provider.dart';
 
 enum EpisodeViewMode { list, compact, grid, block, banner }
 
@@ -112,7 +112,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     _selectionNotifier.addListener(_onSelectionChanged);
     _restoreGroupingPreference();
     _loadNamedGroups();
-    final hideForever = sharedPrefs.getBool('hide_hindi_banner_forever') ?? false;
+    final hideForever =
+        sharedPrefs.getBool('hide_hindi_banner_forever') ?? false;
     final hideUntil = sharedPrefs.getInt('hide_hindi_banner_until') ?? 0;
     if (hideForever || DateTime.now().millisecondsSinceEpoch < hideUntil) {
       _isHindiBannerDismissed = true;
@@ -221,7 +222,6 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     super.dispose();
   }
 
-
   void _onSelectionChanged() {
     if (mounted) setState(() {});
   }
@@ -261,7 +261,6 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         s.length >= visibleNums.length ? {} : visibleNums;
   }
 
-
   void _pauseSelectedDownloads() {
     if (_selectedEpisodes.isEmpty) return;
     final animeTitle =
@@ -270,11 +269,17 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         widget.mediaTitle.romaji ??
         widget.mediaTitle.native ??
         'Anime';
-    final downloads = ref.read(downloadsProvider).downloads.where(
-      (d) => (d.animeTitle == animeTitle || d.animeId == widget.mediaId) &&
-          _selectedEpisodes.contains(d.episodeNumber) &&
-          d.state == DownloadStatus.downloading,
-    ).toList();
+    final downloads =
+        ref
+            .read(downloadsProvider)
+            .downloads
+            .where(
+              (d) =>
+                  (d.animeTitle == animeTitle || d.animeId == widget.mediaId) &&
+                  _selectedEpisodes.contains(d.episodeNumber) &&
+                  d.state == DownloadStatus.downloading,
+            )
+            .toList();
     for (final d in downloads) {
       ref.read(downloadsProvider.notifier).pauseDownload(d);
     }
@@ -296,11 +301,17 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         widget.mediaTitle.romaji ??
         widget.mediaTitle.native ??
         'Anime';
-    final downloads = ref.read(downloadsProvider).downloads.where(
-      (d) => (d.animeTitle == animeTitle || d.animeId == widget.mediaId) &&
-          _selectedEpisodes.contains(d.episodeNumber) &&
-          d.state == DownloadStatus.paused,
-    ).toList();
+    final downloads =
+        ref
+            .read(downloadsProvider)
+            .downloads
+            .where(
+              (d) =>
+                  (d.animeTitle == animeTitle || d.animeId == widget.mediaId) &&
+                  _selectedEpisodes.contains(d.episodeNumber) &&
+                  d.state == DownloadStatus.paused,
+            )
+            .toList();
     for (final d in downloads) {
       ref.read(downloadsProvider.notifier).resumeDownload(d);
     }
@@ -322,10 +333,16 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         widget.mediaTitle.romaji ??
         widget.mediaTitle.native ??
         'Anime';
-    final downloads = ref.read(downloadsProvider).downloads.where(
-      (d) => (d.animeTitle == animeTitle || d.animeId == widget.mediaId) &&
-          _selectedEpisodes.contains(d.episodeNumber),
-    ).toList();
+    final downloads =
+        ref
+            .read(downloadsProvider)
+            .downloads
+            .where(
+              (d) =>
+                  (d.animeTitle == animeTitle || d.animeId == widget.mediaId) &&
+                  _selectedEpisodes.contains(d.episodeNumber),
+            )
+            .toList();
     for (final d in downloads) {
       ref.read(downloadsProvider.notifier).deleteDownload(d);
     }
@@ -605,11 +622,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
             (franchiseOrder?.tvSeasons.length ?? 0) <= 1);
 
     final rawExposed = state.bestMatchName?.trim();
-    final exposedName = (rawExposed == null ||
-            rawExposed.isEmpty ||
-            rawExposed.toLowerCase() == 'none')
-        ? null
-        : rawExposed;
+    final exposedName =
+        (rawExposed == null ||
+                rawExposed.isEmpty ||
+                rawExposed.toLowerCase() == 'none')
+            ? null
+            : rawExposed;
     final theme = Theme.of(context);
     final seasonRelations =
         widget.relations.where((relation) {
@@ -624,13 +642,15 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               'SPIN_OFF',
               'OTHER',
             };
-            if (!relevantRelations.contains(relationType) || excludedFormats.contains(format)) {
+            if (!relevantRelations.contains(relationType) ||
+                excludedFormats.contains(format)) {
               return false;
             }
-            final title = (relation.media.title.english ??
-                    relation.media.title.romaji ??
-                    relation.media.title.userPreferred)
-                .toLowerCase();
+            final title =
+                (relation.media.title.english ??
+                        relation.media.title.romaji ??
+                        relation.media.title.userPreferred)
+                    .toLowerCase();
             if (relationType == 'SUMMARY' ||
                 title.contains('recap') ||
                 title.contains('to the swordsmith village') ||
@@ -682,35 +702,34 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           watchProgress.episodesProgress[watchProgress.currentEpisode];
 
       final isCurrentCompleted =
-          currentEp != null &&
-          isEpisodeProgressEffectivelyComplete(currentEp);
+          currentEp != null && isEpisodeProgressEffectivelyComplete(currentEp);
 
       final baseEp =
           currentEp?.episodeNumber ??
           (watchProgress.currentEpisode > 0 ? watchProgress.currentEpisode : 1);
 
       targetEpNum =
-          isCurrentCompleted &&
-                  (totalEpisodes == 0 || baseEp < totalEpisodes)
+          isCurrentCompleted && (totalEpisodes == 0 || baseEp < totalEpisodes)
               ? baseEp + 1
               : baseEp;
 
-      continueEpisode = episodes.firstWhereOrNull(
-        (e) => e.number == targetEpNum,
-      ) ?? episodes.firstWhereOrNull(
-        (e) => e.number == baseEp,
-      );
+      continueEpisode =
+          episodes.firstWhereOrNull((e) => e.number == targetEpNum) ??
+          episodes.firstWhereOrNull((e) => e.number == baseEp);
       continueEpProgress =
           watchProgress.episodesProgress[continueEpisode?.number];
     } else if (watchProgress != null) {
-      targetEpNum = watchProgress.currentEpisode > 0 ? watchProgress.currentEpisode : 1;
+      targetEpNum =
+          watchProgress.currentEpisode > 0 ? watchProgress.currentEpisode : 1;
     }
 
     // Auto-select Arc if user has not manually picked one
     if (!_userManuallySelectedGroup && _namedGroups.isNotEmpty) {
-      final matching = _namedGroups.firstWhereOrNull(
-        (group) => group.contains(targetEpNum),
-      ) ?? _namedGroups.first;
+      final matching =
+          _namedGroups.firstWhereOrNull(
+            (group) => group.contains(targetEpNum),
+          ) ??
+          _namedGroups.first;
       if (_selectedNamedGroup?.id != matching.id) {
         _selectedNamedGroup = matching;
         _scheduleSelectedChipScroll();
@@ -732,7 +751,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           if (targetEpNum >= s && targetEpNum <= e) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
-                ref.read(detailsPageProvider(widget.mediaId).notifier).updateRange(r);
+                ref
+                    .read(detailsPageProvider(widget.mediaId).notifier)
+                    .updateRange(r);
                 _scheduleSelectedChipScroll();
               }
             });
@@ -788,8 +809,6 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           visibleEpisodes.where((e) => e.isFiller != true).toList();
     }
 
-
-
     // Auto-scroll disabled to prevent disruptive jumping to bottom or switching tabs
 
     return RefreshIndicator(
@@ -813,18 +832,27 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               child: Row(
                 children: [
                   () {
-                    final useExt = ref.watch(experimentalProvider).useExtensions;
-                    final activeExt = ref.watch(sourceProvider).activeAnimeSource;
-                    final nativeKey = ref.watch(selectedProviderKeyProvider)?.toLowerCase();
+                    final useExt =
+                        ref.watch(experimentalProvider).useExtensions;
+                    final activeExt =
+                        ref.watch(sourceProvider).activeAnimeSource;
+                    final nativeKey =
+                        ref.watch(selectedProviderKeyProvider)?.toLowerCase();
                     final selectedNative = ref.watch(selectedAnimeProvider);
 
                     String rawName;
-                    final selectedKind = sharedPrefs.getString('selected_playback_source_kind');
-                    if (selectedKind == 'extension' && useExt && activeExt != null) {
+                    final selectedKind = sharedPrefs.getString(
+                      'selected_playback_source_kind',
+                    );
+                    if (selectedKind == 'extension' &&
+                        useExt &&
+                        activeExt != null) {
                       rawName = activeExt.name ?? 'Extension';
                     } else if (nativeKey != null && nativeKey.isNotEmpty) {
                       rawName = nativeKey;
-                    } else if (useExt && activeExt != null && selectedKind != 'native') {
+                    } else if (useExt &&
+                        activeExt != null &&
+                        selectedKind != 'native') {
                       rawName = activeExt.name ?? 'Extension';
                     } else {
                       rawName = selectedNative?.providerName ?? 'JustAnime';
@@ -840,7 +868,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       if (l.contains('animedub')) return 'AnimeDubHindi';
                       if (l.contains('moviebox')) return 'MovieBox';
                       return name.length > 1
-                          ? name.substring(0, 1).toUpperCase() + name.substring(1)
+                          ? name.substring(0, 1).toUpperCase() +
+                              name.substring(1)
                           : name.toUpperCase();
                     }
 
@@ -872,7 +901,10 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: badgeColor.withValues(alpha: 0.14),
                                   borderRadius: BorderRadius.circular(5),
@@ -882,7 +914,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                   children: [
                                     if (state.isSearchingMatch)
                                       Padding(
-                                        padding: const EdgeInsets.only(right: 5.0),
+                                        padding: const EdgeInsets.only(
+                                          right: 5.0,
+                                        ),
                                         child: SizedBox(
                                           width: 10,
                                           height: 10,
@@ -894,8 +928,14 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                       )
                                     else
                                       Padding(
-                                        padding: const EdgeInsets.only(right: 4.0),
-                                        child: Icon(badgeIcon, size: 11, color: badgeColor),
+                                        padding: const EdgeInsets.only(
+                                          right: 4.0,
+                                        ),
+                                        child: Icon(
+                                          badgeIcon,
+                                          size: 11,
+                                          color: badgeColor,
+                                        ),
                                       ),
                                     Text(
                                       badgeLabel,
@@ -913,19 +953,39 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                           ),
                           const SizedBox(height: 5),
                           InkWell(
-                            onTap: exposedName == null ? () => _handleWrongMatch(context, ref, notifier) : null,
+                            onTap:
+                                exposedName == null
+                                    ? () => _handleWrongMatch(
+                                      context,
+                                      ref,
+                                      notifier,
+                                    )
+                                    : null,
                             borderRadius: BorderRadius.circular(6),
                             child: Text(
                               state.isSearchingMatch
                                   ? 'Searching for episodes on $formatted…'
-                                  : (exposedName ?? 'No match found on $formatted • Tap to select manually'),
+                                  : (exposedName ??
+                                      'No match found on $formatted • Tap to select manually'),
                               style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: exposedName != null ? FontWeight.bold : FontWeight.w500,
-                                color: state.isSearchingMatch
-                                    ? theme.hintColor
-                                    : (exposedName == null ? theme.colorScheme.error : null),
-                                fontStyle: exposedName == null ? FontStyle.italic : FontStyle.normal,
-                                decoration: exposedName == null ? TextDecoration.underline : null,
+                                fontWeight:
+                                    exposedName != null
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                color:
+                                    state.isSearchingMatch
+                                        ? theme.hintColor
+                                        : (exposedName == null
+                                            ? theme.colorScheme.error
+                                            : null),
+                                fontStyle:
+                                    exposedName == null
+                                        ? FontStyle.italic
+                                        : FontStyle.normal,
+                                decoration:
+                                    exposedName == null
+                                        ? TextDecoration.underline
+                                        : null,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -966,9 +1026,15 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           ),
 
           // Hindi Quick Switch Banner
-          if (_hasHindiExtension(ref.watch(sourceProvider)) && !_isCurrentSourceHindi(ref))
+          if (_hasHindiExtension(ref.watch(sourceProvider)) &&
+              !_isCurrentSourceHindi(ref))
             SliverToBoxAdapter(
-              child: _buildHindiAvailabilityBanner(context, ref, notifier, ref.watch(sourceProvider)),
+              child: _buildHindiAvailabilityBanner(
+                context,
+                ref,
+                notifier,
+                ref.watch(sourceProvider),
+              ),
             ),
 
           if (!isContinuousLongRunner && franchiseEntries.length > 1)
@@ -1042,23 +1108,30 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                             allItemsMap[widget.anime!.id] = widget.anime!;
                           }
                           for (final rel in seasonRelations) {
-                            allItemsMap.putIfAbsent(rel.media.id, () => rel.media);
+                            allItemsMap.putIfAbsent(
+                              rel.media.id,
+                              () => rel.media,
+                            );
                           }
-                          final sortedEntries = allItemsMap.values.toList()
-                            ..sort((a, b) {
-                              final aDate = a.startDate;
-                              final bDate = b.startDate;
-                              final aKey =
-                                  (aDate?.year ?? a.seasonYear ?? 9999) * 10000 +
-                                  (aDate?.month ?? 1) * 100 +
-                                  (aDate?.day ?? 1);
-                              final bKey =
-                                  (bDate?.year ?? b.seasonYear ?? 9999) * 10000 +
-                                  (bDate?.month ?? 1) * 100 +
-                                  (bDate?.day ?? 1);
-                              if (aKey != bKey) return aKey.compareTo(bKey);
-                              return (a.title.userPreferred).compareTo(b.title.userPreferred);
-                            });
+                          final sortedEntries =
+                              allItemsMap.values.toList()..sort((a, b) {
+                                final aDate = a.startDate;
+                                final bDate = b.startDate;
+                                final aKey =
+                                    (aDate?.year ?? a.seasonYear ?? 9999) *
+                                        10000 +
+                                    (aDate?.month ?? 1) * 100 +
+                                    (aDate?.day ?? 1);
+                                final bKey =
+                                    (bDate?.year ?? b.seasonYear ?? 9999) *
+                                        10000 +
+                                    (bDate?.month ?? 1) * 100 +
+                                    (bDate?.day ?? 1);
+                                if (aKey != bKey) return aKey.compareTo(bKey);
+                                return (a.title.userPreferred).compareTo(
+                                  b.title.userPreferred,
+                                );
+                              });
 
                           return ListView.builder(
                             scrollDirection: Axis.horizontal,
@@ -1081,7 +1154,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                       isCurrent
                                           ? null
                                           : (selected) {
-                                            if (widget.onSeasonSelected != null) {
+                                            if (widget.onSeasonSelected !=
+                                                null) {
                                               widget.onSeasonSelected!(item);
                                             }
                                           },
@@ -1343,12 +1417,15 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                               child: Row(
                                                 children: [
                                                   Icon(
-                                                    Icons.pause_circle_outline_rounded,
+                                                    Icons
+                                                        .pause_circle_outline_rounded,
                                                     size: 18,
                                                     color: Colors.orange,
                                                   ),
                                                   SizedBox(width: 8),
-                                                  Text('Pause Selected Downloads'),
+                                                  Text(
+                                                    'Pause Selected Downloads',
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -1357,12 +1434,15 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                               child: Row(
                                                 children: [
                                                   Icon(
-                                                    Icons.play_circle_outline_rounded,
+                                                    Icons
+                                                        .play_circle_outline_rounded,
                                                     size: 18,
                                                     color: Colors.green,
                                                   ),
                                                   SizedBox(width: 8),
-                                                  Text('Resume Selected Downloads'),
+                                                  Text(
+                                                    'Resume Selected Downloads',
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -1378,7 +1458,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                                   SizedBox(width: 8),
                                                   Text(
                                                     'Cancel Selected Downloads',
-                                                    style: TextStyle(color: Colors.red),
+                                                    style: TextStyle(
+                                                      color: Colors.red,
+                                                    ),
                                                   ),
                                                 ],
                                               ),
@@ -1745,7 +1827,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                             children: [
                               if (_groupingMode == EpisodeGroupingMode.ranges)
                                 ...state.rangeOptions.map((range) {
-                                  final isSelected = state.selectedRange == range;
+                                  final isSelected =
+                                      state.selectedRange == range;
                                   Widget chip = Center(
                                     child: ChoiceChip(
                                       label: Text(range),
@@ -1773,39 +1856,37 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                   );
                                 })
                               else ...[
-                                ..._namedGroups.map(
-                                  (group) {
-                                    final isSelected =
-                                        _selectedNamedGroup?.id == group.id;
-                                    Widget chip = Center(
-                                      child: ChoiceChip(
-                                        label: Text(
-                                          '${group.title} (${group.rangeLabel})',
-                                        ),
-                                        selected: isSelected,
-                                        onSelected: (_) {
-                                          _userManuallySelectedGroup = true;
-                                          setState(
-                                            () => _selectedNamedGroup = group,
-                                          );
-                                          _scheduleSelectedChipScroll();
-                                        },
+                                ..._namedGroups.map((group) {
+                                  final isSelected =
+                                      _selectedNamedGroup?.id == group.id;
+                                  Widget chip = Center(
+                                    child: ChoiceChip(
+                                      label: Text(
+                                        '${group.title} (${group.rangeLabel})',
                                       ),
-                                    );
-                                    if (isSelected) {
-                                      chip = KeyedSubtree(
-                                        key: _selectedChipKey,
-                                        child: chip,
-                                      );
-                                    }
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                      ),
+                                      selected: isSelected,
+                                      onSelected: (_) {
+                                        _userManuallySelectedGroup = true;
+                                        setState(
+                                          () => _selectedNamedGroup = group,
+                                        );
+                                        _scheduleSelectedChipScroll();
+                                      },
+                                    ),
+                                  );
+                                  if (isSelected) {
+                                    chip = KeyedSubtree(
+                                      key: _selectedChipKey,
                                       child: chip,
                                     );
-                                  },
-                                ),
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    child: chip,
+                                  );
+                                }),
                               ],
                             ],
                           ),
@@ -1847,7 +1928,6 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               orElse: () => EpisodeViewMode.list,
             );
 
-
     Widget buildItem(BuildContext context, int index) {
       final ep = visibleEpisodes[index];
       final epNum = ep.number ?? index + 1;
@@ -1873,7 +1953,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
 
       void onDownloadItem() {
         if (download == null) {
-          ref.read(episodeDataProvider.notifier).downloadEpisode(context, epNum);
+          ref
+              .read(episodeDataProvider.notifier)
+              .downloadEpisode(context, epNum);
         } else if (download.state == DownloadStatus.downloading) {
           ref.read(downloadsProvider.notifier).pauseDownload(download);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1902,7 +1984,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
             ),
           );
         } else if (download.state == DownloadStatus.failed) {
-          ref.read(episodeDataProvider.notifier).downloadEpisode(context, epNum);
+          ref
+              .read(episodeDataProvider.notifier)
+              .downloadEpisode(context, epNum);
         }
       }
 
@@ -2130,86 +2214,88 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         return SafeArea(
           top: false,
           child: DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.5,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (context, scrollController) {
-            String searchQuery = '';
-            return StatefulBuilder(
-              builder: (context, setState) {
-                return Consumer(
-                  builder: (context, ref, _) {
-                    return Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16.0),
-                          child: Center(
-                            child: Container(
-                              width: 40,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: theme.dividerColor.withValues(
-                                  alpha: 0.5,
+            initialChildSize: 0.7,
+            minChildSize: 0.5,
+            maxChildSize: 0.9,
+            expand: false,
+            builder: (context, scrollController) {
+              String searchQuery = '';
+              return StatefulBuilder(
+                builder: (context, setState) {
+                  return Consumer(
+                    builder: (context, ref, _) {
+                      return Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16.0),
+                            child: Center(
+                              child: Container(
+                                width: 40,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: theme.dividerColor.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(2),
                                 ),
-                                borderRadius: BorderRadius.circular(2),
                               ),
                             ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Select Source',
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                decoration: InputDecoration(
-                                  hintText: 'Search sources...',
-                                  prefixIcon: const Icon(Icons.search),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  fillColor:
-                                      theme.colorScheme.surfaceContainerHighest,
-                                  filled: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Select Source',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                onChanged: (value) {
-                                  setState(() => searchQuery = value);
-                                },
-                              ),
-                            ],
+                                const SizedBox(height: 12),
+                                TextField(
+                                  decoration: InputDecoration(
+                                    hintText: 'Search sources...',
+                                    prefixIcon: const Icon(Icons.search),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    fillColor:
+                                        theme
+                                            .colorScheme
+                                            .surfaceContainerHighest,
+                                    filled: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  onChanged: (value) {
+                                    setState(() => searchQuery = value);
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: _buildUnifiedSourceList(
-                            ref,
-                            scrollController,
-                            notifier,
-                            searchQuery,
+                          Expanded(
+                            child: _buildUnifiedSourceList(
+                              ref,
+                              scrollController,
+                              notifier,
+                              searchQuery,
+                            ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            );
-          },
-        ),
-      );
-    },
+                        ],
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -2226,14 +2312,24 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           width: size,
           height: size,
           fit: BoxFit.cover,
-          placeholder: (_, _) => Container(
-            color: (fallbackColor ?? Colors.orange).withValues(alpha: 0.15),
-            child: Icon(fallbackIcon, color: fallbackColor ?? Colors.orange, size: size * 0.5),
-          ),
-          errorWidget: (_, _, _) => Container(
-            color: (fallbackColor ?? Colors.orange).withValues(alpha: 0.15),
-            child: Icon(fallbackIcon, color: fallbackColor ?? Colors.orange, size: size * 0.5),
-          ),
+          placeholder:
+              (_, _) => Container(
+                color: (fallbackColor ?? Colors.orange).withValues(alpha: 0.15),
+                child: Icon(
+                  fallbackIcon,
+                  color: fallbackColor ?? Colors.orange,
+                  size: size * 0.5,
+                ),
+              ),
+          errorWidget:
+              (_, _, _) => Container(
+                color: (fallbackColor ?? Colors.orange).withValues(alpha: 0.15),
+                child: Icon(
+                  fallbackIcon,
+                  color: fallbackColor ?? Colors.orange,
+                  size: size * 0.5,
+                ),
+              ),
         );
       } else if (iconUrl.startsWith('/') || iconUrl.startsWith('file://')) {
         final clean = iconUrl.replaceFirst('file://', '');
@@ -2244,17 +2340,28 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
             width: size,
             height: size,
             fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(
-              color: (fallbackColor ?? Colors.orange).withValues(alpha: 0.15),
-              child: Icon(fallbackIcon, color: fallbackColor ?? Colors.orange, size: size * 0.5),
-            ),
+            errorBuilder:
+                (_, _, _) => Container(
+                  color: (fallbackColor ?? Colors.orange).withValues(
+                    alpha: 0.15,
+                  ),
+                  child: Icon(
+                    fallbackIcon,
+                    color: fallbackColor ?? Colors.orange,
+                    size: size * 0.5,
+                  ),
+                ),
           );
         }
       }
     }
     return Container(
       color: (fallbackColor ?? Colors.orange).withValues(alpha: 0.15),
-      child: Icon(fallbackIcon, color: fallbackColor ?? Colors.orange, size: size * 0.5),
+      child: Icon(
+        fallbackIcon,
+        color: fallbackColor ?? Colors.orange,
+        size: size * 0.5,
+      ),
     );
   }
 
@@ -2316,22 +2423,39 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 ),
                 const SizedBox(height: 12),
                 ListTile(
-                  leading: const Icon(Icons.schedule_rounded, color: Colors.orange),
+                  leading: const Icon(
+                    Icons.schedule_rounded,
+                    color: Colors.orange,
+                  ),
                   title: const Text('Show next day (कल दोबारा दिखाएं)'),
                   subtitle: const Text('Hide this recommendation for 24 hours'),
                   onTap: () async {
-                    final nextDay = DateTime.now().add(const Duration(hours: 24)).millisecondsSinceEpoch;
-                    await sharedPrefs.setInt('hide_hindi_banner_until', nextDay);
+                    final nextDay =
+                        DateTime.now()
+                            .add(const Duration(hours: 24))
+                            .millisecondsSinceEpoch;
+                    await sharedPrefs.setInt(
+                      'hide_hindi_banner_until',
+                      nextDay,
+                    );
                     if (mounted) setState(() => _isHindiBannerDismissed = true);
                     if (ctx.mounted) Navigator.pop(ctx);
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.visibility_off_outlined, color: Colors.orange),
+                  leading: const Icon(
+                    Icons.visibility_off_outlined,
+                    color: Colors.orange,
+                  ),
                   title: const Text('Do not show again (दोबारा कभी न दिखाएं)'),
-                  subtitle: const Text('Permanently hide Hindi dub recommendation'),
+                  subtitle: const Text(
+                    'Permanently hide Hindi dub recommendation',
+                  ),
                   onTap: () async {
-                    await sharedPrefs.setBool('hide_hindi_banner_forever', true);
+                    await sharedPrefs.setBool(
+                      'hide_hindi_banner_forever',
+                      true,
+                    );
                     if (mounted) setState(() => _isHindiBannerDismissed = true);
                     if (ctx.mounted) Navigator.pop(ctx);
                   },
@@ -2353,17 +2477,21 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
   }
 
   bool _hasHindiExtension(SourceState state) {
-    return state.installedAnimeExtensions.any((s) =>
-        s.lang == 'hi' ||
-        s.lang == 'hin' ||
-        (s.name ?? '').toLowerCase().contains('toonstream') ||
-        (s.name ?? '').toLowerCase().contains('animedub') ||
-        (s.name ?? '').toLowerCase().contains('moviebox'));
+    return state.installedAnimeExtensions.any(
+      (s) =>
+          s.lang == 'hi' ||
+          s.lang == 'hin' ||
+          (s.name ?? '').toLowerCase().contains('toonstream') ||
+          (s.name ?? '').toLowerCase().contains('animedub') ||
+          (s.name ?? '').toLowerCase().contains('moviebox'),
+    );
   }
 
   bool _isCurrentSourceHindi(WidgetRef ref) {
     final nativeKey = ref.watch(selectedProviderKeyProvider)?.toLowerCase();
-    if (nativeKey == 'justanime' || nativeKey == 'hianime' || nativeKey == 'anikoto') {
+    if (nativeKey == 'justanime' ||
+        nativeKey == 'hianime' ||
+        nativeKey == 'anikoto') {
       return false;
     }
     final useExt = ref.watch(experimentalProvider).useExtensions;
@@ -2372,7 +2500,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     if (active == null) return false;
     final name = (active.name ?? '').toLowerCase();
     final lang = (active.lang ?? '').toLowerCase();
-    if (name.contains('justanime') || name.contains('hianime') || name.contains('anikoto')) {
+    if (name.contains('justanime') ||
+        name.contains('hianime') ||
+        name.contains('anikoto')) {
       return false;
     }
     return lang == 'hi' ||
@@ -2398,7 +2528,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
       (s) => (s.name ?? '').toLowerCase().contains('animedub'),
     );
     hindiSource ??= sourceState.installedAnimeExtensions.firstWhereOrNull(
-      (s) => (s.lang ?? '').toLowerCase() == 'hi' || (s.lang ?? '').toLowerCase() == 'hin',
+      (s) =>
+          (s.lang ?? '').toLowerCase() == 'hi' ||
+          (s.lang ?? '').toLowerCase() == 'hin',
     );
     hindiSource ??= sourceState.installedAnimeExtensions.firstWhereOrNull(
       (s) => (s.name ?? '').toLowerCase().contains('moviebox'),
@@ -2450,7 +2582,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 Text(
                   'Switch to ${hindiSource.name} for Hindi audio',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
+                    color: theme.textTheme.bodySmall?.color?.withValues(
+                      alpha: 0.8,
+                    ),
                     fontSize: 11,
                   ),
                 ),
@@ -2471,17 +2605,19 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               ref.read(selectedProviderKeyProvider.notifier).clear();
               ref.read(sourceProvider.notifier).setActiveSource(targetSource);
               ref.read(experimentalProvider.notifier).toggleExtensions(true);
-              ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
-                widget.mediaId,
-                widget.mediaCover,
-                IsarSourcePreference(
-                  animeId: widget.mediaId,
-                  sourceId: targetSource.id?.toString(),
-                  sourceType: 'aniyomi',
-                  matchedAnimeId: null,
-                  matchedAnimeTitle: null,
-                ),
-              );
+              ref
+                  .read(sourcePreferenceRepositoryProvider)
+                  .saveSourcePreference(
+                    widget.mediaId,
+                    widget.mediaCover,
+                    IsarSourcePreference(
+                      animeId: widget.mediaId,
+                      sourceId: targetSource.id?.toString(),
+                      sourceType: 'aniyomi',
+                      matchedAnimeId: null,
+                      matchedAnimeTitle: null,
+                    ),
+                  );
               notifier.refresh();
             },
             child: const Text(
@@ -2491,7 +2627,11 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           ),
           const SizedBox(width: 6),
           IconButton(
-            icon: Icon(Icons.close_rounded, size: 18, color: Colors.orange.shade800),
+            icon: Icon(
+              Icons.close_rounded,
+              size: 18,
+              color: Colors.orange.shade800,
+            ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             tooltip: 'Hide notice',
@@ -2516,13 +2656,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         sourceState.activeAnimeSource?.id;
     final currentNativeKey =
         ref.watch(selectedProviderKeyProvider)?.toLowerCase() ?? 'justanime';
-    final hindiDubAsync = ref.watch(
-      hindiDubAvailabilityProvider((
-        mediaId: widget.mediaId,
-        title: widget.mediaTitle,
-      )),
-    );
-
+    final sourceHealth =
+        ref.watch(animeSourceHealthProvider).asData?.value ?? const {};
     final allAvailable = <Source>[
       ...sourceState.installedAdultAnimeExtensions,
       ...sourceState.installedAnimeExtensions,
@@ -2538,32 +2673,35 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     final q = query.trim().toLowerCase();
 
     // 1. Native Built-in servers
-    final nativeServers = [
-      (
-        key: 'justanime',
-        name: 'JustAnime',
-        subtitle: 'Official Global Server • Multi-Quality SUB/DUB',
-        icon: Icons.play_circle_fill_rounded,
-      ),
-      (
-        key: 'hianime',
-        name: 'HiAnime',
-        subtitle: 'Official Fast Server • High Speed Sub & Dub',
-        icon: Icons.bolt_rounded,
-      ),
-      (
-        key: 'anikoto',
-        name: 'AniKoto',
-        subtitle: 'Official Alternative Fast Server',
-        icon: Icons.video_library_rounded,
-      ),
-    ].where((n) => q.isEmpty || n.name.toLowerCase().contains(q)).toList();
+    final nativeServers =
+        [
+          (
+            key: 'justanime',
+            name: 'JustAnime',
+            subtitle: 'Official Global Server • Multi-Quality SUB/DUB',
+            icon: Icons.play_circle_fill_rounded,
+          ),
+          (
+            key: 'hianime',
+            name: 'HiAnime',
+            subtitle: 'Official Fast Server • High Speed Sub & Dub',
+            icon: Icons.bolt_rounded,
+          ),
+          (
+            key: 'anikoto',
+            name: 'AniKoto',
+            subtitle: 'Official Alternative Fast Server',
+            icon: Icons.video_library_rounded,
+          ),
+        ].where((n) => q.isEmpty || n.name.toLowerCase().contains(q)).toList();
 
     // 2. Installed Extensions
-    final filteredExtensions = uniqueAvailable.where((s) {
-      if (q.isEmpty) return true;
-      return (s.name ?? '').toLowerCase().contains(q);
-    }).toList()..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+    final filteredExtensions =
+        uniqueAvailable.where((s) {
+            if (q.isEmpty) return true;
+            return (s.name ?? '').toLowerCase().contains(q);
+          }).toList()
+          ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
 
     bool isHindi(Source s) {
       final name = (s.name ?? '').toLowerCase();
@@ -2587,9 +2725,10 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     }
 
     final hindiExtensions = filteredExtensions.where(isHindi).toList();
-    final otherExtensions = filteredExtensions
-        .where((s) => !isHindi(s) && !isOfficialServer(s))
-        .toList();
+    final otherExtensions =
+        filteredExtensions
+            .where((s) => !isHindi(s) && !isOfficialServer(s))
+            .toList();
 
     final bottomInset = MediaQuery.of(ref.context).padding.bottom;
     return ListView(
@@ -2616,118 +2755,146 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                 final id = (s.id ?? '').toLowerCase();
                 return name.contains(server.key) || id.contains(server.key);
               });
-              final fallbackIcon = {
-                'justanime':
-                    'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.justanime.png',
-                'hianime':
-                    'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.hianime.png',
-                'anikoto':
-                    'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.anikoto.png',
-              }[server.key];
+              final fallbackIcon =
+                  {
+                    'justanime':
+                        'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.justanime.png',
+                    'hianime':
+                        'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.hianime.png',
+                    'anikoto':
+                        'https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/anime/icon/en.anikoto.png',
+                  }[server.key];
               final iconUrl =
                   (matchingExt?.iconUrl != null &&
                           matchingExt!.iconUrl!.isNotEmpty)
                       ? matchingExt.iconUrl
                       : fallbackIcon;
 
-              final isSelected = !useExtensions && currentNativeKey == server.key;
+              final isSelected =
+                  !useExtensions && currentNativeKey == server.key;
+              final status =
+                  sourceHealth[server.key]?['status'] as String? ?? 'checking';
+              final isOffline = status == 'offline';
 
-              return ListTile(
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: theme.colorScheme.surfaceContainerHighest,
+              return Opacity(
+                opacity: isOffline ? 0.42 : 1,
+                child: ListTile(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: theme.colorScheme.surfaceContainerHighest,
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child:
+                        (iconUrl != null && iconUrl.isNotEmpty)
+                            ? CachedNetworkImage(
+                              imageUrl: iconUrl,
+                              fit: BoxFit.cover,
+                              placeholder:
+                                  (_, _) => Container(
+                                    color: theme.colorScheme.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    child: Icon(
+                                      server.icon,
+                                      color: theme.colorScheme.primary,
+                                      size: 20,
+                                    ),
+                                  ),
+                              errorWidget:
+                                  (_, _, _) => Image.asset(
+                                    'assets/icons/anidash_logo.png',
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (_, _, _) => Icon(
+                                          server.icon,
+                                          color: theme.colorScheme.primary,
+                                          size: 20,
+                                        ),
+                                  ),
+                            )
+                            : Image.asset(
+                              'assets/icons/anidash_logo.png',
+                              fit: BoxFit.cover,
+                              errorBuilder:
+                                  (_, _, _) => Icon(
+                                    server.icon,
+                                    color: theme.colorScheme.primary,
+                                    size: 20,
+                                  ),
+                            ),
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: (iconUrl != null && iconUrl.isNotEmpty)
-                      ? CachedNetworkImage(
-                          imageUrl: iconUrl,
-                          fit: BoxFit.cover,
-                          placeholder: (_, _) => Container(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                            child: Icon(
-                              server.icon,
-                              color: theme.colorScheme.primary,
-                              size: 20,
-                            ),
+                  title: Row(
+                    children: [
+                      Text(
+                        server.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.15,
                           ),
-                          errorWidget: (_, _, _) => Image.asset(
-                            'assets/icons/anidash_logo.png',
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Icon(
-                              server.icon,
-                              color: theme.colorScheme.primary,
-                              size: 20,
-                            ),
-                          ),
-                        )
-                      : Image.asset(
-                          'assets/icons/anidash_logo.png',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Icon(
-                            server.icon,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'OFFICIAL',
+                          style: TextStyle(
                             color: theme.colorScheme.primary,
-                            size: 20,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 9,
                           ),
                         ),
-                ),
-                title: Row(
-                  children: [
-                    Text(
-                      server.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1.5,
                       ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'OFFICIAL',
-                        style: TextStyle(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 9,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  subtitle: Text(
+                    isOffline ? 'Not available right now' : server.subtitle,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  selected: isSelected,
+                  trailing:
+                      isSelected
+                          ? Icon(
+                            Icons.check_circle_rounded,
+                            color: theme.colorScheme.primary,
+                          )
+                          : null,
+                  onTap:
+                      isOffline
+                          ? null
+                          : () {
+                            ref
+                                .read(selectedProviderKeyProvider.notifier)
+                                .select(server.key);
+                            ref
+                                .read(experimentalProvider.notifier)
+                                .toggleExtensions(false);
+                            ref
+                                .read(sourcePreferenceRepositoryProvider)
+                                .saveSourcePreference(
+                                  widget.mediaId,
+                                  widget.mediaCover,
+                                  IsarSourcePreference(
+                                    animeId: widget.mediaId,
+                                    sourceId: server.key,
+                                    sourceType: 'legacy',
+                                    matchedAnimeId: widget.mediaId,
+                                    matchedAnimeTitle:
+                                        widget.mediaTitle.userPreferred,
+                                  ),
+                                );
+                            Navigator.pop(ref.context);
+                            notifier.refresh();
+                          },
                 ),
-                subtitle: Text(
-                  server.subtitle,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                selected: isSelected,
-                trailing: isSelected
-                    ? Icon(
-                        Icons.check_circle_rounded,
-                        color: theme.colorScheme.primary,
-                      )
-                    : null,
-                onTap: () {
-                  ref.read(selectedProviderKeyProvider.notifier).select(server.key);
-                  ref.read(experimentalProvider.notifier).toggleExtensions(false);
-                  ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
-                    widget.mediaId,
-                    widget.mediaCover,
-                    IsarSourcePreference(
-                      animeId: widget.mediaId,
-                      sourceId: server.key,
-                      sourceType: 'legacy',
-                      matchedAnimeId: widget.mediaId,
-                      matchedAnimeTitle: widget.mediaTitle.userPreferred,
-                    ),
-                  );
-                  Navigator.pop(ref.context);
-                  notifier.refresh();
-                },
               );
             }(),
           ],
@@ -2749,7 +2916,8 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       path: '/extensions',
                       queryParameters: {
                         'tab': '1',
-                        'repo': 'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/index.min.json',
+                        'repo':
+                            'https://raw.githubusercontent.com/msrofficial/anime-repo/repo/index.min.json',
                       },
                     ).toString(),
                   );
@@ -2764,7 +2932,11 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                           color: Colors.orange.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.download_rounded, color: Colors.orange, size: 20),
+                        child: const Icon(
+                          Icons.download_rounded,
+                          color: Colors.orange,
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -2790,7 +2962,11 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                           ],
                         ),
                       ),
-                      const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.orange),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: Colors.orange,
+                      ),
                     ],
                   ),
                 ),
@@ -2814,123 +2990,94 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               ],
             ),
           ),
-          for (final source in hindiExtensions) () {
-            final isUnavailable = hindiDubAsync.hasValue && hindiDubAsync.value == false;
-            return Opacity(
-              opacity: isUnavailable ? 0.42 : 1.0,
-              child: ListTile(
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: isUnavailable
-                        ? theme.colorScheme.surfaceContainerHighest
-                        : Colors.orange.withValues(alpha: 0.15),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: _buildSourceIcon(
-                    _getSourceIconUrl(source, null),
-                    size: 40,
-                    fallbackIcon: Icons.translate_rounded,
-                    fallbackColor: isUnavailable ? theme.hintColor : Colors.orange,
-                  ),
-                ),
-                title: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        source.name ?? 'Hindi Source',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isUnavailable ? theme.hintColor : null,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+          for (final source in hindiExtensions)
+            () {
+              return Opacity(
+                opacity: 1.0,
+                child: ListTile(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.orange.withValues(alpha: 0.15),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: isUnavailable
-                            ? theme.colorScheme.surfaceContainerHighest
-                            : Colors.orange.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4),
-                        border: isUnavailable
-                            ? Border.all(color: theme.hintColor.withValues(alpha: 0.3))
-                            : null,
-                      ),
-                      child: Text(
-                        isUnavailable ? 'NOT AVAILABLE' : 'AVAILABLE • HINDI',
-                        style: TextStyle(
-                          color: isUnavailable ? theme.hintColor : Colors.orange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 9,
-                        ),
-                      ),
+                    clipBehavior: Clip.antiAlias,
+                    child: _buildSourceIcon(
+                      _getSourceIconUrl(source, null),
+                      size: 40,
+                      fallbackIcon: Icons.translate_rounded,
+                      fallbackColor: Colors.orange,
                     ),
-                  ],
-                ),
-                subtitle: Text(
-                  isUnavailable
-                      ? 'Hindi dub not available for this anime'
-                      : 'हिन्दी Audio Dub & Sub • Extension',
-                  style: TextStyle(fontSize: 12, color: theme.hintColor),
-                ),
-                selected: !isUnavailable && useExtensions && source.id == activeId,
-                trailing: (!isUnavailable && useExtensions && source.id == activeId)
-                    ? const Icon(Icons.check_circle_rounded, color: Colors.orange)
-                    : (isUnavailable ? const Icon(Icons.block_rounded, size: 18, color: Colors.grey) : null),
-                onTap: () {
-                  if (isUnavailable) {
-                    ScaffoldMessenger.of(ref.context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Hindi dub is not available for this anime. Switched to Official Server (JustAnime).',
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          source.name ?? 'Hindi Source',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        behavior: SnackBarBehavior.floating,
-                        duration: Duration(seconds: 3),
                       ),
-                    );
-                    ref.read(selectedProviderKeyProvider.notifier).select('justanime');
-                    ref.read(experimentalProvider.notifier).toggleExtensions(false);
-                    ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
-                      widget.mediaId,
-                      widget.mediaCover,
-                      IsarSourcePreference(
-                        animeId: widget.mediaId,
-                        sourceId: 'justanime',
-                        sourceType: 'legacy',
-                        matchedAnimeId: widget.mediaId,
-                        matchedAnimeTitle: widget.mediaTitle.userPreferred,
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'AVAILABLE • HINDI',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
                       ),
-                    );
+                    ],
+                  ),
+                  subtitle: Text(
+                    'हिन्दी Audio Dub & Sub • Extension',
+                    style: TextStyle(fontSize: 12, color: theme.hintColor),
+                  ),
+                  selected: useExtensions && source.id == activeId,
+                  trailing:
+                      (useExtensions && source.id == activeId)
+                          ? const Icon(
+                            Icons.check_circle_rounded,
+                            color: Colors.orange,
+                          )
+                          : null,
+                  onTap: () {
+                    ref.read(selectedProviderKeyProvider.notifier).clear();
+                    ref.read(sourceProvider.notifier).setActiveSource(source);
+                    ref
+                        .read(experimentalProvider.notifier)
+                        .toggleExtensions(true);
+                    ref
+                        .read(sourcePreferenceRepositoryProvider)
+                        .saveSourcePreference(
+                          widget.mediaId,
+                          widget.mediaCover,
+                          IsarSourcePreference(
+                            animeId: widget.mediaId,
+                            sourceId: source.id?.toString(),
+                            sourceType: 'aniyomi',
+                            matchedAnimeId: null,
+                            matchedAnimeTitle: null,
+                          ),
+                        );
                     Navigator.pop(ref.context);
                     notifier.refresh();
-                    return;
-                  }
-
-                  ref.read(selectedProviderKeyProvider.notifier).clear();
-                  ref.read(sourceProvider.notifier).setActiveSource(source);
-                  ref.read(experimentalProvider.notifier).toggleExtensions(true);
-                  ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
-                    widget.mediaId,
-                    widget.mediaCover,
-                    IsarSourcePreference(
-                      animeId: widget.mediaId,
-                      sourceId: source.id?.toString(),
-                      sourceType: 'aniyomi',
-                      matchedAnimeId: null,
-                      matchedAnimeTitle: null,
-                    ),
-                  );
-                  Navigator.pop(ref.context);
-                  notifier.refresh();
-                },
-              ),
-            );
-          }(),
+                  },
+                ),
+              );
+            }(),
         ],
 
         // Other extensions section
@@ -2956,35 +3103,50 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                   color: theme.colorScheme.surfaceContainerHighest,
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: source.iconUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: source.iconUrl!,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, _, _) => const Icon(Icons.extension, size: 20),
-                      )
-                    : const Icon(Icons.extension, size: 20),
+                child:
+                    source.iconUrl != null
+                        ? CachedNetworkImage(
+                          imageUrl: source.iconUrl!,
+                          fit: BoxFit.cover,
+                          errorWidget:
+                              (_, _, _) =>
+                                  const Icon(Icons.extension, size: 20),
+                        )
+                        : const Icon(Icons.extension, size: 20),
               ),
-              title: Text(source.name ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(source.lang?.toUpperCase() ?? 'Extension', style: const TextStyle(fontSize: 12)),
+              title: Text(
+                source.name ?? 'Unknown',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                source.lang?.toUpperCase() ?? 'Extension',
+                style: const TextStyle(fontSize: 12),
+              ),
               selected: useExtensions && source.id == activeId,
-              trailing: (useExtensions && source.id == activeId)
-                  ? Icon(Icons.check_circle_rounded, color: theme.colorScheme.primary)
-                  : null,
+              trailing:
+                  (useExtensions && source.id == activeId)
+                      ? Icon(
+                        Icons.check_circle_rounded,
+                        color: theme.colorScheme.primary,
+                      )
+                      : null,
               onTap: () {
                 ref.read(selectedProviderKeyProvider.notifier).clear();
                 ref.read(sourceProvider.notifier).setActiveSource(source);
                 ref.read(experimentalProvider.notifier).toggleExtensions(true);
-                ref.read(sourcePreferenceRepositoryProvider).saveSourcePreference(
-                  widget.mediaId,
-                  widget.mediaCover,
-                  IsarSourcePreference(
-                    animeId: widget.mediaId,
-                    sourceId: source.id?.toString(),
-                    sourceType: 'aniyomi',
-                    matchedAnimeId: null,
-                    matchedAnimeTitle: null,
-                  ),
-                );
+                ref
+                    .read(sourcePreferenceRepositoryProvider)
+                    .saveSourcePreference(
+                      widget.mediaId,
+                      widget.mediaCover,
+                      IsarSourcePreference(
+                        animeId: widget.mediaId,
+                        sourceId: source.id?.toString(),
+                        sourceType: 'aniyomi',
+                        matchedAnimeId: null,
+                        matchedAnimeTitle: null,
+                      ),
+                    );
                 Navigator.pop(ref.context);
                 notifier.refresh();
               },
@@ -3106,9 +3268,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       title: const Text('Audio availability'),
                       subtitle:
                           snapshot.connectionState == ConnectionState.waiting
-                              ? const Text(
-                                'Checking SUB and DUB availability…',
-                              )
+                              ? const Text('Checking SUB and DUB availability…')
                               : Text(
                                 'SUB: ${availability?.sub == true ? "Available" : "Unavailable"}\n'
                                 'DUB: ${availability?.dub == true ? "Available" : "Unavailable"}',
@@ -3307,7 +3467,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                         Navigator.pop(sheetContext);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Cancelled download for Episode $epNum'),
+                            content: Text(
+                              'Cancelled download for Episode $epNum',
+                            ),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -3330,7 +3492,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                         Navigator.pop(sheetContext);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Resumed download for Episode $epNum'),
+                            content: Text(
+                              'Resumed download for Episode $epNum',
+                            ),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -3355,7 +3519,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                         Navigator.pop(sheetContext);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Cancelled download for Episode $epNum'),
+                            content: Text(
+                              'Cancelled download for Episode $epNum',
+                            ),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -3381,7 +3547,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                         Navigator.pop(sheetContext);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Cancelled download for Episode $epNum'),
+                            content: Text(
+                              'Cancelled download for Episode $epNum',
+                            ),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -3399,7 +3567,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       ),
                       onTap: () {
                         Navigator.pop(sheetContext);
-                        ref.read(episodeDataProvider.notifier).downloadEpisode(context, epNum);
+                        ref
+                            .read(episodeDataProvider.notifier)
+                            .downloadEpisode(context, epNum);
                       },
                     ),
                     ListTile(
@@ -3421,7 +3591,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                         Navigator.pop(sheetContext);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Removed download for Episode $epNum'),
+                            content: Text(
+                              'Removed download for Episode $epNum',
+                            ),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -3447,7 +3619,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                         Navigator.pop(sheetContext);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Removed download for Episode $epNum'),
+                            content: Text(
+                              'Removed download for Episode $epNum',
+                            ),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -3466,7 +3640,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                     ),
                     onTap: () {
                       Navigator.pop(sheetContext);
-                      ref.read(episodeDataProvider.notifier).downloadEpisode(context, epNum);
+                      ref
+                          .read(episodeDataProvider.notifier)
+                          .downloadEpisode(context, epNum);
                     },
                   ),
                 ],
@@ -3777,7 +3953,11 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: () => ref.read(detailsPageProvider(widget.mediaId).notifier).refresh(),
+              onPressed:
+                  () =>
+                      ref
+                          .read(detailsPageProvider(widget.mediaId).notifier)
+                          .refresh(),
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
             ),

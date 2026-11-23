@@ -508,27 +508,6 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         state = state.copyWith(resolvedProviderKey: currentKey);
       }
 
-      // Fast, rock-solid fallback: If selected source returned 0 episodes,
-      // probe JustAnime by AniList mediaId so One Piece and long-runners NEVER fail!
-      if (eps.isEmpty && state.mediaId != null && int.tryParse(state.mediaId!) != null) {
-        final justProvider = registry.get('justanime');
-        if (justProvider != null) {
-          try {
-            final fallback = await justProvider
-                .getEpisodes(state.mediaId!)
-                .timeout(const Duration(seconds: 25));
-            final justEps = fallback.episodes ?? [];
-            if (justEps.isNotEmpty) {
-              AppLogger.success('Recovered ${justEps.length} episodes via JustAnime direct AniList ID fallback');
-              state = state.copyWith(resolvedProviderKey: 'justanime');
-              return justEps;
-            }
-          } catch (e) {
-            AppLogger.w('JustAnime direct fallback probe failed: $e');
-          }
-        }
-      }
-
       // Only auto-discover a native fallback when the user did not explicitly
       // select an installed extension. Otherwise a failing extension must
       // show its error rather than silently switching to JustAnime.

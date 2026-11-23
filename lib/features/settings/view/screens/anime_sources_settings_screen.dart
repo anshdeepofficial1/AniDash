@@ -7,45 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ani_dash/features/settings/view/widgets/settings_item.dart';
 import 'package:ani_dash/features/extensions/view/extension_catalog_screen.dart';
 import 'package:ani_dash/shared/providers/settings/source_notifier.dart';
-
-final providerStatusProvider = FutureProvider<Map<String, dynamic>>((
-  ref,
-) async {
-  final registry = ref.read(animeSourceRegistryProvider);
-  final providers = registry.keys;
-  final statusMap = <String, dynamic>{};
-
-  await Future.wait(
-    providers.map((key) async {
-      final provider = registry.get(key);
-      if (provider == null) {
-        statusMap[key] = {'status': 'offline'};
-        return;
-      }
-      try {
-        final timer = Stopwatch()..start();
-        final result = await provider
-            .getSearch('one piece', null, 1)
-            .timeout(const Duration(seconds: 9));
-        timer.stop();
-        final working = result.results.isNotEmpty;
-        statusMap[key] = {
-          'status':
-              !working
-                  ? 'offline'
-                  : timer.elapsedMilliseconds > 4000
-                  ? 'degraded'
-                  : 'online',
-          'latencyMs': timer.elapsedMilliseconds,
-        };
-      } catch (_) {
-        statusMap[key] = {'status': 'offline'};
-      }
-    }),
-  );
-
-  return statusMap;
-});
+import 'package:ani_dash/shared/providers/anime_source_health_provider.dart';
 
 class AnimeSourcesSettingsScreen extends ConsumerWidget {
   const AnimeSourcesSettingsScreen({super.key});
@@ -54,7 +16,7 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedAnimeSource = ref.watch(selectedAnimeProvider);
     final animeSources = ref.read(animeSourceRegistryProvider).keys;
-    final providerStatus = ref.watch(providerStatusProvider);
+    final providerStatus = ref.watch(animeSourceHealthProvider);
     final sourceState = ref.watch(sourceProvider);
     final installedExtensions = sourceState.installedAnimeExtensions;
     final useExtensions = ref.watch(experimentalProvider).useExtensions;
@@ -110,7 +72,9 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                               final statusInfo = statusData[provider];
                               final status = statusInfo?['status'] as String?;
                               final latency = statusInfo?['latencyMs'] as int?;
-                              final isSelected = !useExtensions &&
+                              final isOffline = status == 'offline';
+                              final isSelected =
+                                  !useExtensions &&
                                   selectedAnimeSource?.providerName ==
                                       provider.toLowerCase();
                               return Padding(
@@ -123,15 +87,23 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                                   description:
                                       'Status: ${_getFriendlyStatus(status)}${latency == null ? '' : ' (${latency}ms)'}\nAvailable: ${_getSubDub(provider)}',
                                   isInSelectionMode: true,
-                                  isSelected: isSelected,
-                                  onTap: () {
-                                    ref
-                                        .read(selectedProviderKeyProvider.notifier)
-                                        .select(provider);
-                                    ref
-                                        .read(experimentalProvider.notifier)
-                                        .toggleExtensions(false);
-                                  },
+                                  isSelected: isSelected && !isOffline,
+                                  onTap:
+                                      isOffline
+                                          ? null
+                                          : () {
+                                            ref
+                                                .read(
+                                                  selectedProviderKeyProvider
+                                                      .notifier,
+                                                )
+                                                .select(provider);
+                                            ref
+                                                .read(
+                                                  experimentalProvider.notifier,
+                                                )
+                                                .toggleExtensions(false);
+                                          },
                                 ),
                               );
                             },
@@ -161,27 +133,40 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                         if (installedExtensions.isEmpty)
                           Card(
                             elevation: 0,
-                            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withValues(alpha: 0.4),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Column(
                                 children: [
-                                  const Icon(Icons.extension_off, size: 36, color: Colors.grey),
+                                  const Icon(
+                                    Icons.extension_off,
+                                    size: 36,
+                                    color: Colors.grey,
+                                  ),
                                   const SizedBox(height: 8),
                                   const Text(
                                     'No Anime Extensions Installed',
-                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     'Install Anikoto, Aniyomi, or custom repositories to stream directly through extensions.',
                                     textAlign: TextAlign.center,
-                                    style: Theme.of(context).textTheme.bodySmall,
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
                                   ),
                                   const SizedBox(height: 12),
                                   FilledButton.tonal(
-                                    onPressed: () => context.push('/extensions'),
-                                    child: const Text('Explore Extension Repositories'),
+                                    onPressed:
+                                        () => context.push('/extensions'),
+                                    child: const Text(
+                                      'Explore Extension Repositories',
+                                    ),
                                   ),
                                 ],
                               ),
@@ -191,7 +176,8 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                           for (final ext in installedExtensions) ...[
                             Builder(
                               builder: (context) {
-                                final isSelected = useExtensions &&
+                                final isSelected =
+                                    useExtensions &&
                                     (activeExt?.id == ext.id ||
                                         activeExt?.name == ext.name);
                                 return Padding(
@@ -201,10 +187,14 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                                       Expanded(
                                         child: SelectableSettingsItem(
                                           icon: const Icon(Icons.extension),
-                                          iconColor: isSelected
-                                              ? Theme.of(context).colorScheme.primary
-                                              : Colors.grey,
-                                          title: ext.name ?? 'Unknown Extension',
+                                          iconColor:
+                                              isSelected
+                                                  ? Theme.of(
+                                                    context,
+                                                  ).colorScheme.primary
+                                                  : Colors.grey,
+                                          title:
+                                              ext.name ?? 'Unknown Extension',
                                           description:
                                               'v${ext.version ?? "1.0"} • ${ext.lang ?? "en"}${isSelected ? " • Active Provider" : ""}',
                                           isInSelectionMode: true,
@@ -214,7 +204,9 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                                                 .read(sourceProvider.notifier)
                                                 .setActiveSource(ext);
                                             ref
-                                                .read(experimentalProvider.notifier)
+                                                .read(
+                                                  experimentalProvider.notifier,
+                                                )
                                                 .toggleExtensions(true);
                                           },
                                         ),
@@ -222,13 +214,18 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                                       const SizedBox(width: 8),
                                       IconButton.filledTonal(
                                         tooltip: 'Browse ${ext.name}',
-                                        icon: const Icon(Iconsax.discover, size: 20),
+                                        icon: const Icon(
+                                          Iconsax.discover,
+                                          size: 20,
+                                        ),
                                         onPressed: () {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (_) =>
-                                                  ExtensionCatalogScreen(source: ext),
+                                              builder:
+                                                  (_) => ExtensionCatalogScreen(
+                                                    source: ext,
+                                                  ),
                                             ),
                                           );
                                         },
@@ -258,7 +255,7 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                           const SizedBox(height: 8),
                           TextButton(
                             onPressed:
-                                () => ref.refresh(providerStatusProvider),
+                                () => ref.refresh(animeSourceHealthProvider),
                             child: const Text('Retry'),
                           ),
                         ],
