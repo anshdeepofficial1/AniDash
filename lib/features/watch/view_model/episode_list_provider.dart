@@ -23,6 +23,7 @@ import 'package:ani_dash/helpers/matcher.dart';
 import 'package:ani_dash/main.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
 import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
+import 'package:ani_dash/core/utils/episode_source_routing.dart';
 
 part 'episode_list_provider.g.dart';
 
@@ -491,17 +492,15 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         }
       }
 
-      final isDirectAnilistId = int.tryParse(animeId ?? '') != null;
-      final isExtensionUrl = animeId != null &&
-          (animeId.startsWith('http://') ||
-           animeId.startsWith('https://') ||
-           animeId.contains('/'));
-
       var eps = const <EpisodeDataModel>[];
-      if (useExtensions && activeSource != null && (isExtensionUrl || !isDirectAnilistId)) {
+      final selectedExtension = EpisodeSourceRouting.shouldUseSelectedExtension(
+        extensionsEnabled: useExtensions,
+        hasActiveExtension: activeSource != null,
+      );
+      if (selectedExtension) {
         eps = await _fetchExtensionEpisodes(media);
       }
-      if (eps.isEmpty) {
+      if (eps.isEmpty && !selectedExtension) {
         eps = await _fetchLegacyEpisodes(animeId);
       }
       if (eps.isNotEmpty && currentKey != null) {
@@ -511,9 +510,6 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       // Only auto-discover a native fallback when the user did not explicitly
       // select an installed extension. Otherwise a failing extension must
       // show its error rather than silently switching to JustAnime.
-      final selectedExtension =
-          _exp.useExtensions &&
-          ref.read(sourceProvider).activeAnimeSource != null;
       if (eps.isEmpty &&
           currentKey == null &&
           !selectedExtension &&
@@ -854,7 +850,11 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
   Future<void> _syncMissingThumbnailsFromTvMaze() async {
     final currentEpisodes = state.episodes;
     final currentTitle = state.animeTitle?.trim();
-    if (currentTitle == null || currentEpisodes.isEmpty || _isPlaceholder(currentTitle)) return;
+    if (currentTitle == null ||
+        currentEpisodes.isEmpty ||
+        _isPlaceholder(currentTitle)) {
+      return;
+    }
 
     final missingCount =
         currentEpisodes

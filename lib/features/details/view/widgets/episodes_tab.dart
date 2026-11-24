@@ -2651,9 +2651,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     final theme = Theme.of(ref.context);
     final sourceState = ref.watch(sourceProvider);
     final useExtensions = ref.watch(experimentalProvider).useExtensions;
-    final activeId =
-        sourceState.activeAdultAnimeSource?.id ??
-        sourceState.activeAnimeSource?.id;
+    // This picker controls the regular anime source. An installed adult
+    // source must not mask the selected regular extension's checkmark.
+    final activeId = sourceState.activeAnimeSource?.id;
     final currentNativeKey =
         ref.watch(selectedProviderKeyProvider)?.toLowerCase() ?? 'justanime';
     final sourceHealth =
@@ -3053,13 +3053,13 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                             color: Colors.orange,
                           )
                           : null,
-                  onTap: () {
+                  onTap: () async {
                     ref.read(selectedProviderKeyProvider.notifier).clear();
                     ref.read(sourceProvider.notifier).setActiveSource(source);
                     ref
                         .read(experimentalProvider.notifier)
                         .toggleExtensions(true);
-                    ref
+                    await ref
                         .read(sourcePreferenceRepositoryProvider)
                         .saveSourcePreference(
                           widget.mediaId,
@@ -3067,13 +3067,18 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                           IsarSourcePreference(
                             animeId: widget.mediaId,
                             sourceId: source.id?.toString(),
-                            sourceType: 'aniyomi',
+                            sourceType:
+                                source.extensionType == ExtensionType.aniyomi
+                                    ? 'aniyomi'
+                                    : 'mangayomi',
                             matchedAnimeId: null,
                             matchedAnimeTitle: null,
                           ),
                         );
+                    ref.read(episodeDataProvider.notifier).reset();
+                    if (!ref.context.mounted) return;
                     Navigator.pop(ref.context);
-                    notifier.refresh();
+                    await notifier.refresh();
                   },
                 ),
               );
@@ -3130,11 +3135,11 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                         color: theme.colorScheme.primary,
                       )
                       : null,
-              onTap: () {
+              onTap: () async {
                 ref.read(selectedProviderKeyProvider.notifier).clear();
                 ref.read(sourceProvider.notifier).setActiveSource(source);
                 ref.read(experimentalProvider.notifier).toggleExtensions(true);
-                ref
+                await ref
                     .read(sourcePreferenceRepositoryProvider)
                     .saveSourcePreference(
                       widget.mediaId,
@@ -3142,13 +3147,18 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       IsarSourcePreference(
                         animeId: widget.mediaId,
                         sourceId: source.id?.toString(),
-                        sourceType: 'aniyomi',
+                        sourceType:
+                            source.extensionType == ExtensionType.aniyomi
+                                ? 'aniyomi'
+                                : 'mangayomi',
                         matchedAnimeId: null,
                         matchedAnimeTitle: null,
                       ),
                     );
+                ref.read(episodeDataProvider.notifier).reset();
+                if (!ref.context.mounted) return;
                 Navigator.pop(ref.context);
-                notifier.refresh();
+                await notifier.refresh();
               },
             ),
           ],
