@@ -186,16 +186,18 @@ class EpisodeData extends _$EpisodeData {
   PlayerStateNotifier get _player => ref.read(playerStateProvider.notifier);
 
   String? get _effectiveProviderKey {
+    final resolved = _epList.resolvedProviderKey?.trim().toLowerCase();
+    // Episode ids are provider-specific. When the list was recovered from a
+    // fallback provider, that actual provider must win over the saved
+    // preference for this title/session.
+    if (resolved != null &&
+        ref.read(animeSourceRegistryProvider).has(resolved)) {
+      return resolved;
+    }
+
     final selected =
         ref.read(selectedProviderKeyProvider)?.trim().toLowerCase();
     if (selected != null && selected.isNotEmpty) return selected;
-
-    final resolved = _epList.resolvedProviderKey?.trim().toLowerCase();
-    // If the episode list was resolved by a registered native provider (e.g. JustAnime fallback),
-    // use that native provider directly for stream extraction.
-    if (resolved != null && ref.read(animeSourceRegistryProvider).has(resolved)) {
-      return resolved;
-    }
 
     // A resolved provider belongs to the old title and must not override
     // an explicitly selected installed extension.
@@ -775,7 +777,8 @@ class EpisodeData extends _$EpisodeData {
       if (ep == null) return;
 
       final dlSettings = ref.read(downloadSettingsProvider);
-      final isExtension = !_isNativeProvider &&
+      final isExtension =
+          !_isNativeProvider &&
           _exp.useExtensions &&
           ref.read(sourceProvider).activeAnimeSource != null;
       if (dlSettings.rememberDownloadPreferences && !isExtension) {
@@ -916,12 +919,18 @@ class EpisodeData extends _$EpisodeData {
         return false;
       }
 
-      final langSources = data.sources.where((s) => language == 'dub' ? s.isDub : !s.isDub).toList();
-      final candidateSources = langSources.isNotEmpty ? langSources : data.sources;
+      final langSources =
+          data.sources
+              .where((s) => language == 'dub' ? s.isDub : !s.isDub)
+              .toList();
+      final candidateSources =
+          langSources.isNotEmpty ? langSources : data.sources;
 
       // 1. Direct quality match on extension-provided sources
       Source? matchedSource = candidateSources.firstWhereOrNull(
-        (s) => s.quality != null && s.quality!.toLowerCase().contains(quality.toLowerCase()),
+        (s) =>
+            s.quality != null &&
+            s.quality!.toLowerCase().contains(quality.toLowerCase()),
       );
 
       // 2. If no direct quality match, check for an M3U8 source for variant playlist extraction
@@ -964,7 +973,9 @@ class EpisodeData extends _$EpisodeData {
               .timeout(const Duration(seconds: 6));
 
           final target = extracted.firstWhereOrNull(
-            (q) => (q['quality'] as String).toLowerCase().contains(quality.toLowerCase()),
+            (q) => (q['quality'] as String).toLowerCase().contains(
+              quality.toLowerCase(),
+            ),
           );
           if (target != null &&
               VideoUtils.isValidNetworkUrl(target['url']?.toString())) {
@@ -1019,7 +1030,12 @@ class EpisodeData extends _$EpisodeData {
           language,
           LanguageUtils.detectLanguage(
             sourceLang: _srcNotifier.state.activeAnimeSource?.lang,
-            genres: ref.read(detailsPageProvider(_epList.mediaId ?? '')).details.value?.genres,
+            genres:
+                ref
+                    .read(detailsPageProvider(_epList.mediaId ?? ''))
+                    .details
+                    .value
+                    ?.genres,
             title: _epList.animeTitle,
           ),
         ),
@@ -1088,12 +1104,18 @@ class EpisodeData extends _$EpisodeData {
           continue;
         }
 
-        final langSources = data.sources.where((s) => targetLang == 'dub' ? s.isDub : !s.isDub).toList();
-        final candidateSources = langSources.isNotEmpty ? langSources : data.sources;
+        final langSources =
+            data.sources
+                .where((s) => targetLang == 'dub' ? s.isDub : !s.isDub)
+                .toList();
+        final candidateSources =
+            langSources.isNotEmpty ? langSources : data.sources;
 
         // 1. Direct quality match on extension sources
         Source? source = candidateSources.firstWhereOrNull(
-          (s) => s.quality != null && s.quality!.toLowerCase().contains(targetQuality.toLowerCase()),
+          (s) =>
+              s.quality != null &&
+              s.quality!.toLowerCase().contains(targetQuality.toLowerCase()),
         );
 
         // 2. Fallback to M3U8 source for variant playlist extraction
@@ -1123,7 +1145,9 @@ class EpisodeData extends _$EpisodeData {
                 .timeout(const Duration(seconds: 5));
 
             final target = extracted.firstWhereOrNull(
-              (q) => (q['quality'] as String).toLowerCase().contains(targetQuality.toLowerCase()),
+              (q) => (q['quality'] as String).toLowerCase().contains(
+                targetQuality.toLowerCase(),
+              ),
             );
             if (target != null &&
                 VideoUtils.isValidNetworkUrl(target['url']?.toString())) {
@@ -1175,7 +1199,12 @@ class EpisodeData extends _$EpisodeData {
             targetLang,
             LanguageUtils.detectLanguage(
               sourceLang: _srcNotifier.state.activeAnimeSource?.lang,
-              genres: ref.read(detailsPageProvider(_epList.mediaId ?? '')).details.value?.genres,
+              genres:
+                  ref
+                      .read(detailsPageProvider(_epList.mediaId ?? ''))
+                      .details
+                      .value
+                      ?.genres,
               title: _epList.animeTitle,
             ),
           ),
@@ -1362,11 +1391,37 @@ class EpisodeData extends _$EpisodeData {
         _prefetchedIsDub = null;
         _prefetchedRouteKey = null;
       } else {
-        data = await _fetchSourceData(
+        try {
+          data = await _fetchSourceData(
+            epModel,
+            server: state.selectedServer,
+            generation: activeGeneration,
+          ).timeout(const Duration(seconds: 18));
+        } on TimeoutException {
+          AppLogger.w(
+            'Selected source did not resolve Episode $epNum within 18s; trying fallback',
+          );
+          data = null;
+        }
+      }
+
+      // A provider being reachable does not guarantee that one title/episode
+      // is available. If the preferred route yields no playable stream, match
+      // the title and episode number on another built-in source. This does not
+      // overwrite the user's saved preference and the UI reports the provider
+      // that actually won.
+      if ((data == null || data.sources.isEmpty) &&
+          activeGeneration == _loadGeneration) {
+        final category = requestedDub ? 'dub' : 'sub';
+        final failedKey = _effectiveProviderKey;
+        data = await _fetchFallbackNativeSourceData(
           epModel,
-          server: state.selectedServer,
+          category,
           generation: activeGeneration,
-        ).timeout(const Duration(seconds: 18));
+          excludedProviderKeys: {
+            if (failedKey != null && failedKey.isNotEmpty) failedKey,
+          },
+        ).timeout(const Duration(seconds: 18), onTimeout: () => null);
       }
       streamSw.stop();
       timing.streamResolveMs = streamSw.elapsedMilliseconds;
@@ -1377,28 +1432,41 @@ class EpisodeData extends _$EpisodeData {
         throw StateError('No playable sources found');
       }
       final allTracks = [Subtitle(lang: 'None'), ...data.tracks];
-      final autoEnableSubs = ref.read(playerSettingsProvider).autoEnableSubtitles;
-      final activeSourceLang = LanguageUtils.detectLanguage(
-        sourceLang: _srcNotifier.state.activeAnimeSource?.lang,
-        title: _epList.animeTitle,
-      )?.toLowerCase();
+      final autoEnableSubs =
+          ref.read(playerSettingsProvider).autoEnableSubtitles;
+      final activeSourceLang =
+          LanguageUtils.detectLanguage(
+            sourceLang: _srcNotifier.state.activeAnimeSource?.lang,
+            title: _epList.animeTitle,
+          )?.toLowerCase();
       final prefMatch = allTracks.indexWhere((t) {
         if (t.lang == null) return false;
         final l = t.lang!.toLowerCase();
-        if (activeSourceLang != null && activeSourceLang.isNotEmpty && activeSourceLang != 'all') {
-          final shortName = LanguageUtils.getShortName(activeSourceLang).toLowerCase();
-          if (l.contains(shortName) || l.contains(activeSourceLang)) return true;
+        if (activeSourceLang != null &&
+            activeSourceLang.isNotEmpty &&
+            activeSourceLang != 'all') {
+          final shortName =
+              LanguageUtils.getShortName(activeSourceLang).toLowerCase();
+          if (l.contains(shortName) || l.contains(activeSourceLang)) {
+            return true;
+          }
         }
         return l.contains('english') || l.contains('eng');
       });
-      final initialSubIdx = autoEnableSubs ? (prefMatch > 0 ? prefMatch : (allTracks.length > 1 ? 1 : 0)) : 0;
+      final initialSubIdx =
+          autoEnableSubs
+              ? (prefMatch > 0 ? prefMatch : (allTracks.length > 1 ? 1 : 0))
+              : 0;
 
+      final actualProviderKey =
+          _epList.resolvedProviderKey?.trim().toLowerCase() ??
+          requestedProviderKey;
       state = state.copyWith(
         sources: data.sources,
         subtitles: allTracks,
         selectedSubtitleIdx: initialSubIdx,
         headers: data.headers?.cast<String, String>(),
-        activeProviderKey: requestedProviderKey,
+        activeProviderKey: actualProviderKey,
       );
       if (data.intro != null || data.outro != null) {
         ref
@@ -1574,25 +1642,33 @@ class EpisodeData extends _$EpisodeData {
 
       if (activeGeneration != _loadGeneration) return;
 
-      final autoEnableSubs = ref.read(playerSettingsProvider).autoEnableSubtitles;
+      final autoEnableSubs =
+          ref.read(playerSettingsProvider).autoEnableSubtitles;
       final isDub = state.selectedServer?.isDub == true || primarySrc.isDub;
       if (!isDub && autoEnableSubs) {
         int targetSubIdx = state.selectedSubtitleIdx;
         if (targetSubIdx <= 0 || targetSubIdx >= state.subtitles.length) {
-          final activeSourceLang = LanguageUtils.detectLanguage(
-            sourceLang: _srcNotifier.state.activeAnimeSource?.lang,
-            title: _epList.animeTitle,
-          )?.toLowerCase();
+          final activeSourceLang =
+              LanguageUtils.detectLanguage(
+                sourceLang: _srcNotifier.state.activeAnimeSource?.lang,
+                title: _epList.animeTitle,
+              )?.toLowerCase();
           final langIdx = state.subtitles.indexWhere((s) {
             if (s.lang == null) return false;
             final l = s.lang!.toLowerCase();
-            if (activeSourceLang != null && activeSourceLang.isNotEmpty && activeSourceLang != 'all') {
-              final shortName = LanguageUtils.getShortName(activeSourceLang).toLowerCase();
-              if (l.contains(shortName) || l.contains(activeSourceLang)) return true;
+            if (activeSourceLang != null &&
+                activeSourceLang.isNotEmpty &&
+                activeSourceLang != 'all') {
+              final shortName =
+                  LanguageUtils.getShortName(activeSourceLang).toLowerCase();
+              if (l.contains(shortName) || l.contains(activeSourceLang)) {
+                return true;
+              }
             }
             return l.contains('eng') || l.contains('english');
           });
-          targetSubIdx = langIdx != -1 ? langIdx : (state.subtitles.length > 1 ? 1 : 0);
+          targetSubIdx =
+              langIdx != -1 ? langIdx : (state.subtitles.length > 1 ? 1 : 0);
         }
         if (targetSubIdx > 0 && targetSubIdx < state.subtitles.length) {
           changeSubtitle(targetSubIdx);
@@ -1771,7 +1847,9 @@ class EpisodeData extends _$EpisodeData {
         _exp.useExtensions &&
         epTargetUrl != null &&
         epTargetUrl.isNotEmpty) {
-      final extName = ref.read(sourceProvider).activeAnimeSource?.name?.toUpperCase() ?? 'EXTENSION';
+      final extName =
+          ref.read(sourceProvider).activeAnimeSource?.name?.toUpperCase() ??
+          'EXTENSION';
       state = state.copyWith(sourceNotice: 'Loading from $extName…');
       try {
         final res = await _srcNotifier
@@ -1865,15 +1943,23 @@ class EpisodeData extends _$EpisodeData {
       }
     }
     if (extensionIsSelected) {
-      AppLogger.w('Selected extension has no sources for episode ${ep.number}. Trying Official Server fallback...');
-      final justProvider = ref.read(animeSourceRegistryProvider).get('justanime');
-      final fallbackAnimeId = (_epList.mediaId != null && int.tryParse(_epList.mediaId!) != null)
-          ? _epList.mediaId!
-          : (int.tryParse(_epList.animeId ?? '') != null ? _epList.animeId! : '');
+      AppLogger.w(
+        'Selected extension has no sources for episode ${ep.number}. Trying Official Server fallback...',
+      );
+      final justProvider = ref
+          .read(animeSourceRegistryProvider)
+          .get('justanime');
+      final fallbackAnimeId =
+          (_epList.mediaId != null && int.tryParse(_epList.mediaId!) != null)
+              ? _epList.mediaId!
+              : (int.tryParse(_epList.animeId ?? '') != null
+                  ? _epList.animeId!
+                  : '');
       if (justProvider != null && fallbackAnimeId.isNotEmpty) {
         final targetEpId = ep.number?.toString() ?? '1';
         final initialCategory = isDubRequested ? 'dub' : 'sub';
-        final categoriesToTry = initialCategory == 'dub' ? ['dub', 'sub'] : ['sub'];
+        final categoriesToTry =
+            initialCategory == 'dub' ? ['dub', 'sub'] : ['sub'];
         for (final cat in categoriesToTry) {
           try {
             final res = await justProvider
@@ -1881,7 +1967,8 @@ class EpisodeData extends _$EpisodeData {
                 .timeout(const Duration(seconds: 15));
             if (res.sources.isNotEmpty) {
               state = state.copyWith(
-                sourceNotice: 'Playing from Official Server (${cat.toUpperCase()})',
+                sourceNotice:
+                    'Playing from Official Server (${cat.toUpperCase()})',
               );
               return saveAndReturn(res);
             }
@@ -1983,9 +2070,9 @@ class EpisodeData extends _$EpisodeData {
     return null;
   }
 
-  // Kept for the explicit "Another server" recovery path. It must never be
-  // invoked automatically while the user's selected source is still active.
-  // ignore: unused_element
+  // Used after the selected provider has completed a real bounded attempt and
+  // returned no playable sources. Provider-specific anime/episode ids are
+  // rematched before extraction, preventing wrong-episode fallbacks.
   Future<BaseSourcesModel?> _fetchFallbackNativeSourceData(
     EpisodeDataModel ep,
     String category, {
@@ -2055,7 +2142,11 @@ class EpisodeData extends _$EpisodeData {
             var altEpsList = _animeEpisodesCache[episodeCacheKey];
             if (altEpsList == null) {
               final altEps = await altProvider
-                  .getEpisodes(altMatchId)
+                  .getEpisodes(
+                    altMatchId,
+                    anilistId: _epList.mediaId,
+                    malId: _epList.malId?.toString(),
+                  )
                   .timeout(const Duration(seconds: 8));
               if (activeGeneration != _loadGeneration) return null;
               altEpsList = altEps.episodes;
@@ -2157,7 +2248,7 @@ class EpisodeData extends _$EpisodeData {
 
     state = state.copyWith(sourceNotice: 'Selected source is down. Switching…');
     return result.future.timeout(
-      const Duration(seconds: 7),
+      const Duration(seconds: 16),
       onTimeout: () => null,
     );
   }

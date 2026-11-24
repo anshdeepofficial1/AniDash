@@ -716,18 +716,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                       ? '${status.toUpperCase()} • Preselected'
                                       : status.toUpperCase(),
                               isInSelectionMode: true,
-                              isSelected: isSelected && !isOffline,
-                              onTap:
-                                  isOffline
-                                      ? null
-                                      : () {
-                                        ref
-                                            .read(
-                                              selectedProviderKeyProvider
-                                                  .notifier,
-                                            )
-                                            .select(provider);
-                                      },
+                              isSelected: isSelected,
+                              onTap: () {
+                                ref
+                                    .read(selectedProviderKeyProvider.notifier)
+                                    .select(provider);
+                              },
                             ),
                           );
                         },

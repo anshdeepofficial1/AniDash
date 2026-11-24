@@ -72,7 +72,6 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                               final statusInfo = statusData[provider];
                               final status = statusInfo?['status'] as String?;
                               final latency = statusInfo?['latencyMs'] as int?;
-                              final isOffline = status == 'offline';
                               final isSelected =
                                   !useExtensions &&
                                   selectedAnimeSource?.providerName ==
@@ -87,23 +86,17 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                                   description:
                                       'Status: ${_getFriendlyStatus(status)}${latency == null ? '' : ' (${latency}ms)'}\nAvailable: ${_getSubDub(provider)}',
                                   isInSelectionMode: true,
-                                  isSelected: isSelected && !isOffline,
-                                  onTap:
-                                      isOffline
-                                          ? null
-                                          : () {
-                                            ref
-                                                .read(
-                                                  selectedProviderKeyProvider
-                                                      .notifier,
-                                                )
-                                                .select(provider);
-                                            ref
-                                                .read(
-                                                  experimentalProvider.notifier,
-                                                )
-                                                .toggleExtensions(false);
-                                          },
+                                  isSelected: isSelected,
+                                  onTap: () {
+                                    ref
+                                        .read(
+                                          selectedProviderKeyProvider.notifier,
+                                        )
+                                        .select(provider);
+                                    ref
+                                        .read(experimentalProvider.notifier)
+                                        .toggleExtensions(false);
+                                  },
                                 ),
                               );
                             },

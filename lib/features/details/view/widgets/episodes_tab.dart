@@ -2777,7 +2777,10 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               final isOffline = status == 'offline';
 
               return Opacity(
-                opacity: isOffline ? 0.42 : 1,
+                // Health is a recent observation, not a permanent capability
+                // flag. Keep the source selectable so a recovered server can
+                // be retried immediately.
+                opacity: isOffline ? 0.72 : 1,
                 child: ListTile(
                   leading: Container(
                     width: 40,
@@ -2867,33 +2870,29 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                             color: theme.colorScheme.primary,
                           )
                           : null,
-                  onTap:
-                      isOffline
-                          ? null
-                          : () {
-                            ref
-                                .read(selectedProviderKeyProvider.notifier)
-                                .select(server.key);
-                            ref
-                                .read(experimentalProvider.notifier)
-                                .toggleExtensions(false);
-                            ref
-                                .read(sourcePreferenceRepositoryProvider)
-                                .saveSourcePreference(
-                                  widget.mediaId,
-                                  widget.mediaCover,
-                                  IsarSourcePreference(
-                                    animeId: widget.mediaId,
-                                    sourceId: server.key,
-                                    sourceType: 'legacy',
-                                    matchedAnimeId: widget.mediaId,
-                                    matchedAnimeTitle:
-                                        widget.mediaTitle.userPreferred,
-                                  ),
-                                );
-                            Navigator.pop(ref.context);
-                            notifier.refresh();
-                          },
+                  onTap: () {
+                    ref
+                        .read(selectedProviderKeyProvider.notifier)
+                        .select(server.key);
+                    ref
+                        .read(experimentalProvider.notifier)
+                        .toggleExtensions(false);
+                    ref
+                        .read(sourcePreferenceRepositoryProvider)
+                        .saveSourcePreference(
+                          widget.mediaId,
+                          widget.mediaCover,
+                          IsarSourcePreference(
+                            animeId: widget.mediaId,
+                            sourceId: server.key,
+                            sourceType: 'legacy',
+                            matchedAnimeId: widget.mediaId,
+                            matchedAnimeTitle: widget.mediaTitle.userPreferred,
+                          ),
+                        );
+                    Navigator.pop(ref.context);
+                    notifier.refresh();
+                  },
                 ),
               );
             }(),

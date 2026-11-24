@@ -27,6 +27,18 @@ import 'package:ani_dash/core/utils/episode_source_routing.dart';
 
 part 'episode_list_provider.g.dart';
 
+class _EpisodeCacheEntry {
+  final List<EpisodeDataModel> episodes;
+  final String? resolvedProviderKey;
+  final String? providerAnimeId;
+
+  const _EpisodeCacheEntry({
+    required this.episodes,
+    this.resolvedProviderKey,
+    this.providerAnimeId,
+  });
+}
+
 @immutable
 class EpisodeListState {
   final String? mediaId;
@@ -78,13 +90,17 @@ class EpisodeListState {
     bool? isMovie,
     bool clearMalId = false,
     bool clearError = false,
+    bool clearResolvedProvider = false,
   }) {
     return EpisodeListState(
       mediaId: mediaId ?? this.mediaId,
       animeId: animeId ?? this.animeId,
       animeTitle: animeTitle ?? this.animeTitle,
       animeCover: animeCover ?? this.animeCover,
-      resolvedProviderKey: resolvedProviderKey ?? this.resolvedProviderKey,
+      resolvedProviderKey:
+          clearResolvedProvider
+              ? null
+              : (resolvedProviderKey ?? this.resolvedProviderKey),
       malId: clearMalId ? null : (malId ?? this.malId),
       episodes: episodes ?? this.episodes,
       jikanMatches: jikanMatches ?? this.jikanMatches,
@@ -102,13 +118,26 @@ class EpisodeListState {
 
 @Riverpod(keepAlive: true)
 class EpisodeListNotifier extends _$EpisodeListNotifier {
-  static final Map<String, List<EpisodeDataModel>> _inMemoryEpisodeCache = {};
+  static final Map<String, _EpisodeCacheEntry> _inMemoryEpisodeCache = {};
   final JikanService _jikan = JikanService();
   int _requestGeneration = 0;
 
   ExperimentalFeaturesModel get _exp => ref.read(experimentalProvider);
   AnimeProvider? get _animeProvider => ref.read(selectedAnimeProvider);
   SourceNotifier get _sourceNotifier => ref.read(sourceProvider.notifier);
+
+  String get _preferredRouteKey {
+    final native = ref.read(selectedProviderKeyProvider)?.trim().toLowerCase();
+    if (native != null && native.isNotEmpty) return 'native:$native';
+    final extension = ref.read(sourceProvider).activeAnimeSource;
+    final extensionId = extension?.id?.toString().trim().toLowerCase();
+    if (extensionId != null && extensionId.isNotEmpty) {
+      return 'extension:$extensionId';
+    }
+    return 'extension:${extension?.name?.trim().toLowerCase() ?? 'none'}';
+  }
+
+  String _memoryCacheKey(String mediaId) => '$mediaId|$_preferredRouteKey';
 
   @override
   EpisodeListState build() => const EpisodeListState();
@@ -246,18 +275,25 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         animeTitle.toLowerCase().contains('movie') ||
         animeTitle.toLowerCase().contains('film');
     // 1. Check Memory Cache
-    if (!force && requestedMediaId != null && _inMemoryEpisodeCache.containsKey(requestedMediaId)) {
-      final cached = _inMemoryEpisodeCache[requestedMediaId]!;
-      if (cached.isNotEmpty) {
-        AppLogger.d('Fast in-memory episode cache hit for: $animeTitle (${cached.length} eps)');
+    if (!force &&
+        requestedMediaId != null &&
+        _inMemoryEpisodeCache.containsKey(_memoryCacheKey(requestedMediaId))) {
+      final cached = _inMemoryEpisodeCache[_memoryCacheKey(requestedMediaId)]!;
+      if (cached.episodes.isNotEmpty) {
+        AppLogger.d(
+          'Fast in-memory episode cache hit for: $animeTitle (${cached.episodes.length} eps)',
+        );
         state = state.copyWith(
-          episodes: cached,
+          episodes: cached.episodes,
           isLoading: false,
           mediaId: requestedMediaId,
+          animeId: cached.providerAnimeId ?? animeId,
           animeTitle: animeTitle,
+          resolvedProviderKey: cached.resolvedProviderKey,
+          clearResolvedProvider: cached.resolvedProviderKey == null,
           isMovie: resolvedIsMovie,
         );
-        return cached;
+        return cached.episodes;
       }
     }
 
@@ -277,6 +313,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       animeTitle: animeTitle,
       animeCover: animeCover ?? media?.cover,
       resolvedProviderKey: ref.read(selectedProviderKeyProvider),
+      clearResolvedProvider: ref.read(selectedProviderKeyProvider) == null,
       malId: malId ?? state.malId,
       clearMalId: malId == null && state.malId == null,
       jikanMatches: const [],
@@ -299,8 +336,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         animeId: animeId,
         mediaId: mediaId,
       );
-      final cachedFiller =
-          AnimeFillerService().getCachedFillerInfo(animeTitle);
+      final cachedFiller = AnimeFillerService().getCachedFillerInfo(animeTitle);
       if (cachedFiller != null &&
           (cachedFiller.fillers.isNotEmpty || cachedFiller.mixed.isNotEmpty)) {
         normalized = _applyFillerInfoToList(normalized, cachedFiller);
@@ -330,8 +366,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       animeId: animeId,
       mediaId: mediaId,
     );
-    final cachedFiller =
-        AnimeFillerService().getCachedFillerInfo(animeTitle);
+    final cachedFiller = AnimeFillerService().getCachedFillerInfo(animeTitle);
     if (cachedFiller != null &&
         (cachedFiller.fillers.isNotEmpty || cachedFiller.mixed.isNotEmpty)) {
       fetched = _applyFillerInfoToList(fetched, cachedFiller);
@@ -366,7 +401,13 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
 
     AppLogger.success('Successfully loaded ${fetched.length} episodes');
     if (requestedMediaId != null && fetched.isNotEmpty) {
-      _inMemoryEpisodeCache[requestedMediaId] = fetched;
+      _inMemoryEpisodeCache[_memoryCacheKey(
+        requestedMediaId,
+      )] = _EpisodeCacheEntry(
+        episodes: fetched,
+        resolvedProviderKey: state.resolvedProviderKey,
+        providerAnimeId: state.animeId,
+      );
     }
     state = state.copyWith(episodes: fetched, isLoading: false);
     _syncMetadataIfEnabled();
@@ -488,7 +529,9 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             );
             return directEps;
           }
-          return const [];
+          // Continue into title-based alternatives. A temporary JustAnime
+          // outage must not leave the episode tab empty when another provider
+          // can serve the same title.
         }
       }
 
@@ -507,12 +550,11 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         state = state.copyWith(resolvedProviderKey: currentKey);
       }
 
-      // Only auto-discover a native fallback when the user did not explicitly
-      // select an installed extension. Otherwise a failing extension must
-      // show its error rather than silently switching to JustAnime.
+      // Resolve the same title on another native provider when the preferred
+      // source cannot supply episodes. The preference itself is not changed;
+      // resolvedProviderKey records the provider that actually supplied this
+      // list so playback can use matching provider-specific episode ids.
       if (eps.isEmpty &&
-          currentKey == null &&
-          !selectedExtension &&
           state.animeTitle != null &&
           state.animeTitle!.isNotEmpty) {
         final candidateKeys = <String>[
@@ -574,7 +616,11 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
             }
             if (matchId != null && matchId.isNotEmpty) {
               final altResult = await altProvider
-                  .getEpisodes(matchId)
+                  .getEpisodes(
+                    matchId,
+                    anilistId: state.mediaId,
+                    malId: state.malId?.toString(),
+                  )
                   .timeout(const Duration(seconds: 25));
               final altEps = altResult.episodes ?? [];
               if (altEps.isNotEmpty) {
@@ -587,6 +633,9 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
           return null;
         }
 
+        // Probe alternatives concurrently to avoid stacking provider
+        // timeouts. Future.wait preserves candidate order, so selection is
+        // deterministic even when a later provider responds first.
         final alternatives = await Future.wait(
           candidateKeys.map(tryAlternative),
         );
@@ -631,14 +680,25 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     if (media.url == null) return [];
 
     AppLogger.d('Fetching episodes via Extensions');
-    final details = await _sourceNotifier.getDetails(media);
+    DMedia? details;
+    try {
+      details = await _sourceNotifier
+          .getDetails(media)
+          .timeout(const Duration(seconds: 18));
+    } catch (error) {
+      AppLogger.w('Extension episode lookup timed out or failed: $error');
+      return const [];
+    }
     final chapters = details?.episodes ?? [];
 
     int? parseEpNumber(String name, String epNumStr) {
       final direct = double.tryParse(epNumStr);
       if (direct != null && direct > 0) return direct.toInt();
 
-      final epMatch = RegExp(r'(?:episode|ep\.?|e)\s*(\d+)', caseSensitive: false).firstMatch(name);
+      final epMatch = RegExp(
+        r'(?:episode|ep\.?|e)\s*(\d+)',
+        caseSensitive: false,
+      ).firstMatch(name);
       if (epMatch != null) {
         final n = int.tryParse(epMatch.group(1)!);
         if (n != null) return n;
@@ -650,8 +710,12 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         if (n != null) return n;
       }
 
-      final withoutSeason = name.replaceAll(RegExp(r'(?:season|s)\s*\d+', caseSensitive: false), '');
-      final lastNumMatch = RegExp(r'(\d+)').allMatches(withoutSeason).lastOrNull;
+      final withoutSeason = name.replaceAll(
+        RegExp(r'(?:season|s)\s*\d+', caseSensitive: false),
+        '',
+      );
+      final lastNumMatch =
+          RegExp(r'(\d+)').allMatches(withoutSeason).lastOrNull;
       if (lastNumMatch != null) {
         final n = int.tryParse(lastNumMatch.group(1)!);
         if (n != null) return n;
@@ -659,18 +723,20 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       return null;
     }
 
-    final mapped = chapters.indexed.map((entry) {
-      final index = entry.$1;
-      final ch = entry.$2;
-      final num = parseEpNumber(ch.name ?? '', ch.episodeNumber) ?? (index + 1);
+    final mapped =
+        chapters.indexed.map((entry) {
+          final index = entry.$1;
+          final ch = entry.$2;
+          final num =
+              parseEpNumber(ch.name ?? '', ch.episodeNumber) ?? (index + 1);
 
-      return EpisodeDataModel(
-        title: ch.name ?? 'Episode $num',
-        url: ch.url,
-        isFiller: false,
-        number: num,
-      );
-    }).toList();
+          return EpisodeDataModel(
+            title: ch.name ?? 'Episode $num',
+            url: ch.url,
+            isFiller: false,
+            number: num,
+          );
+        }).toList();
 
     // Sort ascending by episode number
     mapped.sort((a, b) => (a.number ?? 999999).compareTo(b.number ?? 999999));
@@ -696,14 +762,18 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
     AppLogger.d(
       'Fetching episodes via Legacy Provider: $provider (id: $targetId)',
     );
-    for (var attempt = 1; attempt <= 2; attempt++) {
+    for (var attempt = 1; attempt <= 1; attempt++) {
       // Episode metadata retries are deliberately silent. A playback-style
       // snackbar here made users think a video was failing before Play.
       try {
         final episodes =
             (await provider
-                .getEpisodes(targetId)
-                .timeout(const Duration(seconds: 25))).episodes ??
+                .getEpisodes(
+                  targetId,
+                  anilistId: state.mediaId,
+                  malId: state.malId?.toString(),
+                )
+                .timeout(const Duration(seconds: 18))).episodes ??
             [];
         if (episodes.isNotEmpty) return episodes;
       } catch (e) {
@@ -918,7 +988,7 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
           }
         }
 
-// Fallback removed to prevent matching unrelated animation shows
+        // Fallback removed to prevent matching unrelated animation shows
 
         if (matchedShow == null) return;
 
@@ -1024,7 +1094,9 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
 
   Future<void> _syncWithKitsu() async {
     final animeTitle = state.animeTitle?.trim();
-    if (animeTitle == null || _isPlaceholder(animeTitle) || state.episodes.isEmpty) {
+    if (animeTitle == null ||
+        _isPlaceholder(animeTitle) ||
+        state.episodes.isEmpty) {
       return;
     }
     final mediaId = state.mediaId;
@@ -1169,21 +1241,20 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
         (fillerInfo.fillers.isEmpty && fillerInfo.mixed.isEmpty)) {
       return episodes;
     }
-    return episodes.map((ep) {
-      final epNum = ep.number;
-      if (epNum == null) return ep;
-      final isFiller =
-          fillerInfo.fillers.contains(epNum) || ep.isFiller == true;
-      final isMixed = fillerInfo.mixed.contains(epNum);
-      if (isFiller == (ep.isFiller ?? false) &&
-          isMixed == (ep.isMixed ?? false)) {
-        return ep;
-      }
-      return ep.copyWith(
-        isFiller: isFiller,
-        isMixed: isMixed,
-      );
-    }).toList(growable: false);
+    return episodes
+        .map((ep) {
+          final epNum = ep.number;
+          if (epNum == null) return ep;
+          final isFiller =
+              fillerInfo.fillers.contains(epNum) || ep.isFiller == true;
+          final isMixed = fillerInfo.mixed.contains(epNum);
+          if (isFiller == (ep.isFiller ?? false) &&
+              isMixed == (ep.isMixed ?? false)) {
+            return ep;
+          }
+          return ep.copyWith(isFiller: isFiller, isMixed: isMixed);
+        })
+        .toList(growable: false);
   }
 
   Future<void> _syncFillerInfo() async {
