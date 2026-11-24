@@ -51,7 +51,7 @@ final animeSourceHealthProvider = FutureProvider<Map<String, dynamic>>((
                       timer.elapsedMilliseconds > 7000
                   ? 'degraded'
                   : 'online')
-              : hardFailures == 2
+              : hardFailures + emptyResponses == 2
               ? 'offline'
               : 'degraded';
       statusMap[key] = {

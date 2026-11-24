@@ -829,7 +829,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Row(
+              child: Column(
                 children: [
                   () {
                     final useExt =
@@ -844,6 +844,10 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                     final selectedKind = sharedPrefs.getString(
                       'selected_playback_source_kind',
                     );
+                    final isUsingExtension =
+                        selectedKind == 'extension' &&
+                        useExt &&
+                        activeExt != null;
                     if (selectedKind == 'extension' &&
                         useExt &&
                         activeExt != null) {
@@ -874,151 +878,194 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                     }
 
                     final formatted = formatName(rawName);
+                    final healthKey = rawName.toLowerCase().replaceAll(
+                      RegExp(r'[^a-z0-9]'),
+                      '',
+                    );
+                    final sourceHealth =
+                        ref.watch(animeSourceHealthProvider).asData?.value;
+                    final healthStatus =
+                        isUsingExtension
+                            ? null
+                            : sourceHealth?[healthKey]?['status'] as String?;
 
-                    final Color badgeColor;
-                    final IconData badgeIcon;
-                    final String badgeLabel;
+                    Color badgeColor;
+                    IconData statusIcon;
+                    String statusLabel;
+                    String statusMessage;
 
-                    if (state.isSearchingMatch) {
+                    if (healthStatus == 'offline') {
+                      badgeColor = theme.colorScheme.error;
+                      statusIcon = Icons.cloud_off_rounded;
+                      statusLabel = 'Unavailable';
+                      statusMessage =
+                          'This source is not responding right now • Tap to change';
+                    } else if (state.isSearchingMatch) {
                       badgeColor = theme.colorScheme.primary;
-                      badgeIcon = Icons.search_rounded;
-                      badgeLabel = 'SEARCHING • $formatted';
+                      statusIcon = Icons.sync_rounded;
+                      statusLabel = 'Checking';
+                      statusMessage = 'Finding the best episode match…';
+                    } else if (healthStatus == 'degraded') {
+                      badgeColor = Colors.amber.shade800;
+                      statusIcon = Icons.wifi_tethering_error_rounded;
+                      statusLabel = 'Limited';
+                      statusMessage =
+                          exposedName ??
+                          'The source is responding inconsistently right now';
                     } else if (exposedName != null) {
-                      badgeColor = Colors.teal;
-                      badgeIcon = Icons.check_circle_rounded;
-                      badgeLabel = 'MATCHED • $formatted';
+                      badgeColor = theme.colorScheme.primary;
+                      statusIcon = Icons.check_circle_rounded;
+                      statusLabel = 'Ready';
+                      statusMessage = exposedName;
                     } else {
                       badgeColor = Colors.amber.shade800;
-                      badgeIcon = Icons.help_outline_rounded;
-                      badgeLabel = 'NO MATCH • $formatted';
+                      statusIcon = Icons.info_outline_rounded;
+                      statusLabel = 'Needs selection';
+                      statusMessage =
+                          'Tap to choose the correct anime manually';
                     }
 
-                    return Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
+                    return Material(
+                      color: theme.colorScheme.surfaceContainerLow,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.55,
+                          ),
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap:
+                            healthStatus != 'offline' &&
+                                    exposedName == null &&
+                                    !state.isSearchingMatch
+                                ? () =>
+                                    _handleWrongMatch(context, ref, notifier)
+                                : () => _showSourceSelectionDialog(
+                                  context,
+                                  ref,
+                                  notifier,
+                                ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 11, 8, 11),
+                          child: Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
+                                width: 42,
+                                height: 42,
                                 decoration: BoxDecoration(
-                                  color: badgeColor.withValues(alpha: 0.14),
-                                  borderRadius: BorderRadius.circular(5),
+                                  color: badgeColor.withValues(alpha: 0.13),
+                                  borderRadius: BorderRadius.circular(13),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (state.isSearchingMatch)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: 5.0,
-                                        ),
-                                        child: SizedBox(
-                                          width: 10,
-                                          height: 10,
+                                child:
+                                    healthStatus != 'offline' &&
+                                            state.isSearchingMatch
+                                        ? Padding(
+                                          padding: const EdgeInsets.all(12),
                                           child: CircularProgressIndicator(
-                                            strokeWidth: 1.5,
+                                            strokeWidth: 2,
                                             color: badgeColor,
                                           ),
-                                        ),
-                                      )
-                                    else
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: 4.0,
-                                        ),
-                                        child: Icon(
-                                          badgeIcon,
-                                          size: 11,
+                                        )
+                                        : Icon(
+                                          statusIcon,
+                                          size: 22,
                                           color: badgeColor,
                                         ),
-                                      ),
+                              ),
+                              const SizedBox(width: 11),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            formatted,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: theme.textTheme.titleSmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 7),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: badgeColor.withValues(
+                                              alpha: 0.12,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            statusLabel,
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                                  color: badgeColor,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
                                     Text(
-                                      badgeLabel,
-                                      style: TextStyle(
-                                        color: badgeColor,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 10,
-                                        letterSpacing: 0.5,
-                                      ),
+                                      statusMessage,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color:
+                                                theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                            height: 1.25,
+                                          ),
                                     ),
                                   ],
                                 ),
                               ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.swap_horiz_rounded,
+                                size: 21,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 5),
-                          InkWell(
-                            onTap:
-                                exposedName == null
-                                    ? () => _handleWrongMatch(
-                                      context,
-                                      ref,
-                                      notifier,
-                                    )
-                                    : null,
-                            borderRadius: BorderRadius.circular(6),
-                            child: Text(
-                              state.isSearchingMatch
-                                  ? 'Searching for episodes on $formatted…'
-                                  : (exposedName ??
-                                      'No match found on $formatted • Tap to select manually'),
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight:
-                                    exposedName != null
-                                        ? FontWeight.bold
-                                        : FontWeight.w500,
-                                color:
-                                    state.isSearchingMatch
-                                        ? theme.hintColor
-                                        : (exposedName == null
-                                            ? theme.colorScheme.error
-                                            : null),
-                                fontStyle:
-                                    exposedName == null
-                                        ? FontStyle.italic
-                                        : FontStyle.normal,
-                                decoration:
-                                    exposedName == null
-                                        ? TextDecoration.underline
-                                        : null,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     );
                   }(),
-                  IconButton(
-                    icon: Icon(
-                      Icons.swap_horiz_rounded,
-                      color: theme.hintColor,
-                    ),
-                    tooltip: 'Change Source',
-                    onPressed:
-                        () =>
-                            _showSourceSelectionDialog(context, ref, notifier),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.help_outline_rounded,
-                      color: theme.hintColor,
-                    ),
-                    tooltip: 'Wrong match?',
-                    onPressed: () => _handleWrongMatch(context, ref, notifier),
-                  ),
-                  AskNiaButton(
-                    compact: true,
-                    animeId: widget.mediaId,
-                    animeTitle:
-                        widget.mediaTitle.english ?? widget.mediaTitle.romaji,
-                    currentEpisode: watchProgress?.currentEpisode,
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed:
+                            () => _handleWrongMatch(context, ref, notifier),
+                        icon: const Icon(Icons.tune_rounded, size: 18),
+                        label: const Text('Fix match'),
+                      ),
+                      const Spacer(),
+                      AskNiaButton(
+                        compact: true,
+                        animeId: widget.mediaId,
+                        animeTitle:
+                            widget.mediaTitle.english ??
+                            widget.mediaTitle.romaji,
+                        currentEpisode: watchProgress?.currentEpisode,
+                      ),
+                    ],
                   ),
                 ],
               ),
