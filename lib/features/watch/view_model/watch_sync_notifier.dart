@@ -10,6 +10,8 @@ import 'package:ani_dash/core/services/offline_sync_queue_service.dart';
 import 'package:ani_dash/shared/providers/settings/sync_settings_notifier.dart';
 import 'package:ani_dash/shared/providers/tracker/media_tracker_notifier.dart';
 import 'package:ani_dash/shared/providers/incognito_provider.dart';
+import 'package:ani_dash/shared/auth/providers/auth_notifier.dart';
+import 'package:ani_dash/shared/providers/anilist_service_provider.dart';
 
 import 'package:ani_dash/core/utils/cloud_watch_progress_sync.dart';
 import 'package:ani_dash/data/hive/models/anime_watch_progress_model.dart';
@@ -132,7 +134,19 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
         };
         for (final b in activeBindings) {
           if (b.type == TrackerType.anilist) {
-            inputData['anilistId'] = b.remoteId;
+            final auth = ref.read(authProvider);
+            final owner = auth.anilistUser?.id;
+            final remoteId = int.tryParse(b.remoteId ?? '');
+            if (owner != null && remoteId != null && auth.isAniListAuthenticated) {
+              final remote = await ref.read(anilistServiceProvider).getAnimeEntry(remoteId);
+              // Do not schedule a blind overwrite when the remote entry cannot be read.
+              if (remote != null) {
+                inputData['anilistId'] = b.remoteId;
+                inputData['anilistOwner'] = owner;
+                inputData['baseNotes'] = remote.notes;
+                inputData['baseProgress'] = remote.progress;
+              }
+            }
           }
           if (b.type == TrackerType.mal) inputData['malId'] = b.remoteId;
         }
