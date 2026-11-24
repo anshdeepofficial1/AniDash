@@ -1497,8 +1497,12 @@ class EpisodeData extends _$EpisodeData {
         ref.read(playerStateProvider.notifier).pause();
       } catch (_) {}
       ref.read(aniSkipProvider.notifier).clearSourceFallback();
+      final failedProvider =
+          requestedProviderKey.replaceFirst('ext:', '').toUpperCase();
       state = state.copyWith(
-        error: 'The selected server could not play this episode.',
+        error:
+            '$failedProvider and the available fallback sources did not return a playable stream for Episode $epNum. This is usually a temporary provider, network, or DNS availability issue. Your AniDash source preference has been preserved.',
+        sourceNotice: 'Provider stream unavailable',
       );
     } finally {
       if (activeGeneration == _loadGeneration) {
@@ -2246,7 +2250,10 @@ class EpisodeData extends _$EpisodeData {
       }();
     }
 
-    state = state.copyWith(sourceNotice: 'Selected source is down. Switching…');
+    state = state.copyWith(
+      sourceNotice:
+          'Selected source did not respond. Checking available alternatives…',
+    );
     return result.future.timeout(
       const Duration(seconds: 16),
       onTimeout: () => null,

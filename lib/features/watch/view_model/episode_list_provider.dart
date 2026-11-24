@@ -395,7 +395,15 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       }
 
       AppLogger.fail('No episodes found for $animeTitle');
-      state = state.copyWith(isLoading: false, error: 'No episodes found');
+      final preferredSource =
+          ref.read(selectedProviderKeyProvider)?.toUpperCase() ??
+          ref.read(sourceProvider).activeAnimeSource?.name?.toUpperCase() ??
+          'SELECTED SOURCE';
+      state = state.copyWith(
+        isLoading: false,
+        error:
+            '$preferredSource and the available fallback sources did not return episodes for this title. The provider may be temporarily unavailable or may not carry it. Retry or choose another source.',
+      );
       return [];
     }
 

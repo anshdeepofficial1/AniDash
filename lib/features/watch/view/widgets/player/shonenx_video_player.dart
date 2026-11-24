@@ -903,6 +903,9 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
     final episodeStreamError = ref.watch(
       episodeDataProvider.select((e) => e.error),
     );
+    final sourceNotice = ref.watch(
+      episodeDataProvider.select((e) => e.sourceNotice),
+    );
     final visiblePlaybackError =
         isPlaying ? null : (playbackError ?? episodeStreamError);
     final episodesLoading = ref.watch(
@@ -1109,10 +1112,22 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.error_outline,
+                            Icons.cloud_off_rounded,
                             color: Colors.white,
                             size: 36,
                           ),
+                          if (sourceNotice != null &&
+                              sourceNotice.trim().isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              sourceNotice,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                           const SizedBox(height: 10),
                           Text(
                             visiblePlaybackError,
@@ -1142,6 +1157,11 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                                 label: const Text('Another server'),
                               ),
                               FilledButton.tonalIcon(
+                                onPressed: _openSource,
+                                icon: const Icon(Icons.hub_rounded),
+                                label: const Text('Change source'),
+                              ),
+                              FilledButton.tonalIcon(
                                 onPressed: () {
                                   Navigator.of(context).maybePop();
                                 },
@@ -1161,6 +1181,21 @@ class _AniDashVideoPlayerState extends ConsumerState<AniDashVideoPlayer>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const FetchingProgressBadge(isEpisode: false),
+                          if (sourceNotice != null &&
+                              sourceNotice.trim().isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 300),
+                              child: Text(
+                                sourceNotice,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
                           if (isOpening && !isPlaying) ...[
                             const SizedBox(height: 8),
                             const Text(

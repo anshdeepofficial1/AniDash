@@ -189,7 +189,7 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                                           title:
                                               ext.name ?? 'Unknown Extension',
                                           description:
-                                              'v${ext.version ?? "1.0"} • ${ext.lang ?? "en"}${isSelected ? " • Active Provider" : ""}',
+                                              'Installed • Checked when used • v${ext.version ?? "1.0"} • ${ext.lang ?? "en"}${isSelected ? " • Active Provider" : ""}',
                                           isInSelectionMode: true,
                                           isSelected: isSelected,
                                           onTap: () {
