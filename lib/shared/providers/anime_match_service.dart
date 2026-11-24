@@ -329,8 +329,7 @@ class AnimeMatchService {
           repo.saveSourcePreference(mediaId, anime.poster ?? '', selection);
         }
       } else {
-        final currentKey =
-            _ref.read(selectedProviderKeyProvider) ?? 'justanime';
+        final currentKey = _ref.read(selectedProviderKeyProvider) ?? 'hianime';
         final selection = IsarSourcePreference(
           animeId: mediaId,
           sourceId: currentKey,
@@ -370,7 +369,7 @@ class AnimeMatchService {
     }
 
     final registry = _ref.read(animeSourceRegistryProvider);
-    final currentKey = nativeKey ?? 'justanime';
+    final currentKey = nativeKey ?? 'hianime';
     final candidate = registry.get(currentKey);
     if (candidate != null) {
       try {
@@ -423,10 +422,10 @@ class AnimeMatchService {
 
       if (selection != null) {
         if (selection.sourceType == 'legacy') {
-          final targetSourceKey = selection.sourceId ?? 'justanime';
+          final targetSourceKey = selection.sourceId ?? 'hianime';
           final registry = _ref.read(animeSourceRegistryProvider);
           final provider =
-              registry.get(targetSourceKey) ?? registry.get('justanime');
+              registry.get(targetSourceKey) ?? registry.get('hianime');
           final matchedId = selection.matchedAnimeId ?? animeId;
           if (provider != null && matchedId.isNotEmpty) {
             try {

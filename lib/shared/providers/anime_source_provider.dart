@@ -21,6 +21,9 @@ final selectedProviderKeyProvider =
     );
 
 class SelectedProviderKeyNotifier extends Notifier<String?> {
+  static const _justAnimeOutageMigration =
+      'source_migration_justanime_outage_2026_11';
+
   @override
   String? build() {
     ref.keepAlive();
@@ -45,15 +48,27 @@ class SelectedProviderKeyNotifier extends Notifier<String?> {
         sharedPrefs.getString(selectedProvider)?.trim().toLowerCase();
     AppLogger.w("[Registry] Selected $selectedKey");
     if (selectedKey == null || selectedKey.isEmpty) {
-      sharedPrefs.setString(selectedProvider, 'justanime');
+      sharedPrefs.setString(selectedProvider, 'hianime');
       sharedPrefs.setString('selected_playback_source_kind', 'native');
-      return 'justanime';
+      sharedPrefs.setBool(_justAnimeOutageMigration, true);
+      return 'hianime';
+    }
+    if (selectedKey == 'justanime' &&
+        !(sharedPrefs.getBool(_justAnimeOutageMigration) ?? false)) {
+      sharedPrefs.setBool(_justAnimeOutageMigration, true);
+      sharedPrefs.setString(selectedProvider, 'hianime');
+      sharedPrefs.setString('selected_playback_source_kind', 'native');
+      AppLogger.w(
+        '[Registry] JustAnime is unavailable; migrated source to HiAnime',
+      );
+      return 'hianime';
     }
     return selectedKey;
   }
 
   void select(String key) {
     final lowerKey = key.trim().toLowerCase();
+    sharedPrefs.setBool(_justAnimeOutageMigration, true);
     sharedPrefs.setString(selectedProvider, lowerKey);
     sharedPrefs.setString('selected_playback_source_kind', 'native');
     state = lowerKey;
@@ -72,5 +87,5 @@ final selectedAnimeProvider = Provider<AnimeProvider?>((ref) {
   if (key != null && key.isNotEmpty) {
     return registry.get(key.trim().toLowerCase());
   }
-  return registry.get('justanime');
+  return registry.get('hianime');
 });

@@ -13,6 +13,7 @@ import 'package:ani_dash/core/models/anime/episode_model.dart';
 import 'package:ani_dash/core/network/http_client.dart';
 import 'package:ani_dash/core/services/anime_filler_service.dart';
 import 'package:ani_dash/shared/providers/anime_source_provider.dart';
+import 'package:ani_dash/shared/providers/anime_source_health_provider.dart';
 import 'package:ani_dash/core/registery/sources/anime/anime_provider.dart';
 import 'package:ani_dash/core/registery/sources/anime/justanime.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
@@ -565,12 +566,16 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
       if (eps.isEmpty &&
           state.animeTitle != null &&
           state.animeTitle!.isNotEmpty) {
+        final health = ref.read(animeSourceHealthProvider).asData?.value;
+        bool isAvailable(String key) =>
+            (health?[key]?['status'] as String?) != 'offline';
         final candidateKeys = <String>[
           for (final key in const ['hianime', 'anikoto', 'justanime'])
-            if (key != currentKey && registry.has(key)) key,
+            if (key != currentKey && registry.has(key) && isAvailable(key)) key,
           ...registry.keys.where(
             (key) =>
                 key != currentKey &&
+                isAvailable(key) &&
                 key != 'hianime' &&
                 key != 'anikoto' &&
                 key != 'justanime',
@@ -641,18 +646,36 @@ class EpisodeListNotifier extends _$EpisodeListNotifier {
           return null;
         }
 
-        // Probe alternatives concurrently to avoid stacking provider
-        // timeouts. Future.wait preserves candidate order, so selection is
-        // deterministic even when a later provider responds first.
-        final alternatives = await Future.wait(
-          candidateKeys.map(tryAlternative),
-        );
+        // Probe alternatives concurrently and accept the first valid episode
+        // list. A dead provider must not hold the UI until its own timeout
+        // after another provider has already returned usable episodes.
+        final winnerCompleter =
+            Completer<
+              ({String key, String id, List<EpisodeDataModel> episodes})?
+            >();
+        var remaining = candidateKeys.length;
+        for (final candidateKey in candidateKeys) {
+          () async {
+            try {
+              final result = await tryAlternative(candidateKey);
+              if (result != null && !winnerCompleter.isCompleted) {
+                winnerCompleter.complete(result);
+              }
+            } finally {
+              remaining--;
+              if (remaining == 0 && !winnerCompleter.isCompleted) {
+                winnerCompleter.complete(null);
+              }
+            }
+          }();
+        }
         final winner =
-            alternatives
-                .whereType<
-                  ({String key, String id, List<EpisodeDataModel> episodes})
-                >()
-                .firstOrNull;
+            candidateKeys.isEmpty
+                ? null
+                : await winnerCompleter.future.timeout(
+                  const Duration(seconds: 18),
+                  onTimeout: () => null,
+                );
         if (winner != null) {
           AppLogger.success(
             'Source ${winner.key} found ${winner.episodes.length} episodes!',

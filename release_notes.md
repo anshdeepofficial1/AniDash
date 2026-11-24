@@ -1,31 +1,33 @@
-# AniDash v3.3.6 — Android Update & Episode Navigation Hotfix
+# AniDash v3.3.7 — Automatic Source Recovery
 
 ## What changed
 
-### Android updates
-- Fixed the Android version-code regression that caused v3.3.5 to be rejected as a downgrade on devices running the affected v3.3.4 build.
-- Adopted a monotonic semantic version-code scheme and added a regression test so future releases cannot repeat this problem.
-- Existing Universal, ARM64, ARMv7, and x86_64 installations continue receiving the matching APK variant.
+### Source availability
+- JustAnime is detected as unavailable while its website, catalogue, and stream API are down.
+- Unavailable built-in sources are greyed out and cannot be selected until their live health checks recover.
+- HiAnime is now the default built-in source for new installations.
+- Existing native-source users saved on the unavailable JustAnime route are moved to HiAnime automatically.
+- If any selected built-in source goes offline later, AniDash automatically selects the next healthy built-in source. Installed extensions are never changed by this migration.
 
-### Player episode navigation
-- Reworked the player episode sheet so its episode list owns an independent scroll controller.
-- Removed the nested draggable-sheet/list gesture competition that could leave long episode lists stuck on some Android devices.
-- The sheet still closes with Back or an outside tap and opens directly around the currently playing episode.
+### Faster episode and stream recovery
+- Episode fallback probes now accept the first provider that returns a valid episode list instead of waiting for every failed provider timeout.
+- Playback fallback skips providers already confirmed offline.
+- Removed the old extension fallback that always waited for JustAnime even when JustAnime was known to be down.
+- Provider-specific episode IDs remain paired with the provider that supplied them, preventing wrong-episode playback after a fallback.
 
-### Source recovery
-- Updated HiAnime matching for its current website layout and AniList-linked catalogue.
-- Restored HiAnime episode discovery, subtitles, episode-specific intro/outro metadata, and playable HLS resolution through its current stream service.
-- Migrated AniKoto from the retired `.pw` API to its current catalogue and stream route.
-- A JustAnime DNS/Cloudflare outage no longer prevents explicitly selected HiAnime, AniKoto, or installed Hindi sources from being used.
-- Built-in source status now follows a real catalogue health check: unavailable sources are disabled and shown as `Not available`, then become selectable again automatically after recovery.
-- Re-verified the recovered JustAnime website and catalogue API before release.
-- Installed Hindi sources remain selectable when a temporary availability probe cannot confirm a title; the app no longer silently redirects them to JustAnime.
+### Episode source UI
+- Replaced the cramped underlined source header with a responsive, theme-aware source status card.
+- Added clear `Ready`, `Checking`, `Limited`, and `Unavailable` states.
+- Source selection in onboarding, settings, and anime details consistently reflects live availability.
 
-## Verification
-- Full Flutter test suite: **159 tests passed**.
-- Flutter analyzer: **0 issues**.
-- Live provider smoke tests: **HiAnime and AniKoto search, episodes, and playable HLS passed**.
-- Android release build: **verified by the release workflow**.
+## Live verification
+- JustAnime frontend: **503 Service Unavailable**.
+- JustAnime core search, episode, and stream endpoints: **unavailable**.
+- HiAnime catalogue: **working**.
+- AniKoto catalogue: **working**.
+- Current episode metadata and HLS playback chain: **working**.
+- One Piece episodes 1, 440 SUB, 440 DUB, and 750 resolved to playable media responses.
+- Flutter tests: **162 passed**.
 
 ## Android downloads
 - **Universal** — safest choice when the device architecture is unknown.
@@ -33,7 +35,7 @@
 - **armeabi-v7a** — older 32-bit ARM devices.
 - **x86_64** — Android emulators and x86_64 devices.
 
-AniDash's in-app updater will continue offering the same APK variant already installed on the device.
+AniDash's in-app updater continues offering the same APK architecture already installed on the device.
 
 ---
-**Full changelog**: https://github.com/anshdeepofficial1/AniDash/compare/v3.3.5...v3.3.6
+**Full changelog**: https://github.com/anshdeepofficial1/AniDash/compare/v3.3.6...v3.3.7

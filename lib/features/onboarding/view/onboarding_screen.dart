@@ -659,7 +659,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Widget _buildSourceStep(BuildContext context, WidgetRef ref) {
     final selectedAnimeSource = ref.watch(selectedAnimeProvider);
-    const preferredOrder = ['justanime', 'hianime', 'anikoto'];
+    const preferredOrder = ['hianime', 'anikoto', 'justanime'];
     final registry = ref.read(animeSourceRegistryProvider);
     final animeSources = preferredOrder.where(registry.has).toList();
     final providerStatus = ref.watch(animeSourceHealthProvider);
@@ -706,22 +706,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                               iconColor: _getStatusColor(status),
                               accent: _getStatusColor(status),
                               title:
-                                  provider == 'justanime'
-                                      ? 'JUSTANIME  •  RECOMMENDED'
+                                  provider == 'hianime'
+                                      ? 'HIANIME  •  RECOMMENDED'
                                       : provider.toUpperCase(),
                               description:
                                   isOffline
                                       ? 'NOT AVAILABLE'
-                                      : provider == 'justanime'
+                                      : provider == 'hianime'
                                       ? '${status.toUpperCase()} • Preselected'
                                       : status.toUpperCase(),
                               isInSelectionMode: true,
                               isSelected: isSelected,
-                              onTap: () {
-                                ref
-                                    .read(selectedProviderKeyProvider.notifier)
-                                    .select(provider);
-                              },
+                              onTap:
+                                  isOffline
+                                      ? null
+                                      : () {
+                                        ref
+                                            .read(
+                                              selectedProviderKeyProvider
+                                                  .notifier,
+                                            )
+                                            .select(provider);
+                                      },
                             ),
                           );
                         },

@@ -2702,7 +2702,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     // source must not mask the selected regular extension's checkmark.
     final activeId = sourceState.activeAnimeSource?.id;
     final currentNativeKey =
-        ref.watch(selectedProviderKeyProvider)?.toLowerCase() ?? 'justanime';
+        ref.watch(selectedProviderKeyProvider)?.toLowerCase() ?? 'hianime';
     final sourceHealth =
         ref.watch(animeSourceHealthProvider).asData?.value ?? const {};
     final allAvailable = <Source>[
@@ -2824,10 +2824,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               final isOffline = status == 'offline';
 
               return Opacity(
-                // Health is a recent observation, not a permanent capability
-                // flag. Keep the source selectable so a recovered server can
-                // be retried immediately.
-                opacity: isOffline ? 0.72 : 1,
+                opacity: isOffline ? 0.45 : 1,
                 child: ListTile(
                   leading: Container(
                     width: 40,
@@ -2911,35 +2908,44 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                   ),
                   selected: isSelected,
                   trailing:
-                      isSelected
+                      isOffline
+                          ? Icon(
+                            Icons.cloud_off_rounded,
+                            color: theme.colorScheme.error,
+                          )
+                          : isSelected
                           ? Icon(
                             Icons.check_circle_rounded,
                             color: theme.colorScheme.primary,
                           )
                           : null,
-                  onTap: () {
-                    ref
-                        .read(selectedProviderKeyProvider.notifier)
-                        .select(server.key);
-                    ref
-                        .read(experimentalProvider.notifier)
-                        .toggleExtensions(false);
-                    ref
-                        .read(sourcePreferenceRepositoryProvider)
-                        .saveSourcePreference(
-                          widget.mediaId,
-                          widget.mediaCover,
-                          IsarSourcePreference(
-                            animeId: widget.mediaId,
-                            sourceId: server.key,
-                            sourceType: 'legacy',
-                            matchedAnimeId: widget.mediaId,
-                            matchedAnimeTitle: widget.mediaTitle.userPreferred,
-                          ),
-                        );
-                    Navigator.pop(ref.context);
-                    notifier.refresh();
-                  },
+                  onTap:
+                      isOffline
+                          ? null
+                          : () {
+                            ref
+                                .read(selectedProviderKeyProvider.notifier)
+                                .select(server.key);
+                            ref
+                                .read(experimentalProvider.notifier)
+                                .toggleExtensions(false);
+                            ref
+                                .read(sourcePreferenceRepositoryProvider)
+                                .saveSourcePreference(
+                                  widget.mediaId,
+                                  widget.mediaCover,
+                                  IsarSourcePreference(
+                                    animeId: widget.mediaId,
+                                    sourceId: server.key,
+                                    sourceType: 'legacy',
+                                    matchedAnimeId: widget.mediaId,
+                                    matchedAnimeTitle:
+                                        widget.mediaTitle.userPreferred,
+                                  ),
+                                );
+                            Navigator.pop(ref.context);
+                            notifier.refresh();
+                          },
                 ),
               );
             }(),

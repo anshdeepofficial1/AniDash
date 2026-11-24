@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ani_dash/shared/providers/anime_source_provider.dart';
 
@@ -9,6 +11,8 @@ import 'package:ani_dash/shared/providers/anime_source_provider.dart';
 final animeSourceHealthProvider = FutureProvider<Map<String, dynamic>>((
   ref,
 ) async {
+  final refreshTimer = Timer(const Duration(minutes: 5), ref.invalidateSelf);
+  ref.onDispose(refreshTimer.cancel);
   final registry = ref.read(animeSourceRegistryProvider);
   final statusMap = <String, dynamic>{};
 
@@ -64,4 +68,33 @@ final animeSourceHealthProvider = FutureProvider<Map<String, dynamic>>((
   );
 
   return statusMap;
+});
+
+/// Keeps a persisted built-in selection usable when its upstream disappears.
+/// Installed extensions are represented by a null native key and are never
+/// changed by this coordinator.
+final animeSourceAvailabilityCoordinatorProvider = Provider<void>((ref) {
+  ref.listen<AsyncValue<Map<String, dynamic>>>(animeSourceHealthProvider, (
+    previous,
+    next,
+  ) {
+    final statusMap = next.asData?.value;
+    final current = ref.read(selectedProviderKeyProvider)?.trim().toLowerCase();
+    if (statusMap == null || current == null || current.isEmpty) return;
+    if (statusMap[current]?['status'] != 'offline') return;
+
+    String? replacement;
+    for (final desiredStatus in const ['online', 'degraded']) {
+      for (final key in const ['hianime', 'anikoto', 'justanime']) {
+        if (key != current && statusMap[key]?['status'] == desiredStatus) {
+          replacement = key;
+          break;
+        }
+      }
+      if (replacement != null) break;
+    }
+    if (replacement != null) {
+      ref.read(selectedProviderKeyProvider.notifier).select(replacement);
+    }
+  }, fireImmediately: true);
 });

@@ -15,6 +15,7 @@ import 'package:ani_dash/app_initializer.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/shared/providers/settings/theme_notifier.dart';
 import 'package:ani_dash/shared/providers/settings/ui_notifier.dart';
+import 'package:ani_dash/shared/providers/anime_source_health_provider.dart';
 import 'package:ani_dash/router/router_config.dart';
 import 'package:ani_dash/shared/ui/security_gate.dart';
 
@@ -26,7 +27,11 @@ void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   FlutterError.onError = (details) {
-    AppLogger.e('FlutterError: ${details.exceptionAsString()}', details.exception, details.stack);
+    AppLogger.e(
+      'FlutterError: ${details.exceptionAsString()}',
+      details.exception,
+      details.stack,
+    );
   };
   PlatformDispatcher.instance.onError = (error, stack) {
     AppLogger.e('Uncaught Platform Error: $error', error, stack);
@@ -62,6 +67,7 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(animeSourceAvailabilityCoordinatorProvider);
     final theme = ref.watch(themeSettingsProvider);
     final scale = ref.watch(uiSettingsProvider.select((s) => s.scale));
     return DynamicColorBuilder(
@@ -252,4 +258,3 @@ class _GlobalDesktopNavigationScopeState
     );
   }
 }
-

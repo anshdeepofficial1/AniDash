@@ -20,6 +20,7 @@ import 'package:ani_dash/core/models/anime/source_model.dart';
 import 'package:ani_dash/features/watch/view_model/player/player_provider.dart';
 import 'package:ani_dash/features/watch/view_model/aniskip_notifier.dart';
 import 'package:ani_dash/shared/providers/anime_source_provider.dart';
+import 'package:ani_dash/shared/providers/anime_source_health_provider.dart';
 import 'package:ani_dash/core/registery/sources/anime/anime_provider.dart';
 import 'package:ani_dash/core/utils/app_logger.dart';
 import 'package:ani_dash/core/repositories/watch_progress_repository.dart';
@@ -235,7 +236,7 @@ class EpisodeData extends _$EpisodeData {
     if (currentKey != null && currentKey.isNotEmpty) {
       return registry.has(currentKey) ? registry.get(currentKey) : null;
     }
-    return registry.get('justanime');
+    return registry.get('hianime');
   }
 
   String get _justAnimeId {
@@ -1948,39 +1949,8 @@ class EpisodeData extends _$EpisodeData {
     }
     if (extensionIsSelected) {
       AppLogger.w(
-        'Selected extension has no sources for episode ${ep.number}. Trying Official Server fallback...',
+        'Selected extension has no sources for episode ${ep.number}. Trying healthy built-in sources...',
       );
-      final justProvider = ref
-          .read(animeSourceRegistryProvider)
-          .get('justanime');
-      final fallbackAnimeId =
-          (_epList.mediaId != null && int.tryParse(_epList.mediaId!) != null)
-              ? _epList.mediaId!
-              : (int.tryParse(_epList.animeId ?? '') != null
-                  ? _epList.animeId!
-                  : '');
-      if (justProvider != null && fallbackAnimeId.isNotEmpty) {
-        final targetEpId = ep.number?.toString() ?? '1';
-        final initialCategory = isDubRequested ? 'dub' : 'sub';
-        final categoriesToTry =
-            initialCategory == 'dub' ? ['dub', 'sub'] : ['sub'];
-        for (final cat in categoriesToTry) {
-          try {
-            final res = await justProvider
-                .getSources(fallbackAnimeId, targetEpId, null, cat)
-                .timeout(const Duration(seconds: 15));
-            if (res.sources.isNotEmpty) {
-              state = state.copyWith(
-                sourceNotice:
-                    'Playing from Official Server (${cat.toUpperCase()})',
-              );
-              return saveAndReturn(res);
-            }
-          } catch (e) {
-            AppLogger.w('Official server fallback ($cat) failed: $e');
-          }
-        }
-      }
       state = state.copyWith(sourceNotice: 'Selected extension unavailable');
       return null;
     }
@@ -2087,6 +2057,9 @@ class EpisodeData extends _$EpisodeData {
     if (activeGeneration != _loadGeneration) return null;
 
     final registry = ref.read(animeSourceRegistryProvider);
+    final health = ref.read(animeSourceHealthProvider).asData?.value;
+    bool isAvailable(String key) =>
+        (health?[key]?['status'] as String?) != 'offline';
     final currentKey = _effectiveProviderKey;
     final targetEpId =
         (ep.id != null && ep.id!.isNotEmpty)
@@ -2203,20 +2176,24 @@ class EpisodeData extends _$EpisodeData {
     // 2. Auto-failover order for alternative pre-installed native providers
     final candidateKeys = <String>[
       if (registry.has('hianime') &&
+          isAvailable('hianime') &&
           currentKey != 'hianime' &&
           !excludedProviderKeys.contains('hianime'))
         'hianime',
       if (registry.has('anikoto') &&
+          isAvailable('anikoto') &&
           currentKey != 'anikoto' &&
           !excludedProviderKeys.contains('anikoto'))
         'anikoto',
       if (registry.has('justanime') &&
+          isAvailable('justanime') &&
           currentKey != 'justanime' &&
           !excludedProviderKeys.contains('justanime'))
         'justanime',
       ...registry.keys.where(
         (k) =>
             k != currentKey &&
+            isAvailable(k) &&
             !excludedProviderKeys.contains(k) &&
             k != 'hianime' &&
             k != 'anikoto' &&

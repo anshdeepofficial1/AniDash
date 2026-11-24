@@ -87,16 +87,22 @@ class AnimeSourcesSettingsScreen extends ConsumerWidget {
                                       'Status: ${_getFriendlyStatus(status)}${latency == null ? '' : ' (${latency}ms)'}\nAvailable: ${_getSubDub(provider)}',
                                   isInSelectionMode: true,
                                   isSelected: isSelected,
-                                  onTap: () {
-                                    ref
-                                        .read(
-                                          selectedProviderKeyProvider.notifier,
-                                        )
-                                        .select(provider);
-                                    ref
-                                        .read(experimentalProvider.notifier)
-                                        .toggleExtensions(false);
-                                  },
+                                  onTap:
+                                      status == 'offline'
+                                          ? null
+                                          : () {
+                                            ref
+                                                .read(
+                                                  selectedProviderKeyProvider
+                                                      .notifier,
+                                                )
+                                                .select(provider);
+                                            ref
+                                                .read(
+                                                  experimentalProvider.notifier,
+                                                )
+                                                .toggleExtensions(false);
+                                          },
                                 ),
                               );
                             },
