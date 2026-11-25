@@ -26,6 +26,79 @@ final animeWatchProgressProvider = StreamProvider.autoDispose
       return ref.watch(watchProgressRepositoryProvider).watchProgress(animeId);
     });
 
+/// Applies a manual "watched through episode" operation to the durable local
+/// progress entry. Tracker services store the number of completed episodes,
+/// while Continue Watching needs the next episode as its local cursor.
+///
+/// Keeping this transformation in one place prevents the episode checkmarks,
+/// persisted progress, and Continue Watching card from disagreeing.
+AnimeWatchProgressEntry mergeBulkWatchedProgress({
+  AnimeWatchProgressEntry? existing,
+  required String animeId,
+  required String animeTitle,
+  required String animeCover,
+  required String animeFormat,
+  required int upToEpisodeNumber,
+  int? totalEpisodes,
+  DateTime? changedAt,
+}) {
+  final now = changedAt ?? DateTime.now();
+  final original =
+      existing ??
+      AnimeWatchProgressEntry(
+        animeId: animeId,
+        animeTitle: animeTitle,
+        animeFormat: animeFormat,
+        animeCover: animeCover,
+        totalEpisodes: totalEpisodes ?? 0,
+        lastUpdated: now,
+        currentEpisode: 1,
+        episodesProgress: const {},
+      );
+  final updatedEpisodes = Map<int, EpisodeProgress>.from(
+    original.episodesProgress,
+  );
+
+  for (int i = 1; i <= upToEpisodeNumber; i++) {
+    final previous = updatedEpisodes[i];
+    final duration =
+        (previous?.durationInSeconds ?? 0) >= 60
+            ? previous!.durationInSeconds!
+            : 1440;
+    updatedEpisodes[i] = EpisodeProgress(
+      episodeNumber: i,
+      episodeTitle: previous?.episodeTitle ?? 'Episode $i',
+      episodeThumbnail: previous?.episodeThumbnail,
+      progressInSeconds: duration,
+      durationInSeconds: duration,
+      isCompleted: true,
+      watchedAt: previous?.watchedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  final effectiveTotal =
+      (totalEpisodes != null && totalEpisodes > 0)
+          ? totalEpisodes
+          : original.totalEpisodes;
+  final isAllWatched =
+      effectiveTotal > 0 && upToEpisodeNumber >= effectiveTotal;
+  final nextEpisode = isAllWatched ? effectiveTotal : upToEpisodeNumber + 1;
+
+  return original.copyWith(
+    animeTitle: animeTitle.isNotEmpty ? animeTitle : original.animeTitle,
+    animeCover: animeCover.isNotEmpty ? animeCover : original.animeCover,
+    animeFormat: animeFormat.isNotEmpty ? animeFormat : original.animeFormat,
+    episodesProgress: updatedEpisodes,
+    totalEpisodes: effectiveTotal > 0 ? effectiveTotal : original.totalEpisodes,
+    currentEpisode: nextEpisode,
+    status: isAllWatched ? 'completed' : 'watching',
+    lastUpdated: now,
+    // A manual metadata edit must not reorder unrelated playback history.
+    // lastUpdated still makes a never-played legacy entry visible.
+    lastPlayedAt: original.lastPlayedAt,
+  );
+}
+
 class WatchProgressRepository implements WatchProgressRepositoryInterface {
   WatchProgressRepository();
 
@@ -516,50 +589,15 @@ class WatchProgressRepository implements WatchProgressRepositoryInterface {
     required int upToEpisodeNumber,
     int? totalEpisodes,
   }) async {
-    var entry = getProgress(animeId);
-    entry ??= AnimeWatchProgressEntry(
+    if (upToEpisodeNumber < 1) return;
+    final updatedEntry = mergeBulkWatchedProgress(
+      existing: getProgress(animeId),
       animeId: animeId,
       animeTitle: animeTitle,
-      animeFormat: animeFormat,
       animeCover: animeCover,
-      totalEpisodes: totalEpisodes ?? 0,
-      lastUpdated: DateTime.fromMillisecondsSinceEpoch(0),
-      lastPlayedAt: null,
-      currentEpisode: upToEpisodeNumber,
-      episodesProgress: {},
-    );
-
-    final updatedEpisodes = Map<int, EpisodeProgress>.from(
-      entry.episodesProgress,
-    );
-
-    for (int i = 1; i <= upToEpisodeNumber; i++) {
-      final existing = updatedEpisodes[i];
-      updatedEpisodes[i] = EpisodeProgress(
-        episodeNumber: i,
-        episodeTitle: existing?.episodeTitle ?? 'Episode $i',
-        episodeThumbnail: existing?.episodeThumbnail,
-        isCompleted: true,
-        watchedAt:
-            existing?.watchedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
-      );
-    }
-
-    final effectiveTotal =
-        (totalEpisodes != null && totalEpisodes > 0)
-            ? totalEpisodes
-            : entry.totalEpisodes;
-    final isAllWatched =
-        effectiveTotal > 0 && upToEpisodeNumber >= effectiveTotal;
-
-    final updatedEntry = entry.copyWith(
-      episodesProgress: updatedEpisodes,
-      totalEpisodes: effectiveTotal > 0 ? effectiveTotal : entry.totalEpisodes,
-      lastPlayedAt: entry.lastPlayedAt,
-      currentEpisode: upToEpisodeNumber,
-      status: isAllWatched ? 'completed' : entry.status,
-      animeTitle: animeTitle.isNotEmpty ? animeTitle : entry.animeTitle,
-      animeCover: animeCover.isNotEmpty ? animeCover : entry.animeCover,
+      animeFormat: animeFormat,
+      upToEpisodeNumber: upToEpisodeNumber,
+      totalEpisodes: totalEpisodes,
     );
 
     await saveProgress(updatedEntry);

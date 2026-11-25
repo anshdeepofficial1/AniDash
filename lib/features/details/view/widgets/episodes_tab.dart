@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/rendering.dart';
 import 'package:ani_dash/core/models/settings/source_model.dart';
 import 'package:ani_dash/core/repositories/source_preference_repository.dart';
 import 'package:ani_dash/data/isar/isar_source_preference.dart';
@@ -92,11 +93,15 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _chipsScrollController = ScrollController();
+  final ScrollController _episodesScrollController = ScrollController();
   final GlobalKey _selectedChipKey = GlobalKey();
+  final GlobalKey _episodeListAnchorKey = GlobalKey();
   bool _showSearch = false;
   bool _isSelecting = false;
   final GlobalKey _currentEpisodeKey = GlobalKey();
   int? _autoScrollEpisode;
+  String? _lastAutoScrollSignature;
+  int _autoScrollGeneration = 0;
   EpisodeGroupingMode _groupingMode = EpisodeGroupingMode.ranges;
   List<NamedEpisodeGroup> _namedGroups = const [];
   NamedEpisodeGroup? _selectedNamedGroup;
@@ -199,6 +204,123 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     // Avoid Scrollable.ensureVisible which causes parent TabBarView horizontal switches
   }
 
+  EpisodeViewMode _episodeViewMode(WidgetRef ref) {
+    final experimentalSettings = ref.watch(experimentalProvider);
+    return experimentalSettings.useEpisodeBannerStyle
+        ? EpisodeViewMode.banner
+        : EpisodeViewMode.values.firstWhere(
+          (e) => e.name == ref.watch(uiSettingsProvider).episodeViewMode,
+          orElse: () => EpisodeViewMode.list,
+        );
+  }
+
+  double _estimatedEpisodeOffset({
+    required int index,
+    required EpisodeViewMode viewMode,
+    required double width,
+  }) {
+    switch (viewMode) {
+      case EpisodeViewMode.compact:
+        return index * 64.0;
+      case EpisodeViewMode.banner:
+        return 6 + (index * 82.0);
+      case EpisodeViewMode.list:
+        return index * 76.0;
+      case EpisodeViewMode.block:
+        final usableWidth = (width - 24).clamp(1.0, double.infinity);
+        final columns = ((usableWidth + 8) / 88).ceil().clamp(1, 20);
+        final itemWidth = (usableWidth - ((columns - 1) * 8)) / columns;
+        return 12 + ((index ~/ columns) * (itemWidth + 8));
+      case EpisodeViewMode.grid:
+        final usableWidth = (width - 24).clamp(1.0, double.infinity);
+        final columns = ((usableWidth + 12) / 192).ceil().clamp(1, 10);
+        final itemWidth = (usableWidth - ((columns - 1) * 12)) / columns;
+        return 12 + ((index ~/ columns) * ((itemWidth / 0.75) + 12));
+    }
+  }
+
+  void _scheduleEpisodeAutoScroll({
+    required int episodeNumber,
+    required List<EpisodeDataModel> visibleEpisodes,
+    required EpisodeViewMode viewMode,
+  }) {
+    final selectedIndex = visibleEpisodes.indexWhere(
+      (episode) => episode.number == episodeNumber,
+    );
+    if (selectedIndex < 0) return;
+
+    final first = visibleEpisodes.firstOrNull?.number ?? 0;
+    final last = visibleEpisodes.lastOrNull?.number ?? 0;
+    final signature =
+        '${widget.mediaId}:$episodeNumber:$first:$last:${visibleEpisodes.length}:${viewMode.name}';
+    if (_lastAutoScrollSignature == signature) return;
+    _lastAutoScrollSignature = signature;
+    _autoScrollEpisode = episodeNumber;
+    final generation = ++_autoScrollGeneration;
+
+    void revealTarget(int attempt) {
+      if (generation != _autoScrollGeneration) return;
+      if (!mounted || !_episodesScrollController.hasClients) {
+        if (attempt < 6) {
+          Future.delayed(
+            const Duration(milliseconds: 80),
+            () => revealTarget(attempt + 1),
+          );
+        } else {
+          _lastAutoScrollSignature = null;
+        }
+        return;
+      }
+
+      final targetRender =
+          _currentEpisodeKey.currentContext?.findRenderObject();
+      if (targetRender != null && targetRender.attached) {
+        _episodesScrollController.position
+            .ensureVisible(
+              targetRender,
+              alignment: 0.04,
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+            )
+            .ignore();
+        return;
+      }
+
+      final anchorRender =
+          _episodeListAnchorKey.currentContext?.findRenderObject();
+      final viewport =
+          anchorRender == null
+              ? null
+              : RenderAbstractViewport.maybeOf(anchorRender);
+      final listStart =
+          anchorRender != null && viewport != null
+              ? viewport.getOffsetToReveal(anchorRender, 0).offset
+              : _episodesScrollController.position.pixels;
+      final estimated =
+          listStart +
+          _estimatedEpisodeOffset(
+            index: selectedIndex,
+            viewMode: viewMode,
+            width: MediaQuery.sizeOf(context).width,
+          );
+      final position = _episodesScrollController.position;
+      position.jumpTo(
+        estimated.clamp(position.minScrollExtent, position.maxScrollExtent),
+      );
+
+      if (attempt < 6) {
+        Future.delayed(
+          const Duration(milliseconds: 80),
+          () => revealTarget(attempt + 1),
+        );
+      } else {
+        _lastAutoScrollSignature = null;
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => revealTarget(0));
+  }
+
   Future<void> _setGroupingMode(EpisodeGroupingMode mode) async {
     if (mode == EpisodeGroupingMode.named && _namedGroups.isEmpty) return;
     setState(() {
@@ -219,6 +341,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     _selectionNotifier.removeListener(_onSelectionChanged);
     _searchController.dispose();
     _chipsScrollController.dispose();
+    _episodesScrollController.dispose();
     super.dispose();
   }
 
@@ -809,7 +932,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
           visibleEpisodes.where((e) => e.isFiller != true).toList();
     }
 
-    // Auto-scroll disabled to prevent disruptive jumping to bottom or switching tabs
+    final episodeViewMode = _episodeViewMode(ref);
+    _scheduleEpisodeAutoScroll(
+      episodeNumber: targetEpNum,
+      visibleEpisodes: visibleEpisodes,
+      viewMode: episodeViewMode,
+    );
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -823,7 +951,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
         }
       },
       child: CustomScrollView(
-        primary: true,
+        controller: _episodesScrollController,
+        primary: false,
+        cacheExtent: 600,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
@@ -1035,11 +1165,46 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.swap_horiz_rounded,
-                                size: 21,
-                                color: theme.colorScheme.onSurfaceVariant,
+                              const SizedBox(width: 2),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Fix episode match',
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 36,
+                                      height: 36,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    onPressed:
+                                        state.isSearchingMatch
+                                            ? null
+                                            : () => _handleWrongMatch(
+                                              context,
+                                              ref,
+                                              notifier,
+                                            ),
+                                    icon: const Icon(
+                                      Icons.tune_rounded,
+                                      size: 19,
+                                    ),
+                                  ),
+                                  AskNiaButton(
+                                    compact: true,
+                                    animeId: widget.mediaId,
+                                    animeTitle:
+                                        widget.mediaTitle.english ??
+                                        widget.mediaTitle.romaji,
+                                    currentEpisode:
+                                        watchProgress?.currentEpisode,
+                                  ),
+                                  Icon(
+                                    Icons.swap_horiz_rounded,
+                                    size: 21,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -1047,26 +1212,6 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       ),
                     );
                   }(),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      TextButton.icon(
-                        onPressed:
-                            () => _handleWrongMatch(context, ref, notifier),
-                        icon: const Icon(Icons.tune_rounded, size: 18),
-                        label: const Text('Fix match'),
-                      ),
-                      const Spacer(),
-                      AskNiaButton(
-                        compact: true,
-                        animeId: widget.mediaId,
-                        animeTitle:
-                            widget.mediaTitle.english ??
-                            widget.mediaTitle.romaji,
-                        currentEpisode: watchProgress?.currentEpisode,
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -1944,6 +2089,9 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               ),
             ),
 
+            SliverToBoxAdapter(
+              child: SizedBox(key: _episodeListAnchorKey, height: 0),
+            ),
             _buildEpisodeSliver(
               context,
               ref,
@@ -1966,14 +2114,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
     List<EpisodeDataModel> allEpisodes,
     String? animeIdForSource,
   ) {
-    final experimentalSettings = ref.watch(experimentalProvider);
-    final viewMode =
-        experimentalSettings.useEpisodeBannerStyle
-            ? EpisodeViewMode.banner
-            : EpisodeViewMode.values.firstWhere(
-              (e) => e.name == ref.watch(uiSettingsProvider).episodeViewMode,
-              orElse: () => EpisodeViewMode.list,
-            );
+    final viewMode = _episodeViewMode(ref);
 
     Widget buildItem(BuildContext context, int index) {
       final ep = visibleEpisodes[index];
@@ -3467,9 +3608,12 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
                       upToEpisodeNumber: epNum,
                       totalEpisodes: totalEps > 0 ? totalEps : null,
                     );
-                    ref
+                    // This is an explicit user action, so it must persist to
+                    // the configured tracker even when automatic sync is set
+                    // to manual or "ask before sync".
+                    await ref
                         .read(watchSyncProvider.notifier)
-                        .handleTrackingUpdate(
+                        .updateTracking(
                           mediaId: widget.mediaId,
                           episodeNum: epNum,
                         );

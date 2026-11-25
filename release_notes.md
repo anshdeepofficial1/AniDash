@@ -1,33 +1,29 @@
-# AniDash v3.3.7 — Automatic Source Recovery
+# AniDash v3.3.8 — Episode Navigation & Progress Sync
 
 ## What changed
 
-### Source availability
-- JustAnime is detected as unavailable while its website, catalogue, and stream API are down.
-- Unavailable built-in sources are greyed out and cannot be selected until their live health checks recover.
-- HiAnime is now the default built-in source for new installations.
-- Existing native-source users saved on the unavailable JustAnime route are moved to HiAnime automatically.
-- If any selected built-in source goes offline later, AniDash automatically selects the next healthy built-in source. Installed extensions are never changed by this migration.
+### Episode navigation
+- Opening the Episodes tab now automatically selects the relevant range or arc and scrolls the current/next episode into view.
+- The in-player episode sheet now reveals the currently playing episode instead of stopping at the beginning of its arc.
+- Scrolling uses the episode list's own controller and does not accidentally switch the parent details tab.
+- The episode match repair action is integrated into the source status card to reduce unused space.
 
-### Faster episode and stream recovery
-- Episode fallback probes now accept the first provider that returns a valid episode list instead of waiting for every failed provider timeout.
-- Playback fallback skips providers already confirmed offline.
-- Removed the old extension fallback that always waited for JustAnime even when JustAnime was known to be down.
-- Provider-specific episode IDs remain paired with the provider that supplied them, preventing wrong-episode playback after a fallback.
+### Continue Watching
+- Tapping a Continue Watching card immediately shows an `Opening episode…` state.
+- Duplicate taps are blocked while navigation is in progress, preventing multiple overlapping playback launches.
+- Bulk `Mark All Previous Episodes` now persists complete records for every selected episode and advances Continue Watching to the correct next episode.
 
-### Episode source UI
-- Replaced the cramped underlined source header with a responsive, theme-aware source status card.
-- Added clear `Ready`, `Checking`, `Limited`, and `Unavailable` states.
-- Source selection in onboarding, settings, and anime details consistently reflects live availability.
+### AniList, MAL, and local progress
+- Explicit bulk watch edits sync even when automatic syncing is configured as manual or `Ask before sync`.
+- Missing AniList bindings are repaired for older local entries before syncing.
+- Tracker writes are awaited instead of being reported as complete while still running.
+- Failed tracker writes remain in the offline retry queue rather than being silently lost.
 
-## Live verification
-- JustAnime frontend: **503 Service Unavailable**.
-- JustAnime core search, episode, and stream endpoints: **unavailable**.
-- HiAnime catalogue: **working**.
-- AniKoto catalogue: **working**.
-- Current episode metadata and HLS playback chain: **working**.
-- One Piece episodes 1, 440 SUB, 440 DUB, and 750 resolved to playable media responses.
-- Flutter tests: **162 passed**.
+## Verification
+- Flutter analysis: **no issues**.
+- Flutter tests: **164 passed**.
+- Regression coverage includes marking One Piece through episode 455 and resolving Continue Watching to episode 456.
+- GitHub issue #87 episode scrolling paths are covered on both the details page and player episode sheet.
 
 ## Android downloads
 - **Universal** — safest choice when the device architecture is unknown.
@@ -38,4 +34,4 @@
 AniDash's in-app updater continues offering the same APK architecture already installed on the device.
 
 ---
-**Full changelog**: https://github.com/anshdeepofficial1/AniDash/compare/v3.3.6...v3.3.7
+**Full changelog**: https://github.com/anshdeepofficial1/AniDash/compare/v3.3.7...v3.3.8

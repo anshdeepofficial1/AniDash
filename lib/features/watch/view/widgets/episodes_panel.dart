@@ -42,12 +42,15 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
   bool _initializedForEp = false;
   int? _lastSelectedEp;
   int? _lastScrolledEp;
+  int? _pendingScrollEp;
+  int _scrollGeneration = 0;
   bool _useNamedGroups = false;
   List<NamedEpisodeGroup> _namedGroups = const [];
   NamedEpisodeGroup? _selectedNamedGroup;
   String? _groupsLoadedFor;
   late final ScrollController _scrollController;
   late final bool _ownsScrollController;
+  final GlobalKey _selectedEpisodeKey = GlobalKey();
 
   @override
   void initState() {
@@ -71,20 +74,55 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
     final selectedIndex = visible.indexWhere(
       (e) => e.number != null && e.number == epNum,
     );
-    if (selectedIndex < 0) return;
+    if (selectedIndex < 0 || _pendingScrollEp == epNum) return;
+    _pendingScrollEp = epNum;
+    final generation = ++_scrollGeneration;
 
-    void performJump() {
-      if (!mounted || !_scrollController.hasClients) return;
-      final maxScroll = _scrollController.position.maxScrollExtent;
-      final target = selectedIndex * 72.0;
-      if (maxScroll > 0) {
-        _scrollController.jumpTo(target.clamp(0.0, maxScroll));
+    void performJump(int attempt) {
+      if (generation != _scrollGeneration) return;
+      if (!mounted || !_scrollController.hasClients) {
+        if (attempt < 8) {
+          Future.delayed(
+            const Duration(milliseconds: 70),
+            () => performJump(attempt + 1),
+          );
+        } else {
+          _pendingScrollEp = null;
+        }
+        return;
+      }
+
+      final render = _selectedEpisodeKey.currentContext?.findRenderObject();
+      if (render != null && render.attached) {
+        _scrollController.position
+            .ensureVisible(
+              render,
+              alignment: 0.03,
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+            )
+            .ignore();
+        _lastScrolledEp = epNum;
+        _pendingScrollEp = null;
+        return;
+      }
+
+      final position = _scrollController.position;
+      final target = selectedIndex * 82.0;
+      position.jumpTo(
+        target.clamp(position.minScrollExtent, position.maxScrollExtent),
+      );
+      if (attempt < 8) {
+        Future.delayed(
+          const Duration(milliseconds: 70),
+          () => performJump(attempt + 1),
+        );
+      } else {
+        _pendingScrollEp = null;
       }
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => performJump());
-    Future.delayed(const Duration(milliseconds: 100), performJump);
-    Future.delayed(const Duration(milliseconds: 250), performJump);
+    WidgetsBinding.instance.addPostFrameCallback((_) => performJump(0));
   }
 
   Future<void> _loadNamedGroups(String? animeTitle) async {
@@ -272,7 +310,6 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
         selectedEp > 0 &&
         _lastScrolledEp != selectedEp &&
         visibleEpisodes.isNotEmpty) {
-      _lastScrolledEp = selectedEp;
       _scrollToEpisode(selectedEp, visibleEpisodes);
     }
     final progressAsync = ref.watch(watchProgressStreamProvider);
@@ -426,6 +463,10 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
                             : savedEpProgress?.episodeThumbnail;
 
                     return EpisodeTile(
+                      key:
+                          episode.number == selectedEp
+                              ? _selectedEpisodeKey
+                              : ValueKey('player-episode-$epNum'),
                       isFiller: episode.isFiller ?? false,
                       isMixed: episode.isMixed ?? false,
                       isCompleted: isCompleted,

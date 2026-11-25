@@ -90,7 +90,17 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
       final trackerNotifier = ref.read(mediaTrackerProvider(mediaId).notifier);
       final List<Future<void>> tasks = [];
 
-      final bindings = await repo.getBindings(mediaId);
+      var bindings = await repo.getBindings(mediaId);
+
+      // AniDash media IDs are AniList IDs. Older/local-only entries may not
+      // yet have a persisted binding, which previously made a manual bulk
+      // progress update silently stop at the device database.
+      if (bindings.isEmpty &&
+          int.tryParse(mediaId) != null &&
+          syncNotifier.shouldSyncAnilist) {
+        await repo.addBinding(mediaId, TrackerType.anilist, mediaId);
+        bindings = await repo.getBindings(mediaId);
+      }
 
       final activeBindings =
           bindings
@@ -137,8 +147,12 @@ class WatchSyncNotifier extends _$WatchSyncNotifier {
             final auth = ref.read(authProvider);
             final owner = auth.anilistUser?.id;
             final remoteId = int.tryParse(b.remoteId ?? '');
-            if (owner != null && remoteId != null && auth.isAniListAuthenticated) {
-              final remote = await ref.read(anilistServiceProvider).getAnimeEntry(remoteId);
+            if (owner != null &&
+                remoteId != null &&
+                auth.isAniListAuthenticated) {
+              final remote = await ref
+                  .read(anilistServiceProvider)
+                  .getAnimeEntry(remoteId);
               // Do not schedule a blind overwrite when the remote entry cannot be read.
               if (remote != null) {
                 inputData['anilistId'] = b.remoteId;

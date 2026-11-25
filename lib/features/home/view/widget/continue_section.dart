@@ -25,6 +25,13 @@ import 'package:ani_dash/core/repositories/source_preference_repository.dart';
 import 'package:ani_dash/features/watch/view/widgets/player/dialogs/jump_to_time_dialog.dart';
 
 final Map<String, String> _continueEpisodeThumbnailCache = {};
+final ValueNotifier<Set<String>> _continueLaunches = ValueNotifier(<String>{});
+
+void _setContinueLaunchState(String key, bool isLoading) {
+  final next = <String>{..._continueLaunches.value};
+  isLoading ? next.add(key) : next.remove(key);
+  _continueLaunches.value = next;
+}
 
 int _credibleEpisodeDurationSeconds(int savedDuration, String? animeFormat) {
   if (savedDuration <= 0) return 0;
@@ -48,12 +55,16 @@ final _continueEpisodeMetadataProvider = FutureProvider.family<
   if (activeList.mediaId == request.animeId ||
       activeList.animeId == request.animeId ||
       activeList.animeTitle == request.title) {
-    final activeEp = activeList.episodes
-        .firstWhereOrNull((e) => e.number == request.episode);
-    final hasRealTitle = activeEp?.title != null &&
+    final activeEp = activeList.episodes.firstWhereOrNull(
+      (e) => e.number == request.episode,
+    );
+    final hasRealTitle =
+        activeEp?.title != null &&
         activeEp!.title!.trim().isNotEmpty &&
-        !RegExp(r'^(episode|ep\.?)\s*\d+$', caseSensitive: false)
-            .hasMatch(activeEp.title!.trim());
+        !RegExp(
+          r'^(episode|ep\.?)\s*\d+$',
+          caseSensitive: false,
+        ).hasMatch(activeEp.title!.trim());
     final hasThumb = activeEp?.thumbnail?.trim().isNotEmpty == true;
     if (hasThumb || hasRealTitle) {
       return activeEp;
@@ -76,7 +87,8 @@ final _continueEpisodeMetadataProvider = FutureProvider.family<
         final item = rawEpisodes[request.episode.toString()];
         if (item is Map) {
           final titles = item['title'] as Map?;
-          final title = titles?['en']?.toString() ??
+          final title =
+              titles?['en']?.toString() ??
               titles?['x-jat']?.toString() ??
               titles?['ja']?.toString();
           final image = item['image']?.toString();
@@ -95,23 +107,27 @@ final _continueEpisodeMetadataProvider = FutureProvider.family<
 
   // 3. Fast TVMaze lookup (HD 16:9 thumbnails and canonical titles)
   try {
-    final cleanTitle = request.title
-        .replaceAll(
-          RegExp(
-            r'\s*\((?:Dub|Sub|TV|Audio|Uncensored)[^)]*\)',
-            caseSensitive: false,
-          ),
-          '',
-        )
-        .replaceAll(
-          RegExp(
-            r'\s*\[(?:Dub|Sub|TV|Audio|Uncensored)[^\]]*\]',
-            caseSensitive: false,
-          ),
-          '',
-        )
-        .replaceAll(RegExp(r'\s*-\s*(?:Dub|Sub)$', caseSensitive: false), '')
-        .trim();
+    final cleanTitle =
+        request.title
+            .replaceAll(
+              RegExp(
+                r'\s*\((?:Dub|Sub|TV|Audio|Uncensored)[^)]*\)',
+                caseSensitive: false,
+              ),
+              '',
+            )
+            .replaceAll(
+              RegExp(
+                r'\s*\[(?:Dub|Sub|TV|Audio|Uncensored)[^\]]*\]',
+                caseSensitive: false,
+              ),
+              '',
+            )
+            .replaceAll(
+              RegExp(r'\s*-\s*(?:Dub|Sub)$', caseSensitive: false),
+              '',
+            )
+            .trim();
     final searchUri = Uri.https('api.tvmaze.com', '/search/shows', {
       'q': cleanTitle,
     });
@@ -129,9 +145,10 @@ final _continueEpisodeMetadataProvider = FutureProvider.family<
           break;
         }
       }
-      showId ??= searchResults.isNotEmpty
-          ? ((searchResults.first as Map)['show'] as Map)['id'] as int?
-          : null;
+      showId ??=
+          searchResults.isNotEmpty
+              ? ((searchResults.first as Map)['show'] as Map)['id'] as int?
+              : null;
       if (showId != null) {
         final epRes = await UniversalHttpClient.instance
             .get(
@@ -148,9 +165,10 @@ final _continueEpisodeMetadataProvider = FutureProvider.family<
             absNum++;
             if (absNum == request.episode) {
               final imgMap = epMap['image'];
-              final img = imgMap is Map
-                  ? (imgMap['original'] ?? imgMap['medium'])?.toString()
-                  : null;
+              final img =
+                  imgMap is Map
+                      ? (imgMap['original'] ?? imgMap['medium'])?.toString()
+                      : null;
               final name = epMap['name']?.toString().trim();
               if ((img != null && img.isNotEmpty) ||
                   (name != null && name.isNotEmpty)) {
@@ -477,9 +495,11 @@ class ContinueSection extends ConsumerWidget {
                 imageWidget = _buildFallback(colorScheme);
               }
 
-              bool isLoading = false;
-              return StatefulBuilder(
-                builder: (context, setState) {
+              final launchKey = '${entry.animeId}:$nextEpisodeNum';
+              return ValueListenableBuilder<Set<String>>(
+                valueListenable: _continueLaunches,
+                builder: (context, launches, _) {
+                  final isLoading = launches.contains(launchKey);
                   return RepaintBoundary(
                     child: SizedBox(
                       width: itemWidth,
@@ -495,66 +515,73 @@ class ContinueSection extends ConsumerWidget {
                             colorScheme,
                           );
                         },
-                        onTap: () async {
-                          if (isLoading) return;
-                          setState(() => isLoading = true);
-                          final localDownload = await ref
-                              .read(downloadsProvider.notifier)
-                              .findDownloadedEpisode(
-                                animeTitle: entry.animeTitle,
-                                episodeNumber: nextEpisodeNum,
-                              );
-                          if (localDownload != null && context.mounted) {
-                            await Navigator.of(
-                              context,
-                              rootNavigator: true,
-                            ).push(
-                              MaterialPageRoute(
-                                builder:
-                                    (_) =>
-                                        LocalPlayerScreen(item: localDownload),
-                              ),
-                            );
-                            if (context.mounted) {
-                              setState(() => isLoading = false);
-                            }
-                            return;
-                          }
-                          if (!context.mounted) return;
-                          await providerAnimeMatchSearch(
-                            context: context,
-                            ref: ref,
-                            animeMedia: UniversalMedia(
-                              id: entry.animeId,
-                              idMal: entry.animeId,
-                              format:
-                                  entry.animeFormat ??
-                                  (isMovie ? 'MOVIE' : null),
-                              title: UniversalTitle(
-                                romaji: entry.animeTitle,
-                                english: entry.animeTitle,
-                                native: entry.animeTitle,
-                              ),
-                              coverImage: UniversalCoverImage(
-                                large: entry.animeCover,
-                                medium: entry.animeCover,
-                              ),
-                              isAdult: isAdult || entry.isAdult,
-                            ),
-                            startAt: nextEpisodeNum,
-                            startAtPosition:
-                                !isCurrentCompleted &&
-                                        (displayEp?.progressInSeconds ?? 0) > 0
-                                    ? displayEp?.progressInSeconds
-                                    : null,
-                            withAnimeMatch: true,
-                            directAutoMatch: true,
-                            fromHentaiHub: isAdult || entry.isAdult,
-                          );
-                          if (context.mounted) {
-                            setState(() => isLoading = false);
-                          }
-                        },
+                        onTap:
+                            isLoading
+                                ? null
+                                : () async {
+                                  _setContinueLaunchState(launchKey, true);
+                                  try {
+                                    final localDownload = await ref
+                                        .read(downloadsProvider.notifier)
+                                        .findDownloadedEpisode(
+                                          animeTitle: entry.animeTitle,
+                                          episodeNumber: nextEpisodeNum,
+                                        );
+                                    if (localDownload != null &&
+                                        context.mounted) {
+                                      await Navigator.of(
+                                        context,
+                                        rootNavigator: true,
+                                      ).push(
+                                        MaterialPageRoute(
+                                          builder:
+                                              (_) => LocalPlayerScreen(
+                                                item: localDownload,
+                                              ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    if (!context.mounted) return;
+                                    await providerAnimeMatchSearch(
+                                      context: context,
+                                      ref: ref,
+                                      animeMedia: UniversalMedia(
+                                        id: entry.animeId,
+                                        idMal: entry.animeId,
+                                        format:
+                                            entry.animeFormat ??
+                                            (isMovie ? 'MOVIE' : null),
+                                        title: UniversalTitle(
+                                          romaji: entry.animeTitle,
+                                          english: entry.animeTitle,
+                                          native: entry.animeTitle,
+                                        ),
+                                        coverImage: UniversalCoverImage(
+                                          large: entry.animeCover,
+                                          medium: entry.animeCover,
+                                        ),
+                                        isAdult: isAdult || entry.isAdult,
+                                      ),
+                                      startAt: nextEpisodeNum,
+                                      startAtPosition:
+                                          !isCurrentCompleted &&
+                                                  (displayEp?.progressInSeconds ??
+                                                          0) >
+                                                      0
+                                              ? displayEp?.progressInSeconds
+                                              : null,
+                                      withAnimeMatch: true,
+                                      directAutoMatch: true,
+                                      fromHentaiHub: isAdult || entry.isAdult,
+                                    );
+                                  } finally {
+                                    await Future<void>.delayed(
+                                      const Duration(milliseconds: 700),
+                                    );
+                                    _setContinueLaunchState(launchKey, false);
+                                  }
+                                },
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -569,7 +596,37 @@ class ContinueSection extends ConsumerWidget {
                                       child: Center(
                                         child:
                                             isLoading
-                                                ? const CircularProgressIndicator()
+                                                ? Container(
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.48),
+                                                  alignment: Alignment.center,
+                                                  child: const Column(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      SizedBox(
+                                                        width: 24,
+                                                        height: 24,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                              strokeWidth: 2.5,
+                                                              color:
+                                                                  Colors.white,
+                                                            ),
+                                                      ),
+                                                      SizedBox(height: 7),
+                                                      Text(
+                                                        'Opening episode...',
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                )
                                                 : Container(
                                                   padding: const EdgeInsets.all(
                                                     8,

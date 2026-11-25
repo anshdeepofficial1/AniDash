@@ -235,6 +235,7 @@ class MediaTracker extends _$MediaTracker {
     };
 
     final List<Future<void>> tasks = [];
+    final List<Object> failures = [];
 
     for (final binding in bindings) {
       if (binding.remoteId == null) continue;
@@ -271,8 +272,18 @@ class MediaTracker extends _$MediaTracker {
                 'Failed to update tracker entry for ${binding.type}',
                 e,
               );
-              return;
+              failures.add(e);
             }),
+      );
+    }
+
+    // Do not report a manual edit as synced while tracker requests are still
+    // running. Propagating a failure lets WatchSyncNotifier retain the update
+    // in its offline queue instead of silently losing it.
+    await Future.wait(tasks);
+    if (failures.isNotEmpty) {
+      throw StateError(
+        'Failed to update ${failures.length} configured tracker(s)',
       );
     }
   }
@@ -383,9 +394,7 @@ class MediaTracker extends _$MediaTracker {
                 .updateUserAnimeList(mediaId: id, status: 'CURRENT');
           }
         } catch (e) {
-          AppLogger.w(
-            'Remote tracker update failed, saving locally: $e',
-          );
+          AppLogger.w('Remote tracker update failed, saving locally: $e');
         }
 
         final mediaToSave = anime ?? newEntry?.media;
@@ -434,7 +443,9 @@ class MediaTracker extends _$MediaTracker {
           entries: updatedEntries,
         );
 
-        ref.read(watchlistProvider.notifier).fetchListForStatus('watching', force: true);
+        ref
+            .read(watchlistProvider.notifier)
+            .fetchListForStatus('watching', force: true);
         return;
       }
       state = state.copyWith(isLoading: false);
@@ -509,7 +520,8 @@ class MediaTracker extends _$MediaTracker {
         // Current episode: preserve watched status if already completed or effectively finished
         final existing = episodesMap[targetProgress];
         final isAlreadyCompleted = existing?.isCompleted == true;
-        final isEffectivelyDone = isAlreadyCompleted ||
+        final isEffectivelyDone =
+            isAlreadyCompleted ||
             (savedDuration > 0 && savedSeconds >= savedDuration) ||
             isPlaybackEffectivelyComplete(
               progressInSeconds: savedSeconds,
@@ -519,9 +531,10 @@ class MediaTracker extends _$MediaTracker {
           episodeNumber: targetProgress,
           episodeTitle: existing?.episodeTitle ?? 'Episode $targetProgress',
           episodeThumbnail: existing?.episodeThumbnail,
-          progressInSeconds: isEffectivelyDone
-              ? (savedDuration > 0 ? savedDuration : 1440)
-              : savedSeconds,
+          progressInSeconds:
+              isEffectivelyDone
+                  ? (savedDuration > 0 ? savedDuration : 1440)
+                  : savedSeconds,
           durationInSeconds: savedDuration > 0 ? savedDuration : 1440,
           isCompleted: isEffectivelyDone,
           watchedAt: existing?.watchedAt ?? DateTime.now(),
