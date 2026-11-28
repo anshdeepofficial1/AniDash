@@ -176,6 +176,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 : (watchedCount > 0 ? watchedCount + 1 : 1);
 
         final local = progressRepo.getProgress(mediaId);
+        final checkpoint = CloudWatchProgressSync.parseNotes(entry.notes);
+        // A full-duration checkpoint explicitly confirms completion on another
+        // device. Do not mistake it for the legacy eager episode-count update.
+        final confirmedCompleted = checkpoint != null &&
+            checkpoint.duration > 0 &&
+            checkpoint.seconds >= checkpoint.duration &&
+            checkpoint.episode <= watchedCount;
+        bool confirmedByCloud(int episode) =>
+            confirmedCompleted && checkpoint!.episode >= episode;
 
         // A remote tracker only stores a whole episode number; it cannot
         // represent an in-progress local playback position. Keep the newest
@@ -199,7 +208,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             final isEligible =
                 episode.episodeNumber >= nextEpisode ||
                 (episode.episodeNumber == watchedCount && isFresh);
-            if (!isUnfinished || !isEligible) continue;
+            if (!isUnfinished || !isEligible || confirmedByCloud(episode.episodeNumber)) continue;
             final currentTime =
                 unfinishedLocalEpisode?.watchedAt ?? DateTime(0);
             final candidateTime = episode.watchedAt ?? DateTime(0);
@@ -225,7 +234,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               localEpisode != null &&
               localPosition > 0 &&
               !isEpisodeProgressEffectivelyComplete(localEpisode);
-          if (hasUnfinishedLocalEpisode) {
+          if (hasUnfinishedLocalEpisode && !confirmedByCloud(local.currentEpisode)) {
             continue;
           }
         }
@@ -266,6 +275,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         if (local != null &&
             local.currentEpisode == targetEpNum &&
             local.episodesProgress.length >= watchedCount &&
+            !confirmedCompleted &&
             watchedCount > 0) {
           continue;
         }
@@ -716,16 +726,24 @@ class _ContinueWatchingSection extends ConsumerWidget {
                       DateTime.now().difference(watchedAt).abs() <
                           const Duration(hours: 24);
                 });
+            final checkpoint = CloudWatchProgressSync.parseNotes(cloudItem.notes);
+            final confirmedCompleted = checkpoint != null &&
+                checkpoint.duration > 0 && checkpoint.seconds >= checkpoint.duration &&
+                checkpoint.episode <= cloudItem.progress && checkpoint.episode >= local.currentEpisode;
             final cloudOnlyOneAhead =
                 cloudEntry.currentEpisode <= local.currentEpisode + 1;
             final targetEp = (local.currentEpisode < cloudEntry.currentEpisode &&
-                    !(freshLocalPartial && cloudOnlyOneAhead))
+                    !(freshLocalPartial && cloudOnlyOneAhead && !confirmedCompleted))
                 ? cloudEntry.currentEpisode
                 : local.currentEpisode;
 
             final mergedEpisodes = Map<int, EpisodeProgress>.from(local.episodesProgress);
             for (final entry in cloudEntry.episodesProgress.entries) {
-              mergedEpisodes.putIfAbsent(entry.key, () => entry.value);
+              if (confirmedCompleted && entry.key <= cloudItem.progress && entry.value.isCompleted) {
+                mergedEpisodes[entry.key] = entry.value;
+              } else {
+                mergedEpisodes.putIfAbsent(entry.key, () => entry.value);
+              }
             }
 
             final localUpdated = local.lastUpdated;
