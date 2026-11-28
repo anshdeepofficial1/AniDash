@@ -19,12 +19,29 @@ class DevicesScreen extends ConsumerStatefulWidget {
 class _DevicesScreenState extends ConsumerState<DevicesScreen> {
   final DevicePairingService _pairingService = DevicePairingService();
   bool _pairing = false;
+  bool _loadingDevices = true;
   List<PairedDeviceRecord> _pairedDevices = const [];
 
   @override
   void initState() {
     super.initState();
-    _pairedDevices = _pairingService.loadPairedDevices();
+    Future.microtask(_refreshDevices);
+  }
+
+  Future<void> _refreshDevices() async {
+    if (mounted) {
+      setState(() {
+        _loadingDevices = true;
+      });
+    }
+    final devices = await _pairingService.fetchPairedDevices(
+      ref.read(authProvider),
+    );
+    if (!mounted) return;
+    setState(() {
+      _pairedDevices = devices;
+      _loadingDevices = false;
+    });
   }
 
   Future<void> _scanCode() async {
@@ -168,7 +185,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
         scannedAt: scannedAt,
       );
       if (mounted) {
-        setState(() => _pairedDevices = _pairingService.loadPairedDevices());
+        await _refreshDevices();
       }
     }
     _showMessage(
@@ -182,9 +199,13 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Remove device record?'),
+            title: Text(
+              device.isRemote ? 'Revoke this device?' : 'Remove device record?',
+            ),
             content: Text(
-              'This removes ${device.name} from this phone’s history. To end its web session immediately, sign out from AniDash Go on that browser.',
+              device.isRemote
+                  ? '${device.name} will immediately lose access to your connected AniDash account.'
+                  : 'This removes ${device.name} from this phone’s saved pairing history.',
             ),
             actions: [
               TextButton(
@@ -193,16 +214,25 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
               ),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Remove'),
+                child: Text(device.isRemote ? 'Revoke' : 'Remove'),
               ),
             ],
           ),
     );
     if (remove != true) return;
-    await _pairingService.forgetPairedDevice(device.id);
-    if (mounted) {
-      setState(() => _pairedDevices = _pairingService.loadPairedDevices());
+    final removed = await _pairingService.revokePairedDevice(
+      device,
+      ref.read(authProvider),
+    );
+    if (!mounted) return;
+    if (!removed) {
+      _showMessage(
+        'Could not revoke device',
+        'AniDash Go could not revoke this browser. Check your connection and try again.',
+      );
+      return;
     }
+    await _refreshDevices();
   }
 
   void _showMessage(String title, String message) {
@@ -305,10 +335,20 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                   color: colors.primary,
                 ),
               ),
+              IconButton(
+                tooltip: 'Refresh paired devices',
+                onPressed: _loadingDevices ? null : _refreshDevices,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
             ],
           ),
           const SizedBox(height: 10),
-          if (_pairedDevices.isEmpty)
+          if (_loadingDevices && _pairedDevices.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_pairedDevices.isEmpty)
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -339,7 +379,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
             ),
           const SizedBox(height: 8),
           Text(
-            'AniDash Go sessions currently last up to 30 days. The website does not yet expose live last-active or remote-revoke data, so this screen shows verified pairing history without guessing activity.',
+            'AniDash Go sessions last up to 30 days. Connected browsers, recent activity, and remote revocation are synchronized securely from AniDash Go.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colors.onSurfaceVariant,
               height: 1.4,
@@ -470,7 +510,7 @@ class _PairedDeviceCard extends StatelessWidget {
                           children: [
                             Icon(Icons.delete_outline_rounded),
                             SizedBox(width: 10),
-                            Text('Remove record'),
+                            Text('Remove / revoke'),
                           ],
                         ),
                       ),

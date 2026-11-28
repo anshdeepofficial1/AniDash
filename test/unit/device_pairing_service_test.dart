@@ -74,4 +74,22 @@ void main() {
     expect(requestBody, contains('"code":"session_123"'));
     expect(requestBody, contains('"approved":false'));
   });
+
+  test('maps live paired-browser data returned by AniDash Go', () {
+    final device = PairedDeviceRecord.fromServer({
+      'id': '1f65a2a8-5fc0-4fd2-82e8-ce7b3155bf55',
+      'name': 'Chrome on Windows',
+      'browser': 'Chrome 142',
+      'os': 'Windows',
+      'pairedAt': '2026-11-28T06:00:00.000Z',
+      'lastActiveAt': '2026-11-28T07:00:00.000Z',
+      'sessionExpiresAt': '2026-12-28T06:00:00.000Z',
+      'current': false,
+    });
+
+    expect(device.isRemote, isTrue);
+    expect(device.name, 'Chrome on Windows');
+    expect(device.operatingSystem, 'Windows');
+    expect(device.expectedSessionExpiry.year, 2026);
+  });
 }

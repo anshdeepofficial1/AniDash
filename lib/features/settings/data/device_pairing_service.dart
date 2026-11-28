@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 import 'package:ani_dash/core/constants/anidash_go.dart';
 import 'package:ani_dash/main.dart';
@@ -66,6 +67,9 @@ class PairedDeviceRecord {
     required this.connectedAt,
     required this.lastConfirmedAt,
     this.location,
+    this.sessionExpiresAt,
+    this.current = false,
+    this.isRemote = false,
   });
 
   final String id;
@@ -76,9 +80,12 @@ class PairedDeviceRecord {
   final DateTime scannedAt;
   final DateTime connectedAt;
   final DateTime lastConfirmedAt;
+  final DateTime? sessionExpiresAt;
+  final bool current;
+  final bool isRemote;
 
   DateTime get expectedSessionExpiry =>
-      connectedAt.add(const Duration(days: 30));
+      sessionExpiresAt ?? connectedAt.add(const Duration(days: 30));
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -89,6 +96,9 @@ class PairedDeviceRecord {
     'scannedAt': scannedAt.toUtc().toIso8601String(),
     'connectedAt': connectedAt.toUtc().toIso8601String(),
     'lastConfirmedAt': lastConfirmedAt.toUtc().toIso8601String(),
+    'sessionExpiresAt': sessionExpiresAt?.toUtc().toIso8601String(),
+    'current': current,
+    'isRemote': isRemote,
   };
 
   factory PairedDeviceRecord.fromJson(Map<String, dynamic> json) {
@@ -108,6 +118,38 @@ class PairedDeviceRecord {
             json['lastConfirmedAt'] as String? ?? '',
           )?.toLocal() ??
           connectedAt,
+      sessionExpiresAt:
+          DateTime.tryParse(
+            json['sessionExpiresAt'] as String? ?? '',
+          )?.toLocal(),
+      current: json['current'] == true,
+      isRemote: json['isRemote'] == true,
+    );
+  }
+
+  factory PairedDeviceRecord.fromServer(Map<String, dynamic> json) {
+    final pairedAt =
+        DateTime.tryParse(json['pairedAt']?.toString() ?? '')?.toLocal() ??
+        DateTime.now();
+    return PairedDeviceRecord(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Unknown browser',
+      browser: json['browser']?.toString() ?? 'Web browser',
+      operatingSystem: json['os']?.toString() ?? 'Unknown system',
+      location: json['location']?.toString(),
+      scannedAt: pairedAt,
+      connectedAt: pairedAt,
+      lastConfirmedAt:
+          DateTime.tryParse(
+            json['lastActiveAt']?.toString() ?? '',
+          )?.toLocal() ??
+          pairedAt,
+      sessionExpiresAt:
+          DateTime.tryParse(
+            json['sessionExpiresAt']?.toString() ?? '',
+          )?.toLocal(),
+      current: json['current'] == true,
+      isRemote: true,
     );
   }
 }
@@ -124,6 +166,8 @@ class DevicePairingService {
 
   static final RegExp _codePattern = RegExp(r'^[A-Za-z0-9_-]{6,128}$');
   static const _deviceHistoryKey = 'anidash_go_paired_devices_v1';
+  static const _managementTokenKey = 'anidash_go_device_management_token_v1';
+  static const _managementExpiryKey = 'anidash_go_device_management_expiry_v1';
 
   static String? parsePairingCode(String input) {
     final value = input.trim();
@@ -257,24 +301,9 @@ class DevicePairingService {
       );
     }
 
-    final accounts = <String, dynamic>{};
-    if (auth.isAniListAuthenticated) {
-      accounts['anilist'] = {
-        'accessToken': auth.anilistAccessToken,
-        'userId': auth.anilistUser?.id,
-        'username': auth.anilistUser?.name,
-      };
-    }
-    if (auth.isMalAuthenticated) {
-      accounts['myanimelist'] = {
-        'accessToken': auth.malAccessToken,
-        'refreshToken': await _secureStorage.read(key: 'mal-refresh-token'),
-        'userId': auth.malUser?.id,
-        'username': auth.malUser?.name,
-      };
-    }
-
+    final accounts = await _accountsFor(auth);
     final package = await PackageInfo.fromPlatform();
+    final clientMetadata = await _clientMetadata(package);
     final sourceKind =
         sharedPrefs.getString('selected_playback_source_kind') ?? 'native';
     final nativeSource = sharedPrefs.getString('selected_provider');
@@ -321,11 +350,7 @@ class DevicePairingService {
           'hindi_source_state',
         ],
       },
-      'client': {
-        'platform': defaultTargetPlatform.name,
-        'appVersion': package.version,
-        'buildNumber': package.buildNumber,
-      },
+      'client': clientMetadata,
     });
 
     try {
@@ -341,6 +366,7 @@ class DevicePairingService {
           .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        await _captureManagementCredential(response.body);
         return const DevicePairingResult(
           DevicePairingStatus.success,
           'AniDash Go is connected. Return to the browser to continue.',
@@ -372,6 +398,168 @@ class DevicePairingService {
         DevicePairingStatus.networkError,
         'AniDash Go could not be reached. Check your connection and try again.',
       );
+    }
+  }
+
+  Future<Map<String, dynamic>> _accountsFor(AuthState auth) async {
+    final accounts = <String, dynamic>{};
+    if (auth.isAniListAuthenticated) {
+      accounts['anilist'] = {
+        'accessToken': auth.anilistAccessToken,
+        'userId': auth.anilistUser?.id,
+        'username': auth.anilistUser?.name,
+      };
+    }
+    if (auth.isMalAuthenticated) {
+      accounts['myanimelist'] = {
+        'accessToken': auth.malAccessToken,
+        'refreshToken': await _secureStorage.read(key: 'mal-refresh-token'),
+        'userId': auth.malUser?.id,
+        'username': auth.malUser?.name,
+      };
+    }
+
+    return accounts;
+  }
+
+  Future<Map<String, dynamic>> _clientMetadata(PackageInfo package) async {
+    final metadata = <String, dynamic>{
+      'platform': defaultTargetPlatform.name,
+      'appVersion': package.version,
+      'buildNumber': package.buildNumber,
+    };
+    try {
+      final android = await DeviceInfoPlugin().androidInfo;
+      metadata.addAll({
+        'manufacturer': android.manufacturer,
+        'model': android.model,
+        'androidVersion': android.version.release,
+        'sdkInt': android.version.sdkInt,
+      });
+    } catch (_) {
+      // Package/version metadata is still enough on unsupported test platforms.
+    }
+    return metadata;
+  }
+
+  Future<void> _captureManagementCredential(String responseBody) async {
+    try {
+      final decoded = jsonDecode(responseBody) as Map<String, dynamic>;
+      final credential =
+          (decoded['deviceManagement'] as Map?)?.cast<String, dynamic>();
+      final token = credential?['token']?.toString();
+      final expiresAt = credential?['expiresAt']?.toString();
+      if (token == null || !RegExp(r'^[0-9a-f]{64}$').hasMatch(token)) return;
+      await _secureStorage.write(key: _managementTokenKey, value: token);
+      if (expiresAt != null) {
+        await _secureStorage.write(key: _managementExpiryKey, value: expiresAt);
+      }
+    } catch (_) {
+      // A successful pairing remains valid even if an older backend omitted it.
+    }
+  }
+
+  Future<String?> _managementToken(AuthState auth) async {
+    var token = await _secureStorage.read(key: _managementTokenKey);
+    final expiry = DateTime.tryParse(
+      await _secureStorage.read(key: _managementExpiryKey) ?? '',
+    );
+    if (token != null &&
+        RegExp(r'^[0-9a-f]{64}$').hasMatch(token) &&
+        (expiry == null || expiry.isAfter(DateTime.now()))) {
+      return token;
+    }
+    await _clearManagementCredential();
+    if (!auth.isAniListAuthenticated && !auth.isMalAuthenticated) return null;
+    try {
+      final package = await PackageInfo.fromPlatform();
+      final response = await _client
+          .post(
+            Uri.parse(AniDashGo.deviceManagementUrl),
+            headers: const {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({
+              'accounts': await _accountsFor(auth),
+              'client': await _clientMetadata(package),
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) return null;
+      await _captureManagementCredential(response.body);
+      token = await _secureStorage.read(key: _managementTokenKey);
+      return token != null && RegExp(r'^[0-9a-f]{64}$').hasMatch(token)
+          ? token
+          : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _clearManagementCredential() async {
+    await _secureStorage.delete(key: _managementTokenKey);
+    await _secureStorage.delete(key: _managementExpiryKey);
+  }
+
+  Future<List<PairedDeviceRecord>> fetchPairedDevices(AuthState auth) async {
+    final token = await _managementToken(auth);
+    if (token == null) return loadPairedDevices();
+    try {
+      final response = await _client
+          .get(
+            Uri.parse(AniDashGo.pairedDevicesUrl),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 401) {
+        await _clearManagementCredential();
+        return loadPairedDevices();
+      }
+      if (response.statusCode != 200) return loadPairedDevices();
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final devices =
+          (decoded['devices'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (item) =>
+                    PairedDeviceRecord.fromServer(item.cast<String, dynamic>()),
+              )
+              .where((device) => device.id.isNotEmpty)
+              .toList();
+      devices.sort((a, b) => b.lastConfirmedAt.compareTo(a.lastConfirmedAt));
+      return devices;
+    } catch (_) {
+      return loadPairedDevices();
+    }
+  }
+
+  Future<bool> revokePairedDevice(
+    PairedDeviceRecord device,
+    AuthState auth,
+  ) async {
+    if (!device.isRemote) {
+      await forgetPairedDevice(device.id);
+      return true;
+    }
+    final token = await _managementToken(auth);
+    if (token == null) return false;
+    try {
+      final response = await _client
+          .delete(
+            Uri.parse('${AniDashGo.pairedDevicesUrl}/${device.id}'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+      return response.statusCode == 200 || response.statusCode == 404;
+    } catch (_) {
+      return false;
     }
   }
 
