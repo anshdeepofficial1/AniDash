@@ -57,7 +57,12 @@ class _FloatingSkipButtonOverlayState
     _visibilityTimer = Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() {
-        _dismissedRangeKeys.add(key);
+        // A successful auto-skip moves playback outside this range and hides
+        // the overlay naturally. If the native seek does not land, keep the
+        // manual button available as a fallback for the rest of the range.
+        if (!ref.read(playerSettingsProvider).enableAutoSkip) {
+          _dismissedRangeKeys.add(key);
+        }
       });
     });
   }
@@ -123,11 +128,13 @@ class _FloatingSkipButtonOverlayState
     final isRecap = currentSkip.skipType == SkipType.recap;
 
     final resolvedIsOp = isOp || (!isEd && !isRecap && startTime <= 600);
-    final resolvedIsEd = isEd || (!resolvedIsOp && !isRecap && startTime >= 360);
+    final resolvedIsEd =
+        isEd || (!resolvedIsOp && !isRecap && startTime >= 360);
 
     final plausiblePlacement =
         (resolvedIsOp && startTime <= 600) ||
-        (isRecap && (dur.inSeconds <= 0 || startTime <= dur.inSeconds * 0.70)) ||
+        (isRecap &&
+            (dur.inSeconds <= 0 || startTime <= dur.inSeconds * 0.70)) ||
         (resolvedIsEd && startTime >= 360);
 
     if (!plausiblePlacement) {
@@ -162,9 +169,7 @@ class _FloatingSkipButtonOverlayState
           _userManuallySkippedKeys.add(rangeKey);
           _dismissedRangeKeys.add(rangeKey);
         });
-        final target = Duration(
-          seconds: currentSkip.interval!.endTime.ceil(),
-        );
+        final target = Duration(seconds: currentSkip.interval!.endTime.ceil());
         ref.read(playerStateProvider.notifier).seek(target);
         ref.read(playerUIControllerProvider.notifier).restartHideTimer();
       };
@@ -176,9 +181,7 @@ class _FloatingSkipButtonOverlayState
           _userManuallySkippedKeys.add(rangeKey);
           _dismissedRangeKeys.add(rangeKey);
         });
-        final target = Duration(
-          seconds: currentSkip.interval!.endTime.ceil(),
-        );
+        final target = Duration(seconds: currentSkip.interval!.endTime.ceil());
         ref.read(playerStateProvider.notifier).seek(target);
         ref.read(playerUIControllerProvider.notifier).restartHideTimer();
       };
@@ -190,9 +193,7 @@ class _FloatingSkipButtonOverlayState
           _userManuallySkippedKeys.add(rangeKey);
           _dismissedRangeKeys.add(rangeKey);
         });
-        final target = Duration(
-          seconds: currentSkip.interval!.endTime.ceil(),
-        );
+        final target = Duration(seconds: currentSkip.interval!.endTime.ceil());
         ref.read(playerStateProvider.notifier).seek(target);
         ref.read(playerUIControllerProvider.notifier).restartHideTimer();
       };

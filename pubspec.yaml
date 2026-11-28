@@ -7,7 +7,7 @@ description: >
 
 publish_to: "none"
 
-version: 3.3.8+3030800
+version: 3.3.9+3030900
 
 environment:
   sdk: ">=3.7.0 <4.0.0"
@@ -76,6 +76,7 @@ dependencies:
   media_kit: any
   media_kit_video: any
   media_kit_libs_video: any
+  mobile_scanner: ^7.5.0
   better_player_plus:
     path: packages/better_player_plus
 
@@ -126,6 +127,7 @@ flutter:
     - assets/icons/anidash_logo.png
     - assets/icons/anidash_logo_dark.png
     - assets/icons/anidash_logo_light.png
+    - assets/images/anidash_go_desktop.png
     - assets/sounds/
 flutter_launcher_icons:
   android: true

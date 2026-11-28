@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:ani_dash/shared/ui/brand_logo.dart';
 import 'package:ani_dash/shared/ui/sponsor/sponsor_dialog.dart';
 import 'package:ani_dash/features/settings/view/widgets/feedback_issue_sheet.dart';
+import 'package:ani_dash/core/constants/anidash_go.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -97,7 +98,6 @@ class AboutScreen extends StatelessWidget {
                     );
                   },
                 ),
-
               ],
             ),
           ),
@@ -121,6 +121,67 @@ class AboutScreen extends StatelessWidget {
                   style: textTheme.bodyLarge?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.8),
                     height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Material(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap:
+                        () => launchUrl(
+                          Uri.parse(AniDashGo.websiteUrl),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withValues(
+                                alpha: 0.12,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.desktop_windows_rounded,
+                              color: colorScheme.primary,
+                              size: 26,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'AniDash Go',
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Open the official web app on PCs, tablets, or any modern browser.\n${AniDashGo.websiteUrl}',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(
+                            Icons.open_in_new_rounded,
+                            color: colorScheme.primary,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 32),

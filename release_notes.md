@@ -1,29 +1,28 @@
-# AniDash v3.3.8 — Episode Navigation & Progress Sync
+# AniDash v3.3.9 — AniDash Go Device Pairing
 
 ## What changed
 
-### Episode navigation
-- Opening the Episodes tab now automatically selects the relevant range or arc and scrolls the current/next episode into view.
-- The in-player episode sheet now reveals the currently playing episode instead of stopping at the beginning of its arc.
-- Scrolling uses the episode list's own controller and does not accidentally switch the parent details tab.
-- The episode match repair action is integrated into the source status card to reduce unused space.
+### AniDash Go
+- Added an AniDash Go website card to **Settings → About**.
+- Added a first-launch website preview with direct external-browser access.
+- Added **Settings → Devices** for QR-code and manual-code browser pairing.
+- Pairing now shows the requesting browser and operating system before approval.
+- Added explicit approve and deny handling for one-time pairing requests.
 
-### Continue Watching
-- Tapping a Continue Watching card immediately shows an `Opening episode…` state.
-- Duplicate taps are blocked while navigation is in progress, preventing multiple overlapping playback launches.
-- Bulk `Mark All Previous Episodes` now persists complete records for every selected episode and advances Continue Watching to the correct next episode.
+### Device history and sync
+- Records locally verified paired-device details, connection time, last verification time, and pairing age.
+- Shares supported tracker identity and playback preferences through the deployed AniDash Go pairing contract.
+- Keeps credentials out of QR codes and app-visible website URLs.
+- Clearly distinguishes local pairing history from live server activity.
 
-### AniList, MAL, and local progress
-- Explicit bulk watch edits sync even when automatic syncing is configured as manual or `Ask before sync`.
-- Missing AniList bindings are repaired for older local entries before syncing.
-- Tracker writes are awaited instead of being reported as complete while still running.
-- Failed tracker writes remain in the offline retry queue rather than being silently lost.
+### Player reliability
+- The manual intro/outro skip control remains available when an automatic seek does not land successfully.
+- Automatic episode transitions now rebind the replacement video controller so duration, position, buffering, and the progress bar update immediately.
 
 ## Verification
 - Flutter analysis: **no issues**.
-- Flutter tests: **164 passed**.
-- Regression coverage includes marking One Piece through episode 455 and resolving Continue Watching to episode 456.
-- GitHub issue #87 episode scrolling paths are covered on both the details page and player episode sheet.
+- Flutter tests: **169 passed**.
+- Release APK produced successfully from the updated source.
 
 ## Android downloads
 - **Universal** — safest choice when the device architecture is unknown.
@@ -34,4 +33,4 @@
 AniDash's in-app updater continues offering the same APK architecture already installed on the device.
 
 ---
-**Full changelog**: https://github.com/anshdeepofficial1/AniDash/compare/v3.3.7...v3.3.8
+**Full changelog**: https://github.com/anshdeepofficial1/AniDash/compare/v3.3.8...v3.3.9

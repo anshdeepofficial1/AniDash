@@ -67,6 +67,13 @@ class SettingsScreen extends ConsumerWidget {
                   description: 'App lock, PIN options, screenshot privacy',
                   onTap: () => context.push('/settings/security'),
                 ),
+                NormalSettingsItem(
+                  icon: Icon(Icons.devices_rounded, color: colorScheme.primary),
+                  accent: colorScheme.primary,
+                  title: 'Devices',
+                  description: 'Connect AniDash Go on a browser or PC',
+                  onTap: () => context.push('/settings/devices'),
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -135,7 +142,8 @@ class SettingsScreen extends ConsumerWidget {
                     leading: const AniDashAiEmblem(size: 34),
                     accent: colorScheme.primary,
                     title: 'AniCore',
-                    description: 'AI visibility, names, instructions and privacy',
+                    description:
+                        'AI visibility, names, instructions and privacy',
                     onTap: () => context.push('/settings/ai'),
                   ),
               ],
@@ -200,7 +208,10 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                 ),
                 NormalSettingsItem(
-                  icon: Icon(Iconsax.message_question, color: colorScheme.primary),
+                  icon: Icon(
+                    Iconsax.message_question,
+                    color: colorScheme.primary,
+                  ),
                   accent: colorScheme.primary,
                   title: 'Report Issue / Feedback',
                   description: 'In-app report or GitHub issue',
@@ -211,7 +222,8 @@ class SettingsScreen extends ConsumerWidget {
                     icon: Icon(Iconsax.task, color: colorScheme.primary),
                     accent: colorScheme.primary,
                     title: 'Community Issues & Feedback',
-                    description: 'View reported bugs, replies, and status in-app',
+                    description:
+                        'View reported bugs, replies, and status in-app',
                     onTap: () => context.push('/settings/admin-issues'),
                   ),
                 NormalSettingsItem(
@@ -257,8 +269,7 @@ class SettingsScreen extends ConsumerWidget {
                             title: 'User Feedback & Issues',
                             description:
                                 'Review in-app bug reports and live GitHub issues',
-                            onTap:
-                                () => context.push('/settings/admin-issues'),
+                            onTap: () => context.push('/settings/admin-issues'),
                           ),
                         ],
                       ),
@@ -281,7 +292,10 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () => context.push('/settings/permissions'),
                   ),
                 NormalSettingsItem(
-                  icon: Icon(Icons.system_update_rounded, color: colorScheme.primary),
+                  icon: Icon(
+                    Icons.system_update_rounded,
+                    color: colorScheme.primary,
+                  ),
                   accent: colorScheme.primary,
                   title: 'Check for updates',
                   description: 'Release channel, auto-check & update settings',

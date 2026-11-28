@@ -29,6 +29,7 @@ import 'package:ani_dash/helpers/ui.dart';
 import 'package:ani_dash/router/desktop/mac_desktop_sidebar.dart';
 import 'package:ani_dash/router/desktop/mac_desktop_top_bar.dart';
 import 'package:ani_dash/router/desktop/desktop_adaptive_scaffold.dart';
+import 'package:ani_dash/features/settings/view/widgets/anidash_go_showcase_dialog.dart';
 
 class NavItem {
   final int branchIndex;
@@ -198,6 +199,9 @@ class _AppRouterScreenState extends ConsumerState<AppRouterScreen>
       try {
         await ref.read(permissionsProvider.notifier).checkAll();
       } catch (_) {}
+      if (mounted) {
+        await AniDashGoShowcaseDialog.showIfNeeded(context);
+      }
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) _checkForScheduledUpdate(isAppOpen: true);
       });
@@ -708,9 +712,10 @@ class _SideNav extends StatelessWidget {
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(35),
         border: Border.all(
-          color: theme.brightness == Brightness.dark
-              ? Colors.white.withValues(alpha: 0.12)
-              : Colors.black.withValues(alpha: 0.08),
+          color:
+              theme.brightness == Brightness.dark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.08),
         ),
         boxShadow: [
           BoxShadow(
@@ -792,9 +797,10 @@ class _BottomNav extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(100),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.12)
-              : Colors.black.withValues(alpha: 0.08),
+          color:
+              isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.08),
         ),
       ),
       child: Row(

@@ -121,7 +121,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   Duration _lastStablePosition = Duration.zero;
   int _openGeneration = 0;
   bool _completionEmitted = false;
-  bool _videoListenerAttached = false;
+  ValueNotifier<VideoPlayerValue>? _attachedVideoController;
   bool _isEpisodeTransition = false;
   Timer? _stallWatchdogTimer;
   Duration _lastObservedPosition = Duration.zero;
@@ -185,6 +185,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   }
 
   void _onPlayerEvent(BetterPlayerEvent event) {
+    // On an automatic episode transition the replacement video controller can
+    // become available just after setupDataSource returns. Rebind here too so
+    // its position, duration and buffer immediately drive the progress bar.
+    _attachVideoListener();
     switch (event.betterPlayerEventType) {
       case BetterPlayerEventType.play:
         _startupTimer?.cancel();
@@ -198,10 +202,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       case BetterPlayerEventType.progress:
         _startupTimer?.cancel();
         _startupTimer = null;
-        state = state.copyWith(
-          isOpening: false,
-          clearPlaybackError: true,
-        );
+        state = state.copyWith(isOpening: false, clearPlaybackError: true);
       case BetterPlayerEventType.bufferingStart:
         state = state.copyWith(isBuffering: true);
       case BetterPlayerEventType.bufferingEnd:
@@ -234,10 +235,16 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
 
   void _attachVideoListener() {
     final video = betterPlayerController.videoPlayerController;
-    if (video == null || _videoListenerAttached) return;
+    if (video == null || identical(video, _attachedVideoController)) return;
+    _attachedVideoController?.removeListener(_syncVideoState);
     video.addListener(_syncVideoState);
-    _videoListenerAttached = true;
+    _attachedVideoController = video;
     _syncVideoState();
+  }
+
+  void _detachVideoListener() {
+    _attachedVideoController?.removeListener(_syncVideoState);
+    _attachedVideoController = null;
   }
 
   void _syncVideoState() {
@@ -270,7 +277,8 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     final target = _pendingSeekTarget;
     final landed =
         target != null && (pos - target).abs() <= const Duration(seconds: 2);
-    final isActuallyBuffering = value.isBuffering || (target != null && !landed);
+    final isActuallyBuffering =
+        value.isBuffering || (target != null && !landed);
     if (landed && !value.isBuffering) {
       _pendingSeekTarget = null;
       _seekTimeout?.cancel();
@@ -364,11 +372,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
         );
       }
     });
-    final oldVideo = betterPlayerController.videoPlayerController;
-    if (_videoListenerAttached) {
-      oldVideo?.removeListener(_syncVideoState);
-      _videoListenerAttached = false;
-    }
+    _detachVideoListener();
     final source = _buildDataSource(url, effectiveHeaders, isHls: _lastIsHls);
     try {
       await betterPlayerController.setupDataSource(source);
@@ -446,8 +450,10 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
       return;
     }
 
-    final positionAdvanced = pos > _lastObservedPosition + const Duration(milliseconds: 300);
-    final bufferAdvanced = buffer > _lastObservedBuffer + const Duration(milliseconds: 300);
+    final positionAdvanced =
+        pos > _lastObservedPosition + const Duration(milliseconds: 300);
+    final bufferAdvanced =
+        buffer > _lastObservedBuffer + const Duration(milliseconds: 300);
 
     if (positionAdvanced) {
       _stallTickCount = 0;
@@ -462,17 +468,22 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     if (isStuck && !bufferAdvanced) {
       _stallTickCount++;
       if (_stallTickCount == 4) {
-        AppLogger.w("Playback stalled at $pos (buffer: $buffer). Nudging playback...");
+        AppLogger.w(
+          "Playback stalled at $pos (buffer: $buffer). Nudging playback...",
+        );
         betterPlayerController.play();
       } else if (_stallTickCount == 8) {
-        AppLogger.w("Playback still stalled at $pos. Performing soft buffer refresh...");
+        AppLogger.w(
+          "Playback still stalled at $pos. Performing soft buffer refresh...",
+        );
         betterPlayerController.seekTo(pos);
       } else if (_stallTickCount >= 20) {
         _stallTickCount = 0;
         AppLogger.w("Prolonged stall at $pos. Notifying playback issue...");
         state = state.copyWith(
           isBuffering: false,
-          playbackError: "Playback stalled on this server. Tap retry or switch server.",
+          playbackError:
+              "Playback stalled on this server. Tap retry or switch server.",
         );
       }
     } else {
@@ -558,7 +569,9 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
   }
 
   void resetForNewEpisode({int? episode}) {
-    if (_activeEpisode == episode && state.isPlaying && state.position > Duration.zero) {
+    if (_activeEpisode == episode &&
+        state.isPlaying &&
+        state.position > Duration.zero) {
       // Episode already actively playing; keep playback smooth
       return;
     }
@@ -569,12 +582,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     _completionEmitted = false;
     _seekTimeout?.cancel();
     _startupTimer?.cancel();
-    if (_videoListenerAttached) {
-      betterPlayerController.videoPlayerController?.removeListener(
-        _syncVideoState,
-      );
-      _videoListenerAttached = false;
-    }
+    _detachVideoListener();
     state = state.copyWith(
       position: Duration.zero,
       duration: Duration.zero,
@@ -659,14 +667,17 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     }
     final isNetwork = url.startsWith('http://') || url.startsWith('https://');
     final effectiveHeaders = isNetwork ? (headers ?? _lastHeaders) : null;
-    final cleanUrl = url.startsWith('file://')
-        ? (Uri.tryParse(url)?.toFilePath() ?? url.replaceFirst('file://', ''))
-        : url;
+    final cleanUrl =
+        url.startsWith('file://')
+            ? (Uri.tryParse(url)?.toFilePath() ??
+                url.replaceFirst('file://', ''))
+            : url;
     await betterPlayerController.setupSubtitleSource(
       BetterPlayerSubtitlesSource(
-        type: isNetwork
-            ? BetterPlayerSubtitlesSourceType.network
-            : BetterPlayerSubtitlesSourceType.file,
+        type:
+            isNetwork
+                ? BetterPlayerSubtitlesSourceType.network
+                : BetterPlayerSubtitlesSourceType.file,
         urls: [cleanUrl],
         selectedByDefault: true,
         headers: effectiveHeaders,
@@ -699,11 +710,7 @@ class PlayerStateNotifier extends _$PlayerStateNotifier {
     try {
       unawaited(WakelockPlus.disable());
     } catch (_) {}
-    if (_videoListenerAttached) {
-      betterPlayerController.videoPlayerController?.removeListener(
-        _syncVideoState,
-      );
-    }
+    _detachVideoListener();
     _completedController.close();
     betterPlayerController.dispose(forceDispose: true);
   }

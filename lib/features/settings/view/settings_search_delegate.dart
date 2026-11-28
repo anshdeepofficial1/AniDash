@@ -95,6 +95,13 @@ class SettingsSearchDelegate extends SearchDelegate<void> {
       Icons.auto_awesome_rounded,
     ),
     _SettingsSearchEntry(
+      'Devices',
+      'Account',
+      'AniDash Go web browser PC connect pair QR code sync account',
+      '/settings/devices',
+      Icons.devices_rounded,
+    ),
+    _SettingsSearchEntry(
       'Theme Settings',
       'Appearance',
       'dark light system theme accent color adaptive app logo',

@@ -26,6 +26,7 @@ import 'package:ani_dash/features/settings/view/screens/about_screen.dart';
 import 'package:ani_dash/features/settings/view/screens/account_settings_screen.dart';
 import 'package:ani_dash/features/settings/view/screens/anime_sources_settings_screen.dart';
 import 'package:ani_dash/features/settings/view/screens/download_settings_screen.dart';
+import 'package:ani_dash/features/settings/view/screens/devices_screen.dart';
 import 'package:ani_dash/features/settings/view/screens/data_settings_screen.dart';
 import 'package:ani_dash/features/settings/view/screens/home_settings_screen.dart';
 import 'package:ani_dash/features/settings/view/screens/experimental_screen.dart';
@@ -63,12 +64,13 @@ class AnimatedGoRoute extends GoRoute {
     this.wrapWithDesktopScaffold = false,
   }) : super(
          pageBuilder: (context, state) {
-           final child = wrapWithDesktopScaffold
-               ? DesktopAdaptiveScaffold(
-                   key: ValueKey(state.uri.toString()),
-                   child: contentBuilder(context, state),
-                 )
-               : contentBuilder(context, state);
+           final child =
+               wrapWithDesktopScaffold
+                   ? DesktopAdaptiveScaffold(
+                     key: ValueKey(state.uri.toString()),
+                     child: contentBuilder(context, state),
+                   )
+                   : contentBuilder(context, state);
 
            final isDesktop =
                Platform.isWindows || Platform.isMacOS || Platform.isLinux;
@@ -116,11 +118,13 @@ bool _isUserOnboarded() {
   if (sharedPrefs.getBool('is_onboarded') == true) return true;
 
   // Detect existing installations, updates, or prior sessions:
-  final hasTokens = sharedPrefs.containsKey('anilist-token') ||
+  final hasTokens =
+      sharedPrefs.containsKey('anilist-token') ||
       sharedPrefs.containsKey('mal-token') ||
       sharedPrefs.containsKey('anilist-user-cache') ||
       sharedPrefs.containsKey('mal-user-cache');
-  final hasConfigured = sharedPrefs.containsKey('selected_provider') ||
+  final hasConfigured =
+      sharedPrefs.containsKey('selected_provider') ||
       sharedPrefs.containsKey('app_version') ||
       sharedPrefs.containsKey('last_presented_update') ||
       sharedPrefs.containsKey('notification_inbox_v1');
@@ -157,23 +161,29 @@ final routerConfig = GoRouter(
     final path = uri.path;
     final host = uri.host.toLowerCase();
 
-    final queryAnimeId = uri.queryParameters['id'] ??
+    final queryAnimeId =
+        uri.queryParameters['id'] ??
         uri.queryParameters['anime_id'] ??
         uri.queryParameters['media_id'];
-    final queryTitle = uri.queryParameters['title'] ??
+    final queryTitle =
+        uri.queryParameters['title'] ??
         uri.queryParameters['anime_title'] ??
         uri.queryParameters['keyword'] ??
         uri.queryParameters['q'];
-    final queryEpisode = uri.queryParameters['episode'] ??
+    final queryEpisode =
+        uri.queryParameters['episode'] ??
         uri.queryParameters['episode_number'] ??
         uri.queryParameters['ep'];
 
     // 1. Anime details deep links
-    if (path.startsWith('/anime/') || (uri.scheme == 'anidash' && (host == 'anime' || host == 'details' || host == 'app'))) {
+    if (path.startsWith('/anime/') ||
+        (uri.scheme == 'anidash' &&
+            (host == 'anime' || host == 'details' || host == 'app'))) {
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
-      final id = (host == 'anime' || host == 'details' || host == 'app')
-          ? (segments.isNotEmpty ? segments.first : queryAnimeId)
-          : (segments.length >= 2 ? segments[1] : queryAnimeId);
+      final id =
+          (host == 'anime' || host == 'details' || host == 'app')
+              ? (segments.isNotEmpty ? segments.first : queryAnimeId)
+              : (segments.length >= 2 ? segments[1] : queryAnimeId);
       if (id != null && id.isNotEmpty && id.toLowerCase() != 'null') {
         if (queryEpisode != null && queryEpisode.isNotEmpty) {
           return '/details/$id?tab=episodes&episode=$queryEpisode';
@@ -186,11 +196,13 @@ final routerConfig = GoRouter(
     }
 
     // 2. Episode deep links -> open anime details or watch
-    if (path.startsWith('/episode/') || (uri.scheme == 'anidash' && (host == 'episode' || host == 'watch'))) {
+    if (path.startsWith('/episode/') ||
+        (uri.scheme == 'anidash' && (host == 'episode' || host == 'watch'))) {
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
-      final id = (host == 'episode' || host == 'watch')
-          ? (segments.isNotEmpty ? segments.first : queryAnimeId)
-          : (segments.length >= 2 ? segments[1] : queryAnimeId);
+      final id =
+          (host == 'episode' || host == 'watch')
+              ? (segments.isNotEmpty ? segments.first : queryAnimeId)
+              : (segments.length >= 2 ? segments[1] : queryAnimeId);
       final ep = segments.length >= 2 ? segments[1] : queryEpisode;
       if (id != null && id.isNotEmpty && id.toLowerCase() != 'null') {
         if (ep != null && ep.isNotEmpty) {
@@ -204,7 +216,8 @@ final routerConfig = GoRouter(
     }
 
     // 3. Browse / Search deep links
-    if (path.startsWith('/browse') || (uri.scheme == 'anidash' && (host == 'browse' || host == 'search'))) {
+    if (path.startsWith('/browse') ||
+        (uri.scheme == 'anidash' && (host == 'browse' || host == 'search'))) {
       if (queryTitle != null && queryTitle.trim().isNotEmpty) {
         return '/browse?keyword=${Uri.encodeComponent(queryTitle.trim())}';
       }
@@ -213,9 +226,10 @@ final routerConfig = GoRouter(
     // 4. Shared chat deep links
     if (path.startsWith('/c/') || (uri.scheme == 'anidash' && host == 'c')) {
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
-      final id = (host == 'c')
-          ? (segments.isNotEmpty ? segments.first : null)
-          : (segments.length >= 2 ? segments[1] : null);
+      final id =
+          (host == 'c')
+              ? (segments.isNotEmpty ? segments.first : null)
+              : (segments.length >= 2 ? segments[1] : null);
       if (id != null && id.isNotEmpty) {
         return '/c/$id';
       }
@@ -256,9 +270,10 @@ final routerConfig = GoRouter(
     ),
     DesktopAdaptiveRoute(
       path: '/downloads',
-      contentBuilder: (_, state) => DownloadsScreen(
-        isAdult: state.uri.queryParameters['isAdult'] == 'true',
-      ),
+      contentBuilder:
+          (_, state) => DownloadsScreen(
+            isAdult: state.uri.queryParameters['isAdult'] == 'true',
+          ),
     ),
     DesktopAdaptiveRoute(
       path: '/extensions',
@@ -424,6 +439,10 @@ final routerConfig = GoRouter(
         DesktopAdaptiveRoute(
           path: 'downloads',
           contentBuilder: (_, _) => const DownloadSettingsScreen(),
+        ),
+        DesktopAdaptiveRoute(
+          path: 'devices',
+          contentBuilder: (_, _) => const DevicesScreen(),
         ),
         DesktopAdaptiveRoute(
           path: 'data',
